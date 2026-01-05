@@ -1,13 +1,25 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { Helmet } from 'react-helmet-async';
+import { Layout } from '@/components/layout/Layout';
+import { HeroSection } from '@/components/home/HeroSection';
+import { FeaturedProducts } from '@/components/home/FeaturedProducts';
+import { AIConsultantCTA } from '@/components/home/AIConsultantCTA';
 
 const Index = () => {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
-    </div>
+    <>
+      <Helmet>
+        <title>Baytzaki - Smart Home Products & AI Solutions</title>
+        <meta
+          name="description"
+          content="Transform your home with Baytzaki's premium smart home products. Get AI-powered recommendations for lighting, security, climate control, and more."
+        />
+      </Helmet>
+      <Layout>
+        <HeroSection />
+        <FeaturedProducts />
+        <AIConsultantCTA />
+      </Layout>
+    </>
   );
 };
 
