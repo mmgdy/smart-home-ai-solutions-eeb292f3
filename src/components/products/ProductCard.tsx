@@ -4,6 +4,7 @@ import { Product } from '@/types/store';
 import { Button } from '@/components/ui/button';
 import { useCart } from '@/hooks/useCart';
 import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 
 interface ProductCardProps {
@@ -14,13 +15,14 @@ interface ProductCardProps {
 export function ProductCard({ product, className }: ProductCardProps) {
   const addItem = useCart((state) => state.addItem);
   const { toast } = useToast();
+  const { t, formatPrice, isRTL } = useLanguage();
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     addItem(product);
     toast({
-      title: "Added to cart",
-      description: `${product.name} has been added to your cart.`,
+      title: t('addedToCart'),
+      description: `${product.name} ${t('hasBeenAdded')}`,
     });
   };
 
@@ -51,7 +53,10 @@ export function ProductCard({ product, className }: ProductCardProps) {
           )}
 
           {/* Badges */}
-          <div className="absolute left-3 top-3 flex flex-col gap-2">
+          <div className={cn(
+            "absolute top-3 flex flex-col gap-2",
+            isRTL ? "right-3" : "left-3"
+          )}>
             {discount && (
               <span className="rounded-full bg-destructive px-2 py-1 text-xs font-medium text-destructive-foreground">
                 -{discount}%
@@ -59,7 +64,7 @@ export function ProductCard({ product, className }: ProductCardProps) {
             )}
             {product.featured && (
               <span className="rounded-full bg-primary px-2 py-1 text-xs font-medium text-primary-foreground">
-                Featured
+                {t('featured')}
               </span>
             )}
           </div>
@@ -67,7 +72,10 @@ export function ProductCard({ product, className }: ProductCardProps) {
           {/* Quick add button */}
           <Button
             size="icon"
-            className="absolute bottom-3 right-3 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+            className={cn(
+              "absolute bottom-3 opacity-0 transition-opacity duration-300 group-hover:opacity-100",
+              isRTL ? "left-3" : "right-3"
+            )}
             onClick={handleAddToCart}
           >
             <ShoppingCart className="h-4 w-4" />
@@ -102,13 +110,13 @@ export function ProductCard({ product, className }: ProductCardProps) {
           )}
 
           {/* Price */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="font-display text-xl font-bold text-foreground">
-              ${product.price.toFixed(2)}
+              {formatPrice(product.price)}
             </span>
             {product.original_price && (
               <span className="text-sm text-muted-foreground line-through">
-                ${product.original_price.toFixed(2)}
+                {formatPrice(product.original_price)}
               </span>
             )}
           </div>

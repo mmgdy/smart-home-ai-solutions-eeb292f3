@@ -1,18 +1,21 @@
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Helmet } from 'react-helmet-async';
-import { ArrowLeft, ShoppingCart, Loader2, Zap, Check } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ShoppingCart, Loader2, Zap, Check } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { Product } from '@/types/store';
 import { useCart } from '@/hooks/useCart';
 import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/lib/i18n';
+import { cn } from '@/lib/utils';
 
 const ProductDetail = () => {
   const { slug } = useParams<{ slug: string }>();
   const addItem = useCart((state) => state.addItem);
   const { toast } = useToast();
+  const { t, formatPrice, isRTL } = useLanguage();
 
   const { data: product, isLoading } = useQuery({
     queryKey: ['product', slug],
@@ -33,8 +36,8 @@ const ProductDetail = () => {
     if (product) {
       addItem(product);
       toast({
-        title: "Added to cart",
-        description: `${product.name} has been added to your cart.`,
+        title: t('addedToCart'),
+        description: `${product.name} ${t('hasBeenAdded')}`,
       });
     }
   };
@@ -53,12 +56,12 @@ const ProductDetail = () => {
     return (
       <Layout>
         <div className="container py-20 text-center">
-          <h1 className="mb-4 font-display text-2xl font-bold">Product Not Found</h1>
+          <h1 className="mb-4 font-display text-2xl font-bold">{t('productNotFound')}</h1>
           <p className="mb-8 text-muted-foreground">
-            The product you're looking for doesn't exist.
+            {t('productNotFoundDesc')}
           </p>
           <Link to="/products">
-            <Button>Back to Products</Button>
+            <Button>{t('backToProducts')}</Button>
           </Link>
         </div>
       </Layout>
@@ -68,6 +71,8 @@ const ProductDetail = () => {
   const discount = product.original_price
     ? Math.round(((product.original_price - product.price) / product.original_price) * 100)
     : null;
+
+  const BackArrow = isRTL ? ArrowRight : ArrowLeft;
 
   return (
     <>
@@ -85,8 +90,8 @@ const ProductDetail = () => {
             to="/products"
             className="mb-8 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
-            <ArrowLeft className="h-4 w-4" />
-            Back to Products
+            <BackArrow className="h-4 w-4" />
+            {t('backToProducts')}
           </Link>
 
           <div className="grid gap-12 lg:grid-cols-2">
@@ -105,15 +110,18 @@ const ProductDetail = () => {
               )}
 
               {/* Badges */}
-              <div className="absolute left-4 top-4 flex flex-col gap-2">
+              <div className={cn(
+                "absolute top-4 flex flex-col gap-2",
+                isRTL ? "right-4" : "left-4"
+              )}>
                 {discount && (
                   <span className="rounded-full bg-destructive px-3 py-1 text-sm font-medium text-destructive-foreground">
-                    Save {discount}%
+                    {t('save')} {discount}%
                   </span>
                 )}
                 {product.featured && (
                   <span className="rounded-full bg-primary px-3 py-1 text-sm font-medium text-primary-foreground">
-                    Featured
+                    {t('featured')}
                   </span>
                 )}
               </div>
@@ -149,13 +157,13 @@ const ProductDetail = () => {
               )}
 
               {/* Price */}
-              <div className="mb-8 flex items-center gap-4">
+              <div className="mb-8 flex items-center gap-4 flex-wrap">
                 <span className="font-display text-4xl font-bold text-foreground">
-                  ${product.price.toFixed(2)}
+                  {formatPrice(product.price)}
                 </span>
                 {product.original_price && (
                   <span className="text-xl text-muted-foreground line-through">
-                    ${product.original_price.toFixed(2)}
+                    {formatPrice(product.original_price)}
                   </span>
                 )}
               </div>
@@ -165,10 +173,10 @@ const ProductDetail = () => {
                 {product.stock > 0 ? (
                   <>
                     <Check className="h-5 w-5 text-success" />
-                    <span className="text-success">In Stock ({product.stock} available)</span>
+                    <span className="text-success">{t('inStock')} ({product.stock} {t('available')})</span>
                   </>
                 ) : (
-                  <span className="text-destructive">Out of Stock</span>
+                  <span className="text-destructive">{t('outOfStock')}</span>
                 )}
               </div>
 
@@ -180,14 +188,14 @@ const ProductDetail = () => {
                 disabled={product.stock === 0}
               >
                 <ShoppingCart className="h-5 w-5" />
-                Add to Cart
+                {t('addToCart')}
               </Button>
 
               {/* Specs */}
               {product.specifications && Object.keys(product.specifications).length > 0 && (
                 <div className="rounded-xl border border-border bg-card p-6">
                   <h3 className="mb-4 font-display text-lg font-semibold text-foreground">
-                    Specifications
+                    {t('specifications')}
                   </h3>
                   <dl className="space-y-3">
                     {Object.entries(product.specifications).map(([key, value]) => (
