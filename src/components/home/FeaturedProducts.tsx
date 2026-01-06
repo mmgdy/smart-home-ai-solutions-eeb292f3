@@ -5,8 +5,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { Product } from '@/types/store';
 import { ProductCard } from '@/components/products/ProductCard';
 import { Button } from '@/components/ui/button';
+import { useLanguage } from '@/lib/i18n';
+import { cn } from '@/lib/utils';
 
 export function FeaturedProducts() {
+  const { t, isRTL } = useLanguage();
+
   const { data: products, isLoading } = useQuery({
     queryKey: ['featured-products'],
     queryFn: async () => {
@@ -28,15 +32,15 @@ export function FeaturedProducts() {
         <div className="mb-12 flex items-end justify-between">
           <div>
             <h2 className="mb-2 font-display text-3xl font-bold text-foreground md:text-4xl">
-              Featured Products
+              {t('featuredProducts')}
             </h2>
             <p className="text-muted-foreground">
-              Handpicked smart home essentials for your modern lifestyle
+              {t('featuredProductsDesc')}
             </p>
           </div>
           <Link to="/products" className="hidden md:block">
             <Button variant="ghost" className="gap-2">
-              View All <ArrowRight className="h-4 w-4" />
+              {t('viewAll')} <ArrowRight className={cn("h-4 w-4", isRTL && "rotate-180")} />
             </Button>
           </Link>
         </div>
@@ -54,7 +58,7 @@ export function FeaturedProducts() {
           </div>
         ) : (
           <div className="rounded-xl border border-dashed border-border bg-card/50 py-20 text-center">
-            <p className="text-muted-foreground">No featured products available</p>
+            <p className="text-muted-foreground">{t('noFeaturedProducts')}</p>
           </div>
         )}
 
@@ -62,7 +66,7 @@ export function FeaturedProducts() {
         <div className="mt-8 text-center md:hidden">
           <Link to="/products">
             <Button variant="outline" className="gap-2">
-              View All Products <ArrowRight className="h-4 w-4" />
+              {t('viewAllProducts')} <ArrowRight className={cn("h-4 w-4", isRTL && "rotate-180")} />
             </Button>
           </Link>
         </div>

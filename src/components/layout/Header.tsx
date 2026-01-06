@@ -3,18 +3,21 @@ import { ShoppingCart, Menu, X, Sparkles } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useCart } from '@/hooks/useCart';
+import { useLanguage } from '@/lib/i18n';
+import { LanguageToggle } from './LanguageToggle';
 import { cn } from '@/lib/utils';
-
-const navLinks = [
-  { href: '/', label: 'Home' },
-  { href: '/products', label: 'Products' },
-  { href: '/ai-consultant', label: 'AI Consultant', icon: Sparkles },
-  { href: '/services', label: 'Services' },
-];
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const itemCount = useCart((state) => state.getItemCount());
+  const { t, isRTL } = useLanguage();
+
+  const navLinks = [
+    { href: '/', label: t('home') },
+    { href: '/products', label: t('products') },
+    { href: '/ai-consultant', label: t('aiConsultant'), icon: Sparkles },
+    { href: '/services', label: t('services') },
+  ];
 
   return (
     <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
@@ -47,13 +50,18 @@ export function Header() {
           ))}
         </nav>
 
-        {/* Cart & Mobile Menu */}
-        <div className="flex items-center gap-2">
+        {/* Language, Cart & Mobile Menu */}
+        <div className={cn("flex items-center gap-2", isRTL && "flex-row-reverse")}>
+          <LanguageToggle />
+          
           <Link to="/cart">
             <Button variant="ghost" size="icon" className="relative">
               <ShoppingCart className="h-5 w-5" />
               {itemCount > 0 && (
-                <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
+                <span className={cn(
+                  "absolute flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground",
+                  isRTL ? "-left-1 -top-1" : "-right-1 -top-1"
+                )}>
                   {itemCount}
                 </span>
               )}

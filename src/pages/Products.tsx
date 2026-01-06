@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { Product, Category } from '@/types/store';
+import { useLanguage } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 
 const Products = () => {
@@ -18,6 +19,7 @@ const Products = () => {
     searchParams.get('category')
   );
   const [showFilters, setShowFilters] = useState(false);
+  const { t } = useLanguage();
 
   const { data: categories } = useQuery({
     queryKey: ['categories'],
@@ -75,7 +77,7 @@ const Products = () => {
   return (
     <>
       <Helmet>
-        <title>Smart Home Products | Baytzaki</title>
+        <title>{t('smartHomeProducts')} | Baytzaki</title>
         <meta
           name="description"
           content="Browse our collection of premium smart home products. Find smart lighting, security cameras, thermostats, and more from top brands."
@@ -86,22 +88,22 @@ const Products = () => {
           {/* Header */}
           <div className="mb-8">
             <h1 className="mb-2 font-display text-3xl font-bold text-foreground md:text-4xl">
-              Smart Home Products
+              {t('smartHomeProducts')}
             </h1>
             <p className="text-muted-foreground">
-              Discover premium devices to transform your living space
+              {t('discoverPremium')}
             </p>
           </div>
 
           {/* Search & Filter Bar */}
           <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div className="relative flex-1 md:max-w-md">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Search products..."
+                placeholder={t('searchProducts')}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="pl-10"
+                className="ps-10"
               />
             </div>
 
@@ -111,7 +113,7 @@ const Products = () => {
               onClick={() => setShowFilters(!showFilters)}
             >
               <Filter className="h-4 w-4" />
-              Filters
+              {t('filters')}
             </Button>
           </div>
 
@@ -124,7 +126,7 @@ const Products = () => {
               )}
             >
               <h3 className="mb-4 font-display font-semibold text-foreground">
-                Categories
+                {t('categories')}
               </h3>
 
               <Button
@@ -132,7 +134,7 @@ const Products = () => {
                 className="w-full justify-start"
                 onClick={() => handleCategoryChange(null)}
               >
-                All Products
+                {t('allProducts')}
               </Button>
 
               {categories?.map((category) => (
@@ -152,7 +154,7 @@ const Products = () => {
               {/* Active filters */}
               {(selectedCategory || search) && (
                 <div className="mb-6 flex flex-wrap items-center gap-2">
-                  <span className="text-sm text-muted-foreground">Active filters:</span>
+                  <span className="text-sm text-muted-foreground">{t('activeFilters')}</span>
                   {selectedCategory && (
                     <Button
                       variant="secondary"
@@ -185,8 +187,7 @@ const Products = () => {
               ) : filteredProducts.length > 0 ? (
                 <>
                   <p className="mb-6 text-sm text-muted-foreground">
-                    Showing {filteredProducts.length} product
-                    {filteredProducts.length !== 1 ? 's' : ''}
+                    {t('showing')} {filteredProducts.length} {filteredProducts.length !== 1 ? t('productsPlural') : t('product')}
                   </p>
                   <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
                     {filteredProducts.map((product) => (
@@ -196,7 +197,7 @@ const Products = () => {
                 </>
               ) : (
                 <div className="rounded-xl border border-dashed border-border bg-card/50 py-20 text-center">
-                  <p className="text-muted-foreground">No products found</p>
+                  <p className="text-muted-foreground">{t('noProducts')}</p>
                 </div>
               )}
             </div>
