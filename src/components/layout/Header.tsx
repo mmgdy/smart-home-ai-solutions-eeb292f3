@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
-import { ShoppingCart, Menu, X, Sparkles } from 'lucide-react';
-import { useState } from 'react';
+import { ShoppingCart, Menu, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useCart } from '@/hooks/useCart';
 import { useLanguage } from '@/lib/i18n';
@@ -9,58 +9,68 @@ import { cn } from '@/lib/utils';
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const itemCount = useCart((state) => state.getItemCount());
   const { t, isRTL } = useLanguage();
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 50);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const navLinks = [
     { href: '/', label: t('home') },
     { href: '/products', label: t('products') },
-    { href: '/ai-consultant', label: t('aiConsultant'), icon: Sparkles },
+    { href: '/ai-consultant', label: t('aiConsultant') },
     { href: '/services', label: t('services') },
   ];
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
-      <div className="container flex h-16 items-center justify-between">
-        {/* Logo */}
-        <Link to="/" className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary glow-primary">
-            <span className="font-display text-lg font-bold text-primary-foreground">B</span>
-          </div>
-          <span className="font-display text-xl font-semibold text-foreground">
-            Baytzaki
+    <header className={cn(
+      "fixed top-0 left-0 right-0 z-50 transition-all duration-500",
+      scrolled 
+        ? "bg-background/80 backdrop-blur-xl border-b border-border/50" 
+        : "bg-transparent"
+    )}>
+      <div className="container flex h-20 items-center justify-between px-6 md:px-12">
+        {/* Logo - Minimal text only */}
+        <Link to="/" className="flex items-center">
+          <span className="font-display text-2xl font-bold tracking-tight text-foreground">
+            BAYTZAKI
           </span>
         </Link>
 
-        {/* Desktop Navigation */}
-        <nav className="hidden items-center gap-1 md:flex">
+        {/* Desktop Navigation - Minimal, spaced out */}
+        <nav className="hidden items-center gap-10 md:flex">
           {navLinks.map((link) => (
-            <Link key={link.href} to={link.href}>
-              <Button
-                variant="ghost"
-                className={cn(
-                  "text-muted-foreground hover:text-foreground",
-                  link.icon && "gap-2"
-                )}
-              >
-                {link.icon && <link.icon className="h-4 w-4 text-primary" />}
-                {link.label}
-              </Button>
+            <Link 
+              key={link.href} 
+              to={link.href}
+              className="text-sm font-medium tracking-wide text-muted-foreground hover:text-foreground transition-colors duration-300"
+            >
+              {link.label}
             </Link>
           ))}
         </nav>
 
-        {/* Language, Cart & Mobile Menu */}
-        <div className={cn("flex items-center gap-2", isRTL && "flex-row-reverse")}>
+        {/* Right side actions */}
+        <div className={cn("flex items-center gap-4", isRTL && "flex-row-reverse")}>
           <LanguageToggle />
           
-          <Link to="/cart">
-            <Button variant="ghost" size="icon" className="relative">
+          <Link to="/cart" className="relative group">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-10 w-10 rounded-full hover:bg-foreground/5"
+            >
               <ShoppingCart className="h-5 w-5" />
               {itemCount > 0 && (
                 <span className={cn(
-                  "absolute flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground",
-                  isRTL ? "-left-1 -top-1" : "-right-1 -top-1"
+                  "absolute -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-foreground text-xs font-medium text-background",
+                  isRTL ? "-left-1" : "-right-1"
                 )}>
                   {itemCount}
                 </span>
@@ -71,7 +81,7 @@ export function Header() {
           <Button
             variant="ghost"
             size="icon"
-            className="md:hidden"
+            className="h-10 w-10 rounded-full md:hidden hover:bg-foreground/5"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           >
             {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -79,30 +89,22 @@ export function Header() {
         </div>
       </div>
 
-      {/* Mobile Navigation */}
+      {/* Mobile Navigation - Full screen overlay */}
       {mobileMenuOpen && (
-        <nav className="border-t border-border bg-background p-4 md:hidden">
-          <div className="flex flex-col gap-2">
+        <div className="fixed inset-0 top-20 bg-background z-40 md:hidden">
+          <nav className="flex flex-col items-center justify-center h-full gap-8">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
                 to={link.href}
                 onClick={() => setMobileMenuOpen(false)}
+                className="text-3xl font-display font-bold text-foreground hover:text-primary transition-colors"
               >
-                <Button
-                  variant="ghost"
-                  className={cn(
-                    "w-full justify-start text-muted-foreground hover:text-foreground",
-                    link.icon && "gap-2"
-                  )}
-                >
-                  {link.icon && <link.icon className="h-4 w-4 text-primary" />}
-                  {link.label}
-                </Button>
+                {link.label}
               </Link>
             ))}
-          </div>
-        </nav>
+          </nav>
+        </div>
       )}
     </header>
   );

@@ -1,5 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { ArrowRight, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Product } from '@/types/store';
@@ -7,6 +7,7 @@ import { ProductCard } from '@/components/products/ProductCard';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
+import { motion } from 'framer-motion';
 
 export function FeaturedProducts() {
   const { t, isRTL } = useLanguage();
@@ -19,57 +20,65 @@ export function FeaturedProducts() {
         .select('*')
         .eq('featured', true)
         .limit(4);
-
       if (error) throw error;
       return data as Product[];
     },
   });
 
   return (
-    <section className="py-20">
-      <div className="container">
-        {/* Header */}
-        <div className="mb-12 flex items-end justify-between">
+    <section className="py-32 bg-background relative overflow-hidden">
+      <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+      
+      <div className="container px-6 md:px-12">
+        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-8 mb-16">
           <div>
-            <h2 className="mb-2 font-display text-3xl font-bold text-foreground md:text-4xl">
+            <motion.span 
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="text-sm tracking-[0.3em] uppercase text-muted-foreground font-medium block mb-4"
+            >
               {t('featuredProducts')}
-            </h2>
-            <p className="text-muted-foreground">
-              {t('featuredProductsDesc')}
-            </p>
+            </motion.span>
+            <motion.h2 
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.1 }}
+              className="font-display text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight"
+            >
+              Transform Your Home
+            </motion.h2>
           </div>
-          <Link to="/products" className="hidden md:block">
-            <Button variant="ghost" className="gap-2">
-              {t('viewAll')} <ArrowRight className={cn("h-4 w-4", isRTL && "rotate-180")} />
-            </Button>
-          </Link>
+          
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.2 }}
+          >
+            <Link to="/products">
+              <Button variant="outline" className="h-12 px-6 rounded-full border-foreground/20 hover:bg-foreground/5 group">
+                {t('viewAll')}
+                <ArrowRight className={cn("ml-2 h-4 w-4 transition-transform group-hover:translate-x-1", isRTL && "rotate-180 mr-2 ml-0")} />
+              </Button>
+            </Link>
+          </motion.div>
         </div>
 
-        {/* Products Grid */}
         {isLoading ? (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <div className="flex justify-center py-20">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         ) : products && products.length > 0 ? (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-6 md:gap-8 sm:grid-cols-2 lg:grid-cols-4">
             {products.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}
           </div>
         ) : (
-          <div className="rounded-xl border border-dashed border-border bg-card/50 py-20 text-center">
-            <p className="text-muted-foreground">{t('noFeaturedProducts')}</p>
-          </div>
+          <p className="text-center text-muted-foreground py-20">{t('noFeaturedProducts')}</p>
         )}
-
-        {/* Mobile CTA */}
-        <div className="mt-8 text-center md:hidden">
-          <Link to="/products">
-            <Button variant="outline" className="gap-2">
-              {t('viewAllProducts')} <ArrowRight className={cn("h-4 w-4", isRTL && "rotate-180")} />
-            </Button>
-          </Link>
-        </div>
       </div>
     </section>
   );

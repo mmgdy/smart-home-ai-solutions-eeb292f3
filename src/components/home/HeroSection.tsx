@@ -1,85 +1,114 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight, Sparkles, Zap, Shield, Thermometer } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
+import { motion } from 'framer-motion';
 
 export function HeroSection() {
   const { t, isRTL } = useLanguage();
 
-  const features = [
-    { icon: Zap, title: t('smartLighting'), desc: t('smartLightingDesc') },
-    { icon: Shield, title: t('homeSecurity'), desc: t('homeSecurityDesc') },
-    { icon: Thermometer, title: t('climateControl'), desc: t('climateControlDesc') },
-  ];
-
   return (
-    <section className="relative overflow-hidden">
-      {/* Background gradient */}
-      <div className="absolute inset-0 hero-gradient" />
-      <div className={cn(
-        "absolute -top-40 h-80 w-80 rounded-full bg-primary/20 blur-3xl",
-        isRTL ? "-right-40" : "-left-40"
-      )} />
-      <div className={cn(
-        "absolute -bottom-40 h-80 w-80 rounded-full bg-cyan-accent/10 blur-3xl",
-        isRTL ? "-left-40" : "-right-40"
-      )} />
+    <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-background">
+      {/* Geometric overlays */}
+      <div className="absolute inset-0 overflow-hidden">
+        {/* Large gradient circle */}
+        <div className="absolute -top-1/4 -right-1/4 w-[80vw] h-[80vw] rounded-full bg-gradient-to-br from-primary/20 via-primary/5 to-transparent blur-3xl" />
+        <div className="absolute -bottom-1/4 -left-1/4 w-[60vw] h-[60vw] rounded-full bg-gradient-to-tr from-cyan-accent/10 via-transparent to-transparent blur-3xl" />
+        
+        {/* Geometric lines */}
+        <svg className="absolute inset-0 w-full h-full opacity-[0.03]" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <pattern id="grid" width="100" height="100" patternUnits="userSpaceOnUse">
+              <path d="M 100 0 L 0 0 0 100" fill="none" stroke="currentColor" strokeWidth="1"/>
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#grid)" className="text-foreground" />
+        </svg>
+        
+        {/* Diagonal accent line */}
+        <div className="absolute top-0 right-0 w-px h-[70vh] bg-gradient-to-b from-transparent via-primary/50 to-transparent transform rotate-12 translate-x-[30vw]" />
+      </div>
 
-      <div className="container relative py-20 md:py-32">
-        <div className="mx-auto max-w-4xl text-center">
-          {/* Badge */}
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-2 text-sm animate-fade-in">
-            <Sparkles className="h-4 w-4 text-primary" />
-            <span className="text-primary">{t('aiPoweredSolutions')}</span>
-          </div>
+      <div className="container relative z-10 px-6 md:px-12">
+        <div className="max-w-6xl mx-auto">
+          {/* Small label */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="mb-8"
+          >
+            <span className="text-sm md:text-base tracking-[0.3em] uppercase text-muted-foreground font-medium">
+              {t('aiPoweredSolutions')}
+            </span>
+          </motion.div>
 
-          {/* Heading */}
-          <h1 className="mb-6 font-display text-4xl font-bold tracking-tight text-foreground md:text-6xl lg:text-7xl animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
-            {t('makeHomeSmarter')}{' '}
-            <span className="text-gradient">{t('smarter')}</span>
-          </h1>
+          {/* Main headline - Blocksgroup style large typography */}
+          <motion.h1 
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.1 }}
+            className="font-display text-5xl sm:text-6xl md:text-7xl lg:text-8xl xl:text-9xl font-bold tracking-tight leading-[0.9] mb-8"
+          >
+            <span className="block text-foreground">{t('makeHomeSmarter')}</span>
+            <span className="block text-gradient mt-2">{t('smarter')}</span>
+          </motion.h1>
 
-          {/* Subheading */}
-          <p className="mb-10 text-lg text-muted-foreground md:text-xl animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
+          {/* Subtitle */}
+          <motion.p 
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.2 }}
+            className="text-lg md:text-xl lg:text-2xl text-muted-foreground max-w-2xl mb-12 leading-relaxed"
+          >
             {t('heroDescription')}
-          </p>
+          </motion.p>
 
-          {/* CTAs */}
-          <div className="flex flex-col items-center justify-center gap-4 sm:flex-row animate-fade-in-up" style={{ animationDelay: '0.3s' }}>
+          {/* CTAs - Blocksgroup style with white/outlined buttons */}
+          <motion.div 
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.3 }}
+            className="flex flex-col sm:flex-row gap-4 sm:gap-6"
+          >
             <Link to="/ai-consultant">
-              <Button size="lg" className="gap-2 glow-primary">
-                <Sparkles className="h-5 w-5" />
+              <Button 
+                size="lg" 
+                className="h-14 px-8 text-base font-medium bg-foreground text-background hover:bg-foreground/90 rounded-full group"
+              >
                 {t('buildSmartHome')}
-                <ArrowRight className={cn("h-4 w-4", isRTL && "rotate-180")} />
+                <ArrowRight className={cn(
+                  "ml-2 h-5 w-5 transition-transform group-hover:translate-x-1",
+                  isRTL && "rotate-180 mr-2 ml-0 group-hover:-translate-x-1"
+                )} />
               </Button>
             </Link>
             <Link to="/products">
-              <Button size="lg" variant="outline" className="gap-2">
+              <Button 
+                size="lg" 
+                variant="outline"
+                className="h-14 px-8 text-base font-medium rounded-full border-foreground/20 hover:bg-foreground/5"
+              >
                 {t('browseProducts')}
               </Button>
             </Link>
-          </div>
-        </div>
-
-        {/* Feature cards */}
-        <div className="mx-auto mt-20 grid max-w-5xl gap-6 md:grid-cols-3 animate-fade-in-up" style={{ animationDelay: '0.4s' }}>
-          {features.map((feature) => (
-            <div
-              key={feature.title}
-              className="group rounded-xl border border-border bg-card/50 p-6 backdrop-blur-sm transition-all hover:border-primary/50 hover:bg-card"
-            >
-              <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
-                <feature.icon className="h-6 w-6" />
-              </div>
-              <h3 className="mb-2 font-display text-lg font-semibold text-foreground">
-                {feature.title}
-              </h3>
-              <p className="text-sm text-muted-foreground">{feature.desc}</p>
-            </div>
-          ))}
+          </motion.div>
         </div>
       </div>
+
+      {/* Bottom scroll indicator */}
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 1, delay: 0.8 }}
+        className="absolute bottom-12 left-1/2 -translate-x-1/2"
+      >
+        <div className="flex flex-col items-center gap-3">
+          <span className="text-xs tracking-[0.2em] uppercase text-muted-foreground">Scroll</span>
+          <div className="w-px h-16 bg-gradient-to-b from-foreground/50 to-transparent animate-pulse" />
+        </div>
+      </motion.div>
     </section>
   );
 }
