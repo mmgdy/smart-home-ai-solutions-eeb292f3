@@ -12,6 +12,7 @@ import Cart from "./pages/Cart";
 import AIConsultant from "./pages/AIConsultant";
 import Services from "./pages/Services";
 import NotFound from "./pages/NotFound";
+import Admin from "./pages/Admin";
 
 const queryClient = new QueryClient();
 
@@ -30,6 +31,7 @@ const App = () => (
               <Route path="/cart" element={<Cart />} />
               <Route path="/ai-consultant" element={<AIConsultant />} />
               <Route path="/services" element={<Services />} />
+              <Route path="/admin" element={<Admin />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
