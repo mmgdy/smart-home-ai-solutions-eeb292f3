@@ -89,6 +89,7 @@ export function VideoShowcase() {
             onClick={handleVideoClick}
           >
             <video
+              key={SHOWCASE_VIDEOS[activeVideo].id}
               ref={videoRef}
               src={SHOWCASE_VIDEOS[activeVideo].video}
               poster={SHOWCASE_VIDEOS[activeVideo].poster}
