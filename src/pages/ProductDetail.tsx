@@ -10,6 +10,7 @@ import { useCart } from '@/hooks/useCart';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
+import { ProductVideo } from '@/components/products/ProductVideo';
 
 const ProductDetail = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -207,6 +208,9 @@ const ProductDetail = () => {
                   </dl>
                 </div>
               )}
+
+              {/* Product Video Demo */}
+              <ProductVideo productName={product.name} brand={product.brand} />
             </div>
           </div>
         </div>
