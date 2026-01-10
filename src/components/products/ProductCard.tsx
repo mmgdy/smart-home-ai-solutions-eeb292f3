@@ -39,7 +39,7 @@ export function ProductCard({ product, className }: ProductCardProps) {
         )}
       >
         {/* Image */}
-        <div className="relative aspect-square overflow-hidden bg-muted">
+        <div className="relative aspect-[4/3] overflow-hidden bg-muted">
           {product.image_url ? (
             <img
               src={product.image_url}
@@ -83,7 +83,7 @@ export function ProductCard({ product, className }: ProductCardProps) {
         </div>
 
         {/* Content */}
-        <div className="flex flex-1 flex-col p-4">
+        <div className="flex flex-1 flex-col p-3">
           {/* Brand & Protocol */}
           <div className="mb-2 flex items-center gap-2">
             {product.brand && (
@@ -98,20 +98,20 @@ export function ProductCard({ product, className }: ProductCardProps) {
           </div>
 
           {/* Name */}
-          <h3 className="mb-2 font-display text-lg font-semibold text-foreground line-clamp-2 group-hover:text-primary transition-colors">
+          <h3 className="mb-1 font-display text-sm font-semibold text-foreground line-clamp-2 group-hover:text-primary transition-colors">
             {product.name}
           </h3>
 
           {/* Description */}
           {product.description && (
-            <p className="mb-4 flex-1 text-sm text-muted-foreground line-clamp-2">
+            <p className="mb-2 flex-1 text-xs text-muted-foreground line-clamp-2">
               {product.description}
             </p>
           )}
 
           {/* Price */}
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-display text-xl font-bold text-foreground">
+            <span className="font-display text-base font-bold text-foreground">
               {formatPrice(product.price)}
             </span>
             {product.original_price && (
