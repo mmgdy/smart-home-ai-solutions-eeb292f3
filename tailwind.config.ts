@@ -61,9 +61,9 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
-        purple: {
-          glow: "hsl(var(--purple-glow))",
-          deep: "hsl(var(--purple-deep))",
+        teal: {
+          glow: "hsl(var(--teal-glow))",
+          deep: "hsl(var(--teal-deep))",
         },
         cyan: {
           accent: "hsl(var(--cyan-accent))",
@@ -93,8 +93,8 @@ export default {
           to: { opacity: "1", transform: "translateY(0)" },
         },
         "pulse-glow": {
-          "0%, 100%": { boxShadow: "0 0 20px hsl(270 100% 70% / 0.3)" },
-          "50%": { boxShadow: "0 0 40px hsl(270 100% 70% / 0.5)" },
+          "0%, 100%": { boxShadow: "0 0 20px hsl(174 100% 55% / 0.3)" },
+          "50%": { boxShadow: "0 0 40px hsl(174 100% 55% / 0.5)" },
         },
         "float": {
           "0%, 100%": { transform: "translateY(0)" },
