@@ -6,6 +6,7 @@ import { useCart } from '@/hooks/useCart';
 import { useLanguage } from '@/lib/i18n';
 import { LanguageToggle } from './LanguageToggle';
 import { cn } from '@/lib/utils';
+import logoImage from '@/assets/logo.png';
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -36,9 +37,10 @@ export function Header() {
         : "bg-transparent"
     )}>
       <div className="container flex h-20 items-center justify-between px-6 md:px-12">
-        {/* Logo - Minimal text only */}
-        <Link to="/" className="flex items-center">
-          <span className="font-display text-2xl font-bold tracking-tight text-foreground">
+        {/* Logo */}
+        <Link to="/" className="flex items-center gap-2">
+          <img src={logoImage} alt="Baytzaki" className="h-10 w-10 object-contain" />
+          <span className="font-display text-xl font-bold tracking-tight text-foreground">
             BAYTZAKI
           </span>
         </Link>
