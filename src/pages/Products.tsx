@@ -84,13 +84,13 @@ const Products = () => {
         />
       </Helmet>
       <Layout>
-        <div className="container py-8 md:py-12">
+        <div className="container py-24 md:py-28">
           {/* Header */}
           <div className="mb-8">
-            <h1 className="mb-2 font-display text-3xl font-bold text-foreground md:text-4xl">
+            <h1 className="mb-2 font-display text-2xl font-bold text-foreground md:text-3xl">
               {t('smartHomeProducts')}
             </h1>
-            <p className="text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               {t('discoverPremium')}
             </p>
           </div>
