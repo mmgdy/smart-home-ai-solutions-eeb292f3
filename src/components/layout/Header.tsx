@@ -38,11 +38,8 @@ export function Header() {
     )}>
       <div className="container flex h-20 items-center justify-between px-6 md:px-12">
         {/* Logo */}
-        <Link to="/" className="flex items-center gap-2">
-          <img src={logoImage} alt="Baytzaki" className="h-10 w-10 object-contain" />
-          <span className="font-display text-xl font-bold tracking-tight text-foreground">
-            BAYTZAKI
-          </span>
+        <Link to="/" className="flex items-center">
+          <img src={logoImage} alt="Baytzaki" className="h-12 md:h-14 object-contain" />
         </Link>
 
         {/* Desktop Navigation - Minimal, spaced out */}

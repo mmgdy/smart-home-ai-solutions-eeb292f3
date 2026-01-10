@@ -9,22 +9,22 @@ const SHOWCASE_VIDEOS = [
     id: 1,
     title: 'Smart Living Room',
     subtitle: 'Voice-controlled lighting & entertainment',
-    video: 'https://videos.pexels.com/video-files/3129671/3129671-uhd_2560_1440_30fps.mp4',
-    poster: 'https://images.pexels.com/videos/3129671/free-video-3129671.jpg?auto=compress&cs=tinysrgb&dpr=1&w=800',
+    video: 'https://cdn.pixabay.com/video/2019/06/11/24284-342116044_large.mp4',
+    poster: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&q=80',
   },
   {
     id: 2,
     title: 'Smart Security',
     subtitle: 'AI-powered cameras & smart locks',
-    video: 'https://videos.pexels.com/video-files/5380642/5380642-uhd_2732_1440_25fps.mp4',
-    poster: 'https://images.pexels.com/videos/5380642/pexels-photo-5380642.jpeg?auto=compress&cs=tinysrgb&dpr=1&w=800',
+    video: 'https://cdn.pixabay.com/video/2020/05/25/40130-424930941_large.mp4',
+    poster: 'https://images.unsplash.com/photo-1558002038-1055907df827?w=800&q=80',
   },
   {
     id: 3,
     title: 'Climate Control',
     subtitle: 'Automated temperature & air quality',
-    video: 'https://videos.pexels.com/video-files/4473941/4473941-uhd_2560_1440_25fps.mp4',
-    poster: 'https://images.pexels.com/videos/4473941/pexels-photo-4473941.jpeg?auto=compress&cs=tinysrgb&dpr=1&w=800',
+    video: 'https://cdn.pixabay.com/video/2020/02/12/32100-391273907_large.mp4',
+    poster: 'https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=800&q=80',
   },
 ];
 
