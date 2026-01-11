@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,30 +14,50 @@ serve(async (req) => {
   try {
     const { messages } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    const systemPrompt = `You are Baytzaki's AI Smart Home Consultant - an expert in smart home technology, automation, and IoT devices. Your role is to:
+    // Fetch products from the database
+    let productsInfo = "";
+    if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
+      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+      const { data: products } = await supabase
+        .from("products")
+        .select("name, description, price, brand, protocol, stock, slug")
+        .gt("stock", 0);
+      
+      if (products && products.length > 0) {
+        productsInfo = products.map(p => 
+          `- **${p.name}** (${p.brand || 'Baytzaki'}): ${p.description || 'Smart home device'} - Price: $${p.price} - Protocol: ${p.protocol || 'WiFi'} - [View Product](/products/${p.slug})`
+        ).join("\n");
+      }
+    }
 
+    const systemPrompt = `You are Baytzaki's AI Smart Home Consultant - an expert in smart home technology. Your role is to help customers find the RIGHT products from our store.
+
+**CRITICAL: You can ONLY recommend products from our inventory listed below. Do NOT suggest any products that are not in this list.**
+
+## Our Available Products:
+${productsInfo || "No products currently available in stock."}
+
+## Your Role:
 1. **Understand customer needs**: Ask about their home size, lifestyle, priorities (security, comfort, energy savings), and budget
-2. **Recommend products**: Suggest specific smart home products from categories like:
-   - Smart Lighting (Philips Hue, LIFX, Nanoleaf)
-   - Smart Security (Ring, Arlo, Eufy cameras and doorbells)
-   - Smart Locks (August, Yale, Schlage)
-   - Smart Thermostats (Nest, Ecobee)
-   - Smart Hubs (Samsung SmartThings, Hubitat)
-   - Smart Sensors (motion, door/window, water leak)
-   - Voice Assistants (Amazon Echo, Google Nest)
-
-3. **Explain compatibility**: Help customers understand protocols (Zigbee, Z-Wave, WiFi, Matter) and which devices work together
-4. **Create packages**: Build personalized bundles based on their requirements
+2. **Recommend products**: ONLY suggest products from the list above that match their needs
+3. **Explain compatibility**: Help customers understand protocols and which of our devices work together
+4. **Create packages**: Build personalized bundles from our available products
 5. **Provide setup tips**: Offer guidance on installation and automation scenarios
 
-Be friendly, knowledgeable, and concise. Use bullet points for product recommendations. Ask clarifying questions when needed. Always consider the customer's technical comfort level.
-
-If asked about prices, provide general ranges but encourage them to check the products page for current pricing.`;
+## Guidelines:
+- Be friendly, knowledgeable, and concise
+- Use bullet points for product recommendations
+- Always include the product link when recommending: [Product Name](/products/slug)
+- If we don't have a product that meets their needs, be honest and let them know
+- When mentioning prices, use the actual prices from our inventory
+- Ask clarifying questions when needed to better match products to their needs`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
