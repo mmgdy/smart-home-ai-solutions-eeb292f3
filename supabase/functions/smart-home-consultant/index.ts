@@ -32,7 +32,7 @@ serve(async (req) => {
       
       if (products && products.length > 0) {
         productsInfo = products.map(p => 
-          `- **${p.name}** (${p.brand || 'Baytzaki'}): ${p.description || 'Smart home device'} - السعر/Price: ${p.price} ر.س/SAR - Protocol: ${p.protocol || 'WiFi'} - [View Product](/products/${p.slug})`
+          `- **${p.name}** (${p.brand || 'Baytzaki'}): ${p.description || 'Smart home device'} - السعر/Price: ${p.price} ج.م/EGP - Protocol: ${p.protocol || 'WiFi'} - [View Product](/products/${p.slug})`
         ).join("\n");
       }
     }
@@ -65,8 +65,8 @@ ${productsInfo || "No products currently available in stock. / لا توجد م�
 - Use bullet points for product recommendations / استخدم النقاط للتوصيات
 - Always include the product link when recommending: [Product Name](/products/slug)
 - If we don't have a product that meets their needs, be honest / إذا لم يتوفر منتج يلبي احتياجاتهم، كن صريحاً
-- **IMPORTANT: Always show prices in SAR (ريال سعودي) - NEVER use dollars ($)**
-- **مهم: اعرض الأسعار دائماً بالريال السعودي (ر.س) - لا تستخدم الدولار أبداً**
+- **IMPORTANT: Always show prices in EGP (جنيه مصري) - NEVER use dollars ($)**
+- **مهم: اعرض الأسعار دائماً بالجنيه المصري (ج.م) - لا تستخدم الدولار أبداً**
 - Ask clarifying questions when needed / اطرح أسئلة توضيحية عند الحاجة`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
