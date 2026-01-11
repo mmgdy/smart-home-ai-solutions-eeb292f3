@@ -12,33 +12,33 @@ interface ProductVideoProps {
 // Category-specific smart home videos from Pexels
 const CATEGORY_VIDEOS: Record<string, { url: string; poster: string }[]> = {
   lighting: [
-    { url: 'https://cdn.pixabay.com/video/2019/06/11/24284-342116044_large.mp4', poster: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&q=80' },
-    { url: 'https://cdn.pixabay.com/video/2020/02/12/32100-391273907_large.mp4', poster: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=600&q=80' },
+    { url: 'https://videos.pexels.com/video-files/3129671/3129671-uhd_2560_1440_30fps.mp4', poster: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&q=80' },
+    { url: 'https://videos.pexels.com/video-files/3255275/3255275-uhd_2560_1440_25fps.mp4', poster: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=600&q=80' },
   ],
   security: [
-    { url: 'https://cdn.pixabay.com/video/2020/05/25/40130-424930941_large.mp4', poster: 'https://images.unsplash.com/photo-1558002038-1055907df827?w=600&q=80' },
-    { url: 'https://cdn.pixabay.com/video/2021/04/06/70495-535612233_large.mp4', poster: 'https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=600&q=80' },
+    { url: 'https://videos.pexels.com/video-files/5532775/5532775-uhd_2560_1440_25fps.mp4', poster: 'https://images.unsplash.com/photo-1558002038-1055907df827?w=600&q=80' },
+    { url: 'https://videos.pexels.com/video-files/4873182/4873182-uhd_2560_1440_25fps.mp4', poster: 'https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=600&q=80' },
   ],
   locks: [
-    { url: 'https://cdn.pixabay.com/video/2020/05/25/40130-424930941_large.mp4', poster: 'https://images.unsplash.com/photo-1558002038-1055907df827?w=600&q=80' },
-    { url: 'https://cdn.pixabay.com/video/2021/04/06/70495-535612233_large.mp4', poster: 'https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=600&q=80' },
+    { url: 'https://videos.pexels.com/video-files/5532775/5532775-uhd_2560_1440_25fps.mp4', poster: 'https://images.unsplash.com/photo-1558002038-1055907df827?w=600&q=80' },
+    { url: 'https://videos.pexels.com/video-files/4873182/4873182-uhd_2560_1440_25fps.mp4', poster: 'https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=600&q=80' },
   ],
   sensors: [
-    { url: 'https://cdn.pixabay.com/video/2019/06/11/24284-342116044_large.mp4', poster: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&q=80' },
-    { url: 'https://cdn.pixabay.com/video/2020/02/12/32100-391273907_large.mp4', poster: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=600&q=80' },
+    { url: 'https://videos.pexels.com/video-files/3129671/3129671-uhd_2560_1440_30fps.mp4', poster: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&q=80' },
+    { url: 'https://videos.pexels.com/video-files/3255275/3255275-uhd_2560_1440_25fps.mp4', poster: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=600&q=80' },
   ],
   hubs: [
-    { url: 'https://cdn.pixabay.com/video/2019/06/11/24284-342116044_large.mp4', poster: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&q=80' },
-    { url: 'https://cdn.pixabay.com/video/2020/02/12/32100-391273907_large.mp4', poster: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=600&q=80' },
+    { url: 'https://videos.pexels.com/video-files/3129671/3129671-uhd_2560_1440_30fps.mp4', poster: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&q=80' },
+    { url: 'https://videos.pexels.com/video-files/3255275/3255275-uhd_2560_1440_25fps.mp4', poster: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=600&q=80' },
   ],
   panels: [
-    { url: 'https://cdn.pixabay.com/video/2019/06/11/24284-342116044_large.mp4', poster: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&q=80' },
-    { url: 'https://cdn.pixabay.com/video/2020/02/12/32100-391273907_large.mp4', poster: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=600&q=80' },
+    { url: 'https://videos.pexels.com/video-files/3129671/3129671-uhd_2560_1440_30fps.mp4', poster: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&q=80' },
+    { url: 'https://videos.pexels.com/video-files/3255275/3255275-uhd_2560_1440_25fps.mp4', poster: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=600&q=80' },
   ],
   default: [
-    { url: 'https://cdn.pixabay.com/video/2019/06/11/24284-342116044_large.mp4', poster: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&q=80' },
-    { url: 'https://cdn.pixabay.com/video/2020/02/12/32100-391273907_large.mp4', poster: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=600&q=80' },
-    { url: 'https://cdn.pixabay.com/video/2020/05/25/40130-424930941_large.mp4', poster: 'https://images.unsplash.com/photo-1558002038-1055907df827?w=600&q=80' },
+    { url: 'https://videos.pexels.com/video-files/3129671/3129671-uhd_2560_1440_30fps.mp4', poster: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&q=80' },
+    { url: 'https://videos.pexels.com/video-files/3255275/3255275-uhd_2560_1440_25fps.mp4', poster: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=600&q=80' },
+    { url: 'https://videos.pexels.com/video-files/5532775/5532775-uhd_2560_1440_25fps.mp4', poster: 'https://images.unsplash.com/photo-1558002038-1055907df827?w=600&q=80' },
   ],
 };
 
