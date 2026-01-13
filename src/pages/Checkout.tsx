@@ -122,17 +122,16 @@ const Checkout = () => {
 
       if (itemsError) throw itemsError;
 
-      // TODO: Integrate PaySky payment here
-      // For now, show success message
+      // Success - redirect to confirmation page
       toast({
-        title: language === 'ar' ? 'تم إنشاء الطلب' : 'Order Created',
+        title: language === 'ar' ? 'تم إنشاء الطلب بنجاح' : 'Order Created Successfully',
         description: language === 'ar' 
           ? 'سيتم التواصل معك قريباً لإتمام الدفع'
           : 'We will contact you soon to complete the payment',
       });
 
       clearCart();
-      navigate('/');
+      navigate(`/order-confirmation?orderId=${order.id}`);
 
     } catch (error) {
       console.error('Checkout error:', error);
