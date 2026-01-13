@@ -166,10 +166,12 @@ const Cart = () => {
                 </div>
               </div>
 
-              <Button className="mt-6 w-full gap-2 glow-primary" size="lg">
-                {t('proceedToCheckout')}
-                <NextArrow className="h-4 w-4" />
-              </Button>
+              <Link to="/checkout">
+                <Button className="mt-6 w-full gap-2 glow-primary" size="lg">
+                  {t('proceedToCheckout')}
+                  <NextArrow className="h-4 w-4" />
+                </Button>
+              </Link>
 
               <p className="mt-4 text-center text-xs text-muted-foreground">
                 {t('secureCheckout')}
