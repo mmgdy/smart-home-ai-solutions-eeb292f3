@@ -13,6 +13,7 @@ import Checkout from "./pages/Checkout";
 import OrderConfirmation from "./pages/OrderConfirmation";
 import AIConsultant from "./pages/AIConsultant";
 import Services from "./pages/Services";
+import Loyalty from "./pages/Loyalty";
 import NotFound from "./pages/NotFound";
 import Admin from "./pages/Admin";
 
@@ -35,6 +36,7 @@ const App = () => (
               <Route path="/order-confirmation" element={<OrderConfirmation />} />
               <Route path="/ai-consultant" element={<AIConsultant />} />
               <Route path="/services" element={<Services />} />
+              <Route path="/loyalty" element={<Loyalty />} />
               <Route path="/admin" element={<Admin />} />
               <Route path="*" element={<NotFound />} />
             </Routes>

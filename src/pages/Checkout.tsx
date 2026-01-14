@@ -122,6 +122,17 @@ const Checkout = () => {
 
       if (itemsError) throw itemsError;
 
+      // Award loyalty points
+      try {
+        await supabase.rpc('award_loyalty_points', {
+          p_email: formData.email,
+          p_order_id: order.id,
+          p_order_total: total,
+        });
+      } catch (loyaltyError) {
+        console.warn('Could not award loyalty points:', loyaltyError);
+      }
+
       // Success - redirect to confirmation page
       toast({
         title: language === 'ar' ? 'تم إنشاء الطلب بنجاح' : 'Order Created Successfully',
