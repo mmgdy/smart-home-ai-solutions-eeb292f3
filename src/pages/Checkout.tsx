@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { ArrowLeft, ArrowRight, CreditCard, Truck, Shield, Loader2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CreditCard, Truck, Shield, Loader2, Gift } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,7 @@ import { useCart } from '@/hooks/useCart';
 import { useLanguage } from '@/lib/i18n';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { PointsRedemption } from '@/components/loyalty/PointsRedemption';
 import { z } from 'zod';
 
 // Validation schema
@@ -33,6 +34,8 @@ const Checkout = () => {
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<keyof CheckoutFormData, string>>>({});
+  const [pointsDiscount, setPointsDiscount] = useState(0);
+  const [pointsToRedeem, setPointsToRedeem] = useState(0);
   const [formData, setFormData] = useState<CheckoutFormData>({
     firstName: '',
     lastName: '',
@@ -54,7 +57,13 @@ const Checkout = () => {
 
   const subtotal = getTotal();
   const shippingCost = subtotal >= 1000 ? 0 : 50; // Free shipping over 1000 EGP
-  const total = subtotal + shippingCost;
+  const totalBeforeDiscount = subtotal + shippingCost;
+  const total = Math.max(0, totalBeforeDiscount - pointsDiscount);
+
+  const handleRedemptionChange = (discount: number, points: number) => {
+    setPointsDiscount(discount);
+    setPointsToRedeem(points);
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -122,7 +131,20 @@ const Checkout = () => {
 
       if (itemsError) throw itemsError;
 
-      // Award loyalty points
+      // Redeem loyalty points if any
+      if (pointsToRedeem > 0) {
+        try {
+          await supabase.rpc('redeem_loyalty_points', {
+            p_email: formData.email,
+            p_points: pointsToRedeem,
+            p_order_id: order.id,
+          });
+        } catch (redeemError) {
+          console.warn('Could not redeem loyalty points:', redeemError);
+        }
+      }
+
+      // Award loyalty points (on the discounted total)
       try {
         await supabase.rpc('award_loyalty_points', {
           p_email: formData.email,
@@ -181,6 +203,7 @@ const Checkout = () => {
     paymentNote: language === 'ar' 
       ? 'سيتم التواصل معك لإتمام الدفع عبر PaySky'
       : 'You will be contacted to complete payment via PaySky',
+    pointsDiscount: language === 'ar' ? 'خصم النقاط' : 'Points Discount',
   };
 
   if (items.length === 0) {
@@ -339,6 +362,19 @@ const Checkout = () => {
                     <img src="https://www.meezadigital.com.eg/wp-content/uploads/2019/10/logo.png" alt="Meeza" className="h-8" />
                   </div>
                 </div>
+
+                {/* Loyalty Points Redemption */}
+                <div className="rounded-xl border border-border bg-card p-6">
+                  <h2 className="mb-4 font-display text-xl font-semibold text-foreground flex items-center gap-2">
+                    <Gift className="h-5 w-5 text-primary" />
+                    {language === 'ar' ? 'استبدال النقاط' : 'Redeem Points'}
+                  </h2>
+                  <PointsRedemption
+                    email={formData.email}
+                    maxDiscount={totalBeforeDiscount}
+                    onRedemptionChange={handleRedemptionChange}
+                  />
+                </div>
               </div>
 
               {/* Order Summary */}
@@ -386,15 +422,29 @@ const Checkout = () => {
                       {shippingCost === 0 ? labels.freeShipping : formatPrice(shippingCost)}
                     </span>
                   </div>
+                  
+                  {pointsDiscount > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-green-600">{labels.pointsDiscount}</span>
+                      <span className="font-medium text-green-600">-{formatPrice(pointsDiscount)}</span>
+                    </div>
+                  )}
 
                   <div className="border-t border-border pt-3">
                     <div className="flex justify-between">
                       <span className="font-display text-lg font-semibold text-foreground">
                         {labels.total}
                       </span>
-                      <span className="font-display text-xl font-bold text-foreground">
-                        {formatPrice(total)}
-                      </span>
+                      <div className="text-right">
+                        {pointsDiscount > 0 && (
+                          <span className="block text-sm text-muted-foreground line-through">
+                            {formatPrice(totalBeforeDiscount)}
+                          </span>
+                        )}
+                        <span className="font-display text-xl font-bold text-foreground">
+                          {formatPrice(total)}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>

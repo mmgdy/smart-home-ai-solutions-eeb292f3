@@ -279,6 +279,10 @@ export type Database = {
         }
         Returns: number
       }
+      redeem_loyalty_points: {
+        Args: { p_email: string; p_order_id?: string; p_points: number }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never

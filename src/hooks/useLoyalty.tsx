@@ -76,13 +76,33 @@ export const useLoyalty = (email?: string) => {
     },
   });
 
+  const redeemPointsMutation = useMutation({
+    mutationFn: async ({ email, points, orderId }: { email: string; points: number; orderId?: string }) => {
+      const { data, error } = await supabase.rpc('redeem_loyalty_points', {
+        p_email: email,
+        p_points: points,
+        p_order_id: orderId || null,
+      });
+
+      if (error) throw error;
+      return data as boolean;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['loyalty'] });
+      queryClient.invalidateQueries({ queryKey: ['loyalty-transactions'] });
+    },
+  });
+
   return {
     loyalty: loyaltyQuery.data,
     isLoading: loyaltyQuery.isLoading,
+    refetch: loyaltyQuery.refetch,
     transactions: transactionsQuery.data || [],
     transactionsLoading: transactionsQuery.isLoading,
     awardPoints: awardPointsMutation.mutateAsync,
     isAwarding: awardPointsMutation.isPending,
+    redeemPoints: redeemPointsMutation.mutateAsync,
+    isRedeeming: redeemPointsMutation.isPending,
   };
 };
 
