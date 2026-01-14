@@ -41,6 +41,39 @@ export type Database = {
         }
         Relationships: []
       }
+      loyalty_points: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          lifetime_points: number
+          points_balance: number
+          tier: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          lifetime_points?: number
+          points_balance?: number
+          tier?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          lifetime_points?: number
+          points_balance?: number
+          tier?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       order_items: {
         Row: {
           created_at: string
@@ -122,6 +155,51 @@ export type Database = {
         }
         Relationships: []
       }
+      points_transactions: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          loyalty_id: string
+          order_id: string | null
+          points: number
+          transaction_type: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          loyalty_id: string
+          order_id?: string | null
+          points: number
+          transaction_type: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          loyalty_id?: string
+          order_id?: string | null
+          points?: number
+          transaction_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "points_transactions_loyalty_id_fkey"
+            columns: ["loyalty_id"]
+            isOneToOne: false
+            referencedRelation: "loyalty_points"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "points_transactions_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           brand: string | null
@@ -192,7 +270,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      award_loyalty_points: {
+        Args: {
+          p_email: string
+          p_order_id: string
+          p_order_total: number
+          p_user_id?: string
+        }
+        Returns: number
+      }
     }
     Enums: {
       [_ in never]: never
