@@ -1,1 +1,13 @@
 project_id = "vgwptcvjhmphqhoepbri"
+
+[functions.paysky-checkout]
+verify_jwt = false
+
+[functions.smart-home-consultant]
+verify_jwt = false
+
+[functions.import-products]
+verify_jwt = false
+
+[functions.enhance-products]
+verify_jwt = false

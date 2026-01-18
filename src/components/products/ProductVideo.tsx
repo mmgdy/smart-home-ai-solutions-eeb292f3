@@ -9,36 +9,57 @@ interface ProductVideoProps {
   category?: string | null;
 }
 
-// Category-specific smart home videos from Pexels
+// Working smart home demo videos from reliable sources (Coverr, Pixabay, etc.)
 const CATEGORY_VIDEOS: Record<string, { url: string; poster: string }[]> = {
   lighting: [
-    { url: 'https://videos.pexels.com/video-files/3129671/3129671-uhd_2560_1440_30fps.mp4', poster: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&q=80' },
-    { url: 'https://videos.pexels.com/video-files/3255275/3255275-uhd_2560_1440_25fps.mp4', poster: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=600&q=80' },
+    { 
+      url: 'https://cdn.pixabay.com/video/2020/05/25/40302-424727587_large.mp4',
+      poster: 'https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=600&q=80'
+    },
+    { 
+      url: 'https://cdn.pixabay.com/video/2019/07/29/25665-351847861_large.mp4',
+      poster: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&q=80'
+    },
   ],
   security: [
-    { url: 'https://videos.pexels.com/video-files/5532775/5532775-uhd_2560_1440_25fps.mp4', poster: 'https://images.unsplash.com/photo-1558002038-1055907df827?w=600&q=80' },
-    { url: 'https://videos.pexels.com/video-files/4873182/4873182-uhd_2560_1440_25fps.mp4', poster: 'https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=600&q=80' },
+    { 
+      url: 'https://cdn.pixabay.com/video/2020/07/30/45974-446076716_large.mp4',
+      poster: 'https://images.unsplash.com/photo-1558002038-1055907df827?w=600&q=80'
+    },
   ],
   locks: [
-    { url: 'https://videos.pexels.com/video-files/5532775/5532775-uhd_2560_1440_25fps.mp4', poster: 'https://images.unsplash.com/photo-1558002038-1055907df827?w=600&q=80' },
-    { url: 'https://videos.pexels.com/video-files/4873182/4873182-uhd_2560_1440_25fps.mp4', poster: 'https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=600&q=80' },
+    { 
+      url: 'https://cdn.pixabay.com/video/2019/10/26/28538-368567549_large.mp4',
+      poster: 'https://images.unsplash.com/photo-1558002038-1055907df827?w=600&q=80'
+    },
   ],
   sensors: [
-    { url: 'https://videos.pexels.com/video-files/3129671/3129671-uhd_2560_1440_30fps.mp4', poster: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&q=80' },
-    { url: 'https://videos.pexels.com/video-files/3255275/3255275-uhd_2560_1440_25fps.mp4', poster: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=600&q=80' },
+    { 
+      url: 'https://cdn.pixabay.com/video/2021/08/20/85896-592282615_large.mp4',
+      poster: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&q=80'
+    },
   ],
   hubs: [
-    { url: 'https://videos.pexels.com/video-files/3129671/3129671-uhd_2560_1440_30fps.mp4', poster: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&q=80' },
-    { url: 'https://videos.pexels.com/video-files/3255275/3255275-uhd_2560_1440_25fps.mp4', poster: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=600&q=80' },
+    { 
+      url: 'https://cdn.pixabay.com/video/2020/05/12/38866-418395369_large.mp4',
+      poster: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&q=80'
+    },
   ],
   panels: [
-    { url: 'https://videos.pexels.com/video-files/3129671/3129671-uhd_2560_1440_30fps.mp4', poster: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&q=80' },
-    { url: 'https://videos.pexels.com/video-files/3255275/3255275-uhd_2560_1440_25fps.mp4', poster: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=600&q=80' },
+    { 
+      url: 'https://cdn.pixabay.com/video/2021/10/17/92185-638031574_large.mp4',
+      poster: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&q=80'
+    },
   ],
   default: [
-    { url: 'https://videos.pexels.com/video-files/3129671/3129671-uhd_2560_1440_30fps.mp4', poster: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&q=80' },
-    { url: 'https://videos.pexels.com/video-files/3255275/3255275-uhd_2560_1440_25fps.mp4', poster: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=600&q=80' },
-    { url: 'https://videos.pexels.com/video-files/5532775/5532775-uhd_2560_1440_25fps.mp4', poster: 'https://images.unsplash.com/photo-1558002038-1055907df827?w=600&q=80' },
+    { 
+      url: 'https://cdn.pixabay.com/video/2020/05/25/40302-424727587_large.mp4',
+      poster: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&q=80'
+    },
+    { 
+      url: 'https://cdn.pixabay.com/video/2019/07/29/25665-351847861_large.mp4',
+      poster: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=600&q=80'
+    },
   ],
 };
 
@@ -47,17 +68,17 @@ function getVideoForProduct(productName: string, brand?: string | null): { url: 
   
   // Determine category from product name
   let category = 'default';
-  if (name.includes('light') || name.includes('bulb') || name.includes('led') || name.includes('lamp')) {
+  if (name.includes('light') || name.includes('bulb') || name.includes('led') || name.includes('lamp') || name.includes('rgb')) {
     category = 'lighting';
   } else if (name.includes('lock') || name.includes('door')) {
     category = 'locks';
-  } else if (name.includes('sensor') || name.includes('detector') || name.includes('motion')) {
+  } else if (name.includes('sensor') || name.includes('detector') || name.includes('motion') || name.includes('temp') || name.includes('humi')) {
     category = 'sensors';
-  } else if (name.includes('camera') || name.includes('security') || name.includes('alarm')) {
+  } else if (name.includes('camera') || name.includes('security') || name.includes('alarm') || name.includes('intercom')) {
     category = 'security';
-  } else if (name.includes('hub') || name.includes('gateway') || name.includes('dongle') || name.includes('zigbee')) {
+  } else if (name.includes('hub') || name.includes('gateway') || name.includes('dongle') || name.includes('zigbee') || name.includes('bridge')) {
     category = 'hubs';
-  } else if (name.includes('panel') || name.includes('control') || name.includes('touch') || name.includes('switch')) {
+  } else if (name.includes('panel') || name.includes('control') || name.includes('touch') || name.includes('switch') || name.includes('plug')) {
     category = 'panels';
   }
 
