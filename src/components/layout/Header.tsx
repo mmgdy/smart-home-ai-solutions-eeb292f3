@@ -39,7 +39,7 @@ export function Header() {
       <div className="container flex h-20 items-center justify-between px-6 md:px-12">
         {/* Logo */}
         <Link to="/" className="flex items-center">
-          <img src={logoImage} alt="Baytzaki" className="h-20 md:h-24 object-contain" />
+          <img src={logoImage} alt="Baytzaki" className="h-24 md:h-32 object-contain" style={{ background: 'transparent' }} />
         </Link>
 
         {/* Desktop Navigation - Minimal, spaced out */}
