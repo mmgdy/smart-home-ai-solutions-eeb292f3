@@ -54,11 +54,22 @@ Deno.serve(async (req) => {
 
       const results = [];
       
+      // Clean product name for better search
+      const cleanProductName = (name: string): string => {
+        return name
+          .replace(/–.*$/g, '') // Remove text after em dash
+          .replace(/\|.*$/g, '') // Remove text after pipe
+          .replace(/Egypt.*$/i, '') // Remove Egypt mentions
+          .replace(/Mastery IT.*$/i, '') // Remove store name
+          .trim();
+      };
+
       for (const product of products || []) {
         try {
-          // Search for product image using Perplexity
-          const searchQuery = `${product.name} ${product.brand || ''} product image official`;
+          const cleanName = cleanProductName(product.name);
+          console.log(`Searching for image: ${cleanName}`);
           
+          // Use Perplexity to search for product and get image URL
           const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
             method: 'POST',
             headers: {
@@ -70,27 +81,46 @@ Deno.serve(async (req) => {
               messages: [
                 { 
                   role: 'system', 
-                  content: 'You are a product image finder. When asked about a product, respond ONLY with a direct image URL from the official manufacturer or a reputable retailer. The URL must end with an image extension (.jpg, .png, .webp) or be from a known image CDN. If you cannot find a reliable image URL, respond with "NO_IMAGE_FOUND".' 
+                  content: `You are a product image URL finder. Search the web for the exact product and return ONLY a valid, direct image URL from the manufacturer's website or a major retailer like Amazon, AliExpress, or the brand's official site. 
+
+Rules:
+- Return ONLY the URL, nothing else - no explanation, no text
+- The URL must be a direct link to an image file (containing .jpg, .jpeg, .png, .webp, or from a CDN)
+- Prefer images from official brand websites or Amazon product listings
+- If you cannot find a valid image URL, respond with exactly: NO_IMAGE
+- Do not return placeholder images or broken links` 
                 },
                 { 
                   role: 'user', 
-                  content: `Find the official product image URL for: ${product.name}${product.brand ? ` by ${product.brand}` : ''}. Return only the direct image URL, nothing else.` 
+                  content: `Find the official product image URL for: "${cleanName}"${product.brand ? ` by ${product.brand}` : ''}` 
                 }
               ],
             }),
           });
 
+          console.log(`Perplexity response status: ${perplexityResponse.status}`);
+
           if (perplexityResponse.ok) {
             const data = await perplexityResponse.json();
-            const imageUrl = data.choices?.[0]?.message?.content?.trim();
+            let imageUrl = data.choices?.[0]?.message?.content?.trim() || '';
+            console.log(`Raw response: ${imageUrl}`);
             
-            if (imageUrl && imageUrl !== 'NO_IMAGE_FOUND' && (
-              imageUrl.includes('.jpg') || 
-              imageUrl.includes('.png') || 
-              imageUrl.includes('.webp') ||
-              imageUrl.includes('cdn') ||
-              imageUrl.startsWith('http')
-            )) {
+            // Extract URL if embedded in text
+            const urlMatch = imageUrl.match(/https?:\/\/[^\s"'<>\)]+\.(jpg|jpeg|png|webp|gif)/i);
+            if (urlMatch) {
+              imageUrl = urlMatch[0];
+            }
+            
+            // Validate the URL
+            const isValidUrl = imageUrl && 
+              !imageUrl.includes('NO_IMAGE') &&
+              imageUrl.startsWith('http') &&
+              (imageUrl.match(/\.(jpg|jpeg|png|webp|gif)/i) ||
+               imageUrl.includes('/images/') ||
+               imageUrl.includes('/img/') ||
+               imageUrl.includes('cdn'));
+            
+            if (isValidUrl) {
               // Update product with found image
               await supabase
                 .from('products')
@@ -103,23 +133,29 @@ Deno.serve(async (req) => {
                 status: 'updated', 
                 image_url: imageUrl 
               });
+              console.log(`Updated ${product.name} with image: ${imageUrl}`);
             } else {
               results.push({ 
                 id: product.id, 
                 name: product.name, 
-                status: 'no_image_found' 
+                status: 'no_image_found',
+                response: imageUrl.substring(0, 200)
               });
+              console.log(`No valid image found for ${product.name}`);
             }
           } else {
+            const errorText = await perplexityResponse.text();
+            console.error(`Perplexity error for ${product.name}:`, errorText);
             results.push({ 
               id: product.id, 
               name: product.name, 
-              status: 'search_failed' 
+              status: 'search_failed',
+              error: errorText.substring(0, 200)
             });
           }
           
           // Rate limiting delay
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          await new Promise(resolve => setTimeout(resolve, 1500));
         } catch (err) {
           console.error(`Error processing ${product.name}:`, err);
           results.push({ 
