@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.enhance-products]
 verify_jwt = false
+
+[functions.analyze-floor-plan]
+verify_jwt = false

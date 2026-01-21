@@ -265,6 +265,57 @@ export type Database = {
           },
         ]
       }
+      quotes: {
+        Row: {
+          ai_analysis: Json | null
+          created_at: string
+          devices: Json
+          email: string | null
+          floor_plan_url: string | null
+          id: string
+          installation_fee: number
+          phone: string | null
+          property_type: string
+          rooms: Json
+          status: string
+          subtotal: number
+          total: number
+          updated_at: string
+        }
+        Insert: {
+          ai_analysis?: Json | null
+          created_at?: string
+          devices?: Json
+          email?: string | null
+          floor_plan_url?: string | null
+          id?: string
+          installation_fee?: number
+          phone?: string | null
+          property_type: string
+          rooms?: Json
+          status?: string
+          subtotal?: number
+          total?: number
+          updated_at?: string
+        }
+        Update: {
+          ai_analysis?: Json | null
+          created_at?: string
+          devices?: Json
+          email?: string | null
+          floor_plan_url?: string | null
+          id?: string
+          installation_fee?: number
+          phone?: string | null
+          property_type?: string
+          rooms?: Json
+          status?: string
+          subtotal?: number
+          total?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

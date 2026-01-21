@@ -16,6 +16,7 @@ import Services from "./pages/Services";
 import Loyalty from "./pages/Loyalty";
 import NotFound from "./pages/NotFound";
 import Admin from "./pages/Admin";
+import Calculator from "./pages/Calculator";
 
 const queryClient = new QueryClient();
 
@@ -35,6 +36,7 @@ const App = () => (
               <Route path="/checkout" element={<Checkout />} />
               <Route path="/order-confirmation" element={<OrderConfirmation />} />
               <Route path="/ai-consultant" element={<AIConsultant />} />
+              <Route path="/calculator" element={<Calculator />} />
               <Route path="/services" element={<Services />} />
               <Route path="/loyalty" element={<Loyalty />} />
               <Route path="/admin" element={<Admin />} />
