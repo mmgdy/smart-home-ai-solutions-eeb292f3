@@ -8,6 +8,7 @@ export const translations = {
     // Header
     home: 'Home',
     products: 'Products',
+    calculator: 'Calculator',
     aiConsultant: 'AI Consultant',
     services: 'Services',
     
@@ -118,6 +119,7 @@ export const translations = {
     // Header
     home: 'الرئيسية',
     products: 'المنتجات',
+    calculator: 'حاسبة التكلفة',
     aiConsultant: 'المستشار الذكي',
     services: 'الخدمات',
     
