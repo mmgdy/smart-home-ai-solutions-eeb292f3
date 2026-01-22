@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.analyze-floor-plan]
 verify_jwt = false
+
+[functions.update-prices-amazon]
+verify_jwt = false
