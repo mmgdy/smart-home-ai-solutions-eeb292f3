@@ -3,7 +3,7 @@ import { Helmet } from 'react-helmet-async';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Upload, Loader2, CheckCircle, AlertCircle, Image, FileText, Sparkles, Download, Filter } from 'lucide-react';
+import { Upload, Loader2, CheckCircle, AlertCircle, Image, FileText, Sparkles, Download, Filter, DollarSign } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
@@ -35,6 +35,10 @@ export default function Admin() {
   const [exportStats, setExportStats] = useState<{ total: number; categories: string[]; brands: string[] } | null>(null);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
+  const [isUpdatingPrices, setIsUpdatingPrices] = useState(false);
+  const [priceUpdateResults, setPriceUpdateResults] = useState<any[]>([]);
+  const [priceUpdateProgress, setPriceUpdateProgress] = useState(0);
+  const [selectedPriceBrands, setSelectedPriceBrands] = useState<string[]>(['SONOFF', 'MOES', 'TP-Link', 'Lezn', 'Akubela']);
   const { toast } = useToast();
 
   // Fetch export stats on mount
@@ -305,6 +309,57 @@ export default function Admin() {
     }
   };
 
+  const handleUpdatePrices = async () => {
+    setIsUpdatingPrices(true);
+    setPriceUpdateResults([]);
+    setPriceUpdateProgress(0);
+
+    try {
+      const batchSize = 3;
+      const totalBatches = 10; // Process 30 products
+      
+      for (let i = 0; i < totalBatches; i++) {
+        const { data, error } = await supabase.functions.invoke('update-prices-amazon', {
+          body: { 
+            batchSize, 
+            brands: selectedPriceBrands.length > 0 ? selectedPriceBrands : undefined 
+          }
+        });
+
+        if (error) throw error;
+
+        if (data?.results) {
+          setPriceUpdateResults(prev => [...prev, ...data.results]);
+        }
+        
+        setPriceUpdateProgress(((i + 1) / totalBatches) * 100);
+        
+        // Break if no more products
+        if (!data?.results?.length || data.results.length < batchSize) break;
+      }
+
+      toast({
+        title: 'Price Update Complete',
+        description: 'Product prices have been checked against Amazon Egypt',
+      });
+    } catch (error: any) {
+      console.error('Price update error:', error);
+      toast({
+        title: 'Price Update Failed',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsUpdatingPrices(false);
+    }
+  };
+
+  const togglePriceBrand = (brand: string) => {
+    setSelectedPriceBrands(prev => 
+      prev.includes(brand) ? prev.filter(b => b !== brand) : [...prev, brand]
+    );
+  };
+
   return (
     <Layout>
       <Helmet>
@@ -314,8 +369,12 @@ export default function Admin() {
       <div className="container mx-auto px-4 py-12">
         <h1 className="text-4xl font-display font-bold mb-8">Product Management</h1>
         
-        <Tabs defaultValue="export" className="max-w-3xl" onValueChange={(v) => v === 'export' && fetchExportStats()}>
-          <TabsList className="grid w-full grid-cols-4">
+        <Tabs defaultValue="prices" className="max-w-3xl" onValueChange={(v) => v === 'export' && fetchExportStats()}>
+          <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="prices">
+              <DollarSign className="w-4 h-4 mr-2" />
+              Prices
+            </TabsTrigger>
             <TabsTrigger value="export">
               <Download className="w-4 h-4 mr-2" />
               Export
@@ -326,13 +385,122 @@ export default function Admin() {
             </TabsTrigger>
             <TabsTrigger value="images">
               <Image className="w-4 h-4 mr-2" />
-              Find Images
+              Images
             </TabsTrigger>
             <TabsTrigger value="descriptions">
               <FileText className="w-4 h-4 mr-2" />
-              AI Descriptions
+              AI Desc
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="prices" className="mt-6">
+            <div className="bg-card border border-border rounded-xl p-6">
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <DollarSign className="w-5 h-5 text-primary" />
+                Update Prices from Amazon Egypt
+              </h2>
+              <p className="text-muted-foreground mb-6">
+                Uses AI-powered search to find current prices on Amazon Egypt, Noon, and Jumia. 
+                Select brands to update and click the button to start.
+              </p>
+
+              <div className="mb-6 p-4 bg-muted/50 rounded-lg">
+                <div className="flex items-center gap-2 mb-3">
+                  <Filter className="w-4 h-4" />
+                  <span className="text-sm font-medium">Select Brands to Update:</span>
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  {['SONOFF', 'MOES', 'TP-Link', 'Lezn', 'Akubela', 'Aruba'].map(brand => (
+                    <div key={brand} className="flex items-center space-x-2">
+                      <Checkbox 
+                        id={`price-brand-${brand}`} 
+                        checked={selectedPriceBrands.includes(brand)}
+                        onCheckedChange={() => togglePriceBrand(brand)}
+                      />
+                      <Label htmlFor={`price-brand-${brand}`} className="text-sm cursor-pointer">
+                        {brand}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+              <Button 
+                onClick={handleUpdatePrices} 
+                disabled={isUpdatingPrices}
+                size="lg"
+                className="w-full"
+              >
+                {isUpdatingPrices ? (
+                  <>
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    Searching Amazon Egypt...
+                  </>
+                ) : (
+                  <>
+                    <DollarSign className="w-5 h-5 mr-2" />
+                    Update Prices from Amazon Egypt
+                  </>
+                )}
+              </Button>
+
+              {isUpdatingPrices && (
+                <div className="mt-4">
+                  <Progress value={priceUpdateProgress} className="h-2" />
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Processing... {Math.round(priceUpdateProgress)}%
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {priceUpdateResults.length > 0 && (
+              <div className="mt-6 bg-card border border-border rounded-xl p-6">
+                <h3 className="font-semibold mb-4">
+                  Results ({priceUpdateResults.length} products checked)
+                </h3>
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {priceUpdateResults.map((item, i) => (
+                    <div 
+                      key={i} 
+                      className={`p-3 rounded-lg text-sm ${
+                        item.status === 'updated' ? 'bg-green-500/10' :
+                        item.status === 'no_price_found' ? 'bg-yellow-500/10' :
+                        'bg-red-500/10'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-medium truncate flex-1">{item.productName}</span>
+                        <span className={`text-xs capitalize ml-2 ${
+                          item.status === 'updated' ? 'text-green-600' : 
+                          item.status === 'no_price_found' ? 'text-yellow-600' : 'text-red-600'
+                        }`}>
+                          {item.status.replace(/_/g, ' ')}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                        <span>Current: {item.currentPrice} EGP</span>
+                        {item.amazonPrice && (
+                          <>
+                            <span>→</span>
+                            <span className="text-green-600 font-medium">
+                              Amazon: {item.amazonPrice} EGP
+                            </span>
+                          </>
+                        )}
+                        {item.source && (
+                          <a href={item.source} target="_blank" rel="noopener noreferrer" 
+                             className="text-primary hover:underline truncate max-w-[150px]">
+                            Source
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </TabsContent>
 
           <TabsContent value="export" className="mt-6">
             <div className="bg-card border border-border rounded-xl p-6">
