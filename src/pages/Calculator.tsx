@@ -5,7 +5,7 @@ import { useCalculator } from '@/hooks/useCalculator';
 import { PropertyTypeSelector } from '@/components/calculator/PropertyTypeSelector';
 import { RoomBuilder } from '@/components/calculator/RoomBuilder';
 import { RoomCustomizer } from '@/components/calculator/RoomCustomizer';
-import { QuoteSummary } from '@/components/calculator/QuoteSummary';
+import { QuoteSummaryWithCart } from '@/components/calculator/QuoteSummaryWithCart';
 import { FloorPlanUploader } from '@/components/calculator/FloorPlanUploader';
 import { useLanguage } from '@/lib/i18n';
 import { Calculator as CalculatorIcon, Zap, FileText, Clock } from 'lucide-react';
@@ -28,7 +28,7 @@ const Calculator = () => {
       case 3:
         return <RoomCustomizer />;
       case 4:
-        return <QuoteSummary />;
+        return <QuoteSummaryWithCart />;
       default:
         return <PropertyTypeSelector />;
     }
