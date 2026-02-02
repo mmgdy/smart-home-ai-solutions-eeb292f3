@@ -4,6 +4,7 @@ import { HeroSection } from '@/components/home/HeroSection';
 import { FeaturedProducts } from '@/components/home/FeaturedProducts';
 import { BrandShowcase } from '@/components/home/BrandShowcase';
 import { AIConsultantCTA } from '@/components/home/AIConsultantCTA';
+import { TrySmartLighting } from '@/components/home/TrySmartLighting';
 
 const Index = () => {
   return (
@@ -17,6 +18,7 @@ const Index = () => {
       </Helmet>
       <Layout>
         <HeroSection />
+        <TrySmartLighting />
         <FeaturedProducts />
         <BrandShowcase />
         <AIConsultantCTA />
