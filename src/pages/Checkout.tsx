@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { ArrowLeft, ArrowRight, CreditCard, Truck, Shield, Loader2, Gift } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CreditCard, Truck, Shield, Loader2, Gift, Banknote, CheckCircle } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useCart } from '@/hooks/useCart';
 import { useLanguage } from '@/lib/i18n';
 import { useToast } from '@/hooks/use-toast';
@@ -26,6 +27,17 @@ const checkoutSchema = z.object({
 
 type CheckoutFormData = z.infer<typeof checkoutSchema>;
 
+declare global {
+  interface Window {
+    Lightbox?: {
+      Checkout: {
+        configure: (config: any) => void;
+        showLightbox: () => void;
+      };
+    };
+  }
+}
+
 const Checkout = () => {
   const navigate = useNavigate();
   const { items, getTotal, clearCart } = useCart();
@@ -36,6 +48,8 @@ const Checkout = () => {
   const [errors, setErrors] = useState<Partial<Record<keyof CheckoutFormData, string>>>({});
   const [pointsDiscount, setPointsDiscount] = useState(0);
   const [pointsToRedeem, setPointsToRedeem] = useState(0);
+  const [paymentMethod, setPaymentMethod] = useState<'card' | 'cod'>('card');
+  const [payskyLoaded, setPayskyLoaded] = useState(false);
   const [formData, setFormData] = useState<CheckoutFormData>({
     firstName: '',
     lastName: '',
@@ -48,6 +62,27 @@ const Checkout = () => {
 
   const BackArrow = isRTL ? ArrowRight : ArrowLeft;
 
+  // Load PaySky LightBox script
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://grey.paysky.io:9006/invchost/JS/LightBox.js';
+    script.async = true;
+    script.onload = () => setPayskyLoaded(true);
+    script.onerror = () => {
+      console.warn('PaySky LightBox script failed to load');
+      setPayskyLoaded(false);
+    };
+    document.body.appendChild(script);
+
+    return () => {
+      // Cleanup script on unmount
+      const existingScript = document.querySelector(`script[src="${script.src}"]`);
+      if (existingScript) {
+        document.body.removeChild(existingScript);
+      }
+    };
+  }, []);
+
   // Redirect if cart is empty
   useEffect(() => {
     if (items.length === 0) {
@@ -56,7 +91,7 @@ const Checkout = () => {
   }, [items.length, navigate]);
 
   const subtotal = getTotal();
-  const shippingCost = subtotal >= 1000 ? 0 : 50; // Free shipping over 1000 EGP
+  const shippingCost = subtotal >= 1000 ? 0 : 50;
   const totalBeforeDiscount = subtotal + shippingCost;
   const total = Math.max(0, totalBeforeDiscount - pointsDiscount);
 
@@ -68,9 +103,192 @@ const Checkout = () => {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-    // Clear error when user types
     if (errors[name as keyof CheckoutFormData]) {
       setErrors(prev => ({ ...prev, [name]: undefined }));
+    }
+  };
+
+  const createOrder = async () => {
+    // Create order in database
+    const orderData = {
+      email: formData.email,
+      total: total,
+      status: 'pending',
+      stripe_session_id: paymentMethod === 'cod' ? `cod_${Date.now()}` : null,
+      shipping_address: {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        phone: formData.phone,
+        address: formData.address,
+        city: formData.city,
+        governorate: formData.governorate,
+      },
+    };
+
+    const { data: order, error: orderError } = await supabase
+      .from('orders')
+      .insert(orderData)
+      .select()
+      .single();
+
+    if (orderError) throw orderError;
+
+    // Create order items
+    const orderItems = items.map(item => ({
+      order_id: order.id,
+      product_id: item.product.id,
+      product_name: item.product.name,
+      quantity: item.quantity,
+      price: item.product.price,
+    }));
+
+    const { error: itemsError } = await supabase
+      .from('order_items')
+      .insert(orderItems);
+
+    if (itemsError) throw itemsError;
+
+    // Redeem loyalty points if any
+    if (pointsToRedeem > 0) {
+      try {
+        await supabase.rpc('redeem_loyalty_points', {
+          p_email: formData.email,
+          p_points: pointsToRedeem,
+          p_order_id: order.id,
+        });
+      } catch (redeemError) {
+        console.warn('Could not redeem loyalty points:', redeemError);
+      }
+    }
+
+    // Award loyalty points
+    try {
+      await supabase.rpc('award_loyalty_points', {
+        p_email: formData.email,
+        p_order_id: order.id,
+        p_order_total: total,
+      });
+    } catch (loyaltyError) {
+      console.warn('Could not award loyalty points:', loyaltyError);
+    }
+
+    // Send order notification email
+    try {
+      await supabase.functions.invoke('send-order-notification', {
+        body: {
+          orderId: order.id,
+          email: formData.email,
+          total: total,
+          paymentMethod: paymentMethod,
+          items: orderItems.map(item => ({
+            product_name: item.product_name,
+            quantity: item.quantity,
+            price: item.price,
+          })),
+          shippingAddress: {
+            firstName: formData.firstName,
+            lastName: formData.lastName,
+            phone: formData.phone,
+            address: formData.address,
+            city: formData.city,
+            governorate: formData.governorate,
+          },
+        },
+      });
+    } catch (emailError) {
+      console.warn('Could not send order notification:', emailError);
+    }
+
+    return order;
+  };
+
+  const handlePaySkyPayment = async () => {
+    try {
+      // Get PaySky configuration from edge function
+      const { data, error } = await supabase.functions.invoke('paysky-checkout', {
+        body: {
+          orderId: `order_${Date.now()}`,
+          amount: total,
+          merchantReference: `BZ_${Date.now()}`,
+        },
+      });
+
+      if (error || !data?.success) {
+        throw new Error(data?.error || 'Failed to initialize payment');
+      }
+
+      const config = data.config;
+
+      // Configure and show PaySky LightBox
+      if (window.Lightbox) {
+        window.Lightbox.Checkout.configure({
+          MID: config.MID,
+          TID: config.TID,
+          AmountTrxn: config.AmountTrxn,
+          MerchantReference: config.MerchantReference,
+          TrxDateTime: config.TrxDateTime,
+          SecureHash: config.SecureHash,
+          completeCallback: async (response: any) => {
+            console.log('Payment complete:', response);
+            if (response.Success) {
+              const order = await createOrder();
+              // Update order with payment reference
+              await supabase
+                .from('orders')
+                .update({ stripe_session_id: response.TransactionNo || config.MerchantReference })
+                .eq('id', order.id);
+
+              toast({
+                title: language === 'ar' ? 'تم الدفع بنجاح' : 'Payment Successful',
+                description: language === 'ar' 
+                  ? 'تم إتمام طلبك بنجاح'
+                  : 'Your order has been placed successfully',
+              });
+
+              clearCart();
+              navigate(`/order-confirmation?orderId=${order.id}`);
+            } else {
+              toast({
+                variant: 'destructive',
+                title: language === 'ar' ? 'فشل الدفع' : 'Payment Failed',
+                description: response.Message || 'Payment was not successful',
+              });
+            }
+            setIsProcessing(false);
+          },
+          errorCallback: (error: any) => {
+            console.error('Payment error:', error);
+            toast({
+              variant: 'destructive',
+              title: language === 'ar' ? 'خطأ في الدفع' : 'Payment Error',
+              description: error?.Message || 'An error occurred during payment',
+            });
+            setIsProcessing(false);
+          },
+          cancelCallback: () => {
+            console.log('Payment cancelled');
+            toast({
+              title: language === 'ar' ? 'تم إلغاء الدفع' : 'Payment Cancelled',
+              description: language === 'ar' 
+                ? 'يمكنك المحاولة مرة أخرى'
+                : 'You can try again',
+            });
+            setIsProcessing(false);
+          },
+        });
+
+        window.Lightbox.Checkout.showLightbox();
+      } else {
+        throw new Error('PaySky LightBox not loaded');
+      }
+    } catch (error: any) {
+      console.error('PaySky error:', error);
+      toast({
+        variant: 'destructive',
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error.message || 'Failed to initialize payment',
+      });
+      setIsProcessing(false);
     }
   };
 
@@ -93,80 +311,24 @@ const Checkout = () => {
     setIsProcessing(true);
 
     try {
-      // Create order in database
-      const orderData = {
-        email: formData.email,
-        total: total,
-        status: 'pending',
-        shipping_address: {
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          phone: formData.phone,
-          address: formData.address,
-          city: formData.city,
-          governorate: formData.governorate,
-        },
-      };
+      if (paymentMethod === 'card') {
+        // Process card payment via PaySky
+        await handlePaySkyPayment();
+      } else {
+        // Cash on Delivery - create order directly
+        const order = await createOrder();
 
-      const { data: order, error: orderError } = await supabase
-        .from('orders')
-        .insert(orderData)
-        .select()
-        .single();
-
-      if (orderError) throw orderError;
-
-      // Create order items
-      const orderItems = items.map(item => ({
-        order_id: order.id,
-        product_id: item.product.id,
-        product_name: item.product.name,
-        quantity: item.quantity,
-        price: item.product.price,
-      }));
-
-      const { error: itemsError } = await supabase
-        .from('order_items')
-        .insert(orderItems);
-
-      if (itemsError) throw itemsError;
-
-      // Redeem loyalty points if any
-      if (pointsToRedeem > 0) {
-        try {
-          await supabase.rpc('redeem_loyalty_points', {
-            p_email: formData.email,
-            p_points: pointsToRedeem,
-            p_order_id: order.id,
-          });
-        } catch (redeemError) {
-          console.warn('Could not redeem loyalty points:', redeemError);
-        }
-      }
-
-      // Award loyalty points (on the discounted total)
-      try {
-        await supabase.rpc('award_loyalty_points', {
-          p_email: formData.email,
-          p_order_id: order.id,
-          p_order_total: total,
+        toast({
+          title: language === 'ar' ? 'تم إنشاء الطلب بنجاح' : 'Order Created Successfully',
+          description: language === 'ar' 
+            ? 'سيتم التواصل معك لتأكيد الطلب'
+            : 'We will contact you to confirm the order',
         });
-      } catch (loyaltyError) {
-        console.warn('Could not award loyalty points:', loyaltyError);
+
+        clearCart();
+        navigate(`/order-confirmation?orderId=${order.id}`);
       }
-
-      // Success - redirect to confirmation page
-      toast({
-        title: language === 'ar' ? 'تم إنشاء الطلب بنجاح' : 'Order Created Successfully',
-        description: language === 'ar' 
-          ? 'سيتم التواصل معك قريباً لإتمام الدفع'
-          : 'We will contact you soon to complete the payment',
-      });
-
-      clearCart();
-      navigate(`/order-confirmation?orderId=${order.id}`);
-
-    } catch (error) {
+    } catch (error: any) {
       console.error('Checkout error:', error);
       toast({
         variant: 'destructive',
@@ -175,7 +337,6 @@ const Checkout = () => {
           ? 'حدث خطأ أثناء إنشاء الطلب. حاول مرة أخرى.'
           : 'An error occurred while creating your order. Please try again.',
       });
-    } finally {
       setIsProcessing(false);
     }
   };
@@ -198,11 +359,9 @@ const Checkout = () => {
     placeOrder: language === 'ar' ? 'إتمام الطلب' : 'Place Order',
     processing: language === 'ar' ? 'جاري المعالجة...' : 'Processing...',
     backToCart: language === 'ar' ? 'العودة للسلة' : 'Back to Cart',
-    securePayment: language === 'ar' ? 'دفع آمن' : 'Secure Payment',
-    fastDelivery: language === 'ar' ? 'توصيل سريع' : 'Fast Delivery',
-    paymentNote: language === 'ar' 
-      ? 'سيتم التواصل معك لإتمام الدفع عبر PaySky'
-      : 'You will be contacted to complete payment via PaySky',
+    paymentMethod: language === 'ar' ? 'طريقة الدفع' : 'Payment Method',
+    cardPayment: language === 'ar' ? 'بطاقة ائتمان / مدى' : 'Credit / Debit Card',
+    cashOnDelivery: language === 'ar' ? 'الدفع عند الاستلام' : 'Cash on Delivery',
     pointsDiscount: language === 'ar' ? 'خصم النقاط' : 'Points Discount',
   };
 
@@ -343,24 +502,70 @@ const Checkout = () => {
                   </div>
                 </div>
 
-                {/* Payment Info */}
+                {/* Payment Method */}
                 <div className="rounded-xl border border-border bg-card p-6">
-                  <h2 className="mb-4 font-display text-xl font-semibold text-foreground flex items-center gap-2">
+                  <h2 className="mb-6 font-display text-xl font-semibold text-foreground flex items-center gap-2">
                     <CreditCard className="h-5 w-5 text-primary" />
-                    {labels.securePayment}
+                    {labels.paymentMethod}
                   </h2>
-                  <div className="flex items-center gap-3 rounded-lg bg-muted/50 p-4">
-                    <Shield className="h-8 w-8 text-primary" />
-                    <div>
-                      <p className="font-medium text-foreground">PaySky</p>
-                      <p className="text-sm text-muted-foreground">{labels.paymentNote}</p>
+                  
+                  <RadioGroup
+                    value={paymentMethod}
+                    onValueChange={(value) => setPaymentMethod(value as 'card' | 'cod')}
+                    className="space-y-4"
+                  >
+                    {/* Card Payment */}
+                    <div 
+                      className={`flex items-center space-x-4 p-4 rounded-lg border-2 transition-colors cursor-pointer ${
+                        paymentMethod === 'card' 
+                          ? 'border-primary bg-primary/5' 
+                          : 'border-border hover:border-muted-foreground/50'
+                      }`}
+                      onClick={() => setPaymentMethod('card')}
+                    >
+                      <RadioGroupItem value="card" id="card" />
+                      <Label htmlFor="card" className="flex-1 cursor-pointer">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <CreditCard className="h-5 w-5 text-primary" />
+                            <div>
+                              <p className="font-medium">{labels.cardPayment}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {language === 'ar' ? 'دفع آمن عبر PaySky' : 'Secure payment via PaySky'}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <img src="https://upload.wikimedia.org/wikipedia/commons/5/5e/Visa_Inc._logo.svg" alt="Visa" className="h-6" />
+                            <img src="https://upload.wikimedia.org/wikipedia/commons/2/2a/Mastercard-logo.svg" alt="Mastercard" className="h-6" />
+                          </div>
+                        </div>
+                      </Label>
                     </div>
-                  </div>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/5/5e/Visa_Inc._logo.svg" alt="Visa" className="h-8" />
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/2/2a/Mastercard-logo.svg" alt="Mastercard" className="h-8" />
-                    <img src="https://www.meezadigital.com.eg/wp-content/uploads/2019/10/logo.png" alt="Meeza" className="h-8" />
-                  </div>
+
+                    {/* Cash on Delivery */}
+                    <div 
+                      className={`flex items-center space-x-4 p-4 rounded-lg border-2 transition-colors cursor-pointer ${
+                        paymentMethod === 'cod' 
+                          ? 'border-primary bg-primary/5' 
+                          : 'border-border hover:border-muted-foreground/50'
+                      }`}
+                      onClick={() => setPaymentMethod('cod')}
+                    >
+                      <RadioGroupItem value="cod" id="cod" />
+                      <Label htmlFor="cod" className="flex-1 cursor-pointer">
+                        <div className="flex items-center gap-3">
+                          <Banknote className="h-5 w-5 text-green-600" />
+                          <div>
+                            <p className="font-medium">{labels.cashOnDelivery}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {language === 'ar' ? 'ادفع نقداً عند استلام الطلب' : 'Pay cash when you receive your order'}
+                            </p>
+                          </div>
+                        </div>
+                      </Label>
+                    </div>
+                  </RadioGroup>
                 </div>
 
                 {/* Loyalty Points Redemption */}
@@ -462,11 +667,28 @@ const Checkout = () => {
                     </>
                   ) : (
                     <>
-                      {labels.placeOrder}
-                      <CreditCard className="h-4 w-4" />
+                      {paymentMethod === 'card' ? (
+                        <>
+                          <CreditCard className="h-4 w-4" />
+                          {language === 'ar' ? 'الدفع بالبطاقة' : 'Pay with Card'}
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle className="h-4 w-4" />
+                          {labels.placeOrder}
+                        </>
+                      )}
                     </>
                   )}
                 </Button>
+
+                {/* Security Badge */}
+                <div className="mt-4 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                  <Shield className="h-4 w-4" />
+                  <span>
+                    {language === 'ar' ? 'معاملات آمنة ومشفرة' : 'Secure & encrypted transactions'}
+                  </span>
+                </div>
               </div>
             </div>
           </form>

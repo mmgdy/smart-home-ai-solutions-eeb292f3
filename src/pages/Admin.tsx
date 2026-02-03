@@ -3,13 +3,14 @@ import { Helmet } from 'react-helmet-async';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Upload, Loader2, CheckCircle, AlertCircle, Image, FileText, Sparkles, Download, Filter, DollarSign, CreditCard } from 'lucide-react';
+import { Upload, Loader2, CheckCircle, AlertCircle, Image, FileText, Sparkles, Download, Filter, DollarSign, CreditCard, Package } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { PaymentSettings } from '@/components/admin/PaymentSettings';
+import { OrdersManagement } from '@/components/admin/OrdersManagement';
 
 interface ProductExport {
   id: string;
@@ -370,8 +371,12 @@ export default function Admin() {
       <div className="container mx-auto px-4 py-12">
         <h1 className="text-4xl font-display font-bold mb-8">Product Management</h1>
         
-        <Tabs defaultValue="prices" className="max-w-3xl" onValueChange={(v) => v === 'export' && fetchExportStats()}>
-          <TabsList className="grid w-full grid-cols-6">
+        <Tabs defaultValue="orders" className="max-w-4xl" onValueChange={(v) => v === 'export' && fetchExportStats()}>
+          <TabsList className="grid w-full grid-cols-7">
+            <TabsTrigger value="orders">
+              <Package className="w-4 h-4 mr-2" />
+              Orders
+            </TabsTrigger>
             <TabsTrigger value="prices">
               <DollarSign className="w-4 h-4 mr-2" />
               Prices
@@ -397,6 +402,12 @@ export default function Admin() {
               AI Desc
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="orders" className="mt-6">
+            <div className="bg-card border border-border rounded-xl p-6">
+              <OrdersManagement />
+            </div>
+          </TabsContent>
 
           <TabsContent value="payment" className="mt-6">
             <PaymentSettings />

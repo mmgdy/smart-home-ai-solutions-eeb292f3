@@ -5,6 +5,11 @@ import { FeaturedProducts } from '@/components/home/FeaturedProducts';
 import { BrandShowcase } from '@/components/home/BrandShowcase';
 import { AIConsultantCTA } from '@/components/home/AIConsultantCTA';
 import { TrySmartLighting } from '@/components/home/TrySmartLighting';
+import { TryMovieMode } from '@/components/home/TryMovieMode';
+import { TryCurtainControl } from '@/components/home/TryCurtainControl';
+import { TryClimateControl } from '@/components/home/TryClimateControl';
+import { TrySecuritySystem } from '@/components/home/TrySecuritySystem';
+import { WhyChooseUs } from '@/components/home/WhyChooseUs';
 
 const Index = () => {
   return (
@@ -18,7 +23,12 @@ const Index = () => {
       </Helmet>
       <Layout>
         <HeroSection />
+        <WhyChooseUs />
         <TrySmartLighting />
+        <TryMovieMode />
+        <TryCurtainControl />
+        <TryClimateControl />
+        <TrySecuritySystem />
         <FeaturedProducts />
         <BrandShowcase />
         <AIConsultantCTA />
