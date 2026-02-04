@@ -6,11 +6,14 @@ import { useCart } from '@/hooks/useCart';
 import { useLanguage } from '@/lib/i18n';
 import { LanguageToggle } from './LanguageToggle';
 import { cn } from '@/lib/utils';
-import logoImage from '@/assets/logo.png';
+import { supabase } from '@/integrations/supabase/client';
+import defaultLogoImage from '@/assets/logo.png';
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [logoUrl, setLogoUrl] = useState<string>(defaultLogoImage);
+  const [logoSize, setLogoSize] = useState(100);
   const itemCount = useCart((state) => state.getItemCount());
   const { t, isRTL } = useLanguage();
 
@@ -20,6 +23,30 @@ export function Header() {
     };
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Load logo settings from database
+  useEffect(() => {
+    const loadLogoSettings = async () => {
+      try {
+        const { data: settings } = await supabase
+          .from('admin_settings')
+          .select('key, value')
+          .in('key', ['logo_url', 'logo_size']);
+
+        if (settings) {
+          settings.forEach(s => {
+            if (s.key === 'logo_url' && s.value) setLogoUrl(s.value);
+            if (s.key === 'logo_size' && s.value) setLogoSize(parseInt(s.value));
+          });
+        }
+      } catch (error) {
+        // Use default logo if settings can't be loaded
+        console.log('Using default logo');
+      }
+    };
+
+    loadLogoSettings();
   }, []);
 
   const navLinks = [
@@ -40,7 +67,12 @@ export function Header() {
       <div className="container flex h-20 items-center justify-between px-6 md:px-12">
         {/* Logo */}
         <Link to="/" className="flex items-center">
-          <img src={logoImage} alt="Baytzaki" className="h-24 md:h-32 object-contain" style={{ background: 'transparent' }} />
+          <img 
+            src={logoUrl} 
+            alt="Baytzaki" 
+            style={{ height: `${logoSize}px` }}
+            className="object-contain" 
+          />
         </Link>
 
         {/* Desktop Navigation - Minimal, spaced out */}

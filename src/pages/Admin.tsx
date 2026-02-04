@@ -3,7 +3,7 @@ import { Helmet } from 'react-helmet-async';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Upload, Loader2, CheckCircle, AlertCircle, Image, FileText, Sparkles, Download, Filter, DollarSign, CreditCard, Package } from 'lucide-react';
+import { Upload, Loader2, CheckCircle, AlertCircle, Image, FileText, Sparkles, Download, Filter, DollarSign, CreditCard, Package, Settings } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
@@ -11,6 +11,9 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { PaymentSettings } from '@/components/admin/PaymentSettings';
 import { OrdersManagement } from '@/components/admin/OrdersManagement';
+import { AdminLogin } from '@/components/admin/AdminLogin';
+import { SiteSettings } from '@/components/admin/SiteSettings';
+import { useAdminAuth } from '@/hooks/useAdminAuth';
 
 interface ProductExport {
   id: string;
@@ -28,6 +31,7 @@ interface ProductExport {
 }
 
 export default function Admin() {
+  const { isLoading: authLoading, isAuthenticated, token, login, logout } = useAdminAuth();
   const [isImporting, setIsImporting] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [isEnhancing, setIsEnhancing] = useState(false);
@@ -42,6 +46,20 @@ export default function Admin() {
   const [priceUpdateProgress, setPriceUpdateProgress] = useState(0);
   const [selectedPriceBrands, setSelectedPriceBrands] = useState<string[]>(['SONOFF', 'MOES', 'TP-Link', 'Lezn', 'Akubela']);
   const { toast } = useToast();
+
+  // Show loading state
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Show login if not authenticated
+  if (!isAuthenticated || !token) {
+    return <AdminLogin onLogin={login} />;
+  }
 
   // Fetch export stats on mount
   const fetchExportStats = async () => {
@@ -72,7 +90,6 @@ export default function Admin() {
   const handleExportCSV = async () => {
     setIsExporting(true);
     try {
-      // Build query
       let query = supabase
         .from('products')
         .select('id, name, slug, brand, price, original_price, stock, protocol, description, image_url, featured, categories(name)')
@@ -82,7 +99,6 @@ export default function Admin() {
       const { data: products, error } = await query;
       if (error) throw error;
 
-      // Filter by selected categories and brands
       let filteredProducts = products || [];
       
       if (selectedCategories.length > 0) {
@@ -97,7 +113,6 @@ export default function Admin() {
         );
       }
 
-      // Sort by category then brand then name (like sonoff.tech)
       filteredProducts.sort((a, b) => {
         const catA = (a.categories as any)?.name || 'Uncategorized';
         const catB = (b.categories as any)?.name || 'Uncategorized';
@@ -110,65 +125,40 @@ export default function Admin() {
         return a.name.localeCompare(b.name);
       });
 
-      // Generate CSV content
       const headers = [
-        'Category',
-        'Brand',
-        'Product Name',
-        'Price (EGP)',
-        'Original Price (EGP)',
-        'Discount %',
-        'Stock',
-        'Protocol',
-        'Featured',
-        'Product URL',
-        'Image URL',
-        'Description'
+        'Category', 'Brand', 'Product Name', 'Price (EGP)', 'Original Price (EGP)',
+        'Discount %', 'Stock', 'Protocol', 'Featured', 'Product URL', 'Image URL', 'Description'
       ];
 
       const rows = filteredProducts.map(p => {
         const discount = p.original_price && p.original_price > p.price 
-          ? Math.round(((p.original_price - p.price) / p.original_price) * 100)
-          : 0;
+          ? Math.round(((p.original_price - p.price) / p.original_price) * 100) : 0;
         
         return [
-          (p.categories as any)?.name || 'Uncategorized',
-          p.brand || 'Other',
-          p.name,
-          p.price,
-          p.original_price || '',
-          discount || '',
-          p.stock,
-          p.protocol || '',
-          p.featured ? 'Yes' : 'No',
-          `https://baytzaki.com/products/${p.slug}`,
-          p.image_url || '',
-          (p.description || '').replace(/"/g, '""').replace(/\n/g, ' ')
+          (p.categories as any)?.name || 'Uncategorized', p.brand || 'Other', p.name,
+          p.price, p.original_price || '', discount || '', p.stock, p.protocol || '',
+          p.featured ? 'Yes' : 'No', `https://baytzaki.com/products/${p.slug}`,
+          p.image_url || '', (p.description || '').replace(/"/g, '""').replace(/\n/g, ' ')
         ];
       });
 
-      // Create CSV string
       const csvContent = [
         headers.join(','),
         ...rows.map(row => 
           row.map(cell => 
             typeof cell === 'string' && (cell.includes(',') || cell.includes('"') || cell.includes('\n'))
-              ? `"${cell}"`
-              : cell
+              ? `"${cell}"` : cell
           ).join(',')
         )
       ].join('\n');
 
-      // Download file
       const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
       
       const dateStr = new Date().toISOString().split('T')[0];
-      const filterStr = selectedCategories.length > 0 || selectedBrands.length > 0 
-        ? '-filtered' 
-        : '-all';
+      const filterStr = selectedCategories.length > 0 || selectedBrands.length > 0 ? '-filtered' : '-all';
       link.download = `baytzaki-products${filterStr}-${dateStr}.csv`;
       
       document.body.appendChild(link);
@@ -176,17 +166,9 @@ export default function Admin() {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
 
-      toast({
-        title: 'Export Complete',
-        description: `Exported ${filteredProducts.length} products to CSV`,
-      });
+      toast({ title: 'Export Complete', description: `Exported ${filteredProducts.length} products to CSV` });
     } catch (error: any) {
-      console.error('Export error:', error);
-      toast({
-        title: 'Export Failed',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast({ title: 'Export Failed', description: error.message, variant: 'destructive' });
     } finally {
       setIsExporting(false);
     }
@@ -197,32 +179,18 @@ export default function Admin() {
     setResult(null);
 
     try {
-      // Fetch the CSV file
       const response = await fetch('/products-import.csv');
       if (!response.ok) throw new Error('Failed to fetch CSV file');
       
       const csvContent = await response.text();
-      
-      // Call edge function
-      const { data, error } = await supabase.functions.invoke('import-products', {
-        body: { csvContent }
-      });
-
+      const { data, error } = await supabase.functions.invoke('import-products', { body: { csvContent } });
       if (error) throw error;
 
       setResult(data);
-      toast({
-        title: 'Import Complete',
-        description: `Successfully imported ${data.inserted} products`,
-      });
+      toast({ title: 'Import Complete', description: `Successfully imported ${data.inserted} products` });
     } catch (error: any) {
-      console.error('Import error:', error);
       setResult({ error: error.message });
-      toast({
-        title: 'Import Failed',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast({ title: 'Import Failed', description: error.message, variant: 'destructive' });
     } finally {
       setIsImporting(false);
     }
@@ -234,9 +202,8 @@ export default function Admin() {
     setEnhanceProgress(0);
 
     try {
-      // Process in batches
       const batchSize = 5;
-      const totalBatches = 2; // Process 10 products total
+      const totalBatches = 2;
       
       for (let i = 0; i < totalBatches; i++) {
         const { data, error } = await supabase.functions.invoke('enhance-products', {
@@ -244,28 +211,14 @@ export default function Admin() {
         });
 
         if (error) throw error;
-
-        if (data?.results) {
-          setEnhanceResults(prev => [...prev, ...data.results]);
-        }
-        
+        if (data?.results) setEnhanceResults(prev => [...prev, ...data.results]);
         setEnhanceProgress(((i + 1) / totalBatches) * 100);
-        
-        // If no more products to process, break
         if (!data?.results?.length || data.results.length < batchSize) break;
       }
 
-      toast({
-        title: 'Image Search Complete',
-        description: 'Product images have been updated',
-      });
+      toast({ title: 'Image Search Complete', description: 'Product images have been updated' });
     } catch (error: any) {
-      console.error('Enhancement error:', error);
-      toast({
-        title: 'Image Search Failed',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast({ title: 'Image Search Failed', description: error.message, variant: 'destructive' });
     } finally {
       setIsEnhancing(false);
     }
@@ -277,9 +230,8 @@ export default function Admin() {
     setEnhanceProgress(0);
 
     try {
-      // Process in batches
       const batchSize = 10;
-      const totalBatches = 5; // Process 50 products total
+      const totalBatches = 5;
       
       for (let i = 0; i < totalBatches; i++) {
         const { data, error } = await supabase.functions.invoke('enhance-products', {
@@ -287,25 +239,13 @@ export default function Admin() {
         });
 
         if (error) throw error;
-
-        if (data?.results) {
-          setEnhanceResults(prev => [...prev, ...data.results]);
-        }
-        
+        if (data?.results) setEnhanceResults(prev => [...prev, ...data.results]);
         setEnhanceProgress(((i + 1) / totalBatches) * 100);
       }
 
-      toast({
-        title: 'Description Generation Complete',
-        description: 'Product descriptions have been updated',
-      });
+      toast({ title: 'Description Generation Complete', description: 'Product descriptions have been updated' });
     } catch (error: any) {
-      console.error('Enhancement error:', error);
-      toast({
-        title: 'Description Generation Failed',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast({ title: 'Description Generation Failed', description: error.message, variant: 'destructive' });
     } finally {
       setIsEnhancing(false);
     }
@@ -318,39 +258,22 @@ export default function Admin() {
 
     try {
       const batchSize = 3;
-      const totalBatches = 10; // Process 30 products
+      const totalBatches = 10;
       
       for (let i = 0; i < totalBatches; i++) {
         const { data, error } = await supabase.functions.invoke('update-prices-amazon', {
-          body: { 
-            batchSize, 
-            brands: selectedPriceBrands.length > 0 ? selectedPriceBrands : undefined 
-          }
+          body: { batchSize, brands: selectedPriceBrands.length > 0 ? selectedPriceBrands : undefined }
         });
 
         if (error) throw error;
-
-        if (data?.results) {
-          setPriceUpdateResults(prev => [...prev, ...data.results]);
-        }
-        
+        if (data?.results) setPriceUpdateResults(prev => [...prev, ...data.results]);
         setPriceUpdateProgress(((i + 1) / totalBatches) * 100);
-        
-        // Break if no more products
         if (!data?.results?.length || data.results.length < batchSize) break;
       }
 
-      toast({
-        title: 'Price Update Complete',
-        description: 'Product prices have been checked against Amazon Egypt',
-      });
+      toast({ title: 'Price Update Complete', description: 'Product prices have been checked against Amazon Egypt' });
     } catch (error: any) {
-      console.error('Price update error:', error);
-      toast({
-        title: 'Price Update Failed',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast({ title: 'Price Update Failed', description: error.message, variant: 'destructive' });
     } finally {
       setIsUpdatingPrices(false);
     }
@@ -369,37 +292,41 @@ export default function Admin() {
       </Helmet>
 
       <div className="container mx-auto px-4 py-12">
-        <h1 className="text-4xl font-display font-bold mb-8">Product Management</h1>
+        <h1 className="text-4xl font-display font-bold mb-8">Admin Dashboard</h1>
         
         <Tabs defaultValue="orders" className="max-w-4xl" onValueChange={(v) => v === 'export' && fetchExportStats()}>
-          <TabsList className="grid w-full grid-cols-7">
+          <TabsList className="grid w-full grid-cols-8">
             <TabsTrigger value="orders">
-              <Package className="w-4 h-4 mr-2" />
-              Orders
+              <Package className="w-4 h-4 mr-1" />
+              <span className="hidden sm:inline">Orders</span>
+            </TabsTrigger>
+            <TabsTrigger value="settings">
+              <Settings className="w-4 h-4 mr-1" />
+              <span className="hidden sm:inline">Site</span>
             </TabsTrigger>
             <TabsTrigger value="prices">
-              <DollarSign className="w-4 h-4 mr-2" />
-              Prices
+              <DollarSign className="w-4 h-4 mr-1" />
+              <span className="hidden sm:inline">Prices</span>
             </TabsTrigger>
             <TabsTrigger value="payment">
-              <CreditCard className="w-4 h-4 mr-2" />
-              Payment
+              <CreditCard className="w-4 h-4 mr-1" />
+              <span className="hidden sm:inline">Payment</span>
             </TabsTrigger>
             <TabsTrigger value="export">
-              <Download className="w-4 h-4 mr-2" />
-              Export
+              <Download className="w-4 h-4 mr-1" />
+              <span className="hidden sm:inline">Export</span>
             </TabsTrigger>
             <TabsTrigger value="import">
-              <Upload className="w-4 h-4 mr-2" />
-              Import
+              <Upload className="w-4 h-4 mr-1" />
+              <span className="hidden sm:inline">Import</span>
             </TabsTrigger>
             <TabsTrigger value="images">
-              <Image className="w-4 h-4 mr-2" />
-              Images
+              <Image className="w-4 h-4 mr-1" />
+              <span className="hidden sm:inline">Images</span>
             </TabsTrigger>
             <TabsTrigger value="descriptions">
-              <FileText className="w-4 h-4 mr-2" />
-              AI Desc
+              <FileText className="w-4 h-4 mr-1" />
+              <span className="hidden sm:inline">AI</span>
             </TabsTrigger>
           </TabsList>
 
@@ -407,6 +334,10 @@ export default function Admin() {
             <div className="bg-card border border-border rounded-xl p-6">
               <OrdersManagement />
             </div>
+          </TabsContent>
+
+          <TabsContent value="settings" className="mt-6">
+            <SiteSettings adminToken={token} onLogout={logout} />
           </TabsContent>
 
           <TabsContent value="payment" className="mt-6">
@@ -420,8 +351,7 @@ export default function Admin() {
                 Update Prices from Amazon Egypt
               </h2>
               <p className="text-muted-foreground mb-6">
-                Uses AI-powered search to find current prices on Amazon Egypt, Noon, and Jumia. 
-                Select brands to update and click the button to start.
+                Uses AI-powered search to find current prices on Amazon Egypt, Noon, and Jumia.
               </p>
 
               <div className="mb-6 p-4 bg-muted/50 rounded-lg">
@@ -437,82 +367,48 @@ export default function Admin() {
                         checked={selectedPriceBrands.includes(brand)}
                         onCheckedChange={() => togglePriceBrand(brand)}
                       />
-                      <Label htmlFor={`price-brand-${brand}`} className="text-sm cursor-pointer">
-                        {brand}
-                      </Label>
+                      <Label htmlFor={`price-brand-${brand}`} className="text-sm cursor-pointer">{brand}</Label>
                     </div>
                   ))}
                 </div>
               </div>
               
-              <Button 
-                onClick={handleUpdatePrices} 
-                disabled={isUpdatingPrices}
-                size="lg"
-                className="w-full"
-              >
+              <Button onClick={handleUpdatePrices} disabled={isUpdatingPrices} size="lg" className="w-full">
                 {isUpdatingPrices ? (
-                  <>
-                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                    Searching Amazon Egypt...
-                  </>
+                  <><Loader2 className="w-5 h-5 mr-2 animate-spin" />Searching Amazon Egypt...</>
                 ) : (
-                  <>
-                    <DollarSign className="w-5 h-5 mr-2" />
-                    Update Prices from Amazon Egypt
-                  </>
+                  <><DollarSign className="w-5 h-5 mr-2" />Update Prices from Amazon Egypt</>
                 )}
               </Button>
 
               {isUpdatingPrices && (
                 <div className="mt-4">
                   <Progress value={priceUpdateProgress} className="h-2" />
-                  <p className="text-sm text-muted-foreground mt-2">
-                    Processing... {Math.round(priceUpdateProgress)}%
-                  </p>
+                  <p className="text-sm text-muted-foreground mt-2">Processing... {Math.round(priceUpdateProgress)}%</p>
                 </div>
               )}
             </div>
 
             {priceUpdateResults.length > 0 && (
               <div className="mt-6 bg-card border border-border rounded-xl p-6">
-                <h3 className="font-semibold mb-4">
-                  Results ({priceUpdateResults.length} products checked)
-                </h3>
+                <h3 className="font-semibold mb-4">Results ({priceUpdateResults.length} products checked)</h3>
                 <div className="space-y-2 max-h-96 overflow-y-auto">
                   {priceUpdateResults.map((item, i) => (
-                    <div 
-                      key={i} 
-                      className={`p-3 rounded-lg text-sm ${
-                        item.status === 'updated' ? 'bg-green-500/10' :
-                        item.status === 'no_price_found' ? 'bg-yellow-500/10' :
-                        'bg-red-500/10'
-                      }`}
-                    >
+                    <div key={i} className={`p-3 rounded-lg text-sm ${
+                      item.status === 'updated' ? 'bg-green-500/10' :
+                      item.status === 'no_price_found' ? 'bg-yellow-500/10' : 'bg-red-500/10'
+                    }`}>
                       <div className="flex items-center justify-between mb-1">
                         <span className="font-medium truncate flex-1">{item.productName}</span>
                         <span className={`text-xs capitalize ml-2 ${
                           item.status === 'updated' ? 'text-green-600' : 
                           item.status === 'no_price_found' ? 'text-yellow-600' : 'text-red-600'
-                        }`}>
-                          {item.status.replace(/_/g, ' ')}
-                        </span>
+                        }`}>{item.status.replace(/_/g, ' ')}</span>
                       </div>
                       <div className="flex items-center gap-4 text-xs text-muted-foreground">
                         <span>Current: {item.currentPrice} EGP</span>
                         {item.amazonPrice && (
-                          <>
-                            <span>→</span>
-                            <span className="text-green-600 font-medium">
-                              Amazon: {item.amazonPrice} EGP
-                            </span>
-                          </>
-                        )}
-                        {item.source && (
-                          <a href={item.source} target="_blank" rel="noopener noreferrer" 
-                             className="text-primary hover:underline truncate max-w-[150px]">
-                            Source
-                          </a>
+                          <><span>→</span><span className="text-green-600 font-medium">Amazon: {item.amazonPrice} EGP</span></>
                         )}
                       </div>
                     </div>
@@ -529,71 +425,44 @@ export default function Admin() {
                 Export Products to CSV
               </h2>
               <p className="text-muted-foreground mb-6">
-                Export all products organized by category and brand (like sonoff.tech). 
-                Use filters to export specific segments.
+                Export all products organized by category and brand.
               </p>
 
               {exportStats && (
                 <div className="mb-6 p-4 bg-muted/50 rounded-lg">
-                  <p className="text-sm font-medium mb-4">
-                    Total Products: <span className="text-primary">{exportStats.total}</span>
-                  </p>
+                  <p className="text-sm font-medium mb-4">Total Products: <span className="text-primary">{exportStats.total}</span></p>
                   
-                  {/* Category Filters */}
                   <div className="mb-4">
                     <div className="flex items-center gap-2 mb-2">
                       <Filter className="w-4 h-4" />
                       <span className="text-sm font-medium">Filter by Category:</span>
                       {selectedCategories.length > 0 && (
-                        <button 
-                          onClick={() => setSelectedCategories([])}
-                          className="text-xs text-primary hover:underline"
-                        >
-                          Clear
-                        </button>
+                        <button onClick={() => setSelectedCategories([])} className="text-xs text-primary hover:underline">Clear</button>
                       )}
                     </div>
                     <div className="flex flex-wrap gap-3">
                       {exportStats.categories.map(cat => (
                         <div key={cat} className="flex items-center space-x-2">
-                          <Checkbox 
-                            id={`cat-${cat}`} 
-                            checked={selectedCategories.includes(cat)}
-                            onCheckedChange={() => toggleCategory(cat)}
-                          />
-                          <Label htmlFor={`cat-${cat}`} className="text-sm cursor-pointer">
-                            {cat}
-                          </Label>
+                          <Checkbox id={`cat-${cat}`} checked={selectedCategories.includes(cat)} onCheckedChange={() => toggleCategory(cat)} />
+                          <Label htmlFor={`cat-${cat}`} className="text-sm cursor-pointer">{cat}</Label>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  {/* Brand Filters */}
                   <div>
                     <div className="flex items-center gap-2 mb-2">
                       <Filter className="w-4 h-4" />
                       <span className="text-sm font-medium">Filter by Brand:</span>
                       {selectedBrands.length > 0 && (
-                        <button 
-                          onClick={() => setSelectedBrands([])}
-                          className="text-xs text-primary hover:underline"
-                        >
-                          Clear
-                        </button>
+                        <button onClick={() => setSelectedBrands([])} className="text-xs text-primary hover:underline">Clear</button>
                       )}
                     </div>
                     <div className="flex flex-wrap gap-3">
                       {exportStats.brands.map(brand => (
                         <div key={brand} className="flex items-center space-x-2">
-                          <Checkbox 
-                            id={`brand-${brand}`} 
-                            checked={selectedBrands.includes(brand)}
-                            onCheckedChange={() => toggleBrand(brand)}
-                          />
-                          <Label htmlFor={`brand-${brand}`} className="text-sm cursor-pointer">
-                            {brand}
-                          </Label>
+                          <Checkbox id={`brand-${brand}`} checked={selectedBrands.includes(brand)} onCheckedChange={() => toggleBrand(brand)} />
+                          <Label htmlFor={`brand-${brand}`} className="text-sm cursor-pointer">{brand}</Label>
                         </div>
                       ))}
                     </div>
@@ -601,24 +470,11 @@ export default function Admin() {
                 </div>
               )}
               
-              <Button 
-                onClick={handleExportCSV} 
-                disabled={isExporting}
-                size="lg"
-                className="w-full"
-              >
+              <Button onClick={handleExportCSV} disabled={isExporting} size="lg" className="w-full">
                 {isExporting ? (
-                  <>
-                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                    Exporting...
-                  </>
+                  <><Loader2 className="w-5 h-5 mr-2 animate-spin" />Exporting...</>
                 ) : (
-                  <>
-                    <Download className="w-5 h-5 mr-2" />
-                    {selectedCategories.length > 0 || selectedBrands.length > 0 
-                      ? 'Export Filtered Products' 
-                      : 'Export All Products'}
-                  </>
+                  <><Download className="w-5 h-5 mr-2" />{selectedCategories.length > 0 || selectedBrands.length > 0 ? 'Export Filtered Products' : 'Export All Products'}</>
                 )}
               </Button>
             </div>
@@ -627,32 +483,13 @@ export default function Admin() {
           <TabsContent value="import" className="mt-6">
             <div className="bg-card border border-border rounded-xl p-6 mb-8">
               <h2 className="text-xl font-semibold mb-4">Import Products from CSV</h2>
-              <p className="text-muted-foreground mb-6">
-                This will import products from the uploaded CSV file with smart price conversion:
-              </p>
-              <ul className="list-disc list-inside text-muted-foreground mb-6 space-y-2">
-                <li>SONOFF products: Prices converted to EGP based on Egyptian market research</li>
-                <li>MOES, Lezn, Akubela: Prices kept as-is (already in EGP)</li>
-                <li>Categories auto-assigned based on product names</li>
-                <li>Duplicate/furniture products filtered out</li>
-              </ul>
+              <p className="text-muted-foreground mb-6">This will import products from the uploaded CSV file with smart price conversion.</p>
               
-              <Button 
-                onClick={handleImport} 
-                disabled={isImporting}
-                size="lg"
-                className="w-full"
-              >
+              <Button onClick={handleImport} disabled={isImporting} size="lg" className="w-full">
                 {isImporting ? (
-                  <>
-                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                    Importing Products...
-                  </>
+                  <><Loader2 className="w-5 h-5 mr-2 animate-spin" />Importing Products...</>
                 ) : (
-                  <>
-                    <Upload className="w-5 h-5 mr-2" />
-                    Start Import
-                  </>
+                  <><Upload className="w-5 h-5 mr-2" />Start Import</>
                 )}
               </Button>
             </div>
@@ -668,27 +505,12 @@ export default function Admin() {
                     </div>
                   </div>
                 ) : (
-                  <div className="space-y-4">
-                    <div className="flex items-start gap-3">
-                      <CheckCircle className="w-6 h-6 text-primary flex-shrink-0" />
-                      <div>
-                        <h3 className="font-semibold text-primary">Import Successful</h3>
-                        <p className="text-muted-foreground">
-                          Parsed: {result.total_parsed} products | Imported: {result.inserted} products
-                        </p>
-                      </div>
+                  <div className="flex items-start gap-3">
+                    <CheckCircle className="w-6 h-6 text-primary flex-shrink-0" />
+                    <div>
+                      <h3 className="font-semibold text-primary">Import Successful</h3>
+                      <p className="text-muted-foreground">Parsed: {result.total_parsed} | Imported: {result.inserted}</p>
                     </div>
-                    
-                    {result.sample && (
-                      <div className="mt-4">
-                        <h4 className="font-medium mb-2">Sample Products:</h4>
-                        <div className="bg-muted/50 rounded-lg p-4 text-sm">
-                          <pre className="whitespace-pre-wrap">
-                            {JSON.stringify(result.sample, null, 2)}
-                          </pre>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 )}
               </div>
@@ -701,36 +523,20 @@ export default function Admin() {
                 <Image className="w-5 h-5 text-primary" />
                 Find Missing Product Images
               </h2>
-              <p className="text-muted-foreground mb-6">
-                Uses AI-powered web search to find official product images from manufacturers and retailers.
-                This will update products that currently have no image.
-              </p>
+              <p className="text-muted-foreground mb-6">Uses AI to find official product images from manufacturers.</p>
               
-              <Button 
-                onClick={handleFindImages} 
-                disabled={isEnhancing}
-                size="lg"
-                className="w-full"
-              >
+              <Button onClick={handleFindImages} disabled={isEnhancing} size="lg" className="w-full">
                 {isEnhancing ? (
-                  <>
-                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                    Searching for Images...
-                  </>
+                  <><Loader2 className="w-5 h-5 mr-2 animate-spin" />Searching for Images...</>
                 ) : (
-                  <>
-                    <Sparkles className="w-5 h-5 mr-2" />
-                    Find Missing Images
-                  </>
+                  <><Sparkles className="w-5 h-5 mr-2" />Find Missing Images</>
                 )}
               </Button>
 
               {isEnhancing && (
                 <div className="mt-4">
                   <Progress value={enhanceProgress} className="h-2" />
-                  <p className="text-sm text-muted-foreground mt-2">
-                    Processing... {Math.round(enhanceProgress)}%
-                  </p>
+                  <p className="text-sm text-muted-foreground mt-2">Processing... {Math.round(enhanceProgress)}%</p>
                 </div>
               )}
             </div>
@@ -740,14 +546,10 @@ export default function Admin() {
                 <h3 className="font-semibold mb-4">Results ({enhanceResults.length} products)</h3>
                 <div className="space-y-2 max-h-96 overflow-y-auto">
                   {enhanceResults.map((item, i) => (
-                    <div 
-                      key={i} 
-                      className={`p-3 rounded-lg text-sm flex items-center justify-between ${
-                        item.status === 'updated' ? 'bg-green-500/10 text-green-600' :
-                        item.status === 'no_image_found' ? 'bg-yellow-500/10 text-yellow-600' :
-                        'bg-red-500/10 text-red-600'
-                      }`}
-                    >
+                    <div key={i} className={`p-3 rounded-lg text-sm flex items-center justify-between ${
+                      item.status === 'updated' ? 'bg-green-500/10 text-green-600' :
+                      item.status === 'no_image_found' ? 'bg-yellow-500/10 text-yellow-600' : 'bg-red-500/10 text-red-600'
+                    }`}>
                       <span className="truncate flex-1">{item.name}</span>
                       <span className="ml-2 capitalize">{item.status.replace('_', ' ')}</span>
                     </div>
@@ -763,35 +565,20 @@ export default function Admin() {
                 <FileText className="w-5 h-5 text-primary" />
                 Generate AI Descriptions
               </h2>
-              <p className="text-muted-foreground mb-6">
-                Uses AI to generate professional, compelling product descriptions optimized for the Egyptian smart home market.
-              </p>
+              <p className="text-muted-foreground mb-6">Uses AI to generate professional product descriptions.</p>
               
-              <Button 
-                onClick={handleGenerateDescriptions} 
-                disabled={isEnhancing}
-                size="lg"
-                className="w-full"
-              >
+              <Button onClick={handleGenerateDescriptions} disabled={isEnhancing} size="lg" className="w-full">
                 {isEnhancing ? (
-                  <>
-                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                    Generating Descriptions...
-                  </>
+                  <><Loader2 className="w-5 h-5 mr-2 animate-spin" />Generating Descriptions...</>
                 ) : (
-                  <>
-                    <Sparkles className="w-5 h-5 mr-2" />
-                    Generate AI Descriptions
-                  </>
+                  <><Sparkles className="w-5 h-5 mr-2" />Generate AI Descriptions</>
                 )}
               </Button>
 
               {isEnhancing && (
                 <div className="mt-4">
                   <Progress value={enhanceProgress} className="h-2" />
-                  <p className="text-sm text-muted-foreground mt-2">
-                    Processing... {Math.round(enhanceProgress)}%
-                  </p>
+                  <p className="text-sm text-muted-foreground mt-2">Processing... {Math.round(enhanceProgress)}%</p>
                 </div>
               )}
             </div>
@@ -801,24 +588,12 @@ export default function Admin() {
                 <h3 className="font-semibold mb-4">Results ({enhanceResults.length} products)</h3>
                 <div className="space-y-3 max-h-96 overflow-y-auto">
                   {enhanceResults.map((item, i) => (
-                    <div 
-                      key={i} 
-                      className={`p-3 rounded-lg text-sm ${
-                        item.status === 'updated' ? 'bg-green-500/10' :
-                        'bg-yellow-500/10'
-                      }`}
-                    >
+                    <div key={i} className={`p-3 rounded-lg text-sm ${item.status === 'updated' ? 'bg-green-500/10' : 'bg-yellow-500/10'}`}>
                       <div className="flex items-center justify-between mb-1">
                         <span className="font-medium truncate">{item.name}</span>
-                        <span className={`text-xs capitalize ${
-                          item.status === 'updated' ? 'text-green-600' : 'text-yellow-600'
-                        }`}>
-                          {item.status}
-                        </span>
+                        <span className={`text-xs capitalize ${item.status === 'updated' ? 'text-green-600' : 'text-yellow-600'}`}>{item.status}</span>
                       </div>
-                      {item.description && (
-                        <p className="text-muted-foreground text-xs">{item.description}</p>
-                      )}
+                      {item.description && <p className="text-muted-foreground text-xs">{item.description}</p>}
                     </div>
                   ))}
                 </div>
