@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { ArrowLeft, ArrowRight, CreditCard, Truck, Shield, Loader2, Gift, Banknote, CheckCircle } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CreditCard, Truck, Shield, Loader2, Gift, Banknote, CheckCircle, LogIn } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +12,8 @@ import { useLanguage } from '@/lib/i18n';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { PointsRedemption } from '@/components/loyalty/PointsRedemption';
+import { useAuth } from '@/hooks/useAuth';
+import { AuthButton } from '@/components/auth/AuthButton';
 import { z } from 'zod';
 
 // Validation schema
@@ -43,6 +45,7 @@ const Checkout = () => {
   const { items, getTotal, clearCart } = useCart();
   const { t, formatPrice, isRTL, language } = useLanguage();
   const { toast } = useToast();
+  const { user } = useAuth();
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<keyof CheckoutFormData, string>>>({});
@@ -60,28 +63,55 @@ const Checkout = () => {
     governorate: '',
   });
 
+  // Auto-fill email when user is logged in
+  useEffect(() => {
+    if (user?.email && !formData.email) {
+      const fullName = user.user_metadata?.full_name || '';
+      const nameParts = fullName.split(' ');
+      setFormData(prev => ({
+        ...prev,
+        email: user.email || '',
+        firstName: prev.firstName || nameParts[0] || '',
+        lastName: prev.lastName || nameParts.slice(1).join(' ') || '',
+      }));
+    }
+  }, [user]);
+
   const BackArrow = isRTL ? ArrowRight : ArrowLeft;
 
   // Load PaySky LightBox script
   useEffect(() => {
+    if (paymentMethod !== 'card') return;
+    
+    // Use production URL
+    const scriptUrl = 'https://cube.paysky.io:6006/js/LightBox.js';
+    
+    // Check if already loaded
+    const existing = document.querySelector(`script[src="${scriptUrl}"]`);
+    if (existing) {
+      setPayskyLoaded(!!window.Lightbox);
+      return;
+    }
+    
     const script = document.createElement('script');
-    script.src = 'https://grey.paysky.io:9006/invchost/JS/LightBox.js';
+    script.src = scriptUrl;
     script.async = true;
     script.onload = () => setPayskyLoaded(true);
     script.onerror = () => {
-      console.warn('PaySky LightBox script failed to load');
-      setPayskyLoaded(false);
+      console.warn('PaySky LightBox script failed to load from production, trying test URL...');
+      // Fallback to test URL
+      const fallback = document.createElement('script');
+      fallback.src = 'https://grey.paysky.io:9006/invchost/JS/LightBox.js';
+      fallback.async = true;
+      fallback.onload = () => setPayskyLoaded(true);
+      fallback.onerror = () => {
+        console.error('PaySky LightBox failed to load from both URLs');
+        setPayskyLoaded(false);
+      };
+      document.body.appendChild(fallback);
     };
     document.body.appendChild(script);
-
-    return () => {
-      // Cleanup script on unmount
-      const existingScript = document.querySelector(`script[src="${script.src}"]`);
-      if (existingScript) {
-        document.body.removeChild(existingScript);
-      }
-    };
-  }, []);
+  }, [paymentMethod]);
 
   // Redirect if cart is empty
   useEffect(() => {
@@ -393,6 +423,40 @@ const Checkout = () => {
             <div className="grid gap-8 lg:grid-cols-[1fr_400px]">
               {/* Shipping Form */}
               <div className="space-y-6">
+                {/* SSO Login Banner */}
+                {!user && (
+                  <div className="rounded-xl border border-primary/30 bg-primary/5 p-5">
+                    <div className="flex items-center gap-3 mb-3">
+                      <LogIn className="h-5 w-5 text-primary" />
+                      <h2 className="font-display text-lg font-semibold text-foreground">
+                        {language === 'ar' ? 'سجّل الدخول لجمع النقاط' : 'Sign in to earn rewards'}
+                      </h2>
+                    </div>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      {language === 'ar'
+                        ? 'سجّل الدخول بحساب جوجل لجمع نقاط الولاء واستبدالها بخصومات على طلباتك القادمة'
+                        : 'Sign in with Google to earn loyalty points and redeem them for discounts on future orders'}
+                    </p>
+                    <AuthButton variant="default" size="default" showProfile={false} />
+                  </div>
+                )}
+
+                {user && (
+                  <div className="rounded-xl border border-green-500/30 bg-green-500/5 p-4">
+                    <div className="flex items-center gap-3">
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                      <div>
+                        <p className="font-medium text-foreground">
+                          {language === 'ar' ? 'تم تسجيل الدخول' : 'Signed in as'} {user.user_metadata?.full_name || user.email}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {language === 'ar' ? 'سيتم جمع نقاط الولاء تلقائياً' : 'Loyalty points will be earned automatically'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="rounded-xl border border-border bg-card p-6">
                   <h2 className="mb-6 font-display text-xl font-semibold text-foreground flex items-center gap-2">
                     <Truck className="h-5 w-5 text-primary" />

@@ -8,6 +8,7 @@ import { LanguageToggle } from './LanguageToggle';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import defaultLogoImage from '@/assets/logo.png';
+import { AuthButton } from '@/components/auth/AuthButton';
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -89,9 +90,10 @@ export function Header() {
         </nav>
 
         {/* Right side actions */}
-        <div className={cn("flex items-center gap-4", isRTL && "flex-row-reverse")}>
-          <LanguageToggle />
+        <div className={cn("flex items-center gap-3", isRTL && "flex-row-reverse")}>
+          <AuthButton variant="ghost" size="sm" />
           
+          <LanguageToggle />
           <Link to="/cart" className="relative group">
             <Button 
               variant="ghost" 
