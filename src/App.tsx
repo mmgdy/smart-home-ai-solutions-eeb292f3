@@ -19,6 +19,7 @@ import Loyalty from "./pages/Loyalty";
 import NotFound from "./pages/NotFound";
 import Admin from "./pages/Admin";
 import Calculator from "./pages/Calculator";
+import Profile from "./pages/Profile";
 
 const queryClient = new QueryClient();
 
@@ -42,6 +43,7 @@ const App = () => (
               <Route path="/services" element={<Services />} />
               <Route path="/loyalty" element={<Loyalty />} />
               <Route path="/admin" element={<Admin />} />
+              <Route path="/profile" element={<Profile />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>

@@ -99,9 +99,7 @@ serve(async (req) => {
           TrxDateTime: dateTimeLocalTrxn,
           SecureHash: secureHash,
         },
-        // Use test URL for now, switch to production when ready
-        lightboxUrl: "https://grey.paysky.io:9006/invchost/JS/LightBox.js",
-        // Production URL: "https://cube.paysky.io:6006/js/LightBox.js"
+        lightboxUrl: "https://cube.paysky.io:6006/js/LightBox.js",
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
