@@ -51,7 +51,7 @@ const Checkout = () => {
   const [errors, setErrors] = useState<Partial<Record<keyof CheckoutFormData, string>>>({});
   const [pointsDiscount, setPointsDiscount] = useState(0);
   const [pointsToRedeem, setPointsToRedeem] = useState(0);
-  const [paymentMethod, setPaymentMethod] = useState<'card' | 'cod'>('card');
+  const [paymentMethod, setPaymentMethod] = useState<'card' | 'cod' | 'fawry' | 'vodafone' | 'applepay'>('card');
   const [payskyLoaded, setPayskyLoaded] = useState(false);
   const [formData, setFormData] = useState<CheckoutFormData>({
     firstName: '',
@@ -575,8 +575,8 @@ const Checkout = () => {
                   
                   <RadioGroup
                     value={paymentMethod}
-                    onValueChange={(value) => setPaymentMethod(value as 'card' | 'cod')}
-                    className="space-y-4"
+                    onValueChange={(value) => setPaymentMethod(value as typeof paymentMethod)}
+                    className="space-y-3"
                   >
                     {/* Card Payment */}
                     <div 
@@ -619,13 +619,82 @@ const Checkout = () => {
                       <RadioGroupItem value="cod" id="cod" />
                       <Label htmlFor="cod" className="flex-1 cursor-pointer">
                         <div className="flex items-center gap-3">
-                          <Banknote className="h-5 w-5 text-green-600" />
+                          <Banknote className="h-5 w-5 text-primary" />
                           <div>
                             <p className="font-medium">{labels.cashOnDelivery}</p>
                             <p className="text-sm text-muted-foreground">
                               {language === 'ar' ? 'ادفع نقداً عند استلام الطلب' : 'Pay cash when you receive your order'}
                             </p>
                           </div>
+                        </div>
+                      </Label>
+                    </div>
+
+                    {/* Fawry - Coming Soon */}
+                    <div 
+                      className="flex items-center space-x-4 p-4 rounded-lg border-2 border-border opacity-60 cursor-not-allowed relative"
+                    >
+                      <RadioGroupItem value="fawry" id="fawry" disabled />
+                      <Label htmlFor="fawry" className="flex-1 cursor-not-allowed">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <Banknote className="h-5 w-5 text-muted-foreground" />
+                            <div>
+                              <p className="font-medium">{language === 'ar' ? 'فوري' : 'Fawry'}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {language === 'ar' ? 'ادفع عبر منافذ فوري' : 'Pay at Fawry outlets'}
+                              </p>
+                            </div>
+                          </div>
+                          <span className="rounded-full bg-muted px-2 py-1 text-[10px] font-medium text-muted-foreground">
+                            {language === 'ar' ? 'قريباً' : 'Soon'}
+                          </span>
+                        </div>
+                      </Label>
+                    </div>
+
+                    {/* Vodafone Cash - Coming Soon */}
+                    <div 
+                      className="flex items-center space-x-4 p-4 rounded-lg border-2 border-border opacity-60 cursor-not-allowed relative"
+                    >
+                      <RadioGroupItem value="vodafone" id="vodafone" disabled />
+                      <Label htmlFor="vodafone" className="flex-1 cursor-not-allowed">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <Banknote className="h-5 w-5 text-muted-foreground" />
+                            <div>
+                              <p className="font-medium">{language === 'ar' ? 'فودافون كاش' : 'Vodafone Cash'}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {language === 'ar' ? 'ادفع عبر محفظة فودافون كاش' : 'Pay via Vodafone Cash wallet'}
+                              </p>
+                            </div>
+                          </div>
+                          <span className="rounded-full bg-muted px-2 py-1 text-[10px] font-medium text-muted-foreground">
+                            {language === 'ar' ? 'قريباً' : 'Soon'}
+                          </span>
+                        </div>
+                      </Label>
+                    </div>
+
+                    {/* Apple Pay / Google Pay - Coming Soon */}
+                    <div 
+                      className="flex items-center space-x-4 p-4 rounded-lg border-2 border-border opacity-60 cursor-not-allowed relative"
+                    >
+                      <RadioGroupItem value="applepay" id="applepay" disabled />
+                      <Label htmlFor="applepay" className="flex-1 cursor-not-allowed">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <CreditCard className="h-5 w-5 text-muted-foreground" />
+                            <div>
+                              <p className="font-medium">Apple Pay / Google Pay</p>
+                              <p className="text-sm text-muted-foreground">
+                                {language === 'ar' ? 'دفع سريع عبر الهاتف' : 'Express mobile payment'}
+                              </p>
+                            </div>
+                          </div>
+                          <span className="rounded-full bg-muted px-2 py-1 text-[10px] font-medium text-muted-foreground">
+                            {language === 'ar' ? 'قريباً' : 'Soon'}
+                          </span>
                         </div>
                       </Label>
                     </div>

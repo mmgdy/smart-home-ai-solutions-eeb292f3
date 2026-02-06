@@ -20,6 +20,7 @@ import NotFound from "./pages/NotFound";
 import Admin from "./pages/Admin";
 import Calculator from "./pages/Calculator";
 import Profile from "./pages/Profile";
+import Legal from "./pages/Legal";
 
 const queryClient = new QueryClient();
 
@@ -44,6 +45,7 @@ const App = () => (
               <Route path="/loyalty" element={<Loyalty />} />
               <Route path="/admin" element={<Admin />} />
               <Route path="/profile" element={<Profile />} />
+              <Route path="/legal/:page" element={<Legal />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
