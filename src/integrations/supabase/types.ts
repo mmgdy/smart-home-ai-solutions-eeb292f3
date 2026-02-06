@@ -248,6 +248,59 @@ export type Database = {
           },
         ]
       }
+      product_variants: {
+        Row: {
+          created_at: string
+          id: string
+          image_url: string | null
+          is_default: boolean | null
+          name: string
+          price_adjustment: number | null
+          product_id: string
+          sku: string | null
+          stock: number
+          updated_at: string
+          variant_type: string
+          variant_value: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          is_default?: boolean | null
+          name: string
+          price_adjustment?: number | null
+          product_id: string
+          sku?: string | null
+          stock?: number
+          updated_at?: string
+          variant_type: string
+          variant_value: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          is_default?: boolean | null
+          name?: string
+          price_adjustment?: number | null
+          product_id?: string
+          sku?: string | null
+          stock?: number
+          updated_at?: string
+          variant_type?: string
+          variant_value?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_variants_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           brand: string | null
@@ -262,6 +315,7 @@ export type Database = {
           original_price: number | null
           price: number
           protocol: string | null
+          sku: string | null
           slug: string
           specifications: Json | null
           stock: number
@@ -280,6 +334,7 @@ export type Database = {
           original_price?: number | null
           price: number
           protocol?: string | null
+          sku?: string | null
           slug: string
           specifications?: Json | null
           stock?: number
@@ -298,6 +353,7 @@ export type Database = {
           original_price?: number | null
           price?: number
           protocol?: string | null
+          sku?: string | null
           slug?: string
           specifications?: Json | null
           stock?: number
@@ -363,6 +419,35 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      wishlists: {
+        Row: {
+          created_at: string
+          id: string
+          product_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          product_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          product_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wishlists_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

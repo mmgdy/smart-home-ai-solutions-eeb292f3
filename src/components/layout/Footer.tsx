@@ -2,7 +2,8 @@ import { Link } from 'react-router-dom';
 import { useLanguage } from '@/lib/i18n';
 
 export function Footer() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const isRTL = language === 'ar';
 
   const footerLinks = [
     {
@@ -22,6 +23,14 @@ export function Footer() {
         { label: t('contactUs') || 'Contact', href: '/contact' },
       ],
     },
+  ];
+
+  const legalLinks = [
+    { key: 'terms', en: 'Terms & Conditions', ar: 'الشروط والأحكام' },
+    { key: 'privacy', en: 'Privacy Policy', ar: 'سياسة الخصوصية' },
+    { key: 'refund', en: 'Refund Policy', ar: 'سياسة الإرجاع' },
+    { key: 'shipping', en: 'Shipping Policy', ar: 'سياسة الشحن' },
+    { key: 'warranty', en: 'Warranty', ar: 'الضمان' },
   ];
 
   return (
@@ -74,18 +83,21 @@ export function Footer() {
         </div>
 
         {/* Bottom bar */}
-        <div className="mt-20 pt-8 border-t border-border flex flex-col md:flex-row justify-between items-center gap-4">
-          <p className="text-sm text-muted-foreground">
+        <div className="mt-20 pt-8 border-t border-border">
+          <div className="flex flex-wrap justify-center gap-4 mb-6">
+            {legalLinks.map((link) => (
+              <Link
+                key={link.key}
+                to={`/legal/${link.key}`}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {isRTL ? link.ar : link.en}
+              </Link>
+            ))}
+          </div>
+          <p className="text-center text-sm text-muted-foreground">
             © {new Date().getFullYear()} Baytzaki. {t('allRightsReserved')}
           </p>
-          <div className="flex gap-6">
-            <Link to="/privacy" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-              Privacy
-            </Link>
-            <Link to="/terms" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-              Terms
-            </Link>
-          </div>
         </div>
       </div>
     </footer>
