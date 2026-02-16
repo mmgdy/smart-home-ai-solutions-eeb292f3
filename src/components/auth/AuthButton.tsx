@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { LogIn, LogOut, User, Loader2 } from 'lucide-react';
+import { LogOut, User, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/lib/i18n';
-import { lovable } from '@/integrations/lovable/index';
 import { useToast } from '@/hooks/use-toast';
 import { Link } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 
 interface AuthButtonProps {
   variant?: 'default' | 'outline' | 'ghost';
@@ -22,9 +22,13 @@ export const AuthButton = ({ variant = 'outline', size = 'default', showProfile 
   const handleGoogleSignIn = async () => {
     setSigningIn(true);
     try {
-      const { error } = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: window.location.origin,
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: window.location.origin,
+        },
       });
+
       if (error) {
         toast({
           variant: 'destructive',
