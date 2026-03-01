@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/lib/i18n';
 import { useToast } from '@/hooks/use-toast';
 import { Link } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import { lovable } from '@/integrations/lovable/index';
 
 interface AuthButtonProps {
   variant?: 'default' | 'outline' | 'ghost';
@@ -22,11 +22,8 @@ export const AuthButton = ({ variant = 'outline', size = 'default', showProfile 
   const handleGoogleSignIn = async () => {
     setSigningIn(true);
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: window.location.origin,
-        },
+      const { error } = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: window.location.origin,
       });
 
       if (error) {
