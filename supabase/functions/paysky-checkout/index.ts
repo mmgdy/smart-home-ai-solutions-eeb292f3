@@ -1,26 +1,37 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
-import { encode as hexEncode } from "https://deno.land/std@0.168.0/encoding/hex.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Max-Age": "86400",
+};
+
+const toTwoDigits = (value: number) => value.toString().padStart(2, "0");
+
+const getLocalTransactionTime = () => {
+  const now = new Date();
+  return `${now.getFullYear()}${toTwoDigits(now.getMonth() + 1)}${toTwoDigits(now.getDate())}${toTwoDigits(now.getHours())}${toTwoDigits(now.getMinutes())}`;
+};
+
+const normalizeHexKey = (secretKey: string) => {
+  const normalized = secretKey.replace(/\s+/g, "");
+  if (!/^[0-9a-fA-F]+$/.test(normalized) || normalized.length % 2 !== 0) {
+    throw new Error("PAYSKY_SECRET_KEY must be an even-length hex string");
+  }
+  return normalized;
 };
 
 // Helper function to generate HMAC SHA-256
 async function generateSecureHash(params: Record<string, string>, secretKey: string): Promise<string> {
-  // Sort parameters alphabetically by key
   const sortedKeys = Object.keys(params).sort();
-  
-  // Construct the string: key1=value1&key2=value2&...
-  const queryString = sortedKeys
-    .map(key => `${key}=${params[key]}`)
-    .join('&');
-  
-  // Decode the hex secret key
-  const keyBytes = new Uint8Array(secretKey.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
-  
-  // Create HMAC
+  const queryString = sortedKeys.map((key) => `${key}=${params[key]}`).join("&");
+
+  const normalizedSecret = normalizeHexKey(secretKey);
+  const keyBytes = new Uint8Array(
+    normalizedSecret.match(/.{1,2}/g)!.map((byte) => parseInt(byte, 16))
+  );
+
   const cryptoKey = await crypto.subtle.importKey(
     "raw",
     keyBytes,
@@ -28,66 +39,72 @@ async function generateSecureHash(params: Record<string, string>, secretKey: str
     false,
     ["sign"]
   );
-  
-  const encoder = new TextEncoder();
-  const data = encoder.encode(queryString);
-  const signature = await crypto.subtle.sign("HMAC", cryptoKey, data);
-  
-  // Convert to uppercase hex
-  const hashArray = Array.from(new Uint8Array(signature));
-  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  
-  return hashHex.toUpperCase();
+
+  const signature = await crypto.subtle.sign(
+    "HMAC",
+    cryptoKey,
+    new TextEncoder().encode(queryString)
+  );
+
+  return Array.from(new Uint8Array(signature))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("")
+    .toUpperCase();
 }
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response("ok", { headers: corsHeaders });
+  }
+
+  if (req.method !== "POST") {
+    return new Response(JSON.stringify({ error: "Method not allowed" }), {
+      status: 405,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   try {
     const { orderId, amount, merchantReference } = await req.json();
 
-    // Get PaySky credentials from environment
     const PAYSKY_MERCHANT_ID = Deno.env.get("PAYSKY_MERCHANT_ID");
     const PAYSKY_TERMINAL_ID = Deno.env.get("PAYSKY_TERMINAL_ID");
     const PAYSKY_SECRET_KEY = Deno.env.get("PAYSKY_SECRET_KEY");
 
     if (!PAYSKY_MERCHANT_ID || !PAYSKY_TERMINAL_ID || !PAYSKY_SECRET_KEY) {
       return new Response(
-        JSON.stringify({ 
+        JSON.stringify({
           error: "PaySky credentials not configured",
-          message: "Please configure PAYSKY_MERCHANT_ID, PAYSKY_TERMINAL_ID, and PAYSKY_SECRET_KEY"
+          message: "Please configure PAYSKY_MERCHANT_ID, PAYSKY_TERMINAL_ID, and PAYSKY_SECRET_KEY",
         }),
-        { 
-          status: 503, 
-          headers: { ...corsHeaders, "Content-Type": "application/json" } 
+        {
+          status: 503,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
     }
 
-    // Convert amount to piasters (smallest unit - 1 EGP = 100 piasters)
-    const amountInPiasters = Math.round(amount * 100);
+    const amountValue = Number(amount);
+    if (!Number.isFinite(amountValue) || amountValue <= 0) {
+      return new Response(JSON.stringify({ error: "Invalid amount" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-    // Generate transaction datetime
-    const now = new Date();
-    const dateTimeLocalTrxn = now.toISOString()
-      .replace(/[-:T]/g, '')
-      .slice(0, 12); // Format: yyyyMMddHHmm
+    const amountInPiasters = Math.round(amountValue * 100);
+    const dateTimeLocalTrxn = getLocalTransactionTime();
 
-    // Parameters for secure hash
     const hashParams = {
       Amount: amountInPiasters.toString(),
       DateTimeLocalTrxn: dateTimeLocalTrxn,
       MerchantId: PAYSKY_MERCHANT_ID,
-      MerchantReference: merchantReference || orderId,
+      MerchantReference: merchantReference || orderId || `BZ_${Date.now()}`,
       TerminalId: PAYSKY_TERMINAL_ID,
     };
 
-    // Generate secure hash
     const secureHash = await generateSecureHash(hashParams, PAYSKY_SECRET_KEY);
 
-    // Return configuration for LightBox
     return new Response(
       JSON.stringify({
         success: true,
@@ -95,7 +112,7 @@ serve(async (req) => {
           MID: PAYSKY_MERCHANT_ID,
           TID: PAYSKY_TERMINAL_ID,
           AmountTrxn: amountInPiasters,
-          MerchantReference: merchantReference || orderId,
+          MerchantReference: hashParams.MerchantReference,
           TrxDateTime: dateTimeLocalTrxn,
           SecureHash: secureHash,
         },
@@ -103,12 +120,14 @@ serve(async (req) => {
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-
   } catch (error) {
     console.error("PaySky checkout error:", error);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
     );
   }
 });
