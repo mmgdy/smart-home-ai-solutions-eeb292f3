@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { LogOut, User, Loader2 } from 'lucide-react';
+import { createLovableAuth } from '@lovable.dev/cloud-auth-js';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/lib/i18n';
 import { useToast } from '@/hooks/use-toast';
 import { Link } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 import { lovable } from '@/integrations/lovable/index';
 
 interface AuthButtonProps {
@@ -12,6 +14,15 @@ interface AuthButtonProps {
   size?: 'default' | 'sm' | 'lg';
   showProfile?: boolean;
 }
+
+const customDomainAuth = createLovableAuth({
+  oauthBrokerUrl: 'https://oauth.lovable.app/initiate',
+});
+
+const isExternallyHostedDomain = () => {
+  const hostname = window.location.hostname.toLowerCase();
+  return !hostname.endsWith('lovable.app') && !hostname.endsWith('lovableproject.com');
+};
 
 export const AuthButton = ({ variant = 'outline', size = 'default', showProfile = true }: AuthButtonProps) => {
   const { user, loading, signOut } = useAuth();
@@ -22,22 +33,27 @@ export const AuthButton = ({ variant = 'outline', size = 'default', showProfile 
   const handleGoogleSignIn = async () => {
     setSigningIn(true);
     try {
-      const { error } = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: window.location.origin,
-      });
-
-      if (error) {
-        toast({
-          variant: 'destructive',
-          title: language === 'ar' ? 'خطأ في تسجيل الدخول' : 'Sign In Error',
-          description: error.message,
+      if (isExternallyHostedDomain()) {
+        const result = await customDomainAuth.signInWithOAuth('google', {
+          redirect_uri: window.location.origin,
         });
+
+        if (result.redirected) return;
+        if (result.error) throw result.error;
+
+        await supabase.auth.setSession(result.tokens);
+      } else {
+        const { error } = await lovable.auth.signInWithOAuth('google', {
+          redirect_uri: window.location.origin,
+        });
+
+        if (error) throw error;
       }
     } catch (err: any) {
       toast({
         variant: 'destructive',
-        title: language === 'ar' ? 'خطأ' : 'Error',
-        description: err.message || 'Failed to sign in',
+        title: language === 'ar' ? 'خطأ في تسجيل الدخول' : 'Sign In Error',
+        description: err?.message || (language === 'ar' ? 'فشل تسجيل الدخول' : 'Failed to sign in'),
       });
     } finally {
       setSigningIn(false);
