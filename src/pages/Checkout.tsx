@@ -83,32 +83,26 @@ const Checkout = () => {
   useEffect(() => {
     if (paymentMethod !== 'card') return;
     
-    // Use production URL
     const scriptUrl = 'https://cube.paysky.io:6006/js/LightBox.js';
     
     // Check if already loaded
     const existing = document.querySelector(`script[src="${scriptUrl}"]`);
     if (existing) {
-      setPayskyLoaded(!!window.Lightbox);
+      // Wait a tick for script to initialize
+      setTimeout(() => setPayskyLoaded(!!window.Lightbox), 100);
       return;
     }
     
     const script = document.createElement('script');
     script.src = scriptUrl;
     script.async = true;
-    script.onload = () => setPayskyLoaded(true);
+    script.onload = () => {
+      // Give script time to initialize the global
+      setTimeout(() => setPayskyLoaded(!!window.Lightbox), 200);
+    };
     script.onerror = () => {
-      console.warn('PaySky LightBox script failed to load from production, trying test URL...');
-      // Fallback to test URL
-      const fallback = document.createElement('script');
-      fallback.src = 'https://grey.paysky.io:9006/invchost/JS/LightBox.js';
-      fallback.async = true;
-      fallback.onload = () => setPayskyLoaded(true);
-      fallback.onerror = () => {
-        console.error('PaySky LightBox failed to load from both URLs');
-        setPayskyLoaded(false);
-      };
-      document.body.appendChild(fallback);
+      console.error('PaySky LightBox failed to load');
+      setPayskyLoaded(false);
     };
     document.body.appendChild(script);
   }, [paymentMethod]);
