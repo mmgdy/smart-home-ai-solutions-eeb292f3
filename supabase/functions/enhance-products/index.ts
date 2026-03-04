@@ -14,8 +14,8 @@ interface Product {
   protocol: string | null;
 }
 
-const HUGGING_FACE_MODEL = 'Qwen/Qwen2.5-7B-Instruct';
-const HUGGING_FACE_URL = `https://router.huggingface.co/hf-inference/models/${HUGGING_FACE_MODEL}/v1/chat/completions`;
+const HUGGING_FACE_MODEL = 'meta-llama/Llama-3.1-8B-Instruct';
+const HUGGING_FACE_URL = 'https://router.huggingface.co/v1/chat/completions';
 const HUGGING_FACE_API_KEY = Deno.env.get('HUGGINGFACE_API_KEY') ?? '';
 
 const cleanProductName = (name: string): string => {
@@ -54,6 +54,7 @@ const generateWithHuggingFace = async (prompt: string, maxTokens = 220): Promise
     method: 'POST',
     headers,
     body: JSON.stringify({
+      model: HUGGING_FACE_MODEL,
       messages: [{ role: 'user', content: prompt }],
       max_tokens: maxTokens,
       temperature: 0.2,
