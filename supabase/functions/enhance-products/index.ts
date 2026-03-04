@@ -14,6 +14,10 @@ interface Product {
   protocol: string | null;
 }
 
+const HUGGING_FACE_MODEL = 'Qwen/Qwen2.5-7B-Instruct';
+const HUGGING_FACE_URL = `https://router.huggingface.co/hf-inference/models/${HUGGING_FACE_MODEL}/v1/chat/completions`;
+const HUGGING_FACE_API_KEY = Deno.env.get('HUGGINGFACE_API_KEY') ?? '';
+
 const cleanProductName = (name: string): string => {
   return name
     .replace(/&amp;/g, '&')
@@ -25,6 +29,58 @@ const cleanProductName = (name: string): string => {
     .trim();
 };
 
+const extractHuggingFaceText = (payload: any): string => {
+  if (typeof payload?.choices?.[0]?.message?.content === 'string') {
+    return payload.choices[0].message.content;
+  }
+
+  if (typeof payload?.error === 'string') {
+    throw new Error(payload.error);
+  }
+
+  return '';
+};
+
+const generateWithHuggingFace = async (prompt: string, maxTokens = 220): Promise<string> => {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+
+  if (HUGGING_FACE_API_KEY) {
+    headers.Authorization = `Bearer ${HUGGING_FACE_API_KEY}`;
+  }
+
+  const response = await fetch(HUGGING_FACE_URL, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: maxTokens,
+      temperature: 0.2,
+      stream: false,
+    }),
+  });
+
+  const rawText = await response.text();
+  let parsed: any = null;
+
+  try {
+    parsed = JSON.parse(rawText);
+  } catch {
+    if (!response.ok) {
+      throw new Error(`Hugging Face error (${response.status}): ${rawText.slice(0, 300)}`);
+    }
+  }
+
+  if (!response.ok) {
+    const details = typeof parsed?.error === 'string' ? parsed.error : rawText;
+    const tokenHint = response.status === 401 ? ' Add HUGGINGFACE_API_KEY secret to use Hugging Face router.' : '';
+    throw new Error(`Hugging Face error (${response.status}): ${String(details).slice(0, 300)}.${tokenHint}`);
+  }
+
+  return extractHuggingFaceText(parsed).trim();
+};
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -33,14 +89,6 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
-
-    if (!lovableApiKey) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Lovable API key not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const { action, productId, batchSize = 5 } = await req.json();
@@ -62,100 +110,71 @@ Deno.serve(async (req) => {
           const cleanName = cleanProductName(product.name);
           console.log(`Searching for image: ${cleanName}`);
 
-          // Use Lovable AI (Gemini) to find product image URL
-          const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${lovableApiKey}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              model: 'google/gemini-2.5-flash',
-              messages: [
-                {
-                  role: 'system',
-                  content: `You are a product image URL finder. Return ONLY a valid, direct image URL for the product from the manufacturer's website or major retailers (Amazon, AliExpress, brand official sites).
+          const imagePrompt = `You are a product image URL finder. Return ONLY a direct image URL or exactly NO_IMAGE.
 
 Rules:
-- Return ONLY the URL, nothing else - no explanation, no markdown, no text
-- The URL must be a direct link to an image file (ending in .jpg, .jpeg, .png, .webp) or from a CDN like images-na.ssl-images-amazon.com, m.media-amazon.com, ae01.alicdn.com, etc.
-- Prefer high-resolution product images on white backgrounds
-- If you cannot find a valid image URL, respond with exactly: NO_IMAGE
-- Do not return placeholder images, broken links, or SVG icons`
-                },
-                {
-                  role: 'user',
-                  content: `Find the official product image URL for: "${cleanName}"${product.brand ? ` by ${product.brand}` : ''}`
-                }
-              ],
-            }),
-          });
+- Return only one URL or NO_IMAGE
+- URL must be direct image file (.jpg, .jpeg, .png, .webp, .gif)
+- Prefer manufacturer or large retailer CDNs
+- Never add markdown or explanations
 
-          if (response.ok) {
-            const data = await response.json();
-            let imageUrl = data.choices?.[0]?.message?.content?.trim() || '';
-            console.log(`Raw response: ${imageUrl}`);
+Product: ${cleanName}${product.brand ? ` | Brand: ${product.brand}` : ''}`;
 
-            // Extract URL if embedded in text
-            const urlMatch = imageUrl.match(/https?:\/\/[^\s"'<>\)]+\.(jpg|jpeg|png|webp|gif)/i);
-            if (urlMatch) {
-              imageUrl = urlMatch[0];
-            }
+          let imageUrl = await generateWithHuggingFace(imagePrompt, 180);
+          console.log(`Raw response: ${imageUrl}`);
 
-            const isValidUrl = imageUrl &&
-              !imageUrl.includes('NO_IMAGE') &&
-              imageUrl.startsWith('http') &&
-              (imageUrl.match(/\.(jpg|jpeg|png|webp|gif)/i) ||
-                imageUrl.includes('/images/') ||
-                imageUrl.includes('/img/') ||
-                imageUrl.includes('cdn') ||
-                imageUrl.includes('ssl-images-amazon') ||
-                imageUrl.includes('m.media-amazon') ||
-                imageUrl.includes('alicdn'));
+          // Extract URL if embedded in text
+          const urlMatch = imageUrl.match(/https?:\/\/[^\s"'<>\)]+\.(jpg|jpeg|png|webp|gif)/i);
+          if (urlMatch) {
+            imageUrl = urlMatch[0];
+          }
 
-            if (isValidUrl) {
-              // Download and store internally
-              try {
-                const imgResp = await fetch(imageUrl, { redirect: 'follow' });
-                if (imgResp.ok) {
-                  const contentType = imgResp.headers.get('content-type');
-                  if (contentType?.startsWith('image/')) {
-                    const ext = contentType.includes('png') ? 'png' : contentType.includes('webp') ? 'webp' : 'jpg';
-                    const slug = cleanName.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 60);
-                    const path = `products/${product.id}/${slug}.${ext}`;
-                    const bytes = new Uint8Array(await imgResp.arrayBuffer());
+          const isValidUrl = imageUrl &&
+            !imageUrl.includes('NO_IMAGE') &&
+            imageUrl.startsWith('http') &&
+            (imageUrl.match(/\.(jpg|jpeg|png|webp|gif)/i) ||
+              imageUrl.includes('/images/') ||
+              imageUrl.includes('/img/') ||
+              imageUrl.includes('cdn') ||
+              imageUrl.includes('ssl-images-amazon') ||
+              imageUrl.includes('m.media-amazon') ||
+              imageUrl.includes('alicdn'));
 
-                    const { error: uploadError } = await supabase.storage
+          if (isValidUrl) {
+            // Download and store internally
+            try {
+              const imgResp = await fetch(imageUrl, { redirect: 'follow' });
+              if (imgResp.ok) {
+                const contentType = imgResp.headers.get('content-type');
+                if (contentType?.startsWith('image/')) {
+                  const ext = contentType.includes('png') ? 'png' : contentType.includes('webp') ? 'webp' : 'jpg';
+                  const slug = cleanName.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 60);
+                  const path = `products/${product.id}/${slug}.${ext}`;
+                  const bytes = new Uint8Array(await imgResp.arrayBuffer());
+
+                  const { error: uploadError } = await supabase.storage
+                    .from('product-images')
+                    .upload(path, bytes, { upsert: true, contentType, cacheControl: '31536000' });
+
+                  if (!uploadError) {
+                    const { data: publicUrlData } = supabase.storage
                       .from('product-images')
-                      .upload(path, bytes, { upsert: true, contentType, cacheControl: '31536000' });
+                      .getPublicUrl(path);
 
-                    if (!uploadError) {
-                      const { data: publicUrlData } = supabase.storage
-                        .from('product-images')
-                        .getPublicUrl(path);
+                    await supabase
+                      .from('products')
+                      .update({ image_url: publicUrlData.publicUrl })
+                      .eq('id', product.id);
 
-                      await supabase
-                        .from('products')
-                        .update({ image_url: publicUrlData.publicUrl })
-                        .eq('id', product.id);
-
-                      results.push({
-                        id: product.id,
-                        name: product.name,
-                        status: 'updated_internal',
-                        image_url: publicUrlData.publicUrl
-                      });
-                      console.log(`Stored internally: ${product.name}`);
-                    } else {
-                      // Fallback: save external URL
-                      await supabase
-                        .from('products')
-                        .update({ image_url: imageUrl })
-                        .eq('id', product.id);
-                      results.push({ id: product.id, name: product.name, status: 'updated_external', image_url: imageUrl });
-                    }
+                    results.push({
+                      id: product.id,
+                      name: product.name,
+                      status: 'updated_internal',
+                      image_url: publicUrlData.publicUrl
+                    });
+                    console.log(`Stored internally: ${product.name}`);
                   } else {
-                    // Image URL returned non-image content, save URL anyway
+                    // Fallback: save external URL
                     await supabase
                       .from('products')
                       .update({ image_url: imageUrl })
@@ -163,33 +182,36 @@ Rules:
                     results.push({ id: product.id, name: product.name, status: 'updated_external', image_url: imageUrl });
                   }
                 } else {
-                  // Could not download, save URL anyway
+                  // Image URL returned non-image content, save URL anyway
                   await supabase
                     .from('products')
                     .update({ image_url: imageUrl })
                     .eq('id', product.id);
                   results.push({ id: product.id, name: product.name, status: 'updated_external', image_url: imageUrl });
                 }
-              } catch (dlError) {
-                // Download failed, save URL
+              } else {
+                // Could not download, save URL anyway
                 await supabase
                   .from('products')
                   .update({ image_url: imageUrl })
                   .eq('id', product.id);
                 results.push({ id: product.id, name: product.name, status: 'updated_external', image_url: imageUrl });
               }
-            } else {
-              results.push({
-                id: product.id,
-                name: product.name,
-                status: 'no_image_found',
-                response: imageUrl.substring(0, 200)
-              });
+            } catch (dlError) {
+              // Download failed, save URL
+              await supabase
+                .from('products')
+                .update({ image_url: imageUrl })
+                .eq('id', product.id);
+              results.push({ id: product.id, name: product.name, status: 'updated_external', image_url: imageUrl });
             }
           } else {
-            const errorText = await response.text();
-            console.error(`AI error for ${product.name}:`, errorText);
-            results.push({ id: product.id, name: product.name, status: 'search_failed', error: errorText.substring(0, 200) });
+            results.push({
+              id: product.id,
+              name: product.name,
+              status: 'no_image_found',
+              response: imageUrl.substring(0, 200)
+            });
           }
 
           // Rate limiting delay
@@ -243,40 +265,21 @@ Rules:
 
       for (const product of products || []) {
         try {
-          const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${lovableApiKey}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              model: 'google/gemini-2.5-flash',
-              messages: [
-                {
-                  role: 'system',
-                  content: 'You are a smart home product copywriter for an Egyptian smart home store. Write compelling, professional product descriptions in English. Keep descriptions between 30-60 words. Focus on key benefits, smart home integration capabilities, and practical use cases.'
-                },
-                {
-                  role: 'user',
-                  content: `Write a product description for: ${product.name}${product.brand ? ` by ${product.brand}` : ''}${product.protocol ? `. Uses ${product.protocol} protocol` : ''}.`
-                }
-              ],
-            }),
-          });
+          const descriptionPrompt = `Write a compelling smart-home ecommerce description in English (30-60 words).
 
-          if (response.ok) {
-            const data = await response.json();
-            const newDescription = data.choices?.[0]?.message?.content?.trim();
-            if (newDescription && newDescription.length > 20) {
-              await supabase.from('products').update({ description: newDescription }).eq('id', product.id);
-              results.push({ id: product.id, name: product.name, status: 'updated', description: newDescription });
-            } else {
-              results.push({ id: product.id, name: product.name, status: 'generation_failed' });
-            }
+Product: ${product.name}${product.brand ? ` | Brand: ${product.brand}` : ''}${product.protocol ? ` | Protocol: ${product.protocol}` : ''}
+
+Focus on practical value, compatibility, and user benefit. Return plain text only.`;
+
+          const newDescription = await generateWithHuggingFace(descriptionPrompt, 140);
+
+          if (newDescription && newDescription.length > 20) {
+            await supabase.from('products').update({ description: newDescription }).eq('id', product.id);
+            results.push({ id: product.id, name: product.name, status: 'updated', description: newDescription });
           } else {
-            results.push({ id: product.id, name: product.name, status: 'api_error' });
+            results.push({ id: product.id, name: product.name, status: 'generation_failed' });
           }
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await new Promise(resolve => setTimeout(resolve, 700));
         } catch (err) {
           results.push({ id: product.id, name: product.name, status: 'error', error: String(err) });
         }
