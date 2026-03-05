@@ -3,7 +3,7 @@ import { Helmet } from 'react-helmet-async';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Upload, Loader2, CheckCircle, AlertCircle, Image, FileText, Sparkles, Download, Filter, DollarSign, CreditCard, Package, Settings } from 'lucide-react';
+import { Upload, Loader2, CheckCircle, AlertCircle, Image, FileText, Sparkles, Download, Filter, DollarSign, CreditCard, Package, Settings, Globe, RefreshCw } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
@@ -45,6 +45,9 @@ export default function Admin() {
   const [priceUpdateResults, setPriceUpdateResults] = useState<any[]>([]);
   const [priceUpdateProgress, setPriceUpdateProgress] = useState(0);
   const [selectedPriceBrands, setSelectedPriceBrands] = useState<string[]>(['SONOFF', 'MOES', 'TP-Link', 'Lezn', 'Akubela']);
+  const [isMarketSyncing, setIsMarketSyncing] = useState(false);
+  const [marketSyncResults, setMarketSyncResults] = useState<any[]>([]);
+  const [marketSyncProgress, setMarketSyncProgress] = useState(0);
   const { toast } = useToast();
 
   // Show loading state
@@ -285,6 +288,40 @@ export default function Admin() {
     );
   };
 
+  const handleMarketSync = async (syncAction: 'discover-products' | 'update-prices' | 'full-sync') => {
+    setIsMarketSyncing(true);
+    setMarketSyncResults([]);
+    setMarketSyncProgress(0);
+
+    try {
+      if (syncAction === 'full-sync') {
+        const { data, error } = await supabase.functions.invoke('market-sync', {
+          body: { action: 'full-sync' }
+        });
+        if (error) throw error;
+        if (data?.results) setMarketSyncResults(data.results);
+        setMarketSyncProgress(100);
+      } else {
+        const totalBatches = 3;
+        for (let i = 0; i < totalBatches; i++) {
+          const { data, error } = await supabase.functions.invoke('market-sync', {
+            body: { action: syncAction, batchSize: 5 }
+          });
+          if (error) throw error;
+          if (data?.results) setMarketSyncResults(prev => [...prev, ...data.results]);
+          setMarketSyncProgress(((i + 1) / totalBatches) * 100);
+          if (!data?.results?.length) break;
+        }
+      }
+
+      toast({ title: 'Market Sync Complete', description: `${syncAction.replace(/-/g, ' ')} finished successfully` });
+    } catch (error: any) {
+      toast({ title: 'Market Sync Failed', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsMarketSyncing(false);
+    }
+  };
+
   return (
     <Layout>
       <Helmet>
@@ -295,7 +332,7 @@ export default function Admin() {
         <h1 className="text-4xl font-display font-bold mb-8">Admin Dashboard</h1>
         
         <Tabs defaultValue="orders" className="max-w-4xl" onValueChange={(v) => v === 'export' && fetchExportStats()}>
-          <TabsList className="grid w-full grid-cols-8">
+          <TabsList className="grid w-full grid-cols-9">
             <TabsTrigger value="orders">
               <Package className="w-4 h-4 mr-1" />
               <span className="hidden sm:inline">Orders</span>
@@ -327,6 +364,10 @@ export default function Admin() {
             <TabsTrigger value="descriptions">
               <FileText className="w-4 h-4 mr-1" />
               <span className="hidden sm:inline">AI</span>
+            </TabsTrigger>
+            <TabsTrigger value="market-sync">
+              <Globe className="w-4 h-4 mr-1" />
+              <span className="hidden sm:inline">Market</span>
             </TabsTrigger>
           </TabsList>
 
@@ -594,6 +635,99 @@ export default function Admin() {
                         <span className={`text-xs capitalize ${item.status === 'updated' ? 'text-green-600' : 'text-yellow-600'}`}>{item.status}</span>
                       </div>
                       {item.description && <p className="text-muted-foreground text-xs">{item.description}</p>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="market-sync" className="mt-6">
+            <div className="bg-card border border-border rounded-xl p-6">
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <Globe className="w-5 h-5 text-primary" />
+                Egyptian Market Sync
+              </h2>
+              <p className="text-muted-foreground mb-6">
+                AI-powered discovery of new smart home products and price updates from the Egyptian market (Amazon.eg, Noon, Jumia). Runs daily automatically.
+              </p>
+
+              <div className="grid gap-3 sm:grid-cols-3 mb-6">
+                <Button
+                  onClick={() => handleMarketSync('discover-products')}
+                  disabled={isMarketSyncing}
+                  variant="outline"
+                  className="h-auto py-4 flex flex-col gap-2"
+                >
+                  <Sparkles className="w-5 h-5" />
+                  <span className="text-sm font-medium">Discover Products</span>
+                  <span className="text-xs text-muted-foreground">Find new products</span>
+                </Button>
+
+                <Button
+                  onClick={() => handleMarketSync('update-prices')}
+                  disabled={isMarketSyncing}
+                  variant="outline"
+                  className="h-auto py-4 flex flex-col gap-2"
+                >
+                  <DollarSign className="w-5 h-5" />
+                  <span className="text-sm font-medium">Update Prices</span>
+                  <span className="text-xs text-muted-foreground">Check current EGP prices</span>
+                </Button>
+
+                <Button
+                  onClick={() => handleMarketSync('full-sync')}
+                  disabled={isMarketSyncing}
+                  className="h-auto py-4 flex flex-col gap-2"
+                >
+                  <RefreshCw className="w-5 h-5" />
+                  <span className="text-sm font-medium">Full Sync</span>
+                  <span className="text-xs text-muted-foreground">All categories + prices</span>
+                </Button>
+              </div>
+
+              {isMarketSyncing && (
+                <div className="mb-4">
+                  <Progress value={marketSyncProgress} className="h-2" />
+                  <p className="text-sm text-muted-foreground mt-2 flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Syncing market data... {Math.round(marketSyncProgress)}%
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {marketSyncResults.length > 0 && (
+              <div className="mt-6 bg-card border border-border rounded-xl p-6">
+                <h3 className="font-semibold mb-4">
+                  Results ({marketSyncResults.length} items)
+                  <span className="ml-2 text-sm font-normal text-muted-foreground">
+                    {marketSyncResults.filter(r => r.status === 'new_product_added' || r.status === 'added').length} new,
+                    {' '}{marketSyncResults.filter(r => r.status === 'price_updated').length} price updates
+                  </span>
+                </h3>
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {marketSyncResults.map((item, i) => (
+                    <div key={i} className={`p-3 rounded-lg text-sm ${
+                      item.status === 'new_product_added' || item.status === 'added' ? 'bg-primary/10' :
+                      item.status === 'price_updated' || item.status === 'updated' ? 'bg-accent/20' :
+                      item.status === 'already_exists' || item.status === 'exists' || item.status === 'price_unchanged' ? 'bg-muted' :
+                      'bg-destructive/10'
+                    }`}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-medium truncate flex-1">{item.name || item.category}</span>
+                        <span className={`text-xs capitalize ml-2 ${
+                          item.status === 'new_product_added' || item.status === 'added' ? 'text-primary' :
+                          item.status === 'price_updated' || item.status === 'updated' ? 'text-accent-foreground' :
+                          'text-muted-foreground'
+                        }`}>{item.status?.replace(/_/g, ' ')}</span>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                        {item.brand && <span>{item.brand}</span>}
+                        {item.category && <span>• {item.category}</span>}
+                        {item.price && <span>• {item.price} EGP</span>}
+                        {item.oldPrice && <span>• Was: {item.oldPrice} EGP → Now: {item.newPrice} EGP</span>}
+                      </div>
                     </div>
                   ))}
                 </div>
