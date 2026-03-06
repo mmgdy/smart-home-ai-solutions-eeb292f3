@@ -302,10 +302,10 @@ export default function Admin() {
         if (data?.results) setMarketSyncResults(data.results);
         setMarketSyncProgress(100);
       } else {
-        const totalBatches = 3;
+        const totalBatches = 5;
         for (let i = 0; i < totalBatches; i++) {
           const { data, error } = await supabase.functions.invoke('market-sync', {
-            body: { action: syncAction, batchSize: 5 }
+            body: { action: syncAction, batchSize: 10 }
           });
           if (error) throw error;
           if (data?.results) setMarketSyncResults(prev => [...prev, ...data.results]);
