@@ -21,6 +21,8 @@ import Admin from "./pages/Admin";
 import Calculator from "./pages/Calculator";
 import Profile from "./pages/Profile";
 import Legal from "./pages/Legal";
+import Bundles from "./pages/Bundles";
+import About from "./pages/About";
 
 const queryClient = new QueryClient();
 
@@ -43,6 +45,8 @@ const App = () => (
               <Route path="/calculator" element={<Calculator />} />
               <Route path="/services" element={<Services />} />
               <Route path="/loyalty" element={<Loyalty />} />
+              <Route path="/bundles" element={<Bundles />} />
+              <Route path="/about" element={<About />} />
               <Route path="/admin" element={<Admin />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/legal/:page" element={<Legal />} />

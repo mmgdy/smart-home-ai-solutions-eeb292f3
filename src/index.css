@@ -4,102 +4,98 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Baytzaki Smart Home Store - Dark Tech Design System */
+/* Baytzaki Smart Home Store - Premium Egyptian Brand Design System */
 
 @layer base {
   :root {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
+    --background: 220 15% 5%;
+    --foreground: 0 0% 97%;
 
-    --card: 240 10% 5.5%;
-    --card-foreground: 0 0% 98%;
+    --card: 220 15% 7%;
+    --card-foreground: 0 0% 97%;
 
-    --popover: 240 10% 5.5%;
-    --popover-foreground: 0 0% 98%;
+    --popover: 220 15% 7%;
+    --popover-foreground: 0 0% 97%;
 
     --primary: 174 72% 46%;
-    --primary-foreground: 0 0% 100%;
+    --primary-foreground: 220 15% 5%;
 
-    --secondary: 200 15% 12%;
-    --secondary-foreground: 0 0% 98%;
+    --secondary: 220 12% 12%;
+    --secondary-foreground: 0 0% 97%;
 
-    --muted: 200 10% 15%;
-    --muted-foreground: 200 5% 64.9%;
+    --muted: 220 10% 14%;
+    --muted-foreground: 220 5% 55%;
 
     --accent: 174 72% 46%;
-    --accent-foreground: 0 0% 100%;
+    --accent-foreground: 220 15% 5%;
 
     --destructive: 0 62.8% 50.6%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 200 10% 18%;
-    --input: 200 10% 18%;
+    --border: 220 10% 14%;
+    --input: 220 10% 14%;
     --ring: 174 72% 46%;
 
     --radius: 0.75rem;
 
-    /* Custom brand colors */
+    /* Brand tokens */
     --teal-glow: 174 100% 55%;
     --teal-deep: 174 60% 40%;
     --cyan-accent: 185 70% 50%;
     --success: 142 71% 45%;
+    --warning: 38 92% 50%;
+    --gold: 45 93% 47%;
 
     /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(174 72% 46%) 0%, hsl(174 100% 55%) 100%);
-    --gradient-card: linear-gradient(180deg, hsl(200 15% 8%) 0%, hsl(200 15% 5%) 100%);
-    --gradient-hero: linear-gradient(135deg, hsl(174 72% 46% / 0.15) 0%, hsl(185 70% 50% / 0.1) 100%);
+    --gradient-primary: linear-gradient(135deg, hsl(174 72% 46%) 0%, hsl(185 70% 50%) 100%);
+    --gradient-card: linear-gradient(180deg, hsl(220 15% 8%) 0%, hsl(220 15% 6%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(174 72% 46% / 0.12) 0%, hsl(185 70% 50% / 0.06) 100%);
+    --gradient-warm: linear-gradient(135deg, hsl(38 92% 50% / 0.15) 0%, hsl(174 72% 46% / 0.1) 100%);
+    --gradient-trust: linear-gradient(135deg, hsl(142 71% 45% / 0.1) 0%, hsl(174 72% 46% / 0.05) 100%);
 
     /* Shadows */
-    --shadow-glow: 0 0 40px hsl(174 100% 55% / 0.3);
-    --shadow-card: 0 4px 24px hsl(0 0% 0% / 0.4);
-    --shadow-elevated: 0 8px 32px hsl(0 0% 0% / 0.5);
+    --shadow-glow: 0 0 40px hsl(174 100% 55% / 0.25);
+    --shadow-card: 0 4px 24px hsl(0 0% 0% / 0.3);
+    --shadow-elevated: 0 12px 40px hsl(0 0% 0% / 0.4);
+    --shadow-soft: 0 2px 12px hsl(0 0% 0% / 0.15);
 
-    --sidebar-background: 200 15% 5%;
-    --sidebar-foreground: 0 0% 98%;
+    --sidebar-background: 220 15% 5%;
+    --sidebar-foreground: 0 0% 97%;
     --sidebar-primary: 174 72% 46%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 200 15% 12%;
-    --sidebar-accent-foreground: 0 0% 98%;
-    --sidebar-border: 200 10% 18%;
+    --sidebar-primary-foreground: 220 15% 5%;
+    --sidebar-accent: 220 12% 12%;
+    --sidebar-accent-foreground: 0 0% 97%;
+    --sidebar-border: 220 10% 14%;
     --sidebar-ring: 174 72% 46%;
   }
 
   .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-
-    --card: 240 10% 5.5%;
-    --card-foreground: 0 0% 98%;
-
-    --popover: 240 10% 5.5%;
-    --popover-foreground: 0 0% 98%;
-
+    --background: 220 15% 5%;
+    --foreground: 0 0% 97%;
+    --card: 220 15% 7%;
+    --card-foreground: 0 0% 97%;
+    --popover: 220 15% 7%;
+    --popover-foreground: 0 0% 97%;
     --primary: 174 72% 46%;
-    --primary-foreground: 0 0% 100%;
-
-    --secondary: 200 15% 12%;
-    --secondary-foreground: 0 0% 98%;
-
-    --muted: 200 10% 15%;
-    --muted-foreground: 200 5% 64.9%;
-
+    --primary-foreground: 220 15% 5%;
+    --secondary: 220 12% 12%;
+    --secondary-foreground: 0 0% 97%;
+    --muted: 220 10% 14%;
+    --muted-foreground: 220 5% 55%;
     --accent: 174 72% 46%;
-    --accent-foreground: 0 0% 100%;
-
+    --accent-foreground: 220 15% 5%;
     --destructive: 0 62.8% 50.6%;
     --destructive-foreground: 0 0% 98%;
-
-    --border: 200 10% 18%;
-    --input: 200 10% 18%;
+    --border: 220 10% 14%;
+    --input: 220 10% 14%;
     --ring: 174 72% 46%;
-
-    --sidebar-background: 200 15% 5%;
-    --sidebar-foreground: 0 0% 98%;
+    --sidebar-background: 220 15% 5%;
+    --sidebar-foreground: 0 0% 97%;
     --sidebar-primary: 174 72% 46%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 200 15% 12%;
-    --sidebar-accent-foreground: 0 0% 98%;
-    --sidebar-border: 200 10% 18%;
+    --sidebar-primary-foreground: 220 15% 5%;
+    --sidebar-accent: 220 12% 12%;
+    --sidebar-accent-foreground: 0 0% 97%;
+    --sidebar-border: 220 10% 14%;
     --sidebar-ring: 174 72% 46%;
   }
 }
@@ -114,7 +110,6 @@
     font-family: 'Inter', sans-serif;
   }
 
-  /* Arabic font support */
   html[lang="ar"] body {
     font-family: 'Noto Sans Arabic', 'Inter', sans-serif;
   }
@@ -123,11 +118,11 @@
     font-family: 'Space Grotesk', sans-serif;
   }
 
-  html[lang="ar"] h1, 
-  html[lang="ar"] h2, 
-  html[lang="ar"] h3, 
-  html[lang="ar"] h4, 
-  html[lang="ar"] h5, 
+  html[lang="ar"] h1,
+  html[lang="ar"] h2,
+  html[lang="ar"] h3,
+  html[lang="ar"] h4,
+  html[lang="ar"] h5,
   html[lang="ar"] h6 {
     font-family: 'Noto Sans Arabic', 'Space Grotesk', sans-serif;
   }
@@ -149,5 +144,28 @@
 
   .hero-gradient {
     background: var(--gradient-hero);
+  }
+
+  .trust-gradient {
+    background: var(--gradient-trust);
+  }
+
+  .warm-gradient {
+    background: var(--gradient-warm);
+  }
+
+  /* Smooth scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--background));
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted));
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground));
   }
 }
