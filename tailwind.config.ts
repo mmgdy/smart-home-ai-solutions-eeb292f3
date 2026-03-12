@@ -69,6 +69,8 @@ export default {
           accent: "hsl(var(--cyan-accent))",
         },
         success: "hsl(var(--success))",
+        warning: "hsl(var(--warning))",
+        gold: "hsl(var(--gold))",
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -100,6 +102,10 @@ export default {
           "0%, 100%": { transform: "translateY(0)" },
           "50%": { transform: "translateY(-10px)" },
         },
+        "count-up": {
+          from: { opacity: "0", transform: "translateY(20px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -108,6 +114,7 @@ export default {
         "fade-in-up": "fade-in-up 0.6s ease-out forwards",
         "pulse-glow": "pulse-glow 2s ease-in-out infinite",
         "float": "float 3s ease-in-out infinite",
+        "count-up": "count-up 0.8s ease-out forwards",
       },
     },
   },
