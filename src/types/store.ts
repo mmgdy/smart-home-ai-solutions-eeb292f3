@@ -24,6 +24,7 @@ export interface Product {
   featured: boolean;
   created_at: string;
   updated_at: string;
+  video_url?: string | null;
   category?: Category;
 }
 
