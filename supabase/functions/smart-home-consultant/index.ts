@@ -6,6 +6,59 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+async function callLovableAI(messages: any[], systemPrompt: string) {
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+
+  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${LOVABLE_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "google/gemini-3-flash-preview",
+      messages: [{ role: "system", content: systemPrompt }, ...messages],
+      stream: true,
+    }),
+  });
+
+  if (response.status === 429 || response.status === 402) {
+    throw { status: response.status, fallback: true };
+  }
+  if (!response.ok) {
+    const t = await response.text();
+    console.error("Lovable AI error:", response.status, t);
+    throw { status: response.status, fallback: true };
+  }
+  return response;
+}
+
+async function callGroqAI(messages: any[], systemPrompt: string) {
+  const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
+  if (!GROQ_API_KEY) throw new Error("GROQ_API_KEY not configured");
+
+  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${GROQ_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "llama-3.3-70b-versatile",
+      messages: [{ role: "system", content: systemPrompt }, ...messages],
+      stream: true,
+    }),
+  });
+
+  if (!response.ok) {
+    const t = await response.text();
+    console.error("Groq error:", response.status, t);
+    throw new Error("Groq AI error");
+  }
+  return response;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -13,13 +66,8 @@ serve(async (req) => {
 
   try {
     const { messages } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
-    }
 
     // Fetch products from the database
     let productsInfo = "";
@@ -37,73 +85,55 @@ serve(async (req) => {
       }
     }
 
-    const systemPrompt = `You are Baytzaki's AI Smart Home Consultant - an expert in smart home technology. Your role is to help customers find the RIGHT products from our store.
+    const systemPrompt = `You are Baytzaki's Smart Home Consultant - an expert in smart home technology for Egyptian homes. Help customers find the RIGHT products from our store.
 
-أنت مستشار المنزل الذكي من بيتزاكي - خبير في تقنيات المنزل الذكي. دورك هو مساعدة العملاء في العثور على المنتجات المناسبة من متجرنا.
+أنت مستشار المنزل الذكي من بيتزاكي - خبير في تقنيات المنزل الذكي للمنازل المصرية.
 
-**LANGUAGE RULES / قواعد اللغة:**
+**LANGUAGE RULES:**
 - If the user writes in Arabic, respond ENTIRELY in Arabic
-- إذا كتب المستخدم بالعربية، رد بالكامل بالعربية
 - If the user writes in English, respond in English
-- You are bilingual (Arabic and English) - match the user's language
+- Match the user's language always
 
-**CRITICAL: You can ONLY recommend products from our inventory listed below. Do NOT suggest any products that are not in this list.**
-**مهم جداً: يمكنك فقط اقتراح المنتجات من مخزوننا المدرج أدناه. لا تقترح أي منتجات غير موجودة في هذه القائمة.**
+**CRITICAL: Only recommend products from our inventory below. Never suggest products not in this list.**
 
-## Our Available Products / منتجاتنا المتوفرة:
-${productsInfo || "No products currently available in stock. / لا توجد منتجات متوفرة حالياً."}
+## Our Products:
+${productsInfo || "No products currently in stock."}
 
-## Your Role / دورك:
-1. **Understand customer needs / فهم احتياجات العميل**: Ask about their home size, lifestyle, priorities (security, comfort, energy savings), and budget
-2. **Recommend products / اقتراح المنتجات**: ONLY suggest products from the list above that match their needs
-3. **Explain compatibility / شرح التوافق**: Help customers understand protocols and which of our devices work together
-4. **Create packages / إنشاء حزم**: Build personalized bundles from our available products
-5. **Provide setup tips / نصائح التركيب**: Offer guidance on installation and automation scenarios
+## Your Role:
+1. Understand customer needs - ask about home size, lifestyle, priorities (security, comfort, energy savings), budget
+2. Recommend products ONLY from the list above
+3. Explain compatibility and which devices work together
+4. Create personalized bundles from available products
+5. Provide setup tips and automation scenarios
 
-## Guidelines / إرشادات:
-- Be friendly, knowledgeable, and concise / كن ودوداً ومطلعاً وموجزاً
-- Use bullet points for product recommendations / استخدم النقاط للتوصيات
-- Always include the product link when recommending: [Product Name](/products/slug)
-- If we don't have a product that meets their needs, be honest / إذا لم يتوفر منتج يلبي احتياجاتهم، كن صريحاً
-- **IMPORTANT: Always show prices in EGP (جنيه مصري) - NEVER use dollars ($)**
-- **مهم: اعرض الأسعار دائماً بالجنيه المصري (ج.م) - لا تستخدم الدولار أبداً**
-- Ask clarifying questions when needed / اطرح أسئلة توضيحية عند الحاجة`;
+## Guidelines:
+- Be friendly, knowledgeable, and concise
+- Use bullet points for recommendations
+- Always include product links: [Product Name](/products/slug)
+- Be honest if we don't have what they need
+- **Always show prices in EGP (ج.م) - NEVER use dollars**
+- Ask clarifying questions when needed
+- Keep responses focused and actionable`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...messages,
-        ],
-        stream: true,
-      }),
-    });
-
-    if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+    // Try Lovable AI first, fallback to Groq
+    let response;
+    try {
+      response = await callLovableAI(messages, systemPrompt);
+    } catch (err: any) {
+      if (err?.fallback) {
+        console.log("Lovable AI limit hit, falling back to Groq");
+        try {
+          response = await callGroqAI(messages, systemPrompt);
+        } catch (groqErr) {
+          console.error("Groq also failed:", groqErr);
+          return new Response(JSON.stringify({ error: "AI service temporarily unavailable. Please try again later." }), {
+            status: 503,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      } else {
+        throw err;
       }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Service temporarily unavailable. Please try again later." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
-      return new Response(JSON.stringify({ error: "AI service error" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
     }
 
     return new Response(response.body, {

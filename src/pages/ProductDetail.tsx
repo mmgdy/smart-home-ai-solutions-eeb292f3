@@ -11,6 +11,11 @@ import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 
+function getYouTubeEmbedUrl(url: string): string {
+  const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([a-zA-Z0-9_-]{11})/);
+  return match ? `https://www.youtube.com/embed/${match[1]}` : url;
+}
+
 const ProductDetail = () => {
   const { slug } = useParams<{ slug: string }>();
   const addItem = useCart((state) => state.addItem);
@@ -90,27 +95,49 @@ const ProductDetail = () => {
           </Link>
 
           <div className="grid gap-8 lg:grid-cols-2">
-            {/* Image */}
-            <div className="relative aspect-square overflow-hidden rounded-2xl border border-border bg-card">
-              {product.image_url ? (
-                <img src={product.image_url} alt={product.name} className="h-full w-full object-cover" />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center">
-                  <Zap className="h-24 w-24 text-muted-foreground" />
+            {/* Image & Video */}
+            <div className="space-y-4">
+              <div className="relative aspect-square overflow-hidden rounded-2xl border border-border bg-card">
+                {product.image_url ? (
+                  <img src={product.image_url} alt={product.name} className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center">
+                    <Zap className="h-24 w-24 text-muted-foreground" />
+                  </div>
+                )}
+                <div className={cn("absolute top-4 flex flex-col gap-2", isRTL ? "right-4" : "left-4")}>
+                  {discount && (
+                    <span className="rounded-full bg-destructive px-3 py-1 text-sm font-medium text-destructive-foreground">
+                      {t('save')} {discount}%
+                    </span>
+                  )}
+                  {product.featured && (
+                    <span className="rounded-full bg-primary px-3 py-1 text-sm font-medium text-primary-foreground">
+                      {t('featured')}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Installation Video */}
+              {product.video_url && (
+                <div className="rounded-2xl border border-border bg-card overflow-hidden">
+                  <div className="p-3 border-b border-border">
+                    <h3 className="text-sm font-semibold flex items-center gap-2">
+                      🎬 {isRTL ? 'فيديو التركيب' : 'Installation Video'}
+                    </h3>
+                  </div>
+                  <div className="aspect-video">
+                    <iframe
+                      src={getYouTubeEmbedUrl(product.video_url)}
+                      title="Installation video"
+                      className="w-full h-full"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  </div>
                 </div>
               )}
-              <div className={cn("absolute top-4 flex flex-col gap-2", isRTL ? "right-4" : "left-4")}>
-                {discount && (
-                  <span className="rounded-full bg-destructive px-3 py-1 text-sm font-medium text-destructive-foreground">
-                    {t('save')} {discount}%
-                  </span>
-                )}
-                {product.featured && (
-                  <span className="rounded-full bg-primary px-3 py-1 text-sm font-medium text-primary-foreground">
-                    {t('featured')}
-                  </span>
-                )}
-              </div>
             </div>
 
             {/* Details */}
