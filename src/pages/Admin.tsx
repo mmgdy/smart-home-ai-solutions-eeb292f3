@@ -739,6 +739,11 @@ export default function Admin() {
               </div>
             )}
           </TabsContent>
+          <TabsContent value="scraper" className="mt-6">
+            <div className="bg-card border border-border rounded-xl p-6">
+              <ProductScraper adminToken={token} />
+            </div>
+          </TabsContent>
         </Tabs>
       </div>
     </Layout>
