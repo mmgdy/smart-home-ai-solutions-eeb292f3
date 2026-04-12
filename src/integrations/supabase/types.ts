@@ -320,6 +320,7 @@ export type Database = {
           specifications: Json | null
           stock: number
           updated_at: string
+          video_url: string | null
         }
         Insert: {
           brand?: string | null
@@ -339,6 +340,7 @@ export type Database = {
           specifications?: Json | null
           stock?: number
           updated_at?: string
+          video_url?: string | null
         }
         Update: {
           brand?: string | null
@@ -358,6 +360,7 @@ export type Database = {
           specifications?: Json | null
           stock?: number
           updated_at?: string
+          video_url?: string | null
         }
         Relationships: [
           {
