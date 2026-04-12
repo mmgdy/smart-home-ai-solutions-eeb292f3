@@ -3,7 +3,7 @@ import { Helmet } from 'react-helmet-async';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Upload, Loader2, CheckCircle, AlertCircle, Image, FileText, Sparkles, Download, Filter, DollarSign, CreditCard, Package, Settings, Globe, RefreshCw } from 'lucide-react';
+import { Upload, Loader2, CheckCircle, AlertCircle, Image, FileText, Sparkles, Download, Filter, DollarSign, CreditCard, Package, Settings, Globe, RefreshCw, Link2 } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
@@ -14,6 +14,7 @@ import { OrdersManagement } from '@/components/admin/OrdersManagement';
 import { AdminLogin } from '@/components/admin/AdminLogin';
 import { SiteSettings } from '@/components/admin/SiteSettings';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
+import { ProductScraper } from '@/components/admin/ProductScraper';
 
 interface ProductExport {
   id: string;
@@ -368,6 +369,10 @@ export default function Admin() {
             <TabsTrigger value="market-sync">
               <Globe className="w-4 h-4 mr-1" />
               <span className="hidden sm:inline">Market</span>
+            </TabsTrigger>
+            <TabsTrigger value="scraper">
+              <Link2 className="w-4 h-4 mr-1" />
+              <span className="hidden sm:inline">Import URL</span>
             </TabsTrigger>
           </TabsList>
 
