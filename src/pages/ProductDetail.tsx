@@ -120,7 +120,7 @@ const ProductDetail = () => {
               </div>
 
               {/* Installation Video */}
-              {(product as any).video_url && (
+              {product.video_url && (
                 <div className="rounded-2xl border border-border bg-card overflow-hidden">
                   <div className="p-3 border-b border-border">
                     <h3 className="text-sm font-semibold flex items-center gap-2">
@@ -129,7 +129,7 @@ const ProductDetail = () => {
                   </div>
                   <div className="aspect-video">
                     <iframe
-                      src={getYouTubeEmbedUrl((product as any).video_url)}
+                      src={getYouTubeEmbedUrl(product.video_url)}
                       title="Installation video"
                       className="w-full h-full"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
