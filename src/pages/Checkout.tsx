@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { ArrowLeft, ArrowRight, CreditCard, Truck, Shield, Loader2, Gift, Banknote, CheckCircle, LogIn } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CreditCard, Truck, Shield, Loader2, Gift, Banknote, CheckCircle, LogIn, Wrench } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Switch } from '@/components/ui/switch';
 import { useCart } from '@/hooks/useCart';
 import { useLanguage } from '@/lib/i18n';
 import { useToast } from '@/hooks/use-toast';
@@ -53,6 +54,7 @@ const Checkout = () => {
   const [pointsToRedeem, setPointsToRedeem] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'cod' | 'fawry' | 'vodafone' | 'applepay'>('card');
   const [payskyLoaded, setPayskyLoaded] = useState(false);
+  const [includeInstallation, setIncludeInstallation] = useState(true);
   const [formData, setFormData] = useState<CheckoutFormData>({
     firstName: '',
     lastName: '',
@@ -116,7 +118,12 @@ const Checkout = () => {
 
   const subtotal = getTotal();
   const shippingCost = subtotal >= 1000 ? 0 : 50;
-  const totalBeforeDiscount = subtotal + shippingCost;
+  // Auto-calculated installation fee: 150 EGP per device, capped at 1500 EGP.
+  const deviceCount = items.reduce((n, i) => n + i.quantity, 0);
+  const installationFee = includeInstallation
+    ? Math.min(1500, Math.max(0, deviceCount * 150))
+    : 0;
+  const totalBeforeDiscount = subtotal + shippingCost + installationFee;
   const total = Math.max(0, totalBeforeDiscount - pointsDiscount);
 
   const handleRedemptionChange = (discount: number, points: number) => {
@@ -146,6 +153,11 @@ const Checkout = () => {
         address: formData.address,
         city: formData.city,
         governorate: formData.governorate,
+        installation: includeInstallation ? {
+          requested: true,
+          fee: installationFee,
+          deviceCount,
+        } : { requested: false },
       },
     };
 
