@@ -707,6 +707,36 @@ const Checkout = () => {
                   </RadioGroup>
                 </div>
 
+                {/* Professional Installation */}
+                <div className="rounded-xl border border-primary/30 bg-gradient-to-br from-primary/10 to-card p-6">
+                  <div className="flex items-start justify-between gap-4 mb-3">
+                    <div className="flex items-center gap-3">
+                      <Wrench className="h-5 w-5 text-primary" />
+                      <h2 className="font-display text-xl font-semibold text-foreground">
+                        {language === 'ar' ? 'التركيب الاحترافي' : 'Professional Installation'}
+                      </h2>
+                    </div>
+                    <Switch checked={includeInstallation} onCheckedChange={setIncludeInstallation} />
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    {language === 'ar'
+                      ? `فريقنا المعتمد يركّب أجهزتك ويهيئها لك. الرسوم: ١٥٠ جنيه لكل جهاز (بحد أقصى ١٥٠٠ جنيه).`
+                      : `Our certified team installs and configures your devices. Fee: 150 EGP per device (capped at 1500 EGP).`}
+                  </p>
+                  {includeInstallation && (
+                    <div className="flex items-center justify-between rounded-lg bg-primary/10 px-4 py-3">
+                      <span className="text-sm font-medium text-foreground">
+                        {language === 'ar'
+                          ? `${deviceCount} جهاز × ١٥٠ ج.م`
+                          : `${deviceCount} device${deviceCount === 1 ? '' : 's'} × 150 EGP`}
+                      </span>
+                      <span className="font-display text-lg font-bold text-primary">
+                        {formatPrice(installationFee)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
                 {/* Loyalty Points Redemption */}
                 <div className="rounded-xl border border-border bg-card p-6">
                   <h2 className="mb-4 font-display text-xl font-semibold text-foreground flex items-center gap-2">
@@ -732,13 +762,12 @@ const Checkout = () => {
                   {items.map((item) => (
                     <div key={item.product.id} className="flex items-center gap-3">
                       <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-muted">
-                        {item.product.image_url && (
-                          <img
-                            src={item.product.image_url}
-                            alt={item.product.name}
-                            className="h-full w-full object-cover"
-                          />
-                        )}
+                        <img
+                          src={item.product.image_url || '/placeholder.svg'}
+                          alt={item.product.name}
+                          onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/placeholder.svg'; }}
+                          className="h-full w-full object-cover"
+                        />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="truncate text-sm font-medium text-foreground">
