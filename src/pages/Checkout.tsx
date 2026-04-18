@@ -429,19 +429,19 @@ const Checkout = () => {
             <div className="grid gap-8 lg:grid-cols-[1fr_400px]">
               {/* Shipping Form */}
               <div className="space-y-6">
-                {/* SSO Login Banner */}
+                {/* Sign-in banner */}
                 {!user && (
                   <div className="rounded-xl border border-primary/30 bg-primary/5 p-5">
                     <div className="flex items-center gap-3 mb-3">
                       <LogIn className="h-5 w-5 text-primary" />
                       <h2 className="font-display text-lg font-semibold text-foreground">
-                        {language === 'ar' ? 'سجّل الدخول لجمع النقاط' : 'Sign in to earn rewards'}
+                        {language === 'ar' ? 'سجّل لجمع النقاط' : 'Sign in to earn rewards'}
                       </h2>
                     </div>
                     <p className="text-sm text-muted-foreground mb-4">
                       {language === 'ar'
-                        ? 'سجّل الدخول بحساب جوجل لجمع نقاط الولاء واستبدالها بخصومات على طلباتك القادمة'
-                        : 'Sign in with Google to earn loyalty points and redeem them for discounts on future orders'}
+                        ? 'أنشئ حساب بسرعة لجمع نقاط الولاء واستبدالها بخصومات على طلباتك القادمة'
+                        : 'Create an account to earn loyalty points and redeem them for future discounts'}
                     </p>
                     <AuthButton variant="default" size="default" showProfile={false} />
                   </div>
