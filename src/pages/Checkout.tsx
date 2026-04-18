@@ -795,7 +795,14 @@ const Checkout = () => {
                       {shippingCost === 0 ? labels.freeShipping : formatPrice(shippingCost)}
                     </span>
                   </div>
-                  
+                  {includeInstallation && installationFee > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">
+                        {language === 'ar' ? 'التركيب' : 'Installation'}
+                      </span>
+                      <span className="font-medium text-foreground">{formatPrice(installationFee)}</span>
+                    </div>
+                  )}
                   {pointsDiscount > 0 && (
                     <div className="flex justify-between text-sm">
                       <span className="text-green-600">{labels.pointsDiscount}</span>
