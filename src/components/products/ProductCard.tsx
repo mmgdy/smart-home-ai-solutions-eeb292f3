@@ -6,6 +6,7 @@ import { useCart } from '@/hooks/useCart';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
+import { productPlaceholder } from '@/lib/productImage';
 
 interface ProductCardProps {
   product: Product;
@@ -40,17 +41,13 @@ export function ProductCard({ product, className }: ProductCardProps) {
       >
         {/* Image */}
         <div className="relative aspect-[4/3] overflow-hidden bg-muted">
-          {product.image_url ? (
-            <img
-              src={product.image_url}
-              alt={product.name}
-              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center">
-              <Zap className="h-12 w-12 text-muted-foreground" />
-            </div>
-          )}
+          <img
+            src={product.image_url || productPlaceholder}
+            alt={product.name}
+            loading="lazy"
+            onError={(e) => { (e.currentTarget as HTMLImageElement).src = productPlaceholder; }}
+            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+          />
 
           {/* Badges */}
           <div className={cn(

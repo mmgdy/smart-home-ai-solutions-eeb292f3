@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { ArrowLeft, ArrowRight, CreditCard, Truck, Shield, Loader2, Gift, Banknote, CheckCircle, LogIn } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CreditCard, Truck, Shield, Loader2, Gift, Banknote, CheckCircle, LogIn, Wrench } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Switch } from '@/components/ui/switch';
 import { useCart } from '@/hooks/useCart';
 import { useLanguage } from '@/lib/i18n';
 import { useToast } from '@/hooks/use-toast';
@@ -53,6 +54,7 @@ const Checkout = () => {
   const [pointsToRedeem, setPointsToRedeem] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'cod' | 'fawry' | 'vodafone' | 'applepay'>('card');
   const [payskyLoaded, setPayskyLoaded] = useState(false);
+  const [includeInstallation, setIncludeInstallation] = useState(true);
   const [formData, setFormData] = useState<CheckoutFormData>({
     firstName: '',
     lastName: '',
@@ -116,7 +118,12 @@ const Checkout = () => {
 
   const subtotal = getTotal();
   const shippingCost = subtotal >= 1000 ? 0 : 50;
-  const totalBeforeDiscount = subtotal + shippingCost;
+  // Auto-calculated installation fee: 150 EGP per device, capped at 1500 EGP.
+  const deviceCount = items.reduce((n, i) => n + i.quantity, 0);
+  const installationFee = includeInstallation
+    ? Math.min(1500, Math.max(0, deviceCount * 150))
+    : 0;
+  const totalBeforeDiscount = subtotal + shippingCost + installationFee;
   const total = Math.max(0, totalBeforeDiscount - pointsDiscount);
 
   const handleRedemptionChange = (discount: number, points: number) => {
@@ -146,6 +153,11 @@ const Checkout = () => {
         address: formData.address,
         city: formData.city,
         governorate: formData.governorate,
+        installation: includeInstallation ? {
+          requested: true,
+          fee: installationFee,
+          deviceCount,
+        } : { requested: false },
       },
     };
 
@@ -417,19 +429,19 @@ const Checkout = () => {
             <div className="grid gap-8 lg:grid-cols-[1fr_400px]">
               {/* Shipping Form */}
               <div className="space-y-6">
-                {/* SSO Login Banner */}
+                {/* Sign-in banner */}
                 {!user && (
                   <div className="rounded-xl border border-primary/30 bg-primary/5 p-5">
                     <div className="flex items-center gap-3 mb-3">
                       <LogIn className="h-5 w-5 text-primary" />
                       <h2 className="font-display text-lg font-semibold text-foreground">
-                        {language === 'ar' ? 'سجّل الدخول لجمع النقاط' : 'Sign in to earn rewards'}
+                        {language === 'ar' ? 'سجّل لجمع النقاط' : 'Sign in to earn rewards'}
                       </h2>
                     </div>
                     <p className="text-sm text-muted-foreground mb-4">
                       {language === 'ar'
-                        ? 'سجّل الدخول بحساب جوجل لجمع نقاط الولاء واستبدالها بخصومات على طلباتك القادمة'
-                        : 'Sign in with Google to earn loyalty points and redeem them for discounts on future orders'}
+                        ? 'أنشئ حساب بسرعة لجمع نقاط الولاء واستبدالها بخصومات على طلباتك القادمة'
+                        : 'Create an account to earn loyalty points and redeem them for future discounts'}
                     </p>
                     <AuthButton variant="default" size="default" showProfile={false} />
                   </div>
@@ -695,6 +707,36 @@ const Checkout = () => {
                   </RadioGroup>
                 </div>
 
+                {/* Professional Installation */}
+                <div className="rounded-xl border border-primary/30 bg-gradient-to-br from-primary/10 to-card p-6">
+                  <div className="flex items-start justify-between gap-4 mb-3">
+                    <div className="flex items-center gap-3">
+                      <Wrench className="h-5 w-5 text-primary" />
+                      <h2 className="font-display text-xl font-semibold text-foreground">
+                        {language === 'ar' ? 'التركيب الاحترافي' : 'Professional Installation'}
+                      </h2>
+                    </div>
+                    <Switch checked={includeInstallation} onCheckedChange={setIncludeInstallation} />
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    {language === 'ar'
+                      ? `فريقنا المعتمد يركّب أجهزتك ويهيئها لك. الرسوم: ١٥٠ جنيه لكل جهاز (بحد أقصى ١٥٠٠ جنيه).`
+                      : `Our certified team installs and configures your devices. Fee: 150 EGP per device (capped at 1500 EGP).`}
+                  </p>
+                  {includeInstallation && (
+                    <div className="flex items-center justify-between rounded-lg bg-primary/10 px-4 py-3">
+                      <span className="text-sm font-medium text-foreground">
+                        {language === 'ar'
+                          ? `${deviceCount} جهاز × ١٥٠ ج.م`
+                          : `${deviceCount} device${deviceCount === 1 ? '' : 's'} × 150 EGP`}
+                      </span>
+                      <span className="font-display text-lg font-bold text-primary">
+                        {formatPrice(installationFee)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
                 {/* Loyalty Points Redemption */}
                 <div className="rounded-xl border border-border bg-card p-6">
                   <h2 className="mb-4 font-display text-xl font-semibold text-foreground flex items-center gap-2">
@@ -720,13 +762,12 @@ const Checkout = () => {
                   {items.map((item) => (
                     <div key={item.product.id} className="flex items-center gap-3">
                       <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-muted">
-                        {item.product.image_url && (
-                          <img
-                            src={item.product.image_url}
-                            alt={item.product.name}
-                            className="h-full w-full object-cover"
-                          />
-                        )}
+                        <img
+                          src={item.product.image_url || '/placeholder.svg'}
+                          alt={item.product.name}
+                          onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/placeholder.svg'; }}
+                          className="h-full w-full object-cover"
+                        />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="truncate text-sm font-medium text-foreground">
@@ -754,7 +795,14 @@ const Checkout = () => {
                       {shippingCost === 0 ? labels.freeShipping : formatPrice(shippingCost)}
                     </span>
                   </div>
-                  
+                  {includeInstallation && installationFee > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">
+                        {language === 'ar' ? 'التركيب' : 'Installation'}
+                      </span>
+                      <span className="font-medium text-foreground">{formatPrice(installationFee)}</span>
+                    </div>
+                  )}
                   {pointsDiscount > 0 && (
                     <div className="flex justify-between text-sm">
                       <span className="text-green-600">{labels.pointsDiscount}</span>

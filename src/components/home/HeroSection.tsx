@@ -1,48 +1,80 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight, Bot, Sparkles } from 'lucide-react';
+import { ArrowRight, Sparkles, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
+import heroBg from '@/assets/hero-bg.jpg';
+
+// Free, hot-linkable smart-home / lifestyle MP4 (Coverr-hosted on Cloudinary).
+// Falls back to the still hero image if the video fails to load.
+const HERO_VIDEO =
+  'https://cdn.coverr.co/videos/coverr-modern-living-room-at-sunset-3815/1080p.mp4';
 
 export function HeroSection() {
-  const { t, isRTL } = useLanguage();
+  const { isRTL } = useLanguage();
 
   const steps = [
-    { num: '01', label: isRTL ? 'أجب على أسئلة بسيطة' : 'Answer Simple Questions' },
-    { num: '02', label: isRTL ? 'احصل على خطة ذكية' : 'Get Smart Plan' },
-    { num: '03', label: isRTL ? 'اشترِ الأجهزة' : 'Buy Devices' },
-    { num: '04', label: isRTL ? 'احجز التركيب' : 'Book Installation' },
+    { num: '01', label: isRTL ? 'احكيلنا عن بيتك' : 'Tell us about your home' },
+    { num: '02', label: isRTL ? 'استلم خطتك' : 'Get your plan' },
+    { num: '03', label: isRTL ? 'اشترِ الأجهزة' : 'Order devices' },
+    { num: '04', label: isRTL ? 'احجز التركيب' : 'Book install' },
   ];
 
   return (
-    <section className="relative min-h-screen flex items-center overflow-hidden bg-background">
-      {/* Background effects */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-1/3 -right-1/4 w-[70vw] h-[70vw] rounded-full bg-gradient-to-br from-primary/15 via-primary/5 to-transparent blur-3xl" />
-        <div className="absolute -bottom-1/3 -left-1/4 w-[50vw] h-[50vw] rounded-full bg-gradient-to-tr from-cyan-accent/8 via-transparent to-transparent blur-3xl" />
-        <svg className="absolute inset-0 w-full h-full opacity-[0.02]" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <pattern id="grid" width="80" height="80" patternUnits="userSpaceOnUse">
-              <path d="M 80 0 L 0 0 0 80" fill="none" stroke="currentColor" strokeWidth="0.5"/>
-            </pattern>
-          </defs>
-          <rect width="100%" height="100%" fill="url(#grid)" className="text-foreground" />
-        </svg>
+    <section className="relative min-h-[100svh] flex items-center overflow-hidden">
+      {/* Cinematic hook — looping video background */}
+      <div className="absolute inset-0">
+        <video
+          className="absolute inset-0 h-full w-full object-cover"
+          autoPlay
+          muted
+          loop
+          playsInline
+          poster={heroBg}
+        >
+          <source src={HERO_VIDEO} type="video/mp4" />
+        </video>
+        {/* Image fallback that always renders behind the video */}
+        <img
+          src={heroBg}
+          alt=""
+          aria-hidden
+          className="absolute inset-0 h-full w-full object-cover -z-10"
+        />
+        {/* Color overlays for legibility + brand vibe */}
+        <div className="absolute inset-0 bg-gradient-to-b from-background/70 via-background/55 to-background/95" />
+        <div className="absolute inset-0 bg-gradient-to-tr from-primary/20 via-transparent to-warning/15 mix-blend-overlay" />
+        {/* Animated shimmer accents */}
+        <motion.div
+          aria-hidden
+          className="absolute -top-40 -right-32 h-[60vw] w-[60vw] rounded-full bg-gradient-to-br from-primary/30 via-cyan-500/15 to-transparent blur-3xl"
+          animate={{ scale: [1, 1.1, 1], opacity: [0.6, 0.9, 0.6] }}
+          transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
+        />
+        <motion.div
+          aria-hidden
+          className="absolute -bottom-40 -left-32 h-[55vw] w-[55vw] rounded-full bg-gradient-to-tr from-warning/25 via-primary/10 to-transparent blur-3xl"
+          animate={{ scale: [1.1, 1, 1.1], opacity: [0.5, 0.8, 0.5] }}
+          transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut' }}
+        />
       </div>
 
-      <div className="container relative z-10 px-6 md:px-12 pt-28 pb-16">
+      <div className="container relative z-10 px-6 md:px-12 pt-28 pb-24">
         <div className="max-w-5xl mx-auto text-center">
           {/* Badge */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-8"
+            transition={{ duration: 0.6 }}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-card/40 backdrop-blur-md border border-primary/30 mb-8 shadow-[0_0_30px_-5px_hsl(var(--primary)/0.4)]"
           >
-            <Bot className="h-4 w-4 text-primary" />
-            <span className="text-sm font-medium text-primary">
-              {isRTL ? 'أول منصة ذكاء اصطناعي للمنازل الذكية في مصر' : "Egypt's 1st AI Smart Home Platform"}
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
+            </span>
+            <span className="text-sm font-medium text-foreground">
+              {isRTL ? 'منزلك الذكي يبدأ من هنا' : 'Your smart home starts here'}
             </span>
           </motion.div>
 
@@ -50,56 +82,56 @@ export function HeroSection() {
           <motion.h1
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.1 }}
-            className="font-display text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.1] mb-6"
+            transition={{ duration: 0.8, delay: 0.1 }}
+            className="font-display text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold tracking-tight leading-[1.05] mb-6"
           >
-            <span className="block text-foreground">
-              {isRTL ? 'ابني منزلك الذكي' : 'Build Your Smart Home'}
+            <span className="block text-foreground drop-shadow-[0_2px_20px_rgba(0,0,0,0.5)]">
+              {isRTL ? 'اشعر بسحر' : 'Feel the magic of'}
             </span>
-            <span className="block text-gradient mt-1">
-              {isRTL ? 'في دقائق بالذكاء الاصطناعي' : 'in Minutes with AI'}
+            <span className="block text-gradient mt-2">
+              {isRTL ? 'البيت الذكي' : 'a Smarter Home'}
             </span>
           </motion.h1>
 
-          {/* Subheadline */}
           <motion.p
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.2 }}
-            className="text-base md:text-lg lg:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed"
+            transition={{ duration: 0.7, delay: 0.25 }}
+            className="text-lg md:text-xl text-foreground/85 max-w-2xl mx-auto mb-10 leading-relaxed font-medium drop-shadow-[0_1px_8px_rgba(0,0,0,0.4)]"
           >
             {isRTL
-              ? 'أجب على أسئلة بسيطة → احصل على خطة منزل ذكي → اشترِ الأجهزة → احجز التركيب. بدون خبرة تقنية.'
-              : 'Answer a few questions → Get a smart home plan → Buy devices → Book installation. No technical knowledge needed.'}
+              ? 'إضاءة، أمان، تحكم — بضغطة واحدة. منتجات أصلية، تركيب احترافي، ودفع عند الاستلام.'
+              : 'Lighting, security, control — in one tap. Genuine products, expert installation, cash on delivery.'}
           </motion.p>
 
           {/* CTAs */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.3 }}
-            className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16"
+            transition={{ duration: 0.7, delay: 0.4 }}
+            className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-14"
           >
-            <Link to="/ai-consultant">
-              <Button
-                size="lg"
-                className="h-14 px-8 text-base font-semibold bg-primary text-primary-foreground hover:bg-primary/90 rounded-full group glow-primary"
-              >
-                <Sparkles className="mr-2 h-5 w-5" />
-                {isRTL ? 'ابدأ مستشار المنزل الذكي' : 'Start Smart Home AI Advisor'}
-                <ArrowRight className={cn(
-                  "ml-2 h-5 w-5 transition-transform group-hover:translate-x-1",
-                  isRTL && "rotate-180 mr-2 ml-0 group-hover:-translate-x-1"
-                )} />
-              </Button>
-            </Link>
             <Link to="/bundles">
               <Button
                 size="lg"
-                variant="outline"
-                className="h-14 px-8 text-base font-medium rounded-full border-foreground/20 hover:bg-foreground/5"
+                className="h-14 px-10 text-base font-semibold bg-primary text-primary-foreground hover:bg-primary/90 rounded-full group glow-primary shadow-[0_10px_40px_-10px_hsl(var(--primary)/0.7)]"
               >
-                {isRTL ? 'تصفح باقات المنزل الذكي' : 'Browse Smart Home Bundles'}
+                <Sparkles className="mr-2 h-5 w-5" />
+                {isRTL ? 'ابدأ بناء بيتك الذكي' : 'Start Building Your Smart Home'}
+                <ArrowRight className={cn(
+                  'ml-2 h-5 w-5 transition-transform group-hover:translate-x-1',
+                  isRTL && 'rotate-180 mr-2 ml-0 group-hover:-translate-x-1'
+                )} />
+              </Button>
+            </Link>
+            <Link to="/products">
+              <Button
+                size="lg"
+                variant="outline"
+                className="h-14 px-8 text-base font-medium rounded-full border-foreground/30 bg-background/30 backdrop-blur-md hover:bg-background/50 text-foreground"
+              >
+                <Play className="mr-2 h-4 w-4 fill-current" />
+                {isRTL ? 'تصفح المنتجات' : 'Browse Products'}
               </Button>
             </Link>
           </motion.div>
@@ -108,33 +140,39 @@ export function HeroSection() {
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.4 }}
-            className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-3xl mx-auto"
+            transition={{ duration: 0.7, delay: 0.55 }}
+            className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-3xl mx-auto"
           >
             {steps.map((step, i) => (
-              <div key={step.num} className="flex items-center gap-3 p-3 rounded-xl bg-card/50 border border-border/50">
-                <span className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
+              <motion.div
+                key={step.num}
+                whileHover={{ y: -4 }}
+                className="flex items-center gap-3 p-3 rounded-2xl bg-card/40 backdrop-blur-md border border-border/50"
+              >
+                <span className="flex-shrink-0 w-9 h-9 rounded-full bg-gradient-to-br from-primary to-cyan-500 flex items-center justify-center text-xs font-bold text-primary-foreground shadow-lg">
                   {step.num}
                 </span>
-                <span className="text-xs md:text-sm text-muted-foreground font-medium">{step.label}</span>
-              </div>
+                <span className="text-xs md:text-sm text-foreground/90 font-medium text-left">
+                  {step.label}
+                </span>
+              </motion.div>
             ))}
           </motion.div>
         </div>
       </div>
 
-      {/* Trust strip at bottom */}
+      {/* Trust strip */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ duration: 1, delay: 0.8 }}
-        className="absolute bottom-0 left-0 right-0 border-t border-border/50 bg-card/30 backdrop-blur-sm"
+        transition={{ duration: 1, delay: 0.9 }}
+        className="absolute bottom-0 left-0 right-0 border-t border-border/40 bg-background/60 backdrop-blur-xl z-10"
       >
-        <div className="container px-6 md:px-12 py-4">
-          <div className="flex flex-wrap items-center justify-center gap-6 md:gap-10 text-xs text-muted-foreground">
+        <div className="container px-6 md:px-12 py-3">
+          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-foreground/80">
             <span className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-success" />
-              {isRTL ? '١٠٠٠+ منزل ذكي في مصر' : '1,000+ Smart Homes in Egypt'}
+              <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
+              {isRTL ? '١٠٠٠+ منزل ذكي في مصر' : '1,000+ Smart Homes'}
             </span>
             <span className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-primary" />
@@ -145,8 +183,8 @@ export function HeroSection() {
               {isRTL ? 'ضمان رسمي' : 'Official Warranty'}
             </span>
             <span className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-primary" />
-              {isRTL ? 'تركيب احترافي' : 'Professional Installation'}
+              <span className="w-2 h-2 rounded-full bg-cyan-400" />
+              {isRTL ? 'تركيب احترافي' : 'Pro Installation'}
             </span>
           </div>
         </div>
