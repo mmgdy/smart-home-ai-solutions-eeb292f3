@@ -364,9 +364,23 @@ Only REAL products with VERIFIED Egyptian prices. JSON array only.`;
     );
   } catch (error) {
     console.error('Market sync error:', error);
+    const msg = String(error);
+    const isQuota = msg.includes('401') || msg.toLowerCase().includes('quota');
+    const isMissingKey = msg.includes('PERPLEXITY_API_KEY not configured');
     return new Response(
-      JSON.stringify({ success: false, error: String(error) }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({
+        success: false,
+        fallback: true,
+        error: isMissingKey
+          ? 'API_KEY_MISSING'
+          : isQuota
+            ? 'INSUFFICIENT_QUOTA'
+            : 'SERVICE_UNAVAILABLE',
+        message: msg.slice(0, 300),
+        results: [],
+      }),
+      // Return 200 so the frontend doesn't crash on a 500
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
