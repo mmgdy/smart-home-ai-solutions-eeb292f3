@@ -5,14 +5,23 @@ import { useLanguage } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 import heroBg from '@/assets/hero-bg.jpg';
+import { useSiteInfo } from '@/hooks/useSiteInfo';
 
-// Free, hot-linkable smart-home / lifestyle MP4 (Coverr-hosted on Cloudinary).
-// Falls back to the still hero image if the video fails to load.
 const HERO_VIDEO =
   'https://cdn.coverr.co/videos/coverr-modern-living-room-at-sunset-3815/1080p.mp4';
 
 export function HeroSection() {
   const { isRTL } = useLanguage();
+  const { get } = useSiteInfo();
+
+  const headline = get('hero', isRTL ? 'headline_ar' : 'headline_en',
+    isRTL ? 'اشعر بسحر البيت الذكي' : 'Feel the magic of a Smarter Home');
+  const subheadline = get('hero', isRTL ? 'subheadline_ar' : 'subheadline_en',
+    isRTL
+      ? 'إضاءة، أمان، تحكم — بضغطة واحدة. منتجات أصلية، تركيب احترافي، ودفع عند الاستلام.'
+      : 'Lighting, security, control — in one tap. Genuine products, expert installation, cash on delivery.');
+  const ctaLabel = get('hero', isRTL ? 'cta_ar' : 'cta_en',
+    isRTL ? 'ابدأ بناء بيتك الذكي' : 'Start Building Your Smart Home');
 
   const steps = [
     { num: '01', label: isRTL ? 'احكيلنا عن بيتك' : 'Tell us about your home' },
@@ -86,10 +95,7 @@ export function HeroSection() {
             className="font-display text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold tracking-tight leading-[1.05] mb-6"
           >
             <span className="block text-foreground drop-shadow-[0_2px_20px_rgba(0,0,0,0.5)]">
-              {isRTL ? 'اشعر بسحر' : 'Feel the magic of'}
-            </span>
-            <span className="block text-gradient mt-2">
-              {isRTL ? 'البيت الذكي' : 'a Smarter Home'}
+              {headline}
             </span>
           </motion.h1>
 
@@ -99,9 +105,7 @@ export function HeroSection() {
             transition={{ duration: 0.7, delay: 0.25 }}
             className="text-lg md:text-xl text-foreground/85 max-w-2xl mx-auto mb-10 leading-relaxed font-medium drop-shadow-[0_1px_8px_rgba(0,0,0,0.4)]"
           >
-            {isRTL
-              ? 'إضاءة، أمان، تحكم — بضغطة واحدة. منتجات أصلية، تركيب احترافي، ودفع عند الاستلام.'
-              : 'Lighting, security, control — in one tap. Genuine products, expert installation, cash on delivery.'}
+            {subheadline}
           </motion.p>
 
           {/* CTAs */}
@@ -117,7 +121,7 @@ export function HeroSection() {
                 className="h-14 px-10 text-base font-semibold bg-primary text-primary-foreground hover:bg-primary/90 rounded-full group glow-primary shadow-[0_10px_40px_-10px_hsl(var(--primary)/0.7)]"
               >
                 <Sparkles className="mr-2 h-5 w-5" />
-                {isRTL ? 'ابدأ بناء بيتك الذكي' : 'Start Building Your Smart Home'}
+                {ctaLabel}
                 <ArrowRight className={cn(
                   'ml-2 h-5 w-5 transition-transform group-hover:translate-x-1',
                   isRTL && 'rotate-180 mr-2 ml-0 group-hover:-translate-x-1'
