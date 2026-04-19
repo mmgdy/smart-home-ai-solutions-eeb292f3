@@ -7,8 +7,16 @@ import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 
+import { useSiteInfo } from '@/hooks/useSiteInfo';
+
 const About = () => {
   const { isRTL } = useLanguage();
+  const { get } = useSiteInfo();
+  const mission = get('about', isRTL ? 'mission_ar' : 'mission_en',
+    isRTL
+      ? 'بيتزكي هي أول منصة مصرية تجمع بين الذكاء الاصطناعي ومنتجات المنزل الذكي وخدمات التركيب في مكان واحد. مهمتنا إن كل بيت مصري يبقى ذكي وموفر للطاقة وآمن.'
+      : "Baytzaki is Egypt's first platform combining AI advisory, smart home products, and professional installation in one place. Our mission is to make every Egyptian home intelligent, energy-efficient, and secure.");
+  const story = get('about', isRTL ? 'story_ar' : 'story_en', '');
 
   return (
     <>
@@ -33,10 +41,18 @@ const About = () => {
               transition={{ delay: 0.1 }}
               className="text-lg text-muted-foreground leading-relaxed"
             >
-              {isRTL
-                ? 'بيتزكي هي أول منصة مصرية تجمع بين الذكاء الاصطناعي ومنتجات المنزل الذكي وخدمات التركيب في مكان واحد. مهمتنا إن كل بيت مصري يبقى ذكي وموفر للطاقة وآمن.'
-                : "Baytzaki is Egypt's first platform combining AI advisory, smart home products, and professional installation in one place. Our mission is to make every Egyptian home intelligent, energy-efficient, and secure."}
+              {mission}
             </motion.p>
+            {story && (
+              <motion.p
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="text-base text-muted-foreground leading-relaxed mt-4 whitespace-pre-line"
+              >
+                {story}
+              </motion.p>
+            )}
           </div>
 
           {/* Values */}

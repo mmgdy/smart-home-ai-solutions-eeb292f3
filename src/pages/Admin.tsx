@@ -15,6 +15,8 @@ import { AdminLogin } from '@/components/admin/AdminLogin';
 import { SiteSettings } from '@/components/admin/SiteSettings';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { ProductScraper } from '@/components/admin/ProductScraper';
+import { ProductEditor } from '@/components/admin/ProductEditor';
+import { SiteInfoEditor } from '@/components/admin/SiteInfoEditor';
 
 interface ProductExport {
   id: string;
@@ -332,11 +334,19 @@ export default function Admin() {
       <div className="container mx-auto px-4 py-12">
         <h1 className="text-4xl font-display font-bold mb-8">Admin Dashboard</h1>
         
-        <Tabs defaultValue="orders" className="max-w-4xl" onValueChange={(v) => v === 'export' && fetchExportStats()}>
-          <TabsList className="grid w-full grid-cols-9">
+        <Tabs defaultValue="orders" className="max-w-6xl" onValueChange={(v) => v === 'export' && fetchExportStats()}>
+          <TabsList className="grid w-full grid-cols-11">
             <TabsTrigger value="orders">
               <Package className="w-4 h-4 mr-1" />
               <span className="hidden sm:inline">Orders</span>
+            </TabsTrigger>
+            <TabsTrigger value="products">
+              <Package className="w-4 h-4 mr-1" />
+              <span className="hidden sm:inline">Products</span>
+            </TabsTrigger>
+            <TabsTrigger value="site-info">
+              <Globe className="w-4 h-4 mr-1" />
+              <span className="hidden sm:inline">Site Info</span>
             </TabsTrigger>
             <TabsTrigger value="settings">
               <Settings className="w-4 h-4 mr-1" />
@@ -380,6 +390,14 @@ export default function Admin() {
             <div className="bg-card border border-border rounded-xl p-6">
               <OrdersManagement />
             </div>
+          </TabsContent>
+
+          <TabsContent value="products" className="mt-6">
+            <ProductEditor adminToken={token} />
+          </TabsContent>
+
+          <TabsContent value="site-info" className="mt-6">
+            <SiteInfoEditor adminToken={token} />
           </TabsContent>
 
           <TabsContent value="settings" className="mt-6">
