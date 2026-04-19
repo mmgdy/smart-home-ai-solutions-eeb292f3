@@ -23,6 +23,7 @@ import Profile from "./pages/Profile";
 import Legal from "./pages/Legal";
 import Bundles from "./pages/Bundles";
 import About from "./pages/About";
+import Brands from "./pages/Brands";
 
 const queryClient = new QueryClient();
 
@@ -47,6 +48,7 @@ const App = () => (
               <Route path="/loyalty" element={<Loyalty />} />
               <Route path="/bundles" element={<Bundles />} />
               <Route path="/about" element={<About />} />
+              <Route path="/brands" element={<Brands />} />
               <Route path="/admin" element={<Admin />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/legal/:page" element={<Legal />} />
