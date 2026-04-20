@@ -1,12 +1,30 @@
 import { Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { useLanguage } from '@/lib/i18n';
 import { useSiteInfo } from '@/hooks/useSiteInfo';
 import { Phone, MapPin, Mail, MessageCircle, Facebook, Instagram, Youtube } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import defaultLogoImage from '@/assets/logo.png';
 
 export function Footer() {
   const { t, language } = useLanguage();
   const { get } = useSiteInfo();
   const isRTL = language === 'ar';
+  const [logoUrl, setLogoUrl] = useState<string>(defaultLogoImage);
+  const [logoSize, setLogoSize] = useState(60);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from('admin_settings')
+        .select('key, value')
+        .in('key', ['logo_url', 'logo_size']);
+      data?.forEach((s) => {
+        if (s.key === 'logo_url' && s.value) setLogoUrl(s.value);
+        if (s.key === 'logo_size' && s.value) setLogoSize(Math.min(parseInt(s.value), 80));
+      });
+    })();
+  }, []);
 
   const phone = get('contact', 'phone', '+20 123 456 7890');
   const whatsapp = get('contact', 'whatsapp', '201234567890').replace(/\D/g, '');
@@ -48,8 +66,8 @@ export function Footer() {
       <div className="container px-6 md:px-12 py-16">
         <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-4">
           <div className="lg:col-span-1">
-            <Link to="/" className="inline-block mb-4">
-              <span className="font-display text-2xl font-bold tracking-tight text-foreground">BAYTZAKI</span>
+            <Link to="/" className="inline-flex items-center mb-4">
+              <img src={logoUrl} alt="Baytzaki" style={{ height: `${logoSize}px` }} className="object-contain" />
             </Link>
             <p className="text-sm text-muted-foreground leading-relaxed mb-6">
               {isRTL

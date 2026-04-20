@@ -8,6 +8,7 @@ import { TrustAndStats } from '@/components/home/TrustAndStats';
 import { FeaturedProducts } from '@/components/home/FeaturedProducts';
 import { BrandShowcase } from '@/components/home/BrandShowcase';
 import { TrySmartLighting } from '@/components/home/TrySmartLighting';
+import { TryItShowcase } from '@/components/home/TryItShowcase';
 
 const Index = () => {
   return (
@@ -22,6 +23,7 @@ const Index = () => {
       <Layout>
         <HeroSection />
         <SolutionCategories />
+        <TryItShowcase />
         <AIAdvisorShowcase />
         <SmartBundles />
         <TrustAndStats />

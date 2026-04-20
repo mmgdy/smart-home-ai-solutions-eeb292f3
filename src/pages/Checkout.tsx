@@ -32,13 +32,28 @@ type CheckoutFormData = z.infer<typeof checkoutSchema>;
 
 declare global {
   interface Window {
-    Lightbox?: {
-      Checkout: {
-        configure: (config: any) => void;
-        showLightbox: () => void;
-      };
-    };
+    Lightbox?: any;
+    lightbox?: any;
+    LightBox?: any;
   }
+}
+
+// PaySky exposes its global with inconsistent casing across SDK versions.
+// We probe all known shapes so the integration keeps working.
+function getPaySkyLightbox(): any | null {
+  const w = window as any;
+  const candidates = [w.Lightbox, w.lightbox, w.LightBox];
+  for (const c of candidates) {
+    if (!c) continue;
+    const checkout = c.Checkout || c.checkout;
+    if (checkout && typeof (checkout.configure || checkout.Configure) === 'function') {
+      return {
+        configure: (checkout.configure || checkout.Configure).bind(checkout),
+        showLightbox: (checkout.showLightbox || checkout.ShowLightbox || checkout.show)?.bind(checkout),
+      };
+    }
+  }
+  return null;
 }
 
 const Checkout = () => {
@@ -84,29 +99,41 @@ const Checkout = () => {
   // Load PaySky LightBox script
   useEffect(() => {
     if (paymentMethod !== 'card') return;
-    
-    const scriptUrl = 'https://cube.paysky.io:6006/js/LightBox.js';
-    
-    // Check if already loaded
-    const existing = document.querySelector(`script[src="${scriptUrl}"]`);
-    if (existing) {
-      // Wait a tick for script to initialize
-      setTimeout(() => setPayskyLoaded(!!window.Lightbox), 100);
-      return;
-    }
-    
-    const script = document.createElement('script');
-    script.src = scriptUrl;
-    script.async = true;
-    script.onload = () => {
-      // Give script time to initialize the global
-      setTimeout(() => setPayskyLoaded(!!window.Lightbox), 200);
+
+    const probe = () => setPayskyLoaded(!!getPaySkyLightbox());
+    if (getPaySkyLightbox()) { setPayskyLoaded(true); return; }
+
+    // Try both the acceptance and the production URLs in order.
+    const urls = [
+      'https://acceptance.paysky.io:6006/js/LightBox.js',
+      'https://cube.paysky.io:6006/js/LightBox.js',
+    ];
+    let cancelled = false;
+
+    const loadOne = (idx: number) => {
+      if (cancelled || idx >= urls.length) return;
+      const url = urls[idx];
+      const existing = document.querySelector(`script[src="${url}"]`);
+      if (existing) {
+        // wait briefly for global to attach
+        setTimeout(() => {
+          if (getPaySkyLightbox()) probe();
+          else loadOne(idx + 1);
+        }, 300);
+        return;
+      }
+      const s = document.createElement('script');
+      s.src = url;
+      s.async = true;
+      s.onload = () => setTimeout(() => {
+        if (getPaySkyLightbox()) probe();
+        else loadOne(idx + 1);
+      }, 300);
+      s.onerror = () => loadOne(idx + 1);
+      document.body.appendChild(s);
     };
-    script.onerror = () => {
-      console.error('PaySky LightBox failed to load');
-      setPayskyLoaded(false);
-    };
-    document.body.appendChild(script);
+    loadOne(0);
+    return () => { cancelled = true; };
   }, [paymentMethod]);
 
   // Redirect if cart is empty
@@ -255,9 +282,10 @@ const Checkout = () => {
 
       const config = data.config;
 
-      // Configure and show PaySky LightBox
-      if (window.Lightbox) {
-        window.Lightbox.Checkout.configure({
+      // Configure and show PaySky LightBox (handles SDK casing differences)
+      const lightbox = getPaySkyLightbox();
+      if (lightbox && typeof lightbox.configure === 'function') {
+        lightbox.configure({
           MID: config.MID,
           TID: config.TID,
           AmountTrxn: config.AmountTrxn,
@@ -268,7 +296,6 @@ const Checkout = () => {
             console.log('Payment complete:', response);
             if (response.Success) {
               const order = await createOrder();
-              // Update order with payment reference
               await supabase
                 .from('orders')
                 .update({ stripe_session_id: response.TransactionNo || config.MerchantReference })
@@ -276,9 +303,7 @@ const Checkout = () => {
 
               toast({
                 title: language === 'ar' ? 'تم الدفع بنجاح' : 'Payment Successful',
-                description: language === 'ar' 
-                  ? 'تم إتمام طلبك بنجاح'
-                  : 'Your order has been placed successfully',
+                description: language === 'ar' ? 'تم إتمام طلبك بنجاح' : 'Your order has been placed successfully',
               });
 
               clearCart();
@@ -302,19 +327,27 @@ const Checkout = () => {
             setIsProcessing(false);
           },
           cancelCallback: () => {
-            console.log('Payment cancelled');
             toast({
               title: language === 'ar' ? 'تم إلغاء الدفع' : 'Payment Cancelled',
-              description: language === 'ar' 
-                ? 'يمكنك المحاولة مرة أخرى'
-                : 'You can try again',
+              description: language === 'ar' ? 'يمكنك المحاولة مرة أخرى' : 'You can try again',
             });
             setIsProcessing(false);
           },
         });
 
-        window.Lightbox.Checkout.showLightbox();
+        if (typeof lightbox.showLightbox === 'function') {
+          lightbox.showLightbox();
+        } else {
+          throw new Error('PaySky LightBox cannot be displayed');
+        }
       } else {
+        toast({
+          variant: 'destructive',
+          title: language === 'ar' ? 'بوابة الدفع غير متاحة' : 'Payment gateway unavailable',
+          description: language === 'ar'
+            ? 'استخدم الدفع عند الاستلام أو حاول لاحقاً'
+            : 'Please use Cash on Delivery or try again later',
+        });
         throw new Error('PaySky LightBox not loaded');
       }
     } catch (error: any) {

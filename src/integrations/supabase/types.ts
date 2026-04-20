@@ -486,6 +486,24 @@ export type Database = {
         }
         Relationships: []
       }
+      welcome_emails_sent: {
+        Row: {
+          email: string
+          id: string
+          sent_at: string
+        }
+        Insert: {
+          email: string
+          id?: string
+          sent_at?: string
+        }
+        Update: {
+          email?: string
+          id?: string
+          sent_at?: string
+        }
+        Relationships: []
+      }
       wishlists: {
         Row: {
           created_at: string

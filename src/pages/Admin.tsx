@@ -3,7 +3,7 @@ import { Helmet } from 'react-helmet-async';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Upload, Loader2, CheckCircle, AlertCircle, Image, FileText, Sparkles, Download, Filter, DollarSign, CreditCard, Package, Settings, Globe, RefreshCw, Link2 } from 'lucide-react';
+import { Upload, Loader2, CheckCircle, AlertCircle, Image, FileText, Sparkles, Download, Filter, DollarSign, CreditCard, Package, Settings, Globe, RefreshCw, Link2, Users } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
@@ -18,6 +18,8 @@ import { ProductScraper } from '@/components/admin/ProductScraper';
 import { ProductEditor } from '@/components/admin/ProductEditor';
 import { SiteInfoEditor } from '@/components/admin/SiteInfoEditor';
 import { BulkImporter } from '@/components/admin/BulkImporter';
+import { UsersManagement } from '@/components/admin/UsersManagement';
+import { BundlesEditor } from '@/components/admin/BundlesEditor';
 
 interface ProductExport {
   id: string;
@@ -336,56 +338,25 @@ export default function Admin() {
         <h1 className="text-4xl font-display font-bold mb-8">Admin Dashboard</h1>
         
         <Tabs defaultValue="orders" className="max-w-6xl" onValueChange={(v) => v === 'export' && fetchExportStats()}>
-          <TabsList className="grid w-full grid-cols-12">
-            <TabsTrigger value="orders">
-              <Package className="w-4 h-4 mr-1" />
-              <span className="hidden sm:inline">Orders</span>
-            </TabsTrigger>
-            <TabsTrigger value="products">
-              <Package className="w-4 h-4 mr-1" />
-              <span className="hidden sm:inline">Products</span>
-            </TabsTrigger>
-            <TabsTrigger value="bulk">
-              <Globe className="w-4 h-4 mr-1" />
-              <span className="hidden sm:inline">Bulk Import</span>
-            </TabsTrigger>
-            <TabsTrigger value="site-info">
-              <Globe className="w-4 h-4 mr-1" />
-              <span className="hidden sm:inline">Site Info</span>
-            </TabsTrigger>
-            <TabsTrigger value="settings">
-              <Settings className="w-4 h-4 mr-1" />
-              <span className="hidden sm:inline">Site</span>
-            </TabsTrigger>
-            <TabsTrigger value="prices">
-              <DollarSign className="w-4 h-4 mr-1" />
-              <span className="hidden sm:inline">Prices</span>
-            </TabsTrigger>
-            <TabsTrigger value="payment">
-              <CreditCard className="w-4 h-4 mr-1" />
-              <span className="hidden sm:inline">Payment</span>
-            </TabsTrigger>
-            <TabsTrigger value="export">
-              <Download className="w-4 h-4 mr-1" />
-              <span className="hidden sm:inline">Export</span>
-            </TabsTrigger>
-            <TabsTrigger value="import">
-              <Upload className="w-4 h-4 mr-1" />
-              <span className="hidden sm:inline">Import</span>
-            </TabsTrigger>
-            <TabsTrigger value="images">
-              <Image className="w-4 h-4 mr-1" />
-              <span className="hidden sm:inline">Images</span>
-            </TabsTrigger>
-            <TabsTrigger value="market-sync">
-              <Globe className="w-4 h-4 mr-1" />
-              <span className="hidden sm:inline">Market</span>
-            </TabsTrigger>
-            <TabsTrigger value="scraper">
-              <Link2 className="w-4 h-4 mr-1" />
-              <span className="hidden sm:inline">Import URL</span>
-            </TabsTrigger>
+          <TabsList className="flex flex-wrap h-auto">
+            <TabsTrigger value="orders"><Package className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Orders</span></TabsTrigger>
+            <TabsTrigger value="users"><Users className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Users</span></TabsTrigger>
+            <TabsTrigger value="products"><Package className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Products</span></TabsTrigger>
+            <TabsTrigger value="bundles"><Package className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Bundles</span></TabsTrigger>
+            <TabsTrigger value="bulk"><Globe className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Bulk Import</span></TabsTrigger>
+            <TabsTrigger value="site-info"><Globe className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Site Info</span></TabsTrigger>
+            <TabsTrigger value="settings"><Settings className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Site</span></TabsTrigger>
+            <TabsTrigger value="prices"><DollarSign className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Prices</span></TabsTrigger>
+            <TabsTrigger value="payment"><CreditCard className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Payment</span></TabsTrigger>
+            <TabsTrigger value="export"><Download className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Export</span></TabsTrigger>
+            <TabsTrigger value="import"><Upload className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Import</span></TabsTrigger>
+            <TabsTrigger value="images"><Image className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Images</span></TabsTrigger>
+            <TabsTrigger value="market-sync"><Globe className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Market</span></TabsTrigger>
+            <TabsTrigger value="scraper"><Link2 className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Import URL</span></TabsTrigger>
           </TabsList>
+
+          <TabsContent value="users" className="mt-6"><UsersManagement adminToken={token} /></TabsContent>
+          <TabsContent value="bundles" className="mt-6"><BundlesEditor adminToken={token} /></TabsContent>
 
           <TabsContent value="bulk" className="mt-6">
             <BulkImporter adminToken={token} />
