@@ -5,10 +5,10 @@ import { useLanguage } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 import heroBg from '@/assets/hero-bg.jpg';
+import heroLoop from '@/assets/hero-loop.mp4.asset.json';
 import { useSiteInfo } from '@/hooks/useSiteInfo';
 
-const HERO_VIDEO =
-  'https://cdn.coverr.co/videos/coverr-modern-living-room-at-sunset-3815/1080p.mp4';
+const HERO_VIDEO = (heroLoop as { url: string }).url;
 
 export function HeroSection() {
   const { isRTL } = useLanguage();

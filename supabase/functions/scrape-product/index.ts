@@ -41,7 +41,29 @@ serve(async (req) => {
 
     const html = await pageResp.text();
 
-    // Use AI to extract product info from HTML
+    // Pre-extract real images from HTML before AI (og:image, json-ld, srcset)
+    const realImages: string[] = [];
+    const ogMatch = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i);
+    if (ogMatch) realImages.push(ogMatch[1]);
+    const twMatch = html.match(/<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i);
+    if (twMatch) realImages.push(twMatch[1]);
+    // JSON-LD product images
+    const jsonLdMatches = html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi);
+    for (const m of jsonLdMatches) {
+      try {
+        const ld = JSON.parse(m[1]);
+        const items = Array.isArray(ld) ? ld : [ld];
+        for (const it of items) {
+          const img = it.image;
+          if (typeof img === "string") realImages.push(img);
+          else if (Array.isArray(img)) realImages.push(...img.filter((x) => typeof x === "string"));
+          else if (img?.url) realImages.push(img.url);
+        }
+      } catch {}
+    }
+    const dedupedImages = [...new Set(realImages.filter((u) => u && u.startsWith("http")))];
+    const primaryImage = dedupedImages[0] || null;
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("AI not configured");
 
@@ -131,6 +153,9 @@ Return valid JSON only, no markdown.`
       success: true,
       product: {
         ...productData,
+        // Override with real images extracted from HTML metadata when available
+        image_url: primaryImage || productData.image_url,
+        images: dedupedImages.length > 0 ? dedupedImages : (productData.images || []),
         slug,
         source_url: url,
       }
