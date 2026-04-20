@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Loader2, Save, Phone, Share2, Sparkles, Info } from "lucide-react";
+import { Loader2, Save, Phone, Share2, Sparkles, Info, Wrench, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -42,6 +42,15 @@ const SECTIONS: Array<{
     { key: "mission_ar", label: "Mission (Arabic)", type: "textarea" },
     { key: "story_en", label: "Story (English)", type: "textarea" },
     { key: "story_ar", label: "Story (Arabic)", type: "textarea" },
+  ] },
+  { key: "service_prices", title: "Service prices (EGP)", icon: Wrench, fields: [
+    { key: "installation", label: "Smart home installation (from EGP)" },
+    { key: "configuration", label: "System configuration (from EGP)" },
+    { key: "consultation", label: "Consultation (from EGP)" },
+    { key: "calculator_install_per_device", label: "Calculator: install fee per device (EGP)" },
+    { key: "calculator_install_min", label: "Calculator: minimum install fee (EGP)" },
+    { key: "checkout_install_per_device", label: "Checkout: install fee per device (EGP)" },
+    { key: "checkout_install_cap", label: "Checkout: install fee cap (EGP)" },
   ] },
 ];
 
