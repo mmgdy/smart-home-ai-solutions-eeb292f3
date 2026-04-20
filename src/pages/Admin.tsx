@@ -17,6 +17,7 @@ import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { ProductScraper } from '@/components/admin/ProductScraper';
 import { ProductEditor } from '@/components/admin/ProductEditor';
 import { SiteInfoEditor } from '@/components/admin/SiteInfoEditor';
+import { BulkImporter } from '@/components/admin/BulkImporter';
 
 interface ProductExport {
   id: string;
@@ -335,7 +336,7 @@ export default function Admin() {
         <h1 className="text-4xl font-display font-bold mb-8">Admin Dashboard</h1>
         
         <Tabs defaultValue="orders" className="max-w-6xl" onValueChange={(v) => v === 'export' && fetchExportStats()}>
-          <TabsList className="grid w-full grid-cols-11">
+          <TabsList className="grid w-full grid-cols-12">
             <TabsTrigger value="orders">
               <Package className="w-4 h-4 mr-1" />
               <span className="hidden sm:inline">Orders</span>
@@ -343,6 +344,10 @@ export default function Admin() {
             <TabsTrigger value="products">
               <Package className="w-4 h-4 mr-1" />
               <span className="hidden sm:inline">Products</span>
+            </TabsTrigger>
+            <TabsTrigger value="bulk">
+              <Globe className="w-4 h-4 mr-1" />
+              <span className="hidden sm:inline">Bulk Import</span>
             </TabsTrigger>
             <TabsTrigger value="site-info">
               <Globe className="w-4 h-4 mr-1" />
@@ -372,10 +377,6 @@ export default function Admin() {
               <Image className="w-4 h-4 mr-1" />
               <span className="hidden sm:inline">Images</span>
             </TabsTrigger>
-            <TabsTrigger value="descriptions">
-              <FileText className="w-4 h-4 mr-1" />
-              <span className="hidden sm:inline">AI</span>
-            </TabsTrigger>
             <TabsTrigger value="market-sync">
               <Globe className="w-4 h-4 mr-1" />
               <span className="hidden sm:inline">Market</span>
@@ -385,6 +386,10 @@ export default function Admin() {
               <span className="hidden sm:inline">Import URL</span>
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="bulk" className="mt-6">
+            <BulkImporter adminToken={token} />
+          </TabsContent>
 
           <TabsContent value="orders" className="mt-6">
             <div className="bg-card border border-border rounded-xl p-6">
