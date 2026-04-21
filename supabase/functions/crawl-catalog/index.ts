@@ -138,7 +138,7 @@ Deno.serve(async (req) => {
     );
 
     const body = await req.json();
-    const { rootUrl, token, maxProducts = 25, urlFilter = "", mode = "discover", batchSize = 15 } = body;
+    const { rootUrl, token, maxProducts = 25, urlFilter = "", mode = "discover", batchSize = 3 } = body;
 
     if (!(await verifyAdminToken(supabase, token))) {
       return new Response(JSON.stringify({ success: false, error: "Unauthorized" }), {
@@ -167,7 +167,7 @@ Deno.serve(async (req) => {
       }
 
       const results: any[] = [];
-      const BATCH = 4;
+      const BATCH = 3;
       for (let i = 0; i < products.length; i += BATCH) {
         const slice = products.slice(i, i + BATCH);
         const batchResults = await Promise.all(slice.map(async (p) => {
@@ -214,11 +214,7 @@ Deno.serve(async (req) => {
             const product = await extractProductWithAI(combined, sourceUrl, LOVABLE_API_KEY);
             if (!product) return { id: p.id, name: p.name, success: false, error: "AI no extract" };
 
-            let newImages = cleanImages(bestImage, product.image_url, product.images, p.image_url);
-            if (newImages[0]) {
-              const mirrored = await mirrorImage(supabase, newImages[0], p.id);
-              newImages = cleanImages(mirrored, ...newImages);
-            }
+            const newImages = cleanImages(bestImage, product.image_url, product.images, p.image_url);
             const newImage = newImages[0] || p.image_url;
             const newPrice = Number(product.price) > 0 ? Math.round(Number(product.price)) : null;
             const newOriginal = product.original_price ? Math.round(Number(product.original_price)) : null;
