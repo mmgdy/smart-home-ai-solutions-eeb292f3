@@ -85,7 +85,8 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const { rootUrl, token, maxProducts = 25, urlFilter = "" } = await req.json();
+    const body = await req.json();
+    const { rootUrl, token, maxProducts = 25, urlFilter = "", mode = "discover", batchSize = 15 } = body;
 
     if (!(await verifyAdminToken(supabase, token))) {
       return new Response(JSON.stringify({ success: false, error: "Unauthorized" }), {
@@ -97,6 +98,104 @@ Deno.serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!FIRECRAWL_API_KEY) throw new Error("FIRECRAWL_API_KEY not configured");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+
+    // ============= MODE: fix-existing =============
+    // Re-process existing products: search the web for each, fetch real image + realistic EGP price.
+    if (mode === "fix-existing") {
+      const { data: products } = await supabase
+        .from("products")
+        .select("id, name, brand, price, image_url")
+        .order("updated_at", { ascending: true })
+        .limit(batchSize);
+
+      if (!products || products.length === 0) {
+        return new Response(JSON.stringify({ success: true, results: [], processed: 0 }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const results: any[] = [];
+      const BATCH = 4;
+      for (let i = 0; i < products.length; i += BATCH) {
+        const slice = products.slice(i, i + BATCH);
+        const batchResults = await Promise.all(slice.map(async (p) => {
+          try {
+            const query = `${p.brand || ""} ${p.name}`.trim();
+            // 1) Web search via Firecrawl to find a product page with real images
+            const searchResp = await fetch(`${FIRECRAWL}/search`, {
+              method: "POST",
+              headers: { Authorization: `Bearer ${FIRECRAWL_API_KEY}`, "Content-Type": "application/json" },
+              body: JSON.stringify({
+                query: `${query} smart home buy price`,
+                limit: 3,
+                scrapeOptions: { formats: ["markdown"] },
+              }),
+            });
+            if (!searchResp.ok) {
+              return { id: p.id, name: p.name, success: false, error: `search ${searchResp.status}` };
+            }
+            const searchData = await searchResp.json();
+            const hits: any[] = searchData.data || searchData.web?.results || searchData.results || [];
+            if (hits.length === 0) return { id: p.id, name: p.name, success: false, error: "no results" };
+
+            // Concatenate top 2 hits' markdown
+            const combined = hits.slice(0, 2).map((h) => `URL: ${h.url}\n\n${h.markdown || h.description || ""}`).join("\n\n---\n\n");
+            const sourceUrl = hits[0].url || "";
+
+            // 2) Get metadata (image) from the top hit via scrape if no image yet
+            let bestImage: string | null = null;
+            try {
+              const scrapeResp = await fetch(`${FIRECRAWL}/scrape`, {
+                method: "POST",
+                headers: { Authorization: `Bearer ${FIRECRAWL_API_KEY}`, "Content-Type": "application/json" },
+                body: JSON.stringify({ url: sourceUrl, formats: ["markdown"], onlyMainContent: true }),
+              });
+              if (scrapeResp.ok) {
+                const sd = await scrapeResp.json();
+                const meta = sd.data?.metadata || sd.metadata || {};
+                bestImage = meta.ogImage || meta["og:image"] || meta.twitterImage || null;
+              }
+            } catch { /* ignore */ }
+
+            // 3) AI extracts realistic EGP price + best image URL from the markdown
+            const product = await extractProductWithAI(combined, sourceUrl, LOVABLE_API_KEY);
+            if (!product) return { id: p.id, name: p.name, success: false, error: "AI no extract" };
+
+            const newImage = bestImage || product.image_url || p.image_url;
+            const newPrice = Number(product.price) > 0 ? Math.round(Number(product.price)) : null;
+            const newOriginal = product.original_price ? Math.round(Number(product.original_price)) : null;
+
+            const updates: Record<string, any> = { updated_at: new Date().toISOString() };
+            if (newImage && newImage !== p.image_url) updates.image_url = newImage;
+            if (newPrice && newPrice !== Number(p.price)) updates.price = newPrice;
+            if (newOriginal) updates.original_price = newOriginal;
+
+            if (Object.keys(updates).length === 1) {
+              return { id: p.id, name: p.name, success: false, error: "no changes detected" };
+            }
+
+            const { error } = await supabase.from("products").update(updates).eq("id", p.id);
+            if (error) return { id: p.id, name: p.name, success: false, error: error.message };
+
+            return {
+              id: p.id, name: p.name, success: true,
+              old_price: p.price, new_price: updates.price ?? p.price,
+              image_updated: !!updates.image_url,
+            };
+          } catch (e) {
+            return { id: p.id, name: p.name, success: false, error: e instanceof Error ? e.message : String(e) };
+          }
+        }));
+        results.push(...batchResults);
+      }
+
+      return new Response(JSON.stringify({
+        success: true, mode: "fix-existing",
+        processed: results.length,
+        updated: results.filter((r) => r.success).length,
+        results,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     // Step 1: Map the site to discover URLs
     console.log(`Mapping ${rootUrl}...`);
