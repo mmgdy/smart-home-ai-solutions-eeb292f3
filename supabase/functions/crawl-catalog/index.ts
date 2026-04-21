@@ -199,7 +199,16 @@ Deno.serve(async (req) => {
               }),
             });
             if (!searchResp.ok) {
-              return { id: p.id, name: p.name, success: false, error: `search ${searchResp.status}` };
+              const detail = await responseSnippet(searchResp);
+              return {
+                id: p.id,
+                name: p.name,
+                success: false,
+                fatal: isFirecrawlLimit(searchResp.status),
+                error: isFirecrawlLimit(searchResp.status)
+                  ? firecrawlLimitMessage(searchResp.status)
+                  : `Firecrawl search failed (${searchResp.status}): ${detail}`,
+              };
             }
             const searchData = await searchResp.json();
             const hits = normalizeSearchHits(searchData);
@@ -217,6 +226,15 @@ Deno.serve(async (req) => {
                 headers: { Authorization: `Bearer ${FIRECRAWL_API_KEY}`, "Content-Type": "application/json" },
                 body: JSON.stringify({ url: sourceUrl, formats: ["markdown", "html"], onlyMainContent: false, waitFor: 1000 }),
               });
+              if (!scrapeResp.ok && isFirecrawlLimit(scrapeResp.status)) {
+                return {
+                  id: p.id,
+                  name: p.name,
+                  success: false,
+                  fatal: true,
+                  error: firecrawlLimitMessage(scrapeResp.status),
+                };
+              }
               if (scrapeResp.ok) {
                 const sd = await scrapeResp.json();
                 const meta = sd.data?.metadata || sd.metadata || {};
