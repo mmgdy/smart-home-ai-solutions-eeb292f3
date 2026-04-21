@@ -157,21 +157,21 @@ Deno.serve(async (req) => {
               method: "POST",
               headers: { Authorization: `Bearer ${FIRECRAWL_API_KEY}`, "Content-Type": "application/json" },
               body: JSON.stringify({
-                query: `${query} smart home buy price`,
-                limit: 3,
-                scrapeOptions: { formats: ["markdown"] },
+                query: `${query} smart home product price image official store OR amazon OR aliexpress OR ebay OR noon OR jumia`,
+                limit: 8,
+                scrapeOptions: { formats: ["markdown", "html"] },
               }),
             });
             if (!searchResp.ok) {
               return { id: p.id, name: p.name, success: false, error: `search ${searchResp.status}` };
             }
             const searchData = await searchResp.json();
-            const hits: any[] = searchData.data || searchData.web?.results || searchData.results || [];
+            const hits = normalizeSearchHits(searchData);
             if (hits.length === 0) return { id: p.id, name: p.name, success: false, error: "no results" };
 
-            // Concatenate top 2 hits' markdown
-            const combined = hits.slice(0, 2).map((h) => `URL: ${h.url}\n\n${h.markdown || h.description || ""}`).join("\n\n---\n\n");
-            const sourceUrl = hits[0].url || "";
+            // Concatenate top hits' content so pricing can come from any global store.
+            const combined = hits.slice(0, 5).map((h) => `URL: ${hitUrl(h)}\n\n${hitText(h)}`).join("\n\n---\n\n");
+            const sourceUrl = hitUrl(hits[0]);
 
             // 2) Get metadata (image) from the top hit via scrape if no image yet
             let bestImage: string | null = null;
@@ -179,12 +179,12 @@ Deno.serve(async (req) => {
               const scrapeResp = await fetch(`${FIRECRAWL}/scrape`, {
                 method: "POST",
                 headers: { Authorization: `Bearer ${FIRECRAWL_API_KEY}`, "Content-Type": "application/json" },
-                body: JSON.stringify({ url: sourceUrl, formats: ["markdown"], onlyMainContent: true }),
+                body: JSON.stringify({ url: sourceUrl, formats: ["markdown", "html"], onlyMainContent: false, waitFor: 1000 }),
               });
               if (scrapeResp.ok) {
                 const sd = await scrapeResp.json();
                 const meta = sd.data?.metadata || sd.metadata || {};
-                bestImage = meta.ogImage || meta["og:image"] || meta.twitterImage || null;
+                bestImage = cleanImages(meta.ogImage, meta["og:image"], meta.twitterImage, meta.image)?.[0] || null;
               }
             } catch { /* ignore */ }
 
@@ -192,12 +192,14 @@ Deno.serve(async (req) => {
             const product = await extractProductWithAI(combined, sourceUrl, LOVABLE_API_KEY);
             if (!product) return { id: p.id, name: p.name, success: false, error: "AI no extract" };
 
-            const newImage = bestImage || product.image_url || p.image_url;
+            const newImages = cleanImages(bestImage, product.image_url, product.images, p.image_url);
+            const newImage = newImages[0] || p.image_url;
             const newPrice = Number(product.price) > 0 ? Math.round(Number(product.price)) : null;
             const newOriginal = product.original_price ? Math.round(Number(product.original_price)) : null;
 
             const updates: Record<string, any> = { updated_at: new Date().toISOString() };
             if (newImage && newImage !== p.image_url) updates.image_url = newImage;
+            if (newImages.length) updates.images = newImages.slice(0, 8);
             if (newPrice && newPrice !== Number(p.price)) updates.price = newPrice;
             if (newOriginal) updates.original_price = newOriginal;
 
