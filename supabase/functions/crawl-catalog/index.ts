@@ -205,7 +205,8 @@ Deno.serve(async (req) => {
               if (scrapeResp.ok) {
                 const sd = await scrapeResp.json();
                 const meta = sd.data?.metadata || sd.metadata || {};
-                bestImage = cleanImages(meta.ogImage, meta["og:image"], meta.twitterImage, meta.image)?.[0] || null;
+                const html = sd.data?.html || sd.html || "";
+                bestImage = cleanImages(meta.ogImage, meta["og:image"], meta.twitterImage, meta.image, imageUrlsFromHtml(html))?.[0] || null;
               }
             } catch { /* ignore */ }
 
@@ -213,7 +214,11 @@ Deno.serve(async (req) => {
             const product = await extractProductWithAI(combined, sourceUrl, LOVABLE_API_KEY);
             if (!product) return { id: p.id, name: p.name, success: false, error: "AI no extract" };
 
-            const newImages = cleanImages(bestImage, product.image_url, product.images, p.image_url);
+            let newImages = cleanImages(bestImage, product.image_url, product.images, p.image_url);
+            if (newImages[0]) {
+              const mirrored = await mirrorImage(supabase, newImages[0], p.id);
+              newImages = cleanImages(mirrored, ...newImages);
+            }
             const newImage = newImages[0] || p.image_url;
             const newPrice = Number(product.price) > 0 ? Math.round(Number(product.price)) : null;
             const newOriginal = product.original_price ? Math.round(Number(product.original_price)) : null;
