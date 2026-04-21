@@ -57,6 +57,27 @@ const cleanImages = (...values: any[]) => Array.from(new Set(values.flatMap((val
   return [value];
 }).filter((url) => typeof url === "string" && /^https?:\/\//i.test(url))));
 
+const imageUrlsFromHtml = (html: string) => cleanImages(
+  ...Array.from(html.matchAll(/<meta[^>]+(?:property|name)=["'](?:og:image|twitter:image)["'][^>]+content=["']([^"']+)["']/gi)).map((m) => m[1]),
+  ...Array.from(html.matchAll(/<img[^>]+src=["']([^"']+)["']/gi)).map((m) => m[1])
+).slice(0, 8);
+
+async function mirrorImage(supabase: any, imageUrl: string, productId: string) {
+  try {
+    const resp = await fetch(imageUrl, { headers: { "User-Agent": "Mozilla/5.0 BaytzakiCatalogBot/1.0" } });
+    if (!resp.ok) return imageUrl;
+    const contentType = resp.headers.get("content-type") || "image/jpeg";
+    if (!contentType.startsWith("image/")) return imageUrl;
+    const ext = contentType.includes("png") ? "png" : contentType.includes("webp") ? "webp" : contentType.includes("svg") ? "svg" : "jpg";
+    const path = `refreshed/${productId}/${crypto.randomUUID()}.${ext}`;
+    const { error } = await supabase.storage.from("product-images").upload(path, await resp.blob(), { contentType, upsert: true });
+    if (error) return imageUrl;
+    return supabase.storage.from("product-images").getPublicUrl(path).data.publicUrl;
+  } catch {
+    return imageUrl;
+  }
+}
+
 async function extractProductWithAI(markdown: string, sourceUrl: string, apiKey: string) {
   const truncated = markdown.substring(0, 18000);
   const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
