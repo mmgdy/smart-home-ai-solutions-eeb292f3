@@ -26,6 +26,37 @@ async function verifyAdminToken(supabase: any, token: string): Promise<boolean> 
 const slugify = (s: string) =>
   s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 80) || "item";
 
+const normalizeArray = (value: any): any[] => Array.isArray(value) ? value : [];
+
+function normalizeSearchHits(payload: any): any[] {
+  const candidates = [
+    payload?.data,
+    payload?.data?.web,
+    payload?.data?.results,
+    payload?.data?.data,
+    payload?.web,
+    payload?.web?.results,
+    payload?.results,
+    payload?.organic,
+  ];
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) return candidate;
+    if (candidate && typeof candidate === "object") {
+      const nested = Object.values(candidate).find((v) => Array.isArray(v));
+      if (Array.isArray(nested)) return nested;
+    }
+  }
+  return [];
+}
+
+const hitUrl = (hit: any) => hit?.url || hit?.link || hit?.sourceURL || hit?.metadata?.sourceURL || "";
+const hitText = (hit: any) => hit?.markdown || hit?.description || hit?.snippet || hit?.title || "";
+const cleanImages = (...values: any[]) => Array.from(new Set(values.flatMap((value) => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  return [value];
+}).filter((url) => typeof url === "string" && /^https?:\/\//i.test(url))));
+
 async function extractProductWithAI(markdown: string, sourceUrl: string, apiKey: string) {
   const truncated = markdown.substring(0, 18000);
   const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -36,7 +67,7 @@ async function extractProductWithAI(markdown: string, sourceUrl: string, apiKey:
       messages: [
         {
           role: "system",
-          content: `Extract smart-home product data. Return realistic EGP price (USD*50, SAR*13, EUR*55). If no clear product on page, set name to "" so caller can skip.`,
+          content: `Extract smart-home product data from global web pages. Use any reliable worldwide source in the content, not only Egyptian stores. Convert realistic current retail pricing to EGP using USD*50, EUR*55, GBP*64, SAR*13.5, AED*13.7, and add a realistic Egypt import/warranty margin when needed. Prefer official manufacturer/shop images and never invent URLs. If no clear product on page, set name to "" so caller can skip.`,
         },
         { role: "user", content: `URL: ${sourceUrl}\n\n${truncated}` },
       ],
