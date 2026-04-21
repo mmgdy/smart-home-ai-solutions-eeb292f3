@@ -62,6 +62,21 @@ const imageUrlsFromHtml = (html: string) => cleanImages(
   ...Array.from(html.matchAll(/<img[^>]+src=["']([^"']+)["']/gi)).map((m) => m[1])
 ).slice(0, 8);
 
+async function responseSnippet(resp: Response) {
+  const text = await resp.text().catch(() => "");
+  return text.substring(0, 240) || resp.statusText;
+}
+
+function isFirecrawlLimit(status: number) {
+  return status === 402 || status === 429 || status === 408;
+}
+
+function firecrawlLimitMessage(status: number) {
+  if (status === 402) return "Firecrawl credits are exhausted, so product search cannot continue.";
+  if (status === 429) return "Firecrawl rate limit reached. Please wait and try again.";
+  return "Firecrawl request timed out. Please retry with a smaller batch.";
+}
+
 async function mirrorImage(supabase: any, imageUrl: string, productId: string) {
   try {
     const resp = await fetch(imageUrl, { headers: { "User-Agent": "Mozilla/5.0 BaytzakiCatalogBot/1.0" } });
