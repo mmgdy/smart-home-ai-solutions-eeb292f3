@@ -275,10 +275,15 @@ Deno.serve(async (req) => {
           }
         }));
         results.push(...batchResults);
+        if (batchResults.some((r) => r.fatal)) break;
       }
 
+      const fatalResult = results.find((r) => r.fatal);
+
       return new Response(JSON.stringify({
-        success: true, mode: "fix-existing",
+        success: !fatalResult,
+        error: fatalResult?.error,
+        mode: "fix-existing",
         processed: results.length,
         updated: results.filter((r) => r.success).length,
         results,
