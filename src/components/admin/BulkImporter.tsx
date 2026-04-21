@@ -97,11 +97,11 @@ export function BulkImporter({ adminToken }: { adminToken: string }) {
     setFixProgress(0);
 
     try {
-      // Process in 8 rounds of 15 = up to 120 products per click
-      const totalRounds = 8;
+      // Process in many small rounds to stay under the 150s edge timeout.
+      const totalRounds = 30; // 30 × 3 = up to 90 products per click
       for (let i = 0; i < totalRounds; i++) {
         const { data, error } = await supabase.functions.invoke('crawl-catalog', {
-          body: { token: adminToken, mode: 'fix-existing', batchSize: 15 },
+          body: { token: adminToken, mode: 'fix-existing', batchSize: 3 },
         });
         if (error) throw error;
         if (data?.results) setFixResults((prev) => [...prev, ...data.results]);
@@ -274,7 +274,7 @@ export function BulkImporter({ adminToken }: { adminToken: string }) {
           {isFixing ? (
             <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Refreshing products from the web...</>
           ) : (
-            <><Wand2 className="w-4 h-4 mr-2" /> Refresh Next 120 Products</>
+            <><Wand2 className="w-4 h-4 mr-2" /> Refresh Next ~90 Products</>
           )}
         </Button>
 
