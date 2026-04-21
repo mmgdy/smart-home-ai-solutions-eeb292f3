@@ -126,9 +126,13 @@ export function SiteSettings({ adminToken, onLogout }: SiteSettingsProps) {
     setLogoSize(newSize);
 
     try {
-      await supabase
-        .from('admin_settings')
-        .upsert({ key: 'logo_size', value: newSize.toString() }, { onConflict: 'key' });
+      await supabase.functions.invoke('admin-write', {
+        body: {
+          action: 'update-admin-settings',
+          token: adminToken,
+          entries: [{ key: 'logo_size', value: newSize.toString() }],
+        },
+      });
     } catch (error) {
       console.error('Failed to save logo size:', error);
     }
