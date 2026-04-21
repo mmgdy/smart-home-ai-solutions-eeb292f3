@@ -99,18 +99,25 @@ export function BulkImporter({ adminToken }: { adminToken: string }) {
     try {
       // Process in many small rounds to stay under the 150s edge timeout.
       const totalRounds = 30; // 30 × 3 = up to 90 products per click
+      let updatedCount = 0;
       for (let i = 0; i < totalRounds; i++) {
         const { data, error } = await supabase.functions.invoke('crawl-catalog', {
           body: { token: adminToken, mode: 'fix-existing', batchSize: 3 },
         });
         if (error) throw error;
-        if (data?.results) setFixResults((prev) => [...prev, ...data.results]);
+        if (data?.results) {
+          updatedCount += data.results.filter((r: any) => r.success).length;
+          setFixResults((prev) => [...prev, ...data.results]);
+        }
+        if (data?.success === false) throw new Error(data.error || 'Product refresh stopped');
         setFixProgress(((i + 1) / totalRounds) * 100);
         if (!data?.results?.length) break;
       }
       toast({
-        title: 'Products refreshed!',
-        description: 'Real images & realistic EGP prices applied.',
+        title: updatedCount ? 'Products refreshed!' : 'No products updated',
+        description: updatedCount
+          ? `${updatedCount} products received new images or prices.`
+          : 'The search finished but found no usable image or price changes.',
       });
     } catch (err) {
       toast({
