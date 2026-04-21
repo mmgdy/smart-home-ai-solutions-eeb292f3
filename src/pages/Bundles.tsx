@@ -1,4 +1,5 @@
 import { Helmet } from 'react-helmet-async';
+import { useEffect, useState } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -8,6 +9,8 @@ import { useLanguage } from '@/lib/i18n';
 import { useCart } from '@/hooks/useCart';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { normalizeBundles } from '@/lib/bundles';
+import { supabase } from '@/integrations/supabase/client';
 
 const allBundles = [
   {
@@ -116,6 +119,25 @@ const allBundles = [
 
 const Bundles = () => {
   const { isRTL, formatPrice } = useLanguage();
+  const [bundles, setBundles] = useState(normalizeBundles(allBundles as any));
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from('site_info')
+        .select('value')
+        .eq('section', 'bundles')
+        .eq('key', 'list')
+        .maybeSingle();
+      if (!data?.value) return;
+      try {
+        const parsed = JSON.parse(data.value);
+        if (Array.isArray(parsed) && parsed.length) setBundles(normalizeBundles(parsed));
+      } catch {
+        // Keep built-in bundles as fallback.
+      }
+    })();
+  }, []);
 
   return (
     <>
@@ -160,7 +182,7 @@ const Bundles = () => {
           {/* Bundles grid */}
           <div className="container px-6 md:px-12">
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
-              {allBundles.map((bundle, index) => {
+              {bundles.map((bundle, index) => {
                 const discount = Math.round(((bundle.originalPrice - bundle.priceEgp) / bundle.originalPrice) * 100);
                 return (
                   <motion.div

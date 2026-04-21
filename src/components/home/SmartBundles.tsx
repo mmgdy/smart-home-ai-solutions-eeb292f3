@@ -1,9 +1,12 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRight, Check, Wifi, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
+import { normalizeBundles } from '@/lib/bundles';
+import { supabase } from '@/integrations/supabase/client';
 
 const bundles = [
   {
@@ -66,6 +69,25 @@ const bundles = [
 
 export function SmartBundles() {
   const { isRTL, formatPrice } = useLanguage();
+  const [displayBundles, setDisplayBundles] = useState(normalizeBundles(bundles as any).slice(0, 4));
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from('site_info')
+        .select('value')
+        .eq('section', 'bundles')
+        .eq('key', 'list')
+        .maybeSingle();
+      if (!data?.value) return;
+      try {
+        const parsed = JSON.parse(data.value);
+        if (Array.isArray(parsed) && parsed.length) setDisplayBundles(normalizeBundles(parsed).slice(0, 4));
+      } catch {
+        // Keep built-in bundles as fallback.
+      }
+    })();
+  }, []);
 
   return (
     <section className="py-20 bg-card/30">
@@ -100,7 +122,7 @@ export function SmartBundles() {
         </div>
 
         <div className="grid md:grid-cols-2 gap-6 max-w-5xl mx-auto">
-          {bundles.map((bundle, index) => {
+          {displayBundles.map((bundle, index) => {
             const discount = Math.round(((bundle.originalPrice - bundle.priceEgp) / bundle.originalPrice) * 100);
             return (
               <motion.div

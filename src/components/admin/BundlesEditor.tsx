@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { adminEditableBundles } from "@/lib/bundles";
 
 interface Bundle {
   id: string;
@@ -30,8 +31,8 @@ export function BundlesEditor({ adminToken }: { adminToken: string }) {
         .select("value").eq("section", STORAGE_KEY.section).eq("key", STORAGE_KEY.key).maybeSingle();
       try {
         const parsed = data?.value ? JSON.parse(data.value) : [];
-        setBundles(Array.isArray(parsed) ? parsed : []);
-      } catch { setBundles([]); }
+        setBundles(Array.isArray(parsed) && parsed.length ? parsed : adminEditableBundles());
+      } catch { setBundles(adminEditableBundles()); }
       setLoading(false);
     })();
   }, []);
@@ -76,7 +77,7 @@ export function BundlesEditor({ adminToken }: { adminToken: string }) {
 
       {bundles.length === 0 && (
         <div className="bg-muted/30 border border-dashed rounded-xl p-8 text-center text-sm text-muted-foreground">
-          No custom bundles yet. Add one or save empty to keep the built-in defaults.
+          Default bundles are ready to edit. Add another bundle if you need a custom package.
         </div>
       )}
 

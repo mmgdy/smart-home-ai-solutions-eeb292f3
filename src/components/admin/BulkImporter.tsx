@@ -207,8 +207,8 @@ export function BulkImporter({ adminToken }: { adminToken: string }) {
           Recalibrate Prices to Egyptian Market
         </h2>
         <p className="text-sm text-muted-foreground mb-4">
-          Uses AI with knowledge of Amazon Egypt, Noon, Jumia & B.TECH to set realistic EGP prices.
-          Processes 50 products per run (oldest-updated first).
+          Uses AI market knowledge to set realistic EGP prices. For real web-backed images and prices,
+          use the refresh tool below.
         </p>
 
         <Button
@@ -260,9 +260,8 @@ export function BulkImporter({ adminToken }: { adminToken: string }) {
           Refresh ALL Existing Products — Real Images + Real Prices
         </h2>
         <p className="text-sm text-muted-foreground mb-4">
-          For each existing product, searches the web (Firecrawl), pulls the real product image,
-          and asks AI for the realistic EGP price (Amazon EG / Noon / B.TECH). Processes up to
-          120 products per click — run multiple times until all are refreshed.
+          For each existing product, searches global websites with Firecrawl, pulls real product images,
+          and converts worldwide market prices to realistic EGP. Processes up to 120 products per click.
         </p>
 
         <Button
