@@ -252,6 +252,67 @@ export function BulkImporter({ adminToken }: { adminToken: string }) {
           </div>
         )}
       </div>
+
+      {/* Fix existing products: real image + realistic price via web search */}
+      <div className="bg-card border-2 border-primary/40 rounded-xl p-6">
+        <h2 className="text-xl font-semibold mb-2 flex items-center gap-2">
+          <Wand2 className="w-5 h-5 text-primary" />
+          Refresh ALL Existing Products — Real Images + Real Prices
+        </h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          For each existing product, searches the web (Firecrawl), pulls the real product image,
+          and asks AI for the realistic EGP price (Amazon EG / Noon / B.TECH). Processes up to
+          120 products per click — run multiple times until all are refreshed.
+        </p>
+
+        <Button
+          onClick={handleFixExisting}
+          disabled={isFixing}
+          size="lg"
+          variant="default"
+          className="w-full"
+        >
+          {isFixing ? (
+            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Refreshing products from the web...</>
+          ) : (
+            <><Wand2 className="w-4 h-4 mr-2" /> Refresh Next 120 Products</>
+          )}
+        </Button>
+
+        {isFixing && <Progress value={fixProgress} className="mt-4" />}
+
+        {fixResults.length > 0 && (
+          <div className="mt-4 max-h-72 overflow-y-auto space-y-1 text-xs">
+            <div className="text-sm font-medium mb-2">
+              Updated{' '}
+              <span className="text-success">
+                {fixResults.filter((r) => r.success).length}
+              </span>{' '}
+              of {fixResults.length}
+            </div>
+            {fixResults.map((r, idx) => (
+              <div key={idx} className="flex items-start gap-2 p-2 rounded bg-muted/30">
+                {r.success ? (
+                  <CheckCircle2 className="w-4 h-4 text-success flex-shrink-0 mt-0.5" />
+                ) : (
+                  <XCircle className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium truncate">{r.name}</div>
+                  {r.success ? (
+                    <div className="text-muted-foreground">
+                      EGP {r.old_price} → <span className="text-success font-semibold">{r.new_price}</span>
+                      {r.image_updated && <span className="ml-2">· image updated</span>}
+                    </div>
+                  ) : (
+                    <div className="text-muted-foreground">{r.error}</div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
