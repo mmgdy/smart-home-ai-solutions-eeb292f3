@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Globe2, Loader2, DollarSign, Sparkles, CheckCircle2, XCircle } from 'lucide-react';
+import { Globe2, Loader2, DollarSign, Sparkles, CheckCircle2, XCircle, Wand2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -22,6 +22,11 @@ export function BulkImporter({ adminToken }: { adminToken: string }) {
   const [isRecalibrating, setIsRecalibrating] = useState(false);
   const [recalibrateProgress, setRecalibrateProgress] = useState(0);
   const [recalibrateResults, setRecalibrateResults] = useState<any[]>([]);
+
+  // Fix existing state
+  const [isFixing, setIsFixing] = useState(false);
+  const [fixProgress, setFixProgress] = useState(0);
+  const [fixResults, setFixResults] = useState<any[]>([]);
 
   const handleCrawl = async () => {
     if (!rootUrl.trim()) return;
@@ -83,6 +88,38 @@ export function BulkImporter({ adminToken }: { adminToken: string }) {
       });
     } finally {
       setIsRecalibrating(false);
+    }
+  };
+
+  const handleFixExisting = async () => {
+    setIsFixing(true);
+    setFixResults([]);
+    setFixProgress(0);
+
+    try {
+      // Process in 8 rounds of 15 = up to 120 products per click
+      const totalRounds = 8;
+      for (let i = 0; i < totalRounds; i++) {
+        const { data, error } = await supabase.functions.invoke('crawl-catalog', {
+          body: { token: adminToken, mode: 'fix-existing', batchSize: 15 },
+        });
+        if (error) throw error;
+        if (data?.results) setFixResults((prev) => [...prev, ...data.results]);
+        setFixProgress(((i + 1) / totalRounds) * 100);
+        if (!data?.results?.length) break;
+      }
+      toast({
+        title: 'Products refreshed!',
+        description: 'Real images & realistic EGP prices applied.',
+      });
+    } catch (err) {
+      toast({
+        variant: 'destructive',
+        title: 'Refresh failed',
+        description: err instanceof Error ? err.message : 'Unknown error',
+      });
+    } finally {
+      setIsFixing(false);
     }
   };
 
