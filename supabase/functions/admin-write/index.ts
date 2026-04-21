@@ -106,6 +106,22 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ========== ADMIN SETTINGS (logo, etc.) ==========
+    if (action === "update-admin-settings") {
+      const { entries } = body; // [{ key, value }]
+      if (!Array.isArray(entries)) throw new Error("entries must be an array");
+      const rows = entries.map((e: any) => ({
+        key: String(e.key),
+        value: e.value == null ? null : String(e.value),
+        updated_at: new Date().toISOString(),
+      }));
+      const { error } = await supabase.from("admin_settings").upsert(rows, { onConflict: "key" });
+      if (error) throw error;
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // ========== BRANDS ==========
     if (action === "upsert-brand") {
       const { brand } = body;

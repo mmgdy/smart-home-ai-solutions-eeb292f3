@@ -93,10 +93,17 @@ export function SiteSettings({ adminToken, onLogout }: SiteSettingsProps) {
       const newLogoUrl = urlData.publicUrl;
       setLogoUrl(newLogoUrl);
 
-      // Save to settings
-      await supabase
-        .from('admin_settings')
-        .upsert({ key: 'logo_url', value: newLogoUrl }, { onConflict: 'key' });
+      // Save to settings via privileged edge function
+      const { data: writeData, error: writeError } = await supabase.functions.invoke('admin-write', {
+        body: {
+          action: 'update-admin-settings',
+          token: adminToken,
+          entries: [{ key: 'logo_url', value: newLogoUrl }],
+        },
+      });
+      if (writeError || !writeData?.success) {
+        throw new Error(writeData?.error || writeError?.message || 'Failed to save logo');
+      }
 
       toast({
         title: 'Logo uploaded successfully',
@@ -119,9 +126,13 @@ export function SiteSettings({ adminToken, onLogout }: SiteSettingsProps) {
     setLogoSize(newSize);
 
     try {
-      await supabase
-        .from('admin_settings')
-        .upsert({ key: 'logo_size', value: newSize.toString() }, { onConflict: 'key' });
+      await supabase.functions.invoke('admin-write', {
+        body: {
+          action: 'update-admin-settings',
+          token: adminToken,
+          entries: [{ key: 'logo_size', value: newSize.toString() }],
+        },
+      });
     } catch (error) {
       console.error('Failed to save logo size:', error);
     }
