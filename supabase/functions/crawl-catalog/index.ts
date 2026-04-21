@@ -62,6 +62,21 @@ const imageUrlsFromHtml = (html: string) => cleanImages(
   ...Array.from(html.matchAll(/<img[^>]+src=["']([^"']+)["']/gi)).map((m) => m[1])
 ).slice(0, 8);
 
+async function responseSnippet(resp: Response) {
+  const text = await resp.text().catch(() => "");
+  return text.substring(0, 240) || resp.statusText;
+}
+
+function isFirecrawlLimit(status: number) {
+  return status === 402 || status === 429 || status === 408;
+}
+
+function firecrawlLimitMessage(status: number) {
+  if (status === 402) return "Firecrawl credits are exhausted, so product search cannot continue.";
+  if (status === 429) return "Firecrawl rate limit reached. Please wait and try again.";
+  return "Firecrawl request timed out. Please retry with a smaller batch.";
+}
+
 async function mirrorImage(supabase: any, imageUrl: string, productId: string) {
   try {
     const resp = await fetch(imageUrl, { headers: { "User-Agent": "Mozilla/5.0 BaytzakiCatalogBot/1.0" } });
@@ -184,7 +199,16 @@ Deno.serve(async (req) => {
               }),
             });
             if (!searchResp.ok) {
-              return { id: p.id, name: p.name, success: false, error: `search ${searchResp.status}` };
+              const detail = await responseSnippet(searchResp);
+              return {
+                id: p.id,
+                name: p.name,
+                success: false,
+                fatal: isFirecrawlLimit(searchResp.status),
+                error: isFirecrawlLimit(searchResp.status)
+                  ? firecrawlLimitMessage(searchResp.status)
+                  : `Firecrawl search failed (${searchResp.status}): ${detail}`,
+              };
             }
             const searchData = await searchResp.json();
             const hits = normalizeSearchHits(searchData);
@@ -202,6 +226,15 @@ Deno.serve(async (req) => {
                 headers: { Authorization: `Bearer ${FIRECRAWL_API_KEY}`, "Content-Type": "application/json" },
                 body: JSON.stringify({ url: sourceUrl, formats: ["markdown", "html"], onlyMainContent: false, waitFor: 1000 }),
               });
+              if (!scrapeResp.ok && isFirecrawlLimit(scrapeResp.status)) {
+                return {
+                  id: p.id,
+                  name: p.name,
+                  success: false,
+                  fatal: true,
+                  error: firecrawlLimitMessage(scrapeResp.status),
+                };
+              }
               if (scrapeResp.ok) {
                 const sd = await scrapeResp.json();
                 const meta = sd.data?.metadata || sd.metadata || {};
@@ -242,10 +275,15 @@ Deno.serve(async (req) => {
           }
         }));
         results.push(...batchResults);
+        if (batchResults.some((r) => r.fatal)) break;
       }
 
+      const fatalResult = results.find((r) => r.fatal);
+
       return new Response(JSON.stringify({
-        success: true, mode: "fix-existing",
+        success: !fatalResult,
+        error: fatalResult?.error,
+        mode: "fix-existing",
         processed: results.length,
         updated: results.filter((r) => r.success).length,
         results,
