@@ -418,7 +418,18 @@ Deno.serve(async (req) => {
       const products = await getProductsForImageRefresh(supabase, Math.min(Math.max(Number(batchSize || 5), 1), 12), includeExternal || action === 'refresh-product-images');
       const results = [];
 
+      const deadline = Date.now() + 120_000; // stop accepting new items after 120s
       for (const product of products as Product[]) {
+        if (Date.now() > deadline) {
+          results.push({
+            id: product.id,
+            name: product.name,
+            success: false,
+            status: 'skipped_time_budget',
+            error: 'Stopped early to avoid request timeout — re-run to continue',
+          });
+          continue;
+        }
         try {
           const currentImage = product.image_url?.trim() || null;
           const shouldMirrorCurrent = Boolean(
@@ -428,7 +439,16 @@ Deno.serve(async (req) => {
             !currentImage.includes('baytzaki.com/wp-content')
           );
 
-          const sourceUrl = shouldMirrorCurrent ? currentImage! : await findImageCandidate(product);
+          const perItem = new Promise<string | null>(async (resolve) => {
+            try {
+              const url = shouldMirrorCurrent ? currentImage! : await findImageCandidate(product);
+              resolve(url);
+            } catch {
+              resolve(null);
+            }
+          });
+          const timeoutP = new Promise<null>((resolve) => setTimeout(() => resolve(null), 18_000));
+          const sourceUrl = await Promise.race([perItem, timeoutP]);
           if (!sourceUrl) {
             await touchProduct(supabase, product.id);
             results.push({
