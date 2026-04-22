@@ -39,7 +39,7 @@ export function useAdminAuth() {
       setAdmin(data.admin);
       setIsAuthenticated(true);
     } catch (error) {
-      console.error('Auth check failed:', error);
+      // Stale/invalid token — silently clear and require re-login
       localStorage.removeItem('admin_token');
     } finally {
       setIsLoading(false);
