@@ -97,32 +97,32 @@ export function BulkImporter({ adminToken }: { adminToken: string }) {
     setFixProgress(0);
 
     try {
-      // Process in many small rounds to stay under the 150s edge timeout.
-      const totalRounds = 30; // 30 × 3 = up to 90 products per click
+      const batchSize = 6;
+      const totalRounds = 60; // Up to 360 products per click in safe smaller requests
       let updatedCount = 0;
       for (let i = 0; i < totalRounds; i++) {
-        const { data, error } = await supabase.functions.invoke('crawl-catalog', {
-          body: { token: adminToken, mode: 'fix-existing', batchSize: 3 },
+        const { data, error } = await supabase.functions.invoke('enhance-products', {
+          body: { action: 'refresh-product-images', batchSize, includeExternal: true },
         });
         if (error) throw error;
         if (data?.results) {
           updatedCount += data.results.filter((r: any) => r.success).length;
           setFixResults((prev) => [...prev, ...data.results]);
         }
-        if (data?.success === false) throw new Error(data.error || 'Product refresh stopped');
+        if (data?.success === false) throw new Error(data.error || 'Product image refresh stopped');
         setFixProgress(((i + 1) / totalRounds) * 100);
-        if (!data?.results?.length) break;
+        if (!data?.results?.length || data.results.length < batchSize) break;
       }
       toast({
-        title: updatedCount ? 'Products refreshed!' : 'No products updated',
+        title: updatedCount ? 'Product images refreshed!' : 'No product images updated',
         description: updatedCount
-          ? `${updatedCount} products received new images or prices.`
-          : 'The search finished but found no usable image or price changes.',
+          ? `${updatedCount} products received stored product images.`
+          : 'The sweep finished but found no usable new product images.',
       });
     } catch (err) {
       toast({
         variant: 'destructive',
-        title: 'Refresh failed',
+        title: 'Image refresh failed',
         description: err instanceof Error ? err.message : 'Unknown error',
       });
     } finally {
@@ -264,11 +264,11 @@ export function BulkImporter({ adminToken }: { adminToken: string }) {
       <div className="bg-card border-2 border-primary/40 rounded-xl p-6">
         <h2 className="text-xl font-semibold mb-2 flex items-center gap-2">
           <Wand2 className="w-5 h-5 text-primary" />
-          Refresh ALL Existing Products — Real Images + Real Prices
+          Refresh ALL Existing Products — Real Images
         </h2>
         <p className="text-sm text-muted-foreground mb-4">
-          For each existing product, searches global websites with Firecrawl, pulls real product images,
-          and converts worldwide market prices to realistic EGP. Processes up to 120 products per click.
+          For each existing product, searches the public web, saves a matching product image into your own media bucket,
+          and keeps going in small safe batches so it does not stop on credits or timeouts.
         </p>
 
         <Button
@@ -279,9 +279,9 @@ export function BulkImporter({ adminToken }: { adminToken: string }) {
           className="w-full"
         >
           {isFixing ? (
-            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Refreshing products from the web...</>
+            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Refreshing product images from the web...</>
           ) : (
-            <><Wand2 className="w-4 h-4 mr-2" /> Refresh Next ~90 Products</>
+            <><Wand2 className="w-4 h-4 mr-2" /> Refresh Next ~360 Product Images</>
           )}
         </Button>
 
@@ -307,8 +307,7 @@ export function BulkImporter({ adminToken }: { adminToken: string }) {
                   <div className="font-medium truncate">{r.name}</div>
                   {r.success ? (
                     <div className="text-muted-foreground">
-                      EGP {r.old_price} → <span className="text-success font-semibold">{r.new_price}</span>
-                      {r.image_updated && <span className="ml-2">· image updated</span>}
+                      {r.image_updated ? <span className="text-success font-semibold">image updated</span> : 'updated'}
                     </div>
                   ) : (
                     <div className="text-muted-foreground">{r.error}</div>
