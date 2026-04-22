@@ -97,8 +97,8 @@ export function BulkImporter({ adminToken }: { adminToken: string }) {
     setFixProgress(0);
 
     try {
-      const batchSize = 6;
-      const totalRounds = 60; // Up to 360 products per click in safe smaller requests
+      const batchSize = 4;
+      const totalRounds = 80; // Up to 320 products per click in safe smaller requests
       let updatedCount = 0;
       for (let i = 0; i < totalRounds; i++) {
         const { data, error } = await supabase.functions.invoke('enhance-products', {
