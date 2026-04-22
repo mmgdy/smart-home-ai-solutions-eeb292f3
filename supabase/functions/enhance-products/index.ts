@@ -211,14 +211,58 @@ const extractImagesFromHtml = (html: string, baseUrl: string) => {
   return cleanImages(metaImages, jsonLdImages);
 };
 
-const searchProductPages = async (product: Product) => {
-  const query = `${product.brand ? `${product.brand} ` : ''}${cleanProductName(product.name)} official product image`;
-  const html = await fetchText(`https://duckduckgo.com/html/?q=${encodeURIComponent(query)}`);
-  const links = Array.from(html.matchAll(/<a[^>]+class=["'][^"']*result__a[^"']*["'][^>]+href=["']([^"']+)["']/gi))
-    .map((match) => decodeDuckDuckGoUrl(match[1]))
-    .filter((url) => /^https?:\/\//i.test(url));
+const searchDuckDuckGo = async (query: string): Promise<string[]> => {
+  try {
+    const html = await fetchText(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`);
+    return Array.from(html.matchAll(/<a[^>]+class=["'][^"']*result__a[^"']*["'][^>]+href=["']([^"']+)["']/gi))
+      .map((match) => decodeDuckDuckGoUrl(match[1]))
+      .filter((url) => /^https?:\/\//i.test(url));
+  } catch (e) {
+    console.warn('DuckDuckGo search failed:', e);
+    return [];
+  }
+};
 
-  return Array.from(new Set(links)).slice(0, 5);
+const searchBing = async (query: string): Promise<string[]> => {
+  try {
+    const html = await fetchText(`https://www.bing.com/search?q=${encodeURIComponent(query)}&count=15`);
+    return Array.from(html.matchAll(/<a\s+href=["'](https?:\/\/[^"']+)["'][^>]*>/gi))
+      .map((m) => m[1])
+      .filter((url) => !/bing\.com|microsoft\.com|live\.com/i.test(url));
+  } catch (e) {
+    console.warn('Bing search failed:', e);
+    return [];
+  }
+};
+
+const searchBingImages = async (query: string): Promise<string[]> => {
+  try {
+    const html = await fetchText(`https://www.bing.com/images/search?q=${encodeURIComponent(query)}&form=HDRSC2`);
+    const direct: string[] = [];
+    for (const match of html.matchAll(/murl&quot;:&quot;(https?:\/\/[^&"']+?)&quot;/gi)) {
+      direct.push(match[1].replace(/&amp;/g, '&'));
+    }
+    for (const match of html.matchAll(/"murl":"(https?:\/\/[^"]+?)"/gi)) {
+      direct.push(match[1]);
+    }
+    return direct;
+  } catch (e) {
+    console.warn('Bing images search failed:', e);
+    return [];
+  }
+};
+
+const searchProductPages = async (product: Product) => {
+  const cleanName = cleanProductName(product.name);
+  const query = `${product.brand ? `${product.brand} ` : ''}${cleanName} product`;
+
+  const [ddg, bing] = await Promise.all([
+    searchDuckDuckGo(query),
+    searchBing(query),
+  ]);
+
+  const all = [...ddg, ...bing].filter((url) => /^https?:\/\//i.test(url));
+  return Array.from(new Set(all)).slice(0, 6);
 };
 
 const scoreImageUrl = (url: string, product: Product) => {
