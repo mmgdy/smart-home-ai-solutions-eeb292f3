@@ -301,10 +301,23 @@ const findImageCandidate = async (product: Product) => {
     }
   }
 
-  return Array.from(new Set(candidates))
+  let best = Array.from(new Set(candidates))
     .map((url) => ({ url, score: scoreImageUrl(url, product) }))
     .filter((entry) => entry.score > 0)
     .sort((a, b) => b.score - a.score)[0]?.url ?? null;
+
+  if (best) return best;
+
+  // Fallback: Bing Images direct image URLs
+  const cleanName = cleanProductName(product.name);
+  const imgQuery = `${product.brand ? `${product.brand} ` : ''}${cleanName}`;
+  const directImages = await searchBingImages(imgQuery);
+  best = directImages
+    .map((url) => ({ url, score: scoreImageUrl(url, product) + 3 }))
+    .filter((entry) => /\.(jpg|jpeg|png|webp)/i.test(entry.url))
+    .sort((a, b) => b.score - a.score)[0]?.url ?? directImages[0] ?? null;
+
+  return best;
 };
 
 const touchProduct = async (supabase: ReturnType<typeof createClient>, productId: string, patch: Record<string, unknown> = {}) => {
