@@ -21,6 +21,7 @@ const HUGGING_FACE_API_KEY = Deno.env.get('HUGGINGFACE_API_KEY') ?? '';
 const PRODUCT_IMAGES_BUCKET = 'product-images';
 const INTERNAL_IMAGE_MARKER = `/storage/v1/object/public/${PRODUCT_IMAGES_BUCKET}/`;
 const SEARCH_USER_AGENT = 'Mozilla/5.0 (compatible; BaytzakiImageBot/1.0; +https://baytzaki.com)';
+const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -149,8 +150,9 @@ const fetchText = async (url: string) => {
   const response = await fetch(url, {
     redirect: 'follow',
     headers: {
-      'User-Agent': SEARCH_USER_AGENT,
+      'User-Agent': BROWSER_UA,
       'Accept-Language': 'en-US,en;q=0.9',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
     },
   });
 
