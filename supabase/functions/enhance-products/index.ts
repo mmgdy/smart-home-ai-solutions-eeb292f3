@@ -21,6 +21,7 @@ const HUGGING_FACE_API_KEY = Deno.env.get('HUGGINGFACE_API_KEY') ?? '';
 const PRODUCT_IMAGES_BUCKET = 'product-images';
 const INTERNAL_IMAGE_MARKER = `/storage/v1/object/public/${PRODUCT_IMAGES_BUCKET}/`;
 const SEARCH_USER_AGENT = 'Mozilla/5.0 (compatible; BaytzakiImageBot/1.0; +https://baytzaki.com)';
+const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -149,8 +150,9 @@ const fetchText = async (url: string) => {
   const response = await fetch(url, {
     redirect: 'follow',
     headers: {
-      'User-Agent': SEARCH_USER_AGENT,
+      'User-Agent': BROWSER_UA,
       'Accept-Language': 'en-US,en;q=0.9',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
     },
   });
 
@@ -209,14 +211,58 @@ const extractImagesFromHtml = (html: string, baseUrl: string) => {
   return cleanImages(metaImages, jsonLdImages);
 };
 
-const searchProductPages = async (product: Product) => {
-  const query = `${product.brand ? `${product.brand} ` : ''}${cleanProductName(product.name)} official product image`;
-  const html = await fetchText(`https://duckduckgo.com/html/?q=${encodeURIComponent(query)}`);
-  const links = Array.from(html.matchAll(/<a[^>]+class=["'][^"']*result__a[^"']*["'][^>]+href=["']([^"']+)["']/gi))
-    .map((match) => decodeDuckDuckGoUrl(match[1]))
-    .filter((url) => /^https?:\/\//i.test(url));
+const searchDuckDuckGo = async (query: string): Promise<string[]> => {
+  try {
+    const html = await fetchText(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`);
+    return Array.from(html.matchAll(/<a[^>]+class=["'][^"']*result__a[^"']*["'][^>]+href=["']([^"']+)["']/gi))
+      .map((match) => decodeDuckDuckGoUrl(match[1]))
+      .filter((url) => /^https?:\/\//i.test(url));
+  } catch (e) {
+    console.warn('DuckDuckGo search failed:', e);
+    return [];
+  }
+};
 
-  return Array.from(new Set(links)).slice(0, 5);
+const searchBing = async (query: string): Promise<string[]> => {
+  try {
+    const html = await fetchText(`https://www.bing.com/search?q=${encodeURIComponent(query)}&count=15`);
+    return Array.from(html.matchAll(/<a\s+href=["'](https?:\/\/[^"']+)["'][^>]*>/gi))
+      .map((m) => m[1])
+      .filter((url) => !/bing\.com|microsoft\.com|live\.com/i.test(url));
+  } catch (e) {
+    console.warn('Bing search failed:', e);
+    return [];
+  }
+};
+
+const searchBingImages = async (query: string): Promise<string[]> => {
+  try {
+    const html = await fetchText(`https://www.bing.com/images/search?q=${encodeURIComponent(query)}&form=HDRSC2`);
+    const direct: string[] = [];
+    for (const match of html.matchAll(/murl&quot;:&quot;(https?:\/\/[^&"']+?)&quot;/gi)) {
+      direct.push(match[1].replace(/&amp;/g, '&'));
+    }
+    for (const match of html.matchAll(/"murl":"(https?:\/\/[^"]+?)"/gi)) {
+      direct.push(match[1]);
+    }
+    return direct;
+  } catch (e) {
+    console.warn('Bing images search failed:', e);
+    return [];
+  }
+};
+
+const searchProductPages = async (product: Product) => {
+  const cleanName = cleanProductName(product.name);
+  const query = `${product.brand ? `${product.brand} ` : ''}${cleanName} product`;
+
+  const [ddg, bing] = await Promise.all([
+    searchDuckDuckGo(query),
+    searchBing(query),
+  ]);
+
+  const all = [...ddg, ...bing].filter((url) => /^https?:\/\//i.test(url));
+  return Array.from(new Set(all)).slice(0, 6);
 };
 
 const scoreImageUrl = (url: string, product: Product) => {
@@ -255,10 +301,23 @@ const findImageCandidate = async (product: Product) => {
     }
   }
 
-  return Array.from(new Set(candidates))
+  let best = Array.from(new Set(candidates))
     .map((url) => ({ url, score: scoreImageUrl(url, product) }))
     .filter((entry) => entry.score > 0)
     .sort((a, b) => b.score - a.score)[0]?.url ?? null;
+
+  if (best) return best;
+
+  // Fallback: Bing Images direct image URLs
+  const cleanName = cleanProductName(product.name);
+  const imgQuery = `${product.brand ? `${product.brand} ` : ''}${cleanName}`;
+  const directImages = await searchBingImages(imgQuery);
+  best = directImages
+    .map((url) => ({ url, score: scoreImageUrl(url, product) + 3 }))
+    .filter((entry) => /\.(jpg|jpeg|png|webp)/i.test(entry.url))
+    .sort((a, b) => b.score - a.score)[0]?.url ?? directImages[0] ?? null;
+
+  return best;
 };
 
 const touchProduct = async (supabase: ReturnType<typeof createClient>, productId: string, patch: Record<string, unknown> = {}) => {
