@@ -10,6 +10,7 @@ interface Product {
   name: string;
   description: string | null;
   image_url: string | null;
+  images?: string[] | null;
   brand: string | null;
   protocol: string | null;
 }
@@ -17,6 +18,11 @@ interface Product {
 const HUGGING_FACE_MODEL = 'meta-llama/Llama-3.1-8B-Instruct';
 const HUGGING_FACE_URL = 'https://router.huggingface.co/v1/chat/completions';
 const HUGGING_FACE_API_KEY = Deno.env.get('HUGGINGFACE_API_KEY') ?? '';
+const PRODUCT_IMAGES_BUCKET = 'product-images';
+const INTERNAL_IMAGE_MARKER = `/storage/v1/object/public/${PRODUCT_IMAGES_BUCKET}/`;
+const SEARCH_USER_AGENT = 'Mozilla/5.0 (compatible; BaytzakiImageBot/1.0; +https://baytzaki.com)';
+
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const cleanProductName = (name: string): string => {
   return name
@@ -82,6 +88,262 @@ const generateWithHuggingFace = async (prompt: string, maxTokens = 220): Promise
   return extractHuggingFaceText(parsed).trim();
 };
 
+const toAbsoluteUrl = (value: string, baseUrl: string): string | null => {
+  if (!value || value.startsWith('data:') || value.startsWith('blob:')) return null;
+
+  try {
+    return new URL(value, baseUrl).toString();
+  } catch {
+    return null;
+  }
+};
+
+const cleanImages = (...values: Array<string | string[] | null | undefined>) => {
+  return Array.from(
+    new Set(
+      values
+        .flatMap((value) => Array.isArray(value) ? value : value ? [value] : [])
+        .filter((value) => typeof value === 'string')
+        .map((value) => value.trim())
+        .filter((value) => /^https?:\/\//i.test(value))
+        .filter((value) => !/logo|icon|avatar|favicon|sprite/i.test(value))
+    )
+  );
+};
+
+const getExtensionFromContentType = (contentType: string | null) => {
+  if (!contentType) return 'jpg';
+  if (contentType.includes('png')) return 'png';
+  if (contentType.includes('webp')) return 'webp';
+  if (contentType.includes('gif')) return 'gif';
+  if (contentType.includes('svg')) return 'svg';
+  return 'jpg';
+};
+
+const getExtensionFromUrl = (url: string) => {
+  const match = url.match(/\.([a-zA-Z0-9]+)(?:\?|#|$)/);
+  if (!match) return null;
+  const ext = match[1].toLowerCase();
+  return ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg'].includes(ext) ? ext : null;
+};
+
+const slugify = (value: string) =>
+  value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '')
+    .slice(0, 64) || 'product';
+
+const decodeDuckDuckGoUrl = (rawUrl: string) => {
+  try {
+    const parsed = new URL(rawUrl, 'https://duckduckgo.com');
+    const uddg = parsed.searchParams.get('uddg');
+    return uddg ? decodeURIComponent(uddg) : parsed.toString();
+  } catch {
+    const match = rawUrl.match(/uddg=([^&]+)/);
+    return match ? decodeURIComponent(match[1]) : rawUrl;
+  }
+};
+
+const fetchText = async (url: string) => {
+  const response = await fetch(url, {
+    redirect: 'follow',
+    headers: {
+      'User-Agent': SEARCH_USER_AGENT,
+      'Accept-Language': 'en-US,en;q=0.9',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Fetch failed (${response.status})`);
+  }
+
+  return response.text();
+};
+
+const extractJsonImages = (value: any, bucket: string[] = []) => {
+  if (!value) return bucket;
+
+  if (typeof value === 'string') {
+    if (/^https?:\/\//i.test(value)) bucket.push(value);
+    return bucket;
+  }
+
+  if (Array.isArray(value)) {
+    value.forEach((entry) => extractJsonImages(entry, bucket));
+    return bucket;
+  }
+
+  if (typeof value === 'object') {
+    for (const [key, entry] of Object.entries(value)) {
+      if (['image', 'contentUrl', 'thumbnailUrl', 'url'].includes(key)) {
+        extractJsonImages(entry, bucket);
+      } else if (typeof entry === 'object') {
+        extractJsonImages(entry, bucket);
+      }
+    }
+  }
+
+  return bucket;
+};
+
+const extractImagesFromHtml = (html: string, baseUrl: string) => {
+  const metaImages = [
+    ...Array.from(html.matchAll(/<meta[^>]+(?:property|name)=["'](?:og:image|twitter:image|og:image:url)["'][^>]+content=["']([^"']+)["']/gi)).map((m) => m[1]),
+    ...Array.from(html.matchAll(/<img[^>]+src=["']([^"']+)["']/gi)).map((m) => m[1]),
+    ...Array.from(html.matchAll(/<img[^>]+srcset=["']([^"']+)["']/gi)).flatMap((m) => m[1].split(',').map((part) => part.trim().split(/\s+/)[0])),
+  ]
+    .map((value) => toAbsoluteUrl(value, baseUrl))
+    .filter((value): value is string => Boolean(value));
+
+  const jsonLdImages = Array.from(
+    html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)
+  ).flatMap((match) => {
+    try {
+      return extractJsonImages(JSON.parse(match[1]));
+    } catch {
+      return [];
+    }
+  });
+
+  return cleanImages(metaImages, jsonLdImages);
+};
+
+const searchProductPages = async (product: Product) => {
+  const query = `${product.brand ? `${product.brand} ` : ''}${cleanProductName(product.name)} official product image`;
+  const html = await fetchText(`https://duckduckgo.com/html/?q=${encodeURIComponent(query)}`);
+  const links = Array.from(html.matchAll(/<a[^>]+class=["'][^"']*result__a[^"']*["'][^>]+href=["']([^"']+)["']/gi))
+    .map((match) => decodeDuckDuckGoUrl(match[1]))
+    .filter((url) => /^https?:\/\//i.test(url));
+
+  return Array.from(new Set(links)).slice(0, 5);
+};
+
+const scoreImageUrl = (url: string, product: Product) => {
+  const normalizedUrl = url.toLowerCase();
+  const terms = cleanProductName(product.name)
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((term) => term.length > 2)
+    .slice(0, 8);
+
+  let score = 0;
+
+  if (/\.(jpg|jpeg|png|webp)(?:\?|#|$)/i.test(url)) score += 6;
+  if (/cdn|media|product|products|catalog|uploads|images/i.test(normalizedUrl)) score += 4;
+  if (/logo|icon|avatar|favicon|sprite|banner/i.test(normalizedUrl)) score -= 12;
+  if (product.brand && normalizedUrl.includes(product.brand.toLowerCase())) score += 4;
+
+  for (const term of terms) {
+    if (normalizedUrl.includes(term)) score += 2;
+  }
+
+  return score;
+};
+
+const findImageCandidate = async (product: Product) => {
+  const pages = await searchProductPages(product);
+  const candidates: string[] = [];
+
+  for (const pageUrl of pages) {
+    try {
+      const pageHtml = await fetchText(pageUrl);
+      candidates.push(...extractImagesFromHtml(pageHtml, pageUrl));
+      await delay(120);
+    } catch (error) {
+      console.warn(`Failed to inspect page ${pageUrl}:`, error);
+    }
+  }
+
+  return Array.from(new Set(candidates))
+    .map((url) => ({ url, score: scoreImageUrl(url, product) }))
+    .filter((entry) => entry.score > 0)
+    .sort((a, b) => b.score - a.score)[0]?.url ?? null;
+};
+
+const touchProduct = async (supabase: ReturnType<typeof createClient>, productId: string, patch: Record<string, unknown> = {}) => {
+  const { error } = await supabase
+    .from('products')
+    .update({ ...patch, updated_at: new Date().toISOString() })
+    .eq('id', productId);
+
+  if (error) throw error;
+};
+
+const storeProductImage = async (supabase: ReturnType<typeof createClient>, product: Product, imageUrl: string) => {
+  const imageResponse = await fetch(imageUrl, {
+    redirect: 'follow',
+    headers: { 'User-Agent': SEARCH_USER_AGENT },
+  });
+
+  if (!imageResponse.ok) {
+    throw new Error(`Image fetch failed (${imageResponse.status})`);
+  }
+
+  const contentType = imageResponse.headers.get('content-type');
+  if (!contentType?.startsWith('image/')) {
+    throw new Error(`Invalid content-type: ${contentType ?? 'unknown'}`);
+  }
+
+  const ext = getExtensionFromUrl(imageUrl) || getExtensionFromContentType(contentType);
+  const path = `products/${product.id}/${slugify(cleanProductName(product.name))}.${ext}`;
+  const bytes = new Uint8Array(await imageResponse.arrayBuffer());
+
+  const { error: uploadError } = await supabase.storage
+    .from(PRODUCT_IMAGES_BUCKET)
+    .upload(path, bytes, {
+      upsert: true,
+      contentType,
+      cacheControl: '31536000',
+    });
+
+  if (uploadError) throw uploadError;
+
+  const { data: publicUrlData } = supabase.storage
+    .from(PRODUCT_IMAGES_BUCKET)
+    .getPublicUrl(path);
+
+  const mergedImages = cleanImages(publicUrlData.publicUrl, product.images, product.image_url);
+  await touchProduct(supabase, product.id, {
+    image_url: publicUrlData.publicUrl,
+    images: mergedImages.length ? mergedImages.slice(0, 8) : [publicUrlData.publicUrl],
+  });
+
+  return publicUrlData.publicUrl;
+};
+
+const getProductsForImageRefresh = async (supabase: ReturnType<typeof createClient>, batchSize: number, includeExternal: boolean) => {
+  const { data: missingProducts, error: missingError } = await supabase
+    .from('products')
+    .select('id, name, brand, image_url, images, description, protocol')
+    .or('image_url.is.null,image_url.eq.,image_url.like.%baytzaki.com/wp-content%')
+    .order('updated_at', { ascending: true })
+    .limit(batchSize);
+
+  if (missingError) throw missingError;
+
+  if ((missingProducts?.length ?? 0) >= batchSize || !includeExternal) {
+    return missingProducts ?? [];
+  }
+
+  const remaining = batchSize - (missingProducts?.length ?? 0);
+  const existingIds = new Set((missingProducts ?? []).map((product) => product.id));
+
+  const { data: externalProducts, error: externalError } = await supabase
+    .from('products')
+    .select('id, name, brand, image_url, images, description, protocol')
+    .not('image_url', 'is', null)
+    .like('image_url', 'http%')
+    .not('image_url', 'like', `%${INTERNAL_IMAGE_MARKER}%`)
+    .order('updated_at', { ascending: true })
+    .limit(remaining * 2);
+
+  if (externalError) throw externalError;
+
+  const filteredExternal = (externalProducts ?? []).filter((product) => !existingIds.has(product.id)).slice(0, remaining);
+  return [...(missingProducts ?? []), ...filteredExternal];
+};
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -90,136 +352,57 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    const { action, productId, batchSize = 5 } = await req.json();
+    const { action, batchSize = 5, includeExternal = false } = await req.json();
 
-    if (action === 'find-missing-images') {
-      // Get products without images OR with broken external URLs
-      const { data: products, error } = await supabase
-        .from('products')
-        .select('id, name, brand, image_url')
-        .or('image_url.is.null,image_url.eq.')
-        .limit(batchSize);
-
-      if (error) throw error;
-
+    if (action === 'find-missing-images' || action === 'refresh-product-images') {
+      const products = await getProductsForImageRefresh(supabase, Math.min(Math.max(Number(batchSize || 5), 1), 12), includeExternal || action === 'refresh-product-images');
       const results = [];
 
-      for (const product of products || []) {
+      for (const product of products as Product[]) {
         try {
-          const cleanName = cleanProductName(product.name);
-          console.log(`Searching for image: ${cleanName}`);
+          const currentImage = product.image_url?.trim() || null;
+          const shouldMirrorCurrent = Boolean(
+            currentImage &&
+            currentImage.startsWith('http') &&
+            !currentImage.includes(INTERNAL_IMAGE_MARKER) &&
+            !currentImage.includes('baytzaki.com/wp-content')
+          );
 
-          const imagePrompt = `You are a product image URL finder. Return ONLY a direct image URL or exactly NO_IMAGE.
-
-Rules:
-- Return only one URL or NO_IMAGE
-- URL must be direct image file (.jpg, .jpeg, .png, .webp, .gif)
-- Prefer manufacturer or large retailer CDNs
-- Never add markdown or explanations
-
-Product: ${cleanName}${product.brand ? ` | Brand: ${product.brand}` : ''}`;
-
-          let imageUrl = await generateWithHuggingFace(imagePrompt, 180);
-          console.log(`Raw response: ${imageUrl}`);
-
-          // Extract URL if embedded in text
-          const urlMatch = imageUrl.match(/https?:\/\/[^\s"'<>\)]+\.(jpg|jpeg|png|webp|gif)/i);
-          if (urlMatch) {
-            imageUrl = urlMatch[0];
-          }
-
-          const isValidUrl = imageUrl &&
-            !imageUrl.includes('NO_IMAGE') &&
-            imageUrl.startsWith('http') &&
-            (imageUrl.match(/\.(jpg|jpeg|png|webp|gif)/i) ||
-              imageUrl.includes('/images/') ||
-              imageUrl.includes('/img/') ||
-              imageUrl.includes('cdn') ||
-              imageUrl.includes('ssl-images-amazon') ||
-              imageUrl.includes('m.media-amazon') ||
-              imageUrl.includes('alicdn'));
-
-          if (isValidUrl) {
-            // Download and store internally
-            try {
-              const imgResp = await fetch(imageUrl, { redirect: 'follow' });
-              if (imgResp.ok) {
-                const contentType = imgResp.headers.get('content-type');
-                if (contentType?.startsWith('image/')) {
-                  const ext = contentType.includes('png') ? 'png' : contentType.includes('webp') ? 'webp' : 'jpg';
-                  const slug = cleanName.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 60);
-                  const path = `products/${product.id}/${slug}.${ext}`;
-                  const bytes = new Uint8Array(await imgResp.arrayBuffer());
-
-                  const { error: uploadError } = await supabase.storage
-                    .from('product-images')
-                    .upload(path, bytes, { upsert: true, contentType, cacheControl: '31536000' });
-
-                  if (!uploadError) {
-                    const { data: publicUrlData } = supabase.storage
-                      .from('product-images')
-                      .getPublicUrl(path);
-
-                    await supabase
-                      .from('products')
-                      .update({ image_url: publicUrlData.publicUrl })
-                      .eq('id', product.id);
-
-                    results.push({
-                      id: product.id,
-                      name: product.name,
-                      status: 'updated_internal',
-                      image_url: publicUrlData.publicUrl
-                    });
-                    console.log(`Stored internally: ${product.name}`);
-                  } else {
-                    // Fallback: save external URL
-                    await supabase
-                      .from('products')
-                      .update({ image_url: imageUrl })
-                      .eq('id', product.id);
-                    results.push({ id: product.id, name: product.name, status: 'updated_external', image_url: imageUrl });
-                  }
-                } else {
-                  // Image URL returned non-image content, save URL anyway
-                  await supabase
-                    .from('products')
-                    .update({ image_url: imageUrl })
-                    .eq('id', product.id);
-                  results.push({ id: product.id, name: product.name, status: 'updated_external', image_url: imageUrl });
-                }
-              } else {
-                // Could not download, save URL anyway
-                await supabase
-                  .from('products')
-                  .update({ image_url: imageUrl })
-                  .eq('id', product.id);
-                results.push({ id: product.id, name: product.name, status: 'updated_external', image_url: imageUrl });
-              }
-            } catch (dlError) {
-              // Download failed, save URL
-              await supabase
-                .from('products')
-                .update({ image_url: imageUrl })
-                .eq('id', product.id);
-              results.push({ id: product.id, name: product.name, status: 'updated_external', image_url: imageUrl });
-            }
-          } else {
+          const sourceUrl = shouldMirrorCurrent ? currentImage! : await findImageCandidate(product);
+          if (!sourceUrl) {
+            await touchProduct(supabase, product.id);
             results.push({
               id: product.id,
               name: product.name,
+              success: false,
               status: 'no_image_found',
-              response: imageUrl.substring(0, 200)
+              error: 'No matching product image found on the web',
             });
+            continue;
           }
 
-          // Rate limiting delay
-          await new Promise(resolve => setTimeout(resolve, 800));
+          const publicUrl = await storeProductImage(supabase, product, sourceUrl);
+          results.push({
+            id: product.id,
+            name: product.name,
+            success: true,
+            status: shouldMirrorCurrent ? 'mirrored_existing' : 'updated',
+            image_updated: true,
+            image_url: publicUrl,
+            source_url: sourceUrl,
+          });
+          await delay(180);
         } catch (err) {
           console.error(`Error processing ${product.name}:`, err);
-          results.push({ id: product.id, name: product.name, status: 'error', error: String(err) });
+          await touchProduct(supabase, product.id);
+          results.push({
+            id: product.id,
+            name: product.name,
+            success: false,
+            status: 'error',
+            error: err instanceof Error ? err.message : String(err),
+          });
         }
       }
 
@@ -230,7 +413,6 @@ Product: ${cleanName}${product.brand ? ` | Brand: ${product.brand}` : ''}`;
     }
 
     if (action === 'fix-broken-images') {
-      // Find products with broken external URLs (baytzaki.com wp-content) and clear them so find-missing-images can re-process
       const { data: brokenProducts, error } = await supabase
         .from('products')
         .select('id, name, image_url')
@@ -243,7 +425,7 @@ Product: ${cleanName}${product.brand ? ` | Brand: ${product.brand}` : ''}`;
       for (const product of brokenProducts || []) {
         await supabase
           .from('products')
-          .update({ image_url: null })
+          .update({ image_url: null, updated_at: new Date().toISOString() })
           .eq('id', product.id);
         cleared++;
       }
@@ -280,7 +462,7 @@ Focus on practical value, compatibility, and user benefit. Return plain text onl
           } else {
             results.push({ id: product.id, name: product.name, status: 'generation_failed' });
           }
-          await new Promise(resolve => setTimeout(resolve, 700));
+          await delay(700);
         } catch (err) {
           results.push({ id: product.id, name: product.name, status: 'error', error: String(err) });
         }
@@ -293,13 +475,13 @@ Focus on practical value, compatibility, and user benefit. Return plain text onl
     }
 
     return new Response(
-      JSON.stringify({ success: false, error: 'Invalid action. Use: find-missing-images, fix-broken-images, generate-descriptions' }),
+      JSON.stringify({ success: false, error: 'Invalid action. Use: find-missing-images, refresh-product-images, fix-broken-images, generate-descriptions' }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
     console.error('Error:', error);
     return new Response(
-      JSON.stringify({ success: false, error: String(error) }),
+      JSON.stringify({ success: false, error: error instanceof Error ? error.message : String(error) }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
