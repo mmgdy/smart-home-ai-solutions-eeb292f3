@@ -58,7 +58,7 @@ export const TrustAndStats = () => {
             viewport={{ once: true }}
             className="text-primary font-medium text-sm uppercase tracking-wider"
           >
-            {isRTL ? 'ليه بيتزكي' : 'Why Baytzaki'}
+            {isRTL ? 'ليه بيت زكي' : 'Why Baytzaki'}
           </motion.span>
           <motion.h2
             initial={{ opacity: 0, y: 20 }}

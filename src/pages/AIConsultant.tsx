@@ -9,6 +9,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
 import { VoiceButton, speakText } from '@/components/ai/VoiceButton';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { Link } from 'react-router-dom';
 
 type Message = { role: 'user' | 'assistant'; content: string };
 
@@ -209,8 +212,31 @@ const AIConsultant = () => {
                               <Bot className="h-4 w-4 text-primary" />
                             </div>
                           )}
-                          <div className={`max-w-[80%] rounded-2xl px-4 py-3 ${message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                            <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                          <div className={`max-w-[85%] rounded-2xl px-4 py-3 shadow-sm ${message.role === 'user' ? 'bg-gradient-to-br from-primary to-primary/80 text-primary-foreground' : 'bg-gradient-to-br from-muted to-muted/60 border border-border/50'}`}>
+                            {message.role === 'assistant' ? (
+                              <div className="prose prose-sm dark:prose-invert max-w-none font-body text-[14px] leading-relaxed [&_p]:my-1.5 [&_ul]:my-2 [&_ul]:ps-5 [&_li]:my-0.5 [&_h2]:font-display [&_h2]:text-base [&_h2]:font-bold [&_h2]:mt-3 [&_h2]:mb-1 [&_h3]:font-display [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:mt-2 [&_h3]:mb-1 [&_strong]:text-primary [&_a]:text-primary [&_a]:font-semibold [&_a]:underline [&_a]:underline-offset-2 hover:[&_a]:text-primary/80">
+                                <ReactMarkdown
+                                  remarkPlugins={[remarkGfm]}
+                                  components={{
+                                    a: ({ href, children }) => {
+                                      const isInternal = href?.startsWith('/');
+                                      if (isInternal) {
+                                        return (
+                                          <Link to={href!} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-primary/10 hover:bg-primary/20 text-primary font-semibold no-underline transition-colors">
+                                            🛒 {children}
+                                          </Link>
+                                        );
+                                      }
+                                      return <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>;
+                                    },
+                                  }}
+                                >
+                                  {message.content}
+                                </ReactMarkdown>
+                              </div>
+                            ) : (
+                              <p className="text-sm whitespace-pre-wrap font-body">{message.content}</p>
+                            )}
                             {message.role === 'assistant' && (
                               <button
                                 onClick={() => {
