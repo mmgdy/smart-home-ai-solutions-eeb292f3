@@ -50,7 +50,7 @@ export function Footer() {
     { label: isRTL ? 'حاسبة التكلفة' : 'Cost Calculator', href: '/calculator' },
     { label: isRTL ? 'خدمات التركيب' : 'Installation Services', href: '/services' },
     { label: isRTL ? 'الماركات' : 'Brands', href: '/brands' },
-    { label: isRTL ? 'عن بيتزكي' : 'About Baytzaki', href: '/about' },
+    { label: isRTL ? 'عن بيت زكي' : 'About Baytzaki', href: '/about' },
   ];
 
   const legalLinks = [

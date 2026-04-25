@@ -14,14 +14,14 @@ const About = () => {
   const { get } = useSiteInfo();
   const mission = get('about', isRTL ? 'mission_ar' : 'mission_en',
     isRTL
-      ? 'بيتزكي هي أول منصة مصرية تجمع بين الذكاء الاصطناعي ومنتجات المنزل الذكي وخدمات التركيب في مكان واحد. مهمتنا إن كل بيت مصري يبقى ذكي وموفر للطاقة وآمن.'
+      ? 'بيت زكي هي أول منصة مصرية تجمع بين الذكاء الاصطناعي ومنتجات المنزل الذكي وخدمات التركيب في مكان واحد. مهمتنا إن كل بيت مصري يبقى ذكي وموفر للطاقة وآمن.'
       : "Baytzaki is Egypt's first platform combining AI advisory, smart home products, and professional installation in one place. Our mission is to make every Egyptian home intelligent, energy-efficient, and secure.");
   const story = get('about', isRTL ? 'story_ar' : 'story_en', '');
 
   return (
     <>
       <Helmet>
-        <title>{isRTL ? 'عن بيتزكي | قصة العلامة' : 'About Baytzaki | Our Story'}</title>
+        <title>{isRTL ? 'عن بيت زكي | قصة العلامة' : 'About Baytzaki | Our Story'}</title>
         <meta name="description" content="Baytzaki's mission is to make every Egyptian home smart, safe, and energy-efficient through AI-powered solutions." />
       </Helmet>
       <Layout>

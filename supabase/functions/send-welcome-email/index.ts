@@ -45,11 +45,11 @@ Deno.serve(async (req) => {
     const html = isAr ? `
       <div style="font-family:'Tahoma',Arial,sans-serif;direction:rtl;max-width:600px;margin:0 auto;padding:20px;background:#f5f5f5;">
         <div style="background:#0f172a;padding:30px;border-radius:12px 12px 0 0;text-align:center;">
-          <h1 style="color:#00bfa5;margin:0;">أهلاً بك في بيتزكي 🏡</h1>
+          <h1 style="color:#00bfa5;margin:0;">أهلاً بك في بيت زكي 🏡</h1>
         </div>
         <div style="background:#fff;padding:30px;border-radius:0 0 12px 12px;">
           <p style="font-size:16px;">مرحباً ${displayName}،</p>
-          <p>سعداء بانضمامك إلى عائلة بيتزكي - أول منصة بالذكاء الاصطناعي للمنازل الذكية في مصر.</p>
+          <p>سعداء بانضمامك إلى عائلة بيت زكي - أول منصة بالذكاء الاصطناعي للمنازل الذكية في مصر.</p>
           <ul style="line-height:1.8;color:#555;">
             <li>🤖 استشارة مجانية مع المستشار الذكي</li>
             <li>🛒 أكثر من 580 منتج ذكي معتمد</li>
@@ -85,7 +85,7 @@ Deno.serve(async (req) => {
     const result = await resend.emails.send({
       from: "Baytzaki <welcome@baytzaki.com>",
       to: [email],
-      subject: isAr ? "أهلاً بك في بيتزكي 🏡" : "Welcome to Baytzaki 🏡",
+      subject: isAr ? "أهلاً بك في بيت زكي 🏡" : "Welcome to Baytzaki 🏡",
       html,
     });
 

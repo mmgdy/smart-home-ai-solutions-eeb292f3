@@ -65,7 +65,7 @@ export default function BrandsPage() {
   return (
     <Layout>
       <Helmet>
-        <title>{isRTL ? "الماركات | بيتزكي" : "Brands | Baytzaki"}</title>
+        <title>{isRTL ? "الماركات | بيت زكي" : "Brands | Baytzaki"}</title>
       </Helmet>
 
       <div className="container px-6 md:px-12 py-12">
