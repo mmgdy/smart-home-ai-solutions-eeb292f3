@@ -26,6 +26,17 @@ export function AIAdvisorShowcase() {
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[80vw] h-[80vw] rounded-full border border-primary/5" />
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[50vw] h-[50vw] rounded-full border border-primary/3" />
+        {/* Shiny gradient orbs */}
+        <motion.div
+          className="absolute top-1/4 -left-20 w-96 h-96 rounded-full bg-primary/20 blur-3xl"
+          animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
+          transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+        />
+        <motion.div
+          className="absolute bottom-1/4 -right-20 w-96 h-96 rounded-full bg-accent/20 blur-3xl"
+          animate={{ scale: [1.2, 1, 1.2], opacity: [0.4, 0.6, 0.4] }}
+          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+        />
       </div>
 
       <div className="container relative z-10 px-6 md:px-12">
@@ -89,12 +100,27 @@ export function AIAdvisorShowcase() {
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.2 }}
-            className="bg-card rounded-2xl border border-border p-4 md:p-6 shadow-lg"
+            className="relative bg-gradient-to-br from-card via-card to-primary/5 rounded-2xl border border-primary/20 p-4 md:p-6 shadow-2xl shadow-primary/10 backdrop-blur-sm"
           >
+            {/* Shimmer border */}
+            <motion.div
+              aria-hidden
+              className="absolute inset-0 rounded-2xl pointer-events-none"
+              style={{
+                background: 'linear-gradient(120deg, transparent 30%, hsl(var(--primary) / 0.15) 50%, transparent 70%)',
+                backgroundSize: '200% 200%',
+              }}
+              animate={{ backgroundPosition: ['0% 0%', '200% 200%'] }}
+              transition={{ duration: 4, repeat: Infinity, ease: 'linear' }}
+            />
             <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border">
-              <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
-                <Bot className="h-4 w-4 text-primary" />
-              </div>
+              <motion.div
+                className="relative w-9 h-9 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-lg shadow-primary/40"
+                animate={{ boxShadow: ['0 0 20px hsl(var(--primary) / 0.4)', '0 0 30px hsl(var(--primary) / 0.7)', '0 0 20px hsl(var(--primary) / 0.4)'] }}
+                transition={{ duration: 2, repeat: Infinity }}
+              >
+                <Bot className="h-4 w-4 text-primary-foreground" />
+              </motion.div>
               <div>
                 <span className="text-sm font-semibold text-foreground">Baytzaki AI</span>
                 <span className="text-xs text-success ml-2">● Online</span>
