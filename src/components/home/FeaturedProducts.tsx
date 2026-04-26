@@ -12,7 +12,7 @@ import { motion } from 'framer-motion';
 export function FeaturedProducts() {
   const { t, isRTL } = useLanguage();
 
-  const { data: products, isLoading } = useQuery({
+  const { data: products, isLoading, isError } = useQuery({
     queryKey: ['featured-products'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -67,6 +67,10 @@ export function FeaturedProducts() {
           <div className="flex justify-center py-16">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
+        ) : isError ? (
+          <p className="text-center text-muted-foreground py-16">
+            {isRTL ? 'تعذر تحميل المنتجات. يرجى المحاولة لاحقاً.' : 'Failed to load products. Please try again later.'}
+          </p>
         ) : products && products.length > 0 ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {products.map((product) => (
