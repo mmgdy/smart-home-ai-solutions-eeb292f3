@@ -67,7 +67,7 @@ const Checkout = () => {
   const [errors, setErrors] = useState<Partial<Record<keyof CheckoutFormData, string>>>({});
   const [pointsDiscount, setPointsDiscount] = useState(0);
   const [pointsToRedeem, setPointsToRedeem] = useState(0);
-  const [paymentMethod, setPaymentMethod] = useState<'card' | 'cod' | 'fawry' | 'vodafone' | 'applepay'>('card');
+  const [paymentMethod, setPaymentMethod] = useState<'card' | 'fawry' | 'vodafone' | 'applepay'>('card');
   const [payskyLoaded, setPayskyLoaded] = useState(false);
   const [includeInstallation, setIncludeInstallation] = useState(true);
   const [formData, setFormData] = useState<CheckoutFormData>({
@@ -345,8 +345,8 @@ const Checkout = () => {
           variant: 'destructive',
           title: language === 'ar' ? 'بوابة الدفع غير متاحة' : 'Payment gateway unavailable',
           description: language === 'ar'
-            ? 'استخدم الدفع عند الاستلام أو حاول لاحقاً'
-            : 'Please use Cash on Delivery or try again later',
+            ? 'حاول مرة أخرى لاحقاً'
+            : 'Please try again later',
         });
         throw new Error('PaySky LightBox not loaded');
       }
@@ -430,7 +430,6 @@ const Checkout = () => {
     backToCart: language === 'ar' ? 'العودة للسلة' : 'Back to Cart',
     paymentMethod: language === 'ar' ? 'طريقة الدفع' : 'Payment Method',
     cardPayment: language === 'ar' ? 'بطاقة ائتمان / مدى' : 'Credit / Debit Card',
-    cashOnDelivery: language === 'ar' ? 'الدفع عند الاستلام' : 'Cash on Delivery',
     pointsDiscount: language === 'ar' ? 'خصم النقاط' : 'Points Discount',
   };
 
@@ -641,29 +640,6 @@ const Checkout = () => {
                           <div className="flex gap-2">
                             <img src="https://upload.wikimedia.org/wikipedia/commons/5/5e/Visa_Inc._logo.svg" alt="Visa" className="h-6" />
                             <img src="https://upload.wikimedia.org/wikipedia/commons/2/2a/Mastercard-logo.svg" alt="Mastercard" className="h-6" />
-                          </div>
-                        </div>
-                      </Label>
-                    </div>
-
-                    {/* Cash on Delivery */}
-                    <div 
-                      className={`flex items-center space-x-4 p-4 rounded-lg border-2 transition-colors cursor-pointer ${
-                        paymentMethod === 'cod' 
-                          ? 'border-primary bg-primary/5' 
-                          : 'border-border hover:border-muted-foreground/50'
-                      }`}
-                      onClick={() => setPaymentMethod('cod')}
-                    >
-                      <RadioGroupItem value="cod" id="cod" />
-                      <Label htmlFor="cod" className="flex-1 cursor-pointer">
-                        <div className="flex items-center gap-3">
-                          <Banknote className="h-5 w-5 text-primary" />
-                          <div>
-                            <p className="font-medium">{labels.cashOnDelivery}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {language === 'ar' ? 'ادفع نقداً عند استلام الطلب' : 'Pay cash when you receive your order'}
-                            </p>
                           </div>
                         </div>
                       </Label>

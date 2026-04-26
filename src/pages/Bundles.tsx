@@ -1,7 +1,7 @@
 import { Helmet } from 'react-helmet-async';
 import { useEffect, useState } from 'react';
 import { Layout } from '@/components/layout/Layout';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRight, Check, Wifi, ShoppingCart, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -119,6 +119,7 @@ const allBundles = [
 
 const Bundles = () => {
   const { isRTL, formatPrice } = useLanguage();
+  const navigate = useNavigate();
   const [bundles, setBundles] = useState(normalizeBundles(allBundles as any));
 
   useEffect(() => {
@@ -241,12 +242,20 @@ const Bundles = () => {
 
                     {/* CTA */}
                     <div className="flex gap-2">
-                      <Link to="/ai-consultant" className="flex-1">
-                        <Button className="w-full rounded-full h-10 text-sm">
-                          <ShoppingCart className="mr-1.5 h-3.5 w-3.5" />
-                          {isRTL ? 'اطلب الآن' : 'Order Now'}
-                        </Button>
-                      </Link>
+                      <Button
+                        className="flex-1 rounded-full h-10 text-sm"
+                        onClick={() => {
+                          const name = isRTL ? bundle.nameAr : bundle.nameEn;
+                          const price = formatPrice(bundle.priceEgp);
+                          const msg = isRTL
+                            ? `أريد طلب "${name}" بسعر ${price}. ما هي الخطوات التالية؟`
+                            : `I want to order the "${name}" bundle for ${price}. What are the next steps?`;
+                          navigate('/ai-consultant', { state: { initialMessage: msg } });
+                        }}
+                      >
+                        <ShoppingCart className="mr-1.5 h-3.5 w-3.5" />
+                        {isRTL ? 'اطلب الآن' : 'Order Now'}
+                      </Button>
                       <a href="https://wa.me/201234567890" target="_blank" rel="noopener noreferrer">
                         <Button variant="outline" size="icon" className="h-10 w-10 rounded-full">
                           💬

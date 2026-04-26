@@ -3,6 +3,81 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Coffee, Moon, Sun, Film, ShieldCheck, Play, Sparkles, Wand2, RotateCcw } from 'lucide-react';
 import { useLanguage } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { Link } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+
+const SCENE_KEYWORDS: Record<string, string[]> = {
+  morning:  ['curtain', 'lighting', 'switch', 'AC', 'coffee'],
+  movie:    ['curtain', 'dimmer', 'lighting', 'remote', 'IR'],
+  sleep:    ['lock', 'sensor', 'security', 'switch'],
+  leaving:  ['lock', 'camera', 'plug', 'sensor'],
+  guests:   ['lighting', 'switch', 'AC', 'speaker'],
+};
+
+function SceneProducts({ sceneId, isRTL, formatPrice }: { sceneId: string; isRTL: boolean; formatPrice: (n: number) => string }) {
+  const keywords = SCENE_KEYWORDS[sceneId] ?? [];
+  const { data: products } = useQuery({
+    queryKey: ['scene-products', sceneId],
+    queryFn: async () => {
+      const orFilter = keywords.map(k => `name.ilike.%${k}%`).join(',');
+      const { data } = await supabase
+        .from('products')
+        .select('id, name, price, image_url, slug')
+        .or(orFilter)
+        .eq('featured', true)
+        .limit(4);
+      if (data && data.length > 0) return data;
+      // fallback: any featured products
+      const { data: fallback } = await supabase
+        .from('products')
+        .select('id, name, price, image_url, slug')
+        .eq('featured', true)
+        .limit(4);
+      return fallback ?? [];
+    },
+    enabled: keywords.length > 0,
+    staleTime: 120_000,
+  });
+
+  if (!products?.length) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="max-w-4xl mx-auto mt-4 rounded-2xl border border-border bg-card p-5"
+    >
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-display font-bold text-base">
+          {isRTL ? '🛒 المنتجات المطلوبة لهذا المشهد' : '🛒 Products to bring this scene to life'}
+        </h3>
+        <Link to="/products">
+          <Button variant="outline" size="sm" className="rounded-full text-xs h-7">
+            {isRTL ? 'عرض الكل' : 'View all'}
+          </Button>
+        </Link>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {products.map((p) => (
+          <Link key={p.id} to={`/products/${p.slug}`} className="group">
+            <div className="aspect-square rounded-xl overflow-hidden bg-muted mb-2 border border-border group-hover:border-primary/50 transition-colors">
+              <img
+                src={p.image_url || '/placeholder.svg'}
+                alt={p.name}
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/placeholder.svg'; }}
+              />
+            </div>
+            <p className="text-xs font-medium truncate">{p.name}</p>
+            <p className="text-xs text-primary font-bold">{formatPrice(p.price)}</p>
+          </Link>
+        ))}
+      </div>
+    </motion.div>
+  );
+}
 
 type Scene = {
   id: string;
@@ -100,7 +175,7 @@ const SCENES: Scene[] = [
 ];
 
 export function TryItShowcase() {
-  const { isRTL } = useLanguage();
+  const { isRTL, formatPrice } = useLanguage();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [triggered, setTriggered] = useState<Set<number>>(new Set());
   const [autoPlay, setAutoPlay] = useState(false);
@@ -342,6 +417,15 @@ export function TryItShowcase() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Real products for the active scene */}
+        {active && (
+          <SceneProducts
+            sceneId={active.id}
+            isRTL={isRTL}
+            formatPrice={formatPrice}
+          />
+        )}
       </div>
     </section>
   );

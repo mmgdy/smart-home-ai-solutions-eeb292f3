@@ -1,7 +1,7 @@
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Helmet } from 'react-helmet-async';
-import { ArrowLeft, ArrowRight, ShoppingCart, Loader2, Zap, Check, Shield, Truck, Award, Wifi } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ShoppingCart, Loader2, Zap, Check, Shield, Truck, Award, Wifi, CreditCard } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
@@ -11,9 +11,13 @@ import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 
-function getYouTubeEmbedUrl(url: string): string {
+function getYouTubeEmbedUrl(url: string): string | null {
   const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([a-zA-Z0-9_-]{11})/);
-  return match ? `https://www.youtube.com/embed/${match[1]}` : url;
+  return match ? `https://www.youtube.com/embed/${match[1]}` : null;
+}
+
+function isDirectVideo(url: string): boolean {
+  return /\.(mp4|webm|ogg|mov)(\?|$)/i.test(url);
 }
 
 const ProductDetail = () => {
@@ -71,7 +75,7 @@ const ProductDetail = () => {
   const BackArrow = isRTL ? ArrowRight : ArrowLeft;
 
   const trustBadges = [
-    { icon: Truck, label: isRTL ? 'الدفع عند الاستلام' : 'Cash on Delivery' },
+    { icon: CreditCard, label: isRTL ? 'دفع آمن بالبطاقة' : 'Secure Card Payment' },
     { icon: Shield, label: isRTL ? 'ضمان ٢ سنة' : '2-Year Warranty' },
     { icon: Award, label: isRTL ? 'منتج أصلي' : 'Genuine Product' },
   ];
@@ -128,13 +132,22 @@ const ProductDetail = () => {
                     </h3>
                   </div>
                   <div className="aspect-video">
-                    <iframe
-                      src={getYouTubeEmbedUrl(product.video_url)}
-                      title="Installation video"
-                      className="w-full h-full"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                    />
+                    {isDirectVideo(product.video_url) ? (
+                      <video
+                        src={product.video_url}
+                        className="w-full h-full"
+                        controls
+                        playsInline
+                      />
+                    ) : (
+                      <iframe
+                        src={getYouTubeEmbedUrl(product.video_url) ?? product.video_url}
+                        title="Installation video"
+                        className="w-full h-full"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
+                    )}
                   </div>
                 </div>
               )}

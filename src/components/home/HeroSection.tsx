@@ -17,8 +17,8 @@ export function HeroSection() {
     isRTL ? 'اشعر بسحر البيت الذكي' : 'Feel the magic of a Smarter Home');
   const subheadline = get('hero', isRTL ? 'subheadline_ar' : 'subheadline_en',
     isRTL
-      ? 'إضاءة، أمان، تحكم — بضغطة واحدة. منتجات أصلية، تركيب احترافي، ودفع عند الاستلام.'
-      : 'Lighting, security, control — in one tap. Genuine products, expert installation, cash on delivery.');
+      ? 'إضاءة، أمان، تحكم — بضغطة واحدة. منتجات أصلية، تركيب احترافي، ودفع آمن بالبطاقة.'
+      : 'Lighting, security, control — in one tap. Genuine products, expert installation, secure card payment.');
   const ctaLabel = get('hero', isRTL ? 'cta_ar' : 'cta_en',
     isRTL ? 'ابدأ بناء بيتك الذكي' : 'Start Building Your Smart Home');
 
@@ -179,7 +179,7 @@ export function HeroSection() {
             </span>
             <span className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-primary" />
-              {isRTL ? 'الدفع عند الاستلام' : 'Cash on Delivery'}
+              {isRTL ? 'دفع آمن بالبطاقة' : 'Secure Card Payment'}
             </span>
             <span className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-warning" />

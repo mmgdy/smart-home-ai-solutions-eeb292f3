@@ -28,7 +28,7 @@ Baytzaki is a smart home products and solutions provider operating in Egypt. All
 
 ## 4. Orders & Payment
 - An order is confirmed only after successful payment processing.
-- We accept Cash on Delivery (COD), credit/debit cards via PaySky, and other payment methods as listed at checkout.
+- We accept credit/debit cards via PaySky, and other payment methods as listed at checkout.
 - We reserve the right to cancel orders if we suspect fraud or if products are out of stock.
 
 ## 5. Account Registration
@@ -192,7 +192,7 @@ You may return products within **14 days** of delivery, provided the items are i
 
 ## 5. Refund Method
 - Refunds are processed to the original payment method
-- Cash on Delivery orders will be refunded via bank transfer
+- Refunds are processed to the original payment card within 7-14 business days
 - Shipping costs are non-refundable unless the return is due to our error
 
 ## 6. Defective Products

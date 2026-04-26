@@ -1,6 +1,6 @@
-import { Helmet } from 'react-helmet-async';
+﻿import { Helmet } from 'react-helmet-async';
 import { Layout } from '@/components/layout/Layout';
-import { Bot, Send, User, Sparkles, Loader2, Volume2, VolumeX } from 'lucide-react';
+import { Bot, Send, User, Sparkles, Loader2, Volume2, VolumeX, ExternalLink } from 'lucide-react';
 import { useLanguage } from '@/lib/i18n';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
@@ -11,11 +11,57 @@ import { useToast } from '@/hooks/use-toast';
 import { VoiceButton, speakText } from '@/components/ai/VoiceButton';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 type Message = { role: 'user' | 'assistant'; content: string };
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/smart-home-consultant`;
+
+function extractProductSlugs(content: string): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const [, slug] of content.matchAll(/\[[^\]]*\]\(\/products\/([^)]+)\)/g)) {
+    if (!seen.has(slug)) { seen.add(slug); out.push(slug); }
+  }
+  return out;
+}
+
+function ProductMiniCard({ slug }: { slug: string }) {
+  const { formatPrice } = useLanguage();
+  const { data: product } = useQuery({
+    queryKey: ['ai-product-card', slug],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('products')
+        .select('id, name, price, image_url, slug')
+        .eq('slug', slug)
+        .maybeSingle();
+      return data;
+    },
+    staleTime: 60_000,
+  });
+  if (!product) return null;
+  return (
+    <Link
+      to={`/products/${product.slug}`}
+      className="flex items-center gap-3 p-2 rounded-xl border border-border bg-background hover:border-primary/50 transition-colors"
+    >
+      <img
+        src={product.image_url || '/placeholder.svg'}
+        alt={product.name}
+        className="w-14 h-14 rounded-lg object-cover flex-shrink-0 bg-muted"
+        onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/placeholder.svg'; }}
+      />
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-semibold truncate">{product.name}</p>
+        <p className="text-sm font-bold text-primary">{formatPrice(product.price)}</p>
+      </div>
+      <ExternalLink className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+    </Link>
+  );
+}
 
 const SUGGESTED_EN = [
   "I want to make my 3-bedroom apartment smart",
@@ -34,11 +80,13 @@ const SUGGESTED_AR = [
 const AIConsultant = () => {
   const { t, isRTL } = useLanguage();
   const { toast } = useToast();
+  const location = useLocation();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [autoSpeak, setAutoSpeak] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const didAutoSend = useRef(false);
 
   const suggestions = isRTL ? SUGGESTED_AR : SUGGESTED_EN;
 
@@ -47,6 +95,15 @@ const AIConsultant = () => {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  // Auto-send pre-filled message (e.g. from Bundles "Order Now")
+  useEffect(() => {
+    const initial = (location.state as any)?.initialMessage as string | undefined;
+    if (initial && !didAutoSend.current) {
+      didAutoSend.current = true;
+      handleSend(initial);
+    }
+  }, []);
 
   const streamChat = useCallback(async (userMessages: Message[]) => {
     const resp = await fetch(CHAT_URL, {
@@ -249,6 +306,16 @@ const AIConsultant = () => {
                                 {isRTL ? 'اسمع' : 'Listen'}
                               </button>
                             )}
+                            {/* Product image cards for /products/slug links in completed messages */}
+                            {message.role === 'assistant' && !(isLoading && i === messages.length - 1) && (() => {
+                              const slugs = extractProductSlugs(message.content);
+                              if (!slugs.length) return null;
+                              return (
+                                <div className="mt-3 grid grid-cols-1 gap-2">
+                                  {slugs.map(slug => <ProductMiniCard key={slug} slug={slug} />)}
+                                </div>
+                              );
+            })()}
                           </div>
                           {message.role === 'user' && (
                             <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0">

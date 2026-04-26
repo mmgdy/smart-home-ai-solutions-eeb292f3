@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Loader2, Plus, Pencil, Trash2, Upload, Search, X, Save, Image as ImageIcon } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, Upload, Search, X, Save, Image as ImageIcon, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -42,6 +42,7 @@ const blank: Partial<Product> = {
 export function ProductEditor({ adminToken }: Props) {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,6 +51,7 @@ export function ProductEditor({ adminToken }: Props) {
   const [editing, setEditing] = useState<Partial<Product>>(blank);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [videoUploading, setVideoUploading] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -93,6 +95,25 @@ export function ProductEditor({ adminToken }: Props) {
       toast({ title: "Upload failed", description: e.message, variant: "destructive" });
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleVideoUpload = async (file: File) => {
+    setVideoUploading(true);
+    try {
+      const ext = file.name.split(".").pop()?.toLowerCase() || "mp4";
+      const path = `manual/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { error } = await supabase.storage.from("product-videos").upload(path, file, {
+        upsert: true, contentType: file.type, cacheControl: "31536000",
+      });
+      if (error) throw error;
+      const { data } = supabase.storage.from("product-videos").getPublicUrl(path);
+      setEditing((prev) => ({ ...prev, video_url: data.publicUrl }));
+      toast({ title: "Video uploaded" });
+    } catch (e: any) {
+      toast({ title: "Video upload failed", description: e.message, variant: "destructive" });
+    } finally {
+      setVideoUploading(false);
     }
   };
 
@@ -254,8 +275,29 @@ export function ProductEditor({ adminToken }: Props) {
             </div>
 
             <div className="space-y-2">
-              <Label>Video URL (YouTube)</Label>
-              <Input value={editing.video_url ?? ""} onChange={(e) => setEditing({ ...editing, video_url: e.target.value })} />
+              <Label>Video (YouTube URL or upload from computer)</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  value={editing.video_url ?? ""}
+                  onChange={(e) => setEditing({ ...editing, video_url: e.target.value })}
+                  placeholder="https://youtube.com/… or upload ↓"
+                  className="flex-1"
+                />
+                <input
+                  ref={videoInputRef}
+                  type="file"
+                  accept="video/mp4,video/webm,video/ogg,video/quicktime"
+                  className="hidden"
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) handleVideoUpload(f); }}
+                />
+                <Button type="button" variant="outline" size="sm" onClick={() => videoInputRef.current?.click()} disabled={videoUploading}>
+                  {videoUploading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Video className="h-4 w-4 mr-1" />}
+                  Upload
+                </Button>
+              </div>
+              {editing.video_url && /\.(mp4|webm|ogg|mov)(\?|$)/i.test(editing.video_url) && (
+                <video src={editing.video_url} className="w-full rounded-lg mt-1 max-h-32" controls />
+              )}
             </div>
 
             <div className="space-y-2 md:col-span-2">

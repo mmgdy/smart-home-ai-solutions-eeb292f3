@@ -7,10 +7,77 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
+
+const ROOM_KEYWORDS: Record<string, string[]> = {
+  bedroom:    ['switch', 'curtain', 'sensor', 'lighting'],
+  living:     ['lighting', 'curtain', 'AC', 'TV', 'switch'],
+  kitchen:    ['plug', 'sensor', 'switch'],
+  bathroom:   ['sensor', 'plug', 'switch'],
+  office:     ['switch', 'plug', 'lighting'],
+  garage:     ['lock', 'camera', 'sensor'],
+  default:    ['switch', 'plug', 'lighting', 'sensor'],
+};
+
+function SuggestedProducts({ roomNames, formatPrice, isRTL }: {
+  roomNames: string[];
+  formatPrice: (n: number) => string;
+  isRTL: boolean;
+}) {
+  const keywords = Array.from(new Set(
+    roomNames.flatMap(r => {
+      const key = Object.keys(ROOM_KEYWORDS).find(k => r.toLowerCase().includes(k)) ?? 'default';
+      return ROOM_KEYWORDS[key];
+    })
+  )).slice(0, 6);
+
+  const { data: products } = useQuery({
+    queryKey: ['floor-plan-products', keywords.join(',')],
+    queryFn: async () => {
+      const orFilter = keywords.map(k => `name.ilike.%${k}%`).join(',');
+      const { data } = await supabase
+        .from('products')
+        .select('id, name, price, image_url, slug')
+        .or(orFilter)
+        .limit(6);
+      return data ?? [];
+    },
+    enabled: keywords.length > 0,
+    staleTime: 120_000,
+  });
+
+  if (!products?.length) return null;
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
+      <h4 className="font-semibold text-sm flex items-center gap-2">
+        <Sparkles className="h-4 w-4 text-primary" />
+        {isRTL ? 'منتجات مقترحة لمنزلك' : 'Suggested products for your home'}
+      </h4>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        {products.map((p) => (
+          <Link key={p.id} to={`/products/${p.slug}`} className="group">
+            <div className="aspect-square rounded-xl overflow-hidden bg-muted border border-border group-hover:border-primary/50 transition-colors mb-1.5">
+              <img
+                src={p.image_url || '/placeholder.svg'}
+                alt={p.name}
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/placeholder.svg'; }}
+              />
+            </div>
+            <p className="text-xs font-medium truncate">{p.name}</p>
+            <p className="text-xs text-primary font-bold">{formatPrice(p.price)}</p>
+          </Link>
+        ))}
+      </div>
+    </motion.div>
+  );
+}
 
 export function FloorPlanUploader() {
   const { setFloorPlanUrl, setAiAnalysis, applyAiAnalysis, floorPlanUrl, aiAnalysis, setStep } = useCalculator();
-  const { isRTL } = useLanguage();
+  const { isRTL, formatPrice } = useLanguage();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -235,6 +302,15 @@ export function FloorPlanUploader() {
             {isRTL ? 'تطبيق التوصيات' : 'Apply Recommendations'}
           </Button>
         </motion.div>
+      )}
+
+      {/* Visual product suggestions based on detected rooms */}
+      {aiAnalysis?.roomsDetected && aiAnalysis.roomsDetected.length > 0 && !isAnalyzing && (
+        <SuggestedProducts
+          roomNames={aiAnalysis.roomsDetected.map((r: any) => r.name)}
+          formatPrice={formatPrice}
+          isRTL={isRTL}
+        />
       )}
 
       {/* Skip button */}
