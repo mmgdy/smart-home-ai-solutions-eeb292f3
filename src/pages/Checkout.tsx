@@ -172,7 +172,7 @@ const Checkout = () => {
       email: formData.email,
       total: total,
       status: 'pending',
-      stripe_session_id: paymentMethod === 'cod' ? `cod_${Date.now()}` : null,
+      stripe_session_id: null,
       shipping_address: {
         firstName: formData.firstName,
         lastName: formData.lastName,
