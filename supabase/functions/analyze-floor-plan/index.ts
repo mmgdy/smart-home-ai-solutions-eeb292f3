@@ -14,9 +14,19 @@ interface FeatureSuggestion {
   features: string[];
 }
 
+interface DevicePlacement {
+  type: string;
+  emoji: string;
+  x: number; // percentage of image width (0-100)
+  y: number; // percentage of image height (0-100)
+  room: string;
+  label: string;
+}
+
 interface FloorPlanAnalysis {
   roomsDetected: RoomDetection[];
   suggestedFeatures: FeatureSuggestion[];
+  devicePlacements: DevicePlacement[];
   estimatedArea?: number;
   notes?: string;
 }
@@ -57,12 +67,9 @@ Deno.serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `You are a smart home consultant analyzing floor plans. Analyze the floor plan image and identify:
-1. All rooms visible in the floor plan
-2. Suggested smart home features for each room type
-3. Estimated total area if visible
+            content: `You are a smart home consultant analyzing floor plans. Analyze the floor plan image and return a single JSON object.
 
-Return a JSON object with this exact structure:
+Return ONLY this JSON structure with no markdown, no extra text:
 {
   "roomsDetected": [
     { "type": "living_room", "name": "Living Room", "count": 1 },
@@ -72,22 +79,31 @@ Return a JSON object with this exact structure:
     { "roomType": "living_room", "features": ["smart_lighting", "smart_curtains", "smart_ac"] },
     { "roomType": "bedroom", "features": ["smart_lighting", "smart_curtains", "smart_ac"] }
   ],
+  "devicePlacements": [
+    { "type": "smart_switch", "emoji": "💡", "x": 25, "y": 40, "room": "Living Room", "label": "Smart Lights" },
+    { "type": "smart_ac", "emoji": "❄️", "x": 80, "y": 15, "room": "Master Bedroom", "label": "AC Controller" },
+    { "type": "camera", "emoji": "📷", "x": 5, "y": 5, "room": "Entrance", "label": "Security Camera" }
+  ],
   "estimatedArea": 120,
   "notes": "Modern apartment layout with open floor plan"
 }
 
+For devicePlacements:
+- x and y are PERCENTAGES (0-100) of the image width and height
+- Place devices at logical positions INSIDE each room (near walls, corners, or doorways)
+- Provide 6-15 devices covering all detected rooms
+- Use these emojis: 💡 lights, ❄️ AC, 🪟 curtains, 📷 camera, 🔐 lock, 👁️ motion sensor, 🚪 door sensor, 🔌 smart plug, 🚨 smoke detector, 💧 water sensor, 🌡️ thermostat, 🔊 speaker
+- Spread devices across the entire floor plan, not clustered in one corner
+
 Valid room types: living_room, bedroom, master_bedroom, kitchen, bathroom, dining_room, office, hallway, entrance, balcony, garden, garage, kids_room, guest_room
-
-Valid features: smart_lighting, smart_curtains, smart_ac, motion_sensor, door_sensor, temperature_sensor, smart_lock, camera, intercom, smart_plug, smart_switch, rgb_lighting, water_leak_sensor, smoke_detector, smart_thermostat
-
-IMPORTANT: Return ONLY valid JSON, no markdown formatting or additional text.`
+Valid features: smart_lighting, smart_curtains, smart_ac, motion_sensor, door_sensor, temperature_sensor, smart_lock, camera, intercom, smart_plug, smart_switch, rgb_lighting, water_leak_sensor, smoke_detector, smart_thermostat`
           },
           {
             role: 'user',
             content: [
               {
                 type: 'text',
-                text: 'Analyze this floor plan and identify all rooms and suggest smart home features for each.'
+                text: 'Analyze this floor plan. Identify all rooms and place smart home devices at their exact positions in the image.'
               },
               {
                 type: 'image_url',
@@ -104,7 +120,7 @@ IMPORTANT: Return ONLY valid JSON, no markdown formatting or additional text.`
     if (!response.ok) {
       const errorText = await response.text();
       console.error('AI API error:', response.status, errorText);
-      
+
       if (response.status === 429) {
         return new Response(
           JSON.stringify({ success: false, error: 'Rate limit exceeded. Please try again later.' }),
@@ -117,7 +133,7 @@ IMPORTANT: Return ONLY valid JSON, no markdown formatting or additional text.`
           { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      
+
       return new Response(
         JSON.stringify({ success: false, error: 'Failed to analyze floor plan' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -136,25 +152,16 @@ IMPORTANT: Return ONLY valid JSON, no markdown formatting or additional text.`
 
     console.log('AI response:', content);
 
-    // Parse the JSON response
     let analysis: FloorPlanAnalysis;
     try {
-      // Remove markdown code blocks if present
       let jsonStr = content.trim();
-      if (jsonStr.startsWith('```json')) {
-        jsonStr = jsonStr.slice(7);
-      }
-      if (jsonStr.startsWith('```')) {
-        jsonStr = jsonStr.slice(3);
-      }
-      if (jsonStr.endsWith('```')) {
-        jsonStr = jsonStr.slice(0, -3);
-      }
-      
+      if (jsonStr.startsWith('```json')) jsonStr = jsonStr.slice(7);
+      if (jsonStr.startsWith('```')) jsonStr = jsonStr.slice(3);
+      if (jsonStr.endsWith('```')) jsonStr = jsonStr.slice(0, -3);
       analysis = JSON.parse(jsonStr.trim());
+      if (!analysis.devicePlacements) analysis.devicePlacements = [];
     } catch (parseError) {
       console.error('JSON parse error:', parseError);
-      // Return a default analysis if parsing fails
       analysis = {
         roomsDetected: [
           { type: 'living_room', name: 'Living Room', count: 1 },
@@ -168,7 +175,15 @@ IMPORTANT: Return ONLY valid JSON, no markdown formatting or additional text.`
           { roomType: 'bathroom', features: ['smart_lighting', 'water_leak_sensor'] },
           { roomType: 'kitchen', features: ['smart_lighting', 'smoke_detector', 'smart_plug'] },
         ],
-        notes: 'Standard apartment layout detected (AI parsing fallback)'
+        devicePlacements: [
+          { type: 'smart_switch', emoji: '💡', x: 25, y: 40, room: 'Living Room', label: 'Smart Lights' },
+          { type: 'smart_ac', emoji: '❄️', x: 70, y: 20, room: 'Bedroom', label: 'AC Controller' },
+          { type: 'camera', emoji: '📷', x: 5, y: 5, room: 'Entrance', label: 'Camera' },
+          { type: 'smoke_detector', emoji: '🚨', x: 50, y: 10, room: 'Kitchen', label: 'Smoke Detector' },
+          { type: 'smart_lock', emoji: '🔐', x: 3, y: 50, room: 'Entrance', label: 'Smart Lock' },
+          { type: 'motion_sensor', emoji: '👁️', x: 90, y: 70, room: 'Living Room', label: 'Motion Sensor' },
+        ],
+        notes: 'Standard apartment layout detected (AI parsing fallback)',
       };
     }
 

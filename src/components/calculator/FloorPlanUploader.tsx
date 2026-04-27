@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Upload, Image, Loader2, Sparkles, X } from 'lucide-react';
+import { Upload, Loader2, Sparkles, X, MapPin, ShoppingBag } from 'lucide-react';
 import { useCalculator } from '@/hooks/useCalculator';
 import { useLanguage } from '@/lib/i18n';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,15 @@ const ROOM_KEYWORDS: Record<string, string[]> = {
   garage:     ['lock', 'camera', 'sensor'],
   default:    ['switch', 'plug', 'lighting', 'sensor'],
 };
+
+interface DevicePlacement {
+  type: string;
+  emoji: string;
+  x: number;
+  y: number;
+  room: string;
+  label: string;
+}
 
 function SuggestedProducts({ roomNames, formatPrice, isRTL }: {
   roomNames: string[];
@@ -52,7 +61,7 @@ function SuggestedProducts({ roomNames, formatPrice, isRTL }: {
   return (
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
       <h4 className="font-semibold text-sm flex items-center gap-2">
-        <Sparkles className="h-4 w-4 text-primary" />
+        <ShoppingBag className="h-4 w-4 text-primary" />
         {isRTL ? 'منتجات مقترحة لمنزلك' : 'Suggested products for your home'}
       </h4>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -75,21 +84,94 @@ function SuggestedProducts({ roomNames, formatPrice, isRTL }: {
   );
 }
 
+function AnnotatedFloorPlan({ imageUrl, devices, isRTL }: {
+  imageUrl: string;
+  devices: DevicePlacement[];
+  isRTL: boolean;
+}) {
+  const [hovered, setHovered] = useState<number | null>(null);
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
+      <h4 className="font-semibold text-sm flex items-center gap-2">
+        <MapPin className="h-4 w-4 text-primary" />
+        {isRTL ? 'مواضع الأجهزة الذكية المقترحة' : 'Suggested smart device positions'}
+      </h4>
+
+      {/* Annotated image */}
+      <div className="relative rounded-xl overflow-hidden border border-border bg-muted">
+        <img
+          src={imageUrl}
+          alt="Annotated floor plan"
+          className="w-full object-contain"
+          draggable={false}
+        />
+        {devices.map((device, i) => (
+          <div
+            key={i}
+            className="absolute"
+            style={{ left: `${device.x}%`, top: `${device.y}%`, transform: 'translate(-50%, -50%)' }}
+            onMouseEnter={() => setHovered(i)}
+            onMouseLeave={() => setHovered(null)}
+            onTouchStart={() => setHovered(hovered === i ? null : i)}
+          >
+            {/* Pulse ring */}
+            <span className="absolute inset-0 rounded-full animate-ping bg-primary/30" />
+            {/* Icon bubble */}
+            <div className={cn(
+              'relative w-8 h-8 rounded-full flex items-center justify-center text-sm shadow-lg border-2 cursor-pointer transition-transform duration-150',
+              'bg-background/90 border-primary/70 hover:scale-125'
+            )}>
+              {device.emoji}
+            </div>
+            {/* Tooltip */}
+            {hovered === i && (
+              <div className={cn(
+                'absolute z-20 bottom-full mb-2 whitespace-nowrap',
+                'bg-card border border-border rounded-lg px-2.5 py-1.5 shadow-xl text-xs',
+                device.x > 70 ? 'right-0' : 'left-1/2 -translate-x-1/2'
+              )}>
+                <p className="font-semibold">{device.label}</p>
+                <p className="text-muted-foreground">{device.room}</p>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <p className="text-xs text-center text-muted-foreground">
+        {isRTL
+          ? '💡 مرر على كل أيقونة لمعرفة الجهاز المقترح في هذا المكان'
+          : '💡 Hover / tap each icon to see the suggested device'}
+      </p>
+
+      {/* Legend */}
+      <div className="flex flex-wrap gap-2">
+        {Array.from(new Map(devices.map(d => [d.type, d])).values()).map(d => (
+          <span key={d.type} className="flex items-center gap-1 text-xs bg-muted rounded-full px-2.5 py-1 border border-border">
+            {d.emoji} <span className="text-muted-foreground">{d.label}</span>
+          </span>
+        ))}
+      </div>
+    </motion.div>
+  );
+}
+
 export function FloorPlanUploader() {
   const { setFloorPlanUrl, setAiAnalysis, applyAiAnalysis, floorPlanUrl, aiAnalysis, setStep } = useCalculator();
   const { isRTL, formatPrice } = useLanguage();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   const [isUploading, setIsUploading] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(floorPlanUrl);
+  const [activeTab, setActiveTab] = useState<'map' | 'products'>('map');
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
     if (!file.type.startsWith('image/')) {
       toast({
         title: isRTL ? 'نوع ملف غير صالح' : 'Invalid File Type',
@@ -99,7 +181,6 @@ export function FloorPlanUploader() {
       return;
     }
 
-    // Validate file size (max 10MB)
     if (file.size > 10 * 1024 * 1024) {
       toast({
         title: isRTL ? 'الملف كبير جداً' : 'File Too Large',
@@ -112,11 +193,9 @@ export function FloorPlanUploader() {
     setIsUploading(true);
 
     try {
-      // Create preview
       const preview = URL.createObjectURL(file);
       setPreviewUrl(preview);
 
-      // Upload to storage
       const fileName = `${Date.now()}-${file.name}`;
       const { data, error } = await supabase.storage
         .from('floor-plans')
@@ -124,7 +203,6 @@ export function FloorPlanUploader() {
 
       if (error) throw error;
 
-      // Get public URL
       const { data: urlData } = supabase.storage
         .from('floor-plans')
         .getPublicUrl(fileName);
@@ -136,9 +214,7 @@ export function FloorPlanUploader() {
         description: isRTL ? 'جاري تحليل المخطط...' : 'Analyzing floor plan...',
       });
 
-      // Auto-start AI analysis
       await analyzeFloorPlan(urlData.publicUrl);
-
     } catch (error) {
       console.error('Upload error:', error);
       toast({
@@ -163,11 +239,13 @@ export function FloorPlanUploader() {
 
       if (data.analysis) {
         setAiAnalysis(data.analysis);
+        const deviceCount = data.analysis.devicePlacements?.length || 0;
+        const roomCount = data.analysis.roomsDetected?.length || 0;
         toast({
           title: isRTL ? 'اكتمل التحليل!' : 'Analysis Complete!',
-          description: isRTL 
-            ? `تم اكتشاف ${data.analysis.roomsDetected?.length || 0} غرف`
-            : `Detected ${data.analysis.roomsDetected?.length || 0} rooms`,
+          description: isRTL
+            ? `تم اكتشاف ${roomCount} غرف و ${deviceCount} موضع جهاز ذكي`
+            : `Detected ${roomCount} rooms · ${deviceCount} device positions placed`,
         });
       }
     } catch (error) {
@@ -186,10 +264,11 @@ export function FloorPlanUploader() {
     setPreviewUrl(null);
     setFloorPlanUrl(null);
     setAiAnalysis(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
+
+  const devicePlacements: DevicePlacement[] = (aiAnalysis as any)?.devicePlacements ?? [];
+  const roomNames: string[] = aiAnalysis?.roomsDetected?.map((r: any) => r.name) ?? [];
 
   return (
     <div className="space-y-6">
@@ -198,10 +277,9 @@ export function FloorPlanUploader() {
           {isRTL ? 'تحميل مخطط الطابق (اختياري)' : 'Upload Floor Plan (Optional)'}
         </h3>
         <p className="text-sm text-muted-foreground">
-          {isRTL 
-            ? 'احصل على تحليل ذكي وتوصيات تلقائية بناءً على مخططك'
-            : 'Get AI-powered analysis and automatic recommendations based on your floor plan'
-          }
+          {isRTL
+            ? 'ارفع صورة مخططك وسيضع الذكاء الاصطناعي أجهزتك الذكية في أماكنها المثالية'
+            : 'Upload your floor plan and AI will mark where to place every smart device'}
         </p>
       </div>
 
@@ -210,8 +288,8 @@ export function FloorPlanUploader() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           className={cn(
-            "flex flex-col items-center justify-center p-8 rounded-2xl border-2 border-dashed cursor-pointer transition-colors",
-            "border-border hover:border-primary/50 hover:bg-primary/5"
+            'flex flex-col items-center justify-center p-8 rounded-2xl border-2 border-dashed cursor-pointer transition-colors',
+            'border-border hover:border-primary/50 hover:bg-primary/5'
           )}
         >
           <input
@@ -222,22 +300,19 @@ export function FloorPlanUploader() {
             className="hidden"
             disabled={isUploading}
           />
-          
+
           {isUploading ? (
             <Loader2 className="h-12 w-12 text-primary animate-spin mb-4" />
           ) : (
             <Upload className="h-12 w-12 text-muted-foreground mb-4" />
           )}
-          
+
           <p className="font-medium mb-1">
-            {isUploading 
+            {isUploading
               ? (isRTL ? 'جاري التحميل...' : 'Uploading...')
-              : (isRTL ? 'اضغط للتحميل' : 'Click to upload')
-            }
+              : (isRTL ? 'اضغط لتحميل مخططك' : 'Click to upload your floor plan')}
           </p>
-          <p className="text-xs text-muted-foreground">
-            PNG, JPG, WEBP (max 10MB)
-          </p>
+          <p className="text-xs text-muted-foreground">PNG, JPG, WEBP (max 10MB)</p>
         </motion.label>
       ) : (
         <motion.div
@@ -250,7 +325,7 @@ export function FloorPlanUploader() {
             alt="Floor Plan"
             className="w-full h-64 object-contain bg-card"
           />
-          
+
           <button
             onClick={handleRemove}
             className="absolute top-2 right-2 p-2 rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
@@ -262,63 +337,106 @@ export function FloorPlanUploader() {
             <div className="absolute inset-0 bg-background/80 flex items-center justify-center">
               <div className="text-center">
                 <Loader2 className="h-8 w-8 text-primary animate-spin mx-auto mb-2" />
-                <p className="font-medium">{isRTL ? 'جاري التحليل...' : 'Analyzing...'}</p>
+                <p className="font-medium">{isRTL ? 'الذكاء الاصطناعي يحلل مخططك...' : 'AI is mapping your home...'}</p>
               </div>
             </div>
           )}
         </motion.div>
       )}
 
-      {/* AI Analysis Results */}
+      {/* Results after analysis */}
       {aiAnalysis && !isAnalyzing && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="p-4 rounded-xl bg-primary/5 border border-primary/20"
+          className="space-y-4"
         >
-          <div className="flex items-center gap-2 mb-3">
-            <Sparkles className="h-5 w-5 text-primary" />
-            <h4 className="font-medium">{isRTL ? 'نتائج التحليل الذكي' : 'AI Analysis Results'}</h4>
-          </div>
-          
-          <div className="space-y-2 mb-4">
-            <p className="text-sm">
-              <strong>{isRTL ? 'الغرف المكتشفة:' : 'Detected Rooms:'}</strong>{' '}
-              {aiAnalysis.roomsDetected?.map(r => `${r.name} (${r.count})`).join(', ') || 'None'}
-            </p>
-            {aiAnalysis.estimatedArea && (
-              <p className="text-sm">
-                <strong>{isRTL ? 'المساحة التقديرية:' : 'Estimated Area:'}</strong>{' '}
-                {aiAnalysis.estimatedArea} m²
+          {/* Summary card */}
+          <div className="p-4 rounded-xl bg-primary/5 border border-primary/20">
+            <div className="flex items-center gap-2 mb-3">
+              <Sparkles className="h-5 w-5 text-primary" />
+              <h4 className="font-medium">{isRTL ? 'نتائج التحليل الذكي' : 'AI Analysis Results'}</h4>
+            </div>
+
+            <div className="space-y-1.5 mb-4 text-sm">
+              <p>
+                <strong>{isRTL ? 'الغرف:' : 'Rooms:'}</strong>{' '}
+                {aiAnalysis.roomsDetected?.map((r: any) => `${r.name} (${r.count})`).join(', ') || '—'}
               </p>
-            )}
-            {aiAnalysis.notes && (
-              <p className="text-sm text-muted-foreground">{aiAnalysis.notes}</p>
-            )}
+              {(aiAnalysis as any).estimatedArea && (
+                <p>
+                  <strong>{isRTL ? 'المساحة:' : 'Area:'}</strong>{' '}
+                  {(aiAnalysis as any).estimatedArea} m²
+                </p>
+              )}
+              {devicePlacements.length > 0 && (
+                <p>
+                  <strong>{isRTL ? 'الأجهزة الموضوعة:' : 'Devices placed:'}</strong>{' '}
+                  {devicePlacements.length}
+                </p>
+              )}
+              {(aiAnalysis as any).notes && (
+                <p className="text-muted-foreground">{(aiAnalysis as any).notes}</p>
+              )}
+            </div>
+
+            <Button onClick={applyAiAnalysis} className="w-full gap-2">
+              <Sparkles className="h-4 w-4" />
+              {isRTL ? 'تطبيق التوصيات على الحاسبة' : 'Apply Recommendations to Calculator'}
+            </Button>
           </div>
 
-          <Button onClick={applyAiAnalysis} className="w-full gap-2">
-            <Sparkles className="h-4 w-4" />
-            {isRTL ? 'تطبيق التوصيات' : 'Apply Recommendations'}
-          </Button>
+          {/* Tab switcher */}
+          {(devicePlacements.length > 0 || roomNames.length > 0) && (
+            <div className="flex rounded-xl border border-border overflow-hidden">
+              <button
+                onClick={() => setActiveTab('map')}
+                className={cn(
+                  'flex-1 py-2.5 text-sm font-medium flex items-center justify-center gap-2 transition-colors',
+                  activeTab === 'map'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-card text-muted-foreground hover:text-foreground'
+                )}
+              >
+                <MapPin className="h-4 w-4" />
+                {isRTL ? 'خريطة الأجهزة' : 'Device Map'}
+              </button>
+              <button
+                onClick={() => setActiveTab('products')}
+                className={cn(
+                  'flex-1 py-2.5 text-sm font-medium flex items-center justify-center gap-2 transition-colors',
+                  activeTab === 'products'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-card text-muted-foreground hover:text-foreground'
+                )}
+              >
+                <ShoppingBag className="h-4 w-4" />
+                {isRTL ? 'المنتجات المقترحة' : 'Suggested Products'}
+              </button>
+            </div>
+          )}
+
+          {/* Tab content */}
+          {activeTab === 'map' && devicePlacements.length > 0 && previewUrl && (
+            <AnnotatedFloorPlan
+              imageUrl={previewUrl}
+              devices={devicePlacements}
+              isRTL={isRTL}
+            />
+          )}
+
+          {activeTab === 'products' && roomNames.length > 0 && (
+            <SuggestedProducts
+              roomNames={roomNames}
+              formatPrice={formatPrice}
+              isRTL={isRTL}
+            />
+          )}
         </motion.div>
       )}
 
-      {/* Visual product suggestions based on detected rooms */}
-      {aiAnalysis?.roomsDetected && aiAnalysis.roomsDetected.length > 0 && !isAnalyzing && (
-        <SuggestedProducts
-          roomNames={aiAnalysis.roomsDetected.map((r: any) => r.name)}
-          formatPrice={formatPrice}
-          isRTL={isRTL}
-        />
-      )}
-
       {/* Skip button */}
-      <Button
-        variant="ghost"
-        className="w-full"
-        onClick={() => setStep(2)}
-      >
+      <Button variant="ghost" className="w-full" onClick={() => setStep(2)}>
         {isRTL ? 'تخطي وإضافة الغرف يدوياً' : 'Skip and add rooms manually'}
       </Button>
     </div>
