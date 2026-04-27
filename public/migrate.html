@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Baytzaki — Supabase Migration Tool</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #0f0f11; color: #e2e8f0; min-height: 100vh; padding: 2rem 1rem; }
+    .card { background: #1a1a2e; border: 1px solid #2d2d44; border-radius: 16px; padding: 1.5rem; margin-bottom: 1.5rem; max-width: 700px; margin-left: auto; margin-right: auto; }
+    h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.25rem; }
+    .sub { color: #94a3b8; font-size: 0.875rem; margin-bottom: 1.5rem; }
+    label { display: block; font-size: 0.8125rem; font-weight: 600; color: #94a3b8; margin-bottom: 0.4rem; }
+    input { width: 100%; padding: 0.625rem 0.875rem; background: #0f0f11; border: 1px solid #2d2d44; border-radius: 8px; color: #e2e8f0; font-size: 0.875rem; font-family: monospace; margin-bottom: 1rem; }
+    input:focus { outline: none; border-color: #6366f1; }
+    button { padding: 0.75rem 1.5rem; background: #6366f1; color: white; border: none; border-radius: 10px; font-size: 0.9375rem; font-weight: 600; cursor: pointer; width: 100%; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    button.secondary { background: #2d2d44; color: #e2e8f0; margin-top: 0.5rem; }
+    .step { display: flex; align-items: flex-start; gap: 0.75rem; padding: 0.75rem; border-radius: 8px; margin-bottom: 0.5rem; font-size: 0.875rem; }
+    .step.pending  { background: #1e293b; color: #64748b; }
+    .step.running  { background: #1e3a5f; color: #93c5fd; }
+    .step.done     { background: #14532d; color: #86efac; }
+    .step.error    { background: #450a0a; color: #fca5a5; }
+    .step .icon    { font-size: 1.1rem; flex-shrink: 0; }
+    .step .text    { flex: 1; }
+    .step .count   { font-size: 0.75rem; opacity: 0.75; }
+    #log { background: #0a0a10; border: 1px solid #1e293b; border-radius: 8px; padding: 1rem; font-family: monospace; font-size: 0.75rem; max-height: 220px; overflow-y: auto; white-space: pre-wrap; color: #94a3b8; margin-top: 1rem; }
+    .sql-box { background: #0a0a10; border: 1px solid #1e293b; border-radius: 8px; padding: 1rem; font-family: monospace; font-size: 0.72rem; max-height: 300px; overflow-y: auto; white-space: pre-wrap; color: #a3e635; margin-top: 1rem; }
+    .badge { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; }
+    .badge.ok  { background: #14532d; color: #86efac; }
+    .badge.err { background: #450a0a; color: #fca5a5; }
+    .section-title { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; margin-bottom: 0.75rem; }
+    .divider { border: none; border-top: 1px solid #2d2d44; margin: 1.25rem 0; }
+    .warning { background: #422006; border: 1px solid #78350f; border-radius: 8px; padding: 0.875rem; color: #fde68a; font-size: 0.8125rem; margin-bottom: 1rem; }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <h1>🚀 Baytzaki Migration Tool</h1>
+  <p class="sub">Transfers products, categories & site content from your old Supabase to a new one.</p>
+
+  <div class="warning">
+    ⚠️ This uses your old project's <strong>public anon key</strong> to read data, and your new project's <strong>service role key</strong> to write. Orders and user profiles cannot be recovered (they require admin dashboard access). Storage images will be re-uploaded to the new bucket.
+  </div>
+
+  <div class="section-title">Old project (read-only source)</div>
+  <label>Old Supabase URL</label>
+  <input id="oldUrl" value="https://vgwptcvjhmphqhoepbri.supabase.co" readonly style="opacity:0.6" />
+  <label>Old Anon Key</label>
+  <input id="oldKey" value="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZnd3B0Y3ZqaG1waHFob2VwYnJpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc2Mzk2MjcsImV4cCI6MjA4MzIxNTYyN30.sLDAgPDZhw5zAdrmMj66vlMASa1HfhbDYwTJhRoKn2w" readonly style="opacity:0.6" />
+
+  <hr class="divider" />
+
+  <div class="section-title">New project (destination)</div>
+  <label>New Supabase URL <span style="color:#fca5a5">*</span></label>
+  <input id="newUrl" placeholder="https://xxxxxxxxxxxx.supabase.co" />
+  <label>New Service Role Key <span style="color:#fca5a5">*</span> <span style="color:#64748b;font-weight:400">(Settings → API → service_role)</span></label>
+  <input id="newKey" type="password" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." />
+
+  <label>New Anon Key <span style="color:#fca5a5">*</span> <span style="color:#64748b;font-weight:400">(for .env.production)</span></label>
+  <input id="newAnonKey" type="password" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." />
+
+  <button id="migrateBtn" onclick="startMigration()">▶ Start Migration</button>
+  <button class="secondary" onclick="generateSqlOnly()">📄 Just generate SQL (no automatic insert)</button>
+</div>
+
+<div class="card" id="progressCard" style="display:none">
+  <div class="section-title">Progress</div>
+  <div id="steps"></div>
+  <div id="log"></div>
+</div>
+
+<div class="card" id="sqlCard" style="display:none">
+  <div class="section-title">Generated SQL — paste this into your new project's SQL Editor</div>
+  <p style="font-size:0.8125rem;color:#94a3b8;margin-bottom:0.75rem">Go to new project → SQL Editor → New query → paste → Run</p>
+  <button class="secondary" style="width:auto;padding:0.5rem 1rem;margin-bottom:0.75rem" onclick="copySql()">📋 Copy SQL</button>
+  <div class="sql-box" id="sqlBox"></div>
+</div>
+
+<div class="card" id="envCard" style="display:none">
+  <div class="section-title">Update your .env.production</div>
+  <p style="font-size:0.8125rem;color:#94a3b8;margin-bottom:0.75rem">Replace the values in <code>.env.production</code> with these, then commit and push to redeploy:</p>
+  <div class="sql-box" id="envBox"></div>
+</div>
+
+<script>
+const OLD_URL = () => document.getElementById('oldUrl').value.trim().replace(/\/$/, '');
+const OLD_KEY = () => document.getElementById('oldKey').value.trim();
+const NEW_URL = () => document.getElementById('newUrl').value.trim().replace(/\/$/, '');
+const NEW_KEY = () => document.getElementById('newKey').value.trim();
+const NEW_ANON = () => document.getElementById('newAnonKey').value.trim();
+
+let logEl, stepsEl, stepsData = [];
+
+function log(msg) {
+  if (!logEl) return;
+  logEl.textContent += msg + '\n';
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+function addStep(id, label) {
+  stepsData.push({ id, label, status: 'pending', count: '' });
+  renderSteps();
+}
+function setStep(id, status, count = '') {
+  const s = stepsData.find(x => x.id === id);
+  if (s) { s.status = status; s.count = count; }
+  renderSteps();
+}
+function renderSteps() {
+  if (!stepsEl) return;
+  const icons = { pending: '⏳', running: '🔄', done: '✅', error: '❌' };
+  stepsEl.innerHTML = stepsData.map(s => `
+    <div class="step ${s.status}">
+      <span class="icon">${icons[s.status]}</span>
+      <span class="text">${s.label}</span>
+      ${s.count ? `<span class="count">${s.count}</span>` : ''}
+    </div>`).join('');
+}
+
+async function fetchAll(url, key, table, select = '*') {
+  const rows = [];
+  let from = 0;
+  const PAGE = 1000;
+  while (true) {
+    const r = await fetch(`${url}/rest/v1/${table}?select=${select}&limit=${PAGE}&offset=${from}`, {
+      headers: { 'apikey': key, 'Authorization': `Bearer ${key}` }
+    });
+    if (!r.ok) { const t = await r.text(); throw new Error(`GET ${table}: ${r.status} ${t}`); }
+    const data = await r.json();
+    rows.push(...data);
+    if (data.length < PAGE) break;
+    from += PAGE;
+  }
+  return rows;
+}
+
+async function upsert(url, key, table, rows) {
+  if (!rows.length) return;
+  const PAGE = 100;
+  for (let i = 0; i < rows.length; i += PAGE) {
+    const chunk = rows.slice(i, i + PAGE);
+    const r = await fetch(`${url}/rest/v1/${table}`, {
+      method: 'POST',
+      headers: {
+        'apikey': key,
+        'Authorization': `Bearer ${key}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates,return=minimal'
+      },
+      body: JSON.stringify(chunk)
+    });
+    if (!r.ok) {
+      const t = await r.text();
+      throw new Error(`INSERT ${table} chunk ${i}: ${r.status} ${t}`);
+    }
+  }
+}
+
+async function ensureBucket(url, key, bucket) {
+  const r = await fetch(`${url}/storage/v1/bucket`, {
+    method: 'POST',
+    headers: { 'apikey': key, 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: bucket, name: bucket, public: true })
+  });
+  // 409 = already exists, that's fine
+  if (!r.ok && r.status !== 409) {
+    const t = await r.text();
+    log(`⚠ Could not create bucket ${bucket}: ${t}`);
+  }
+}
+
+async function migrateImage(oldImageUrl, newUrl, newKey, bucket) {
+  try {
+    if (!oldImageUrl) return null;
+    // Only migrate images hosted on the old Supabase storage
+    if (!oldImageUrl.includes('supabase.co') && !oldImageUrl.includes('supabase.in')) {
+      return oldImageUrl; // external URL, keep as-is
+    }
+    const res = await fetch(oldImageUrl);
+    if (!res.ok) return oldImageUrl; // can't download, keep old URL
+    const blob = await res.blob();
+    const ext = oldImageUrl.split('.').pop()?.split('?')[0] || 'jpg';
+    const fileName = `migrated/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    const uploadRes = await fetch(`${newUrl}/storage/v1/object/${bucket}/${fileName}`, {
+      method: 'POST',
+      headers: {
+        'apikey': newKey,
+        'Authorization': `Bearer ${newKey}`,
+        'Content-Type': blob.type || 'image/jpeg',
+        'Cache-Control': '31536000'
+      },
+      body: blob
+    });
+    if (!uploadRes.ok) return oldImageUrl; // fallback to old URL
+    return `${newUrl}/storage/v1/object/public/${bucket}/${fileName}`;
+  } catch {
+    return oldImageUrl;
+  }
+}
+
+async function startMigration() {
+  if (!NEW_URL() || !NEW_KEY()) {
+    alert('Please fill in the New Supabase URL and Service Role Key.');
+    return;
+  }
+
+  document.getElementById('progressCard').style.display = 'block';
+  document.getElementById('progressCard').scrollIntoView({ behavior: 'smooth' });
+  logEl = document.getElementById('log');
+  stepsEl = document.getElementById('steps');
+  stepsData = [];
+  logEl.textContent = '';
+  document.getElementById('migrateBtn').disabled = true;
+
+  addStep('categories', 'Migrate categories');
+  addStep('images-bucket', 'Create product-images bucket');
+  addStep('products', 'Migrate products (+ re-upload images)');
+  addStep('site_info', 'Migrate site_info');
+  addStep('env', 'Generate updated .env.production');
+
+  try {
+    // 1. Categories
+    setStep('categories', 'running');
+    log('Fetching categories from old project...');
+    const cats = await fetchAll(OLD_URL(), OLD_KEY(), 'categories');
+    log(`Fetched ${cats.length} categories.`);
+    await upsert(NEW_URL(), NEW_KEY(), 'categories', cats);
+    setStep('categories', 'done', `${cats.length} rows`);
+
+    // 2. Ensure bucket
+    setStep('images-bucket', 'running');
+    await ensureBucket(NEW_URL(), NEW_KEY(), 'product-images');
+    await ensureBucket(NEW_URL(), NEW_KEY(), 'product-videos');
+    await ensureBucket(NEW_URL(), NEW_KEY(), 'floor-plans');
+    setStep('images-bucket', 'done');
+
+    // 3. Products
+    setStep('products', 'running');
+    log('Fetching products from old project...');
+    const products = await fetchAll(OLD_URL(), OLD_KEY(), 'products');
+    log(`Fetched ${products.length} products. Re-uploading images...`);
+    let imgOk = 0, imgSkip = 0;
+    for (let i = 0; i < products.length; i++) {
+      const p = products[i];
+      if (p.image_url) {
+        const newUrl2 = await migrateImage(p.image_url, NEW_URL(), NEW_KEY(), 'product-images');
+        if (newUrl2 !== p.image_url) imgOk++;
+        else imgSkip++;
+        p.image_url = newUrl2;
+      }
+      if ((i + 1) % 10 === 0) log(`  Images: ${i + 1}/${products.length}...`);
+    }
+    log(`Images: ${imgOk} re-uploaded, ${imgSkip} kept as-is.`);
+    await upsert(NEW_URL(), NEW_KEY(), 'products', products);
+    setStep('products', 'done', `${products.length} rows`);
+
+    // 4. site_info
+    setStep('site_info', 'running');
+    try {
+      const si = await fetchAll(OLD_URL(), OLD_KEY(), 'site_info');
+      log(`Fetched ${si.length} site_info rows.`);
+      await upsert(NEW_URL(), NEW_KEY(), 'site_info', si);
+      setStep('site_info', 'done', `${si.length} rows`);
+    } catch (e) {
+      log(`⚠ site_info: ${e.message} — skipping`);
+      setStep('site_info', 'error', 'skipped');
+    }
+
+    // 5. .env.production
+    setStep('env', 'done');
+    const newAnonKey = NEW_ANON();
+    const projectId = NEW_URL().split('//')[1].split('.')[0];
+    const envContent = `VITE_SUPABASE_PROJECT_ID="${projectId}"
+VITE_SUPABASE_PUBLISHABLE_KEY="${newAnonKey || 'PASTE_YOUR_NEW_ANON_KEY_HERE'}"
+VITE_SUPABASE_URL="${NEW_URL()}"`;
+    document.getElementById('envCard').style.display = 'block';
+    document.getElementById('envBox').textContent = envContent;
+
+    log('\n✅ Migration complete! Next steps:');
+    log('1. Update .env.production with the values shown below');
+    log('2. Run the storage RLS SQL in the new project SQL Editor');
+    log('3. Deploy edge functions: supabase link + supabase functions deploy');
+    log('4. Set edge function secrets in new project Settings → Edge Functions');
+    log('5. git commit -am "Switch to new Supabase" && git push');
+
+  } catch (err) {
+    log('\n❌ ERROR: ' + err.message);
+    const failing = stepsData.find(s => s.status === 'running');
+    if (failing) setStep(failing.id, 'error');
+    alert('Migration failed: ' + err.message + '\n\nCheck the log for details. You can use "Generate SQL" instead.');
+  }
+
+  document.getElementById('migrateBtn').disabled = false;
+}
+
+async function generateSqlOnly() {
+  document.getElementById('progressCard').style.display = 'block';
+  document.getElementById('sqlCard').style.display = 'block';
+  document.getElementById('progressCard').scrollIntoView({ behavior: 'smooth' });
+  logEl = document.getElementById('log');
+  stepsEl = document.getElementById('steps');
+  stepsData = [];
+  logEl.textContent = '';
+  addStep('fetch', 'Fetching data from old project...');
+  setStep('fetch', 'running');
+
+  try {
+    const cats = await fetchAll(OLD_URL(), OLD_KEY(), 'categories');
+    const products = await fetchAll(OLD_URL(), OLD_KEY(), 'products');
+    let si = [];
+    try { si = await fetchAll(OLD_URL(), OLD_KEY(), 'site_info'); } catch {}
+    setStep('fetch', 'done', `${cats.length + products.length + si.length} rows`);
+
+    function esc(v) {
+      if (v === null || v === undefined) return 'NULL';
+      if (typeof v === 'boolean') return v ? 'TRUE' : 'FALSE';
+      if (typeof v === 'number') return String(v);
+      if (typeof v === 'object') return `'${JSON.stringify(v).replace(/'/g, "''")}'`;
+      return `'${String(v).replace(/'/g, "''")}'`;
+    }
+
+    function toInsert(table, rows) {
+      if (!rows.length) return `-- No rows in ${table}\n`;
+      const cols = Object.keys(rows[0]);
+      const lines = rows.map(r =>
+        `  (${cols.map(c => esc(r[c])).join(', ')})`
+      );
+      return `-- ${table} (${rows.length} rows)\nINSERT INTO public.${table} (${cols.map(c => `"${c}"`).join(', ')})\nOVERRIDE SYSTEM VALUE\nVALUES\n${lines.join(',\n')}\nON CONFLICT (id) DO UPDATE SET ${cols.filter(c => c !== 'id').map(c => `"${c}" = EXCLUDED."${c}"`).join(', ')};\n\n`;
+    }
+
+    const sql = [
+      '-- ============================================================\n',
+      '-- Baytzaki data migration — paste into new project SQL Editor\n',
+      '-- Run AFTER all migration files have been applied\n',
+      '-- ============================================================\n\n',
+      toInsert('categories', cats),
+      toInsert('products', products),
+      toInsert('site_info', si),
+    ].join('');
+
+    document.getElementById('sqlBox').textContent = sql;
+    log(`SQL generated: ${cats.length} categories, ${products.length} products, ${si.length} site_info rows.`);
+    log('⚠ Images still point to old Supabase URLs. Use Admin panel to re-upload them after migration.');
+
+  } catch (err) {
+    log('❌ ERROR: ' + err.message);
+    setStep('fetch', 'error');
+  }
+}
+
+function copySql() {
+  const text = document.getElementById('sqlBox').textContent;
+  navigator.clipboard.writeText(text).then(() => alert('SQL copied to clipboard!'));
+}
+</script>
+</body>
+</html>
