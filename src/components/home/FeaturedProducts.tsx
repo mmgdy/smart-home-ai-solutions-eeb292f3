@@ -19,6 +19,7 @@ export function FeaturedProducts() {
         .from('products')
         .select('*')
         .eq('featured', true)
+        .eq('is_published', true)
         .limit(8);
       if (error) throw error;
       return data as Product[];

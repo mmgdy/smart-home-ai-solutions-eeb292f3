@@ -28,6 +28,7 @@ interface Product {
   image_url: string | null;
   stock: number;
   featured: boolean | null;
+  is_published: boolean;
   video_url: string | null;
 }
 
@@ -36,7 +37,7 @@ interface Category { id: string; name: string; }
 const blank: Partial<Product> = {
   name: "", slug: "", description: "", price: 0, original_price: null,
   category_id: null, brand: "", protocol: "", image_url: "", stock: 10,
-  featured: false, video_url: "",
+  featured: false, is_published: true, video_url: "",
 };
 
 export function ProductEditor({ adminToken }: Props) {
@@ -56,7 +57,7 @@ export function ProductEditor({ adminToken }: Props) {
   const load = async () => {
     setLoading(true);
     const [{ data: p }, { data: c }] = await Promise.all([
-      supabase.from("products").select("id, name, slug, description, price, original_price, category_id, brand, protocol, image_url, stock, featured, video_url").order("updated_at", { ascending: false }).limit(500),
+      supabase.from("products").select("id, name, slug, description, price, original_price, category_id, brand, protocol, image_url, stock, featured, is_published, video_url").order("updated_at", { ascending: false }).limit(500),
       supabase.from("categories").select("id, name").order("name"),
     ]);
     setProducts((p as any) ?? []);
@@ -180,7 +181,14 @@ export function ProductEditor({ adminToken }: Props) {
                   onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/placeholder.svg"; }}
                 />
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate">{p.name}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium truncate">{p.name}</p>
+                    {p.is_published === false ? (
+                      <span className="text-xs bg-orange-500/10 text-orange-600 px-2 py-0.5 rounded-full shrink-0">Hidden</span>
+                    ) : (
+                      <span className="text-xs bg-green-500/10 text-green-600 px-2 py-0.5 rounded-full shrink-0">Published</span>
+                    )}
+                  </div>
                   <p className="text-xs text-muted-foreground truncate">
                     {p.brand || "No brand"} • {p.price} EGP • Stock: {p.stock}
                     {p.featured ? " • ⭐ Featured" : ""}
@@ -308,6 +316,11 @@ export function ProductEditor({ adminToken }: Props) {
             <div className="flex items-center gap-3 md:col-span-2">
               <Switch checked={!!editing.featured} onCheckedChange={(v) => setEditing({ ...editing, featured: v })} />
               <Label>Featured on homepage</Label>
+            </div>
+
+            <div className="flex items-center gap-3 md:col-span-2">
+              <Switch checked={editing.is_published !== false} onCheckedChange={(v) => setEditing({ ...editing, is_published: v })} />
+              <Label>Published (visible to customers)</Label>
             </div>
           </div>
 

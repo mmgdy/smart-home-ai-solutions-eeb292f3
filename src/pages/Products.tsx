@@ -46,6 +46,7 @@ const Products = () => {
       const { data, error } = await supabase
         .from('products')
         .select('*')
+        .eq('is_published', true)
         .order('featured', { ascending: false });
       if (error) throw error;
       return data as Product[];

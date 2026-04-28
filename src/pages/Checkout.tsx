@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { ArrowLeft, ArrowRight, CreditCard, Truck, Shield, Loader2, Gift, Banknote, CheckCircle, LogIn, Wrench } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CreditCard, Truck, Shield, Loader2, Gift, Banknote, CheckCircle, LogIn, Wrench, Tag, X as XIcon } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -67,6 +67,9 @@ const Checkout = () => {
   const [errors, setErrors] = useState<Partial<Record<keyof CheckoutFormData, string>>>({});
   const [pointsDiscount, setPointsDiscount] = useState(0);
   const [pointsToRedeem, setPointsToRedeem] = useState(0);
+  const [couponCode, setCouponCode] = useState('');
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discountType: 'percentage' | 'fixed'; discountValue: number } | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'fawry' | 'vodafone' | 'applepay'>('card');
   const [payskyLoaded, setPayskyLoaded] = useState(false);
   const [includeInstallation, setIncludeInstallation] = useState(true);
@@ -150,12 +153,62 @@ const Checkout = () => {
   const installationFee = includeInstallation
     ? Math.min(1500, Math.max(0, deviceCount * 150))
     : 0;
+  const couponDiscount = appliedCoupon
+    ? appliedCoupon.discountType === 'percentage'
+      ? Math.round(subtotal * appliedCoupon.discountValue / 100)
+      : Math.min(appliedCoupon.discountValue, subtotal)
+    : 0;
   const totalBeforeDiscount = subtotal + shippingCost + installationFee;
-  const total = Math.max(0, totalBeforeDiscount - pointsDiscount);
+  const total = Math.max(0, totalBeforeDiscount - pointsDiscount - couponDiscount);
 
   const handleRedemptionChange = (discount: number, points: number) => {
     setPointsDiscount(discount);
     setPointsToRedeem(points);
+  };
+
+  const applyCoupon = async () => {
+    const code = couponCode.trim().toUpperCase();
+    if (!code) return;
+    setCouponLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('coupons')
+        .select('*')
+        .eq('code', code)
+        .eq('is_active', true)
+        .single();
+      if (error || !data) {
+        toast({ title: language === 'ar' ? 'كود خصم غير صحيح' : 'Invalid coupon code', variant: 'destructive' });
+        return;
+      }
+      const now = new Date();
+      if (data.valid_until && new Date(data.valid_until) < now) {
+        toast({ title: language === 'ar' ? 'انتهت صلاحية الكود' : 'Coupon has expired', variant: 'destructive' });
+        return;
+      }
+      if (data.valid_from && new Date(data.valid_from) > now) {
+        toast({ title: language === 'ar' ? 'الكود غير متاح بعد' : 'Coupon is not yet valid', variant: 'destructive' });
+        return;
+      }
+      if (data.min_order_amount && subtotal < data.min_order_amount) {
+        toast({
+          title: language === 'ar' ? `الحد الأدنى للطلب ${data.min_order_amount} ج.م` : `Minimum order amount is ${data.min_order_amount} EGP`,
+          variant: 'destructive',
+        });
+        return;
+      }
+      if (data.max_uses !== null && data.used_count >= data.max_uses) {
+        toast({ title: language === 'ar' ? 'تم استنفاد الكود' : 'Coupon usage limit reached', variant: 'destructive' });
+        return;
+      }
+      setAppliedCoupon({ code: data.code, discountType: data.discount_type, discountValue: data.discount_value });
+      const discLabel = data.discount_type === 'percentage' ? `${data.discount_value}%` : `${data.discount_value} EGP`;
+      toast({ title: language === 'ar' ? 'تم تطبيق الكود!' : 'Coupon applied!', description: `${discLabel} off` });
+    } catch {
+      toast({ title: language === 'ar' ? 'خطأ في التحقق' : 'Failed to validate coupon', variant: 'destructive' });
+    } finally {
+      setCouponLoading(false);
+    }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -233,6 +286,15 @@ const Checkout = () => {
       });
     } catch (loyaltyError) {
       console.warn('Could not award loyalty points:', loyaltyError);
+    }
+
+    // Increment coupon usage
+    if (appliedCoupon) {
+      try {
+        await supabase.rpc('increment_coupon_usage', { p_code: appliedCoupon.code });
+      } catch (e) {
+        console.warn('Could not increment coupon usage:', e);
+      }
     }
 
     // Send order notification email
@@ -746,6 +808,51 @@ const Checkout = () => {
                   )}
                 </div>
 
+                {/* Coupon Code */}
+                <div className="rounded-xl border border-border bg-card p-6">
+                  <h2 className="mb-4 font-display text-xl font-semibold text-foreground flex items-center gap-2">
+                    <Tag className="h-5 w-5 text-primary" />
+                    {language === 'ar' ? 'كود الخصم' : 'Coupon Code'}
+                  </h2>
+                  {appliedCoupon ? (
+                    <div className="flex items-center justify-between rounded-lg bg-green-500/10 border border-green-500/30 px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <Tag className="h-4 w-4 text-green-600" />
+                        <span className="font-mono font-bold text-green-600">{appliedCoupon.code}</span>
+                        <span className="text-sm text-green-600">
+                          (-{formatPrice(couponDiscount)})
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => { setAppliedCoupon(null); setCouponCode(''); }}
+                        className="text-muted-foreground hover:text-foreground"
+                      >
+                        <XIcon className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <Input
+                        value={couponCode}
+                        onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                        placeholder={language === 'ar' ? 'أدخل كود الخصم' : 'Enter coupon code'}
+                        className="font-mono uppercase"
+                        onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), applyCoupon())}
+                      />
+                      <button
+                        type="button"
+                        onClick={applyCoupon}
+                        disabled={couponLoading || !couponCode.trim()}
+                        className="shrink-0 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium disabled:opacity-50 flex items-center gap-2"
+                      >
+                        {couponLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                        {language === 'ar' ? 'تطبيق' : 'Apply'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
                 {/* Loyalty Points Redemption */}
                 <div className="rounded-xl border border-border bg-card p-6">
                   <h2 className="mb-4 font-display text-xl font-semibold text-foreground flex items-center gap-2">
@@ -810,6 +917,15 @@ const Checkout = () => {
                         {language === 'ar' ? 'التركيب' : 'Installation'}
                       </span>
                       <span className="font-medium text-foreground">{formatPrice(installationFee)}</span>
+                    </div>
+                  )}
+                  {couponDiscount > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-green-600 flex items-center gap-1">
+                        <Tag className="h-3 w-3" />
+                        {appliedCoupon?.code}
+                      </span>
+                      <span className="font-medium text-green-600">-{formatPrice(couponDiscount)}</span>
                     </div>
                   )}
                   {pointsDiscount > 0 && (
