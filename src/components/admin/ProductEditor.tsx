@@ -57,14 +57,14 @@ export function ProductEditor({ adminToken }: Props) {
 
   const load = async () => {
     setLoading(true);
-    const [{ data: p }, { data: c }, vizResult] = await Promise.all([
+    const [{ data: p }, { data: c }, { data: vizData }] = await Promise.all([
       supabase.from("products").select("id, name, slug, description, price, original_price, category_id, brand, protocol, image_url, stock, featured, video_url").order("updated_at", { ascending: false }).limit(500),
       supabase.from("categories").select("id, name").order("name"),
-      supabase.functions.invoke("admin-write", { body: { action: "get-product-visibility", token: adminToken } }),
+      supabase.from("site_info").select("value").eq("section", "products").eq("key", "hidden_ids").maybeSingle(),
     ]);
     setProducts((p as any) ?? []);
     setCategories((c as any) ?? []);
-    setHiddenIds(vizResult?.data?.hiddenIds ?? []);
+    try { setHiddenIds(vizData?.value ? JSON.parse(vizData.value) : []); } catch { setHiddenIds([]); }
     setLoading(false);
   };
 
@@ -167,7 +167,7 @@ export function ProductEditor({ adminToken }: Props) {
       : [...hiddenIds, p.id];
     try {
       const { data, error } = await supabase.functions.invoke("admin-write", {
-        body: { action: "set-product-visibility", token: adminToken, hiddenIds: newHiddenIds },
+        body: { action: "update-site-info", token: adminToken, entries: [{ section: "products", key: "hidden_ids", value: JSON.stringify(newHiddenIds) }] },
       });
       if (error || !data?.success) throw new Error(data?.error || error?.message || "Failed");
       setHiddenIds(newHiddenIds);

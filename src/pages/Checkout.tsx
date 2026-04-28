@@ -171,16 +171,34 @@ const Checkout = () => {
     if (!code) return;
     setCouponLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('validate-coupon', {
-        body: { code, orderAmount: subtotal },
-      });
-      if (error || !data?.valid) {
-        const msg = data?.message || 'Invalid coupon code';
-        toast({ title: language === 'ar' ? 'كود غير صحيح' : msg, variant: 'destructive' });
+      const { data } = await supabase
+        .from('site_info')
+        .select('value')
+        .eq('section', 'coupons')
+        .eq('key', 'all_coupons')
+        .maybeSingle();
+      const coupons: any[] = data?.value ? JSON.parse(data.value) : [];
+      const coupon = coupons.find((c) => c.code === code);
+
+      if (!coupon || !coupon.is_active) {
+        toast({ title: language === 'ar' ? 'كود غير صحيح' : 'Invalid coupon code', variant: 'destructive' });
         return;
       }
-      setAppliedCoupon({ code: data.code, discountType: data.discountType, discountValue: data.discountValue });
-      const discLabel = data.discountType === 'percentage' ? `${data.discountValue}%` : `${data.discountValue} EGP`;
+      if (coupon.valid_until && new Date(coupon.valid_until) < new Date()) {
+        toast({ title: language === 'ar' ? 'انتهت صلاحية الكود' : 'Coupon has expired', variant: 'destructive' });
+        return;
+      }
+      if (coupon.min_order_amount > 0 && subtotal < coupon.min_order_amount) {
+        toast({ title: language === 'ar' ? `الحد الأدنى للطلب: ${coupon.min_order_amount} EGP` : `Min order: ${coupon.min_order_amount} EGP`, variant: 'destructive' });
+        return;
+      }
+      if (coupon.max_uses && coupon.used_count >= coupon.max_uses) {
+        toast({ title: language === 'ar' ? 'تم استنفاد هذا الكود' : 'Coupon usage limit reached', variant: 'destructive' });
+        return;
+      }
+
+      setAppliedCoupon({ code: coupon.code, discountType: coupon.discount_type, discountValue: coupon.discount_value });
+      const discLabel = coupon.discount_type === 'percentage' ? `${coupon.discount_value}%` : `${coupon.discount_value} EGP`;
       toast({ title: language === 'ar' ? 'تم تطبيق الكود!' : 'Coupon applied!', description: `${discLabel} off` });
     } catch {
       toast({ title: language === 'ar' ? 'خطأ في التحقق' : 'Failed to validate coupon', variant: 'destructive' });

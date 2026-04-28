@@ -43,6 +43,30 @@ function toDateInput(iso: string | null | undefined): string {
   return iso.slice(0, 10);
 }
 
+// Reads the coupon array directly from site_info (public read, anon key)
+async function loadCoupons(): Promise<Coupon[]> {
+  const { data } = await supabase
+    .from("site_info")
+    .select("value")
+    .eq("section", "coupons")
+    .eq("key", "all_coupons")
+    .maybeSingle();
+  if (!data?.value) return [];
+  try { return JSON.parse(data.value); } catch { return []; }
+}
+
+// Persists coupon array via the already-deployed update-site-info action
+async function persistCoupons(adminToken: string, coupons: Coupon[]): Promise<void> {
+  const { data, error } = await supabase.functions.invoke("admin-write", {
+    body: {
+      action: "update-site-info",
+      token: adminToken,
+      entries: [{ section: "coupons", key: "all_coupons", value: JSON.stringify(coupons) }],
+    },
+  });
+  if (error || !data?.success) throw new Error(data?.error || error?.message || "Save failed");
+}
+
 export function CouponEditor({ adminToken }: Props) {
   const { toast } = useToast();
   const [coupons, setCoupons] = useState<Coupon[]>([]);
@@ -54,10 +78,7 @@ export function CouponEditor({ adminToken }: Props) {
 
   const load = async () => {
     setLoading(true);
-    const { data, error } = await supabase.functions.invoke("admin-write", {
-      body: { action: "list-coupons", token: adminToken },
-    });
-    if (!error && data?.success) setCoupons(data.coupons ?? []);
+    setCoupons(await loadCoupons());
     setLoading(false);
   };
 
@@ -81,25 +102,48 @@ export function CouponEditor({ adminToken }: Props) {
     }
     setSaving(true);
     try {
+      const current = await loadCoupons();
       const isNew = !editing.id;
-      const payload = {
-        code: editing.code!.toUpperCase().trim(),
-        discount_type: editing.discount_type,
-        discount_value: Number(editing.discount_value),
-        min_order_amount: Number(editing.min_order_amount ?? 0),
-        max_uses: editing.max_uses ? Number(editing.max_uses) : null,
-        valid_from: editing.valid_from || new Date().toISOString(),
-        valid_until: editing.valid_until || null,
-        is_active: editing.is_active !== false,
-      };
-      const body = isNew
-        ? { action: "create-coupon", token: adminToken, coupon: payload }
-        : { action: "update-coupon", token: adminToken, id: editing.id, updates: payload };
-      const { data, error } = await supabase.functions.invoke("admin-write", { body });
-      if (error || !data?.success) throw new Error(data?.error || error?.message || "Failed");
+      const code = editing.code!.toUpperCase().trim();
+
+      if (isNew && current.some((c) => c.code === code)) {
+        toast({ title: "Coupon code already exists", variant: "destructive" });
+        return;
+      }
+
+      const payload: Coupon = isNew
+        ? {
+            id: crypto.randomUUID(),
+            code,
+            discount_type: editing.discount_type!,
+            discount_value: Number(editing.discount_value),
+            min_order_amount: Number(editing.min_order_amount ?? 0),
+            max_uses: editing.max_uses ? Number(editing.max_uses) : null,
+            used_count: 0,
+            valid_from: editing.valid_from || new Date().toISOString(),
+            valid_until: editing.valid_until || null,
+            is_active: editing.is_active !== false,
+            created_at: new Date().toISOString(),
+          }
+        : {
+            ...current.find((c) => c.id === editing.id)!,
+            discount_type: editing.discount_type!,
+            discount_value: Number(editing.discount_value),
+            min_order_amount: Number(editing.min_order_amount ?? 0),
+            max_uses: editing.max_uses ? Number(editing.max_uses) : null,
+            valid_from: editing.valid_from || new Date().toISOString(),
+            valid_until: editing.valid_until || null,
+            is_active: editing.is_active !== false,
+          };
+
+      const updated = isNew
+        ? [...current, payload]
+        : current.map((c) => (c.id === payload.id ? payload : c));
+
+      await persistCoupons(adminToken, updated);
       toast({ title: isNew ? "Coupon created" : "Coupon saved" });
+      setCoupons(updated);
       setOpen(false);
-      await load();
     } catch (e: any) {
       toast({ title: "Save failed", description: e.message, variant: "destructive" });
     } finally {
@@ -109,26 +153,29 @@ export function CouponEditor({ adminToken }: Props) {
 
   const del = async (c: Coupon) => {
     if (!confirm(`Delete coupon "${c.code}"?`)) return;
-    const { data, error } = await supabase.functions.invoke("admin-write", {
-      body: { action: "delete-coupon", token: adminToken, id: c.id },
-    });
-    if (error || !data?.success) {
-      toast({ title: "Delete failed", variant: "destructive" });
-    } else {
+    try {
+      const current = await loadCoupons();
+      const updated = current.filter((x) => x.id !== c.id);
+      await persistCoupons(adminToken, updated);
       toast({ title: "Deleted" });
-      setCoupons((prev) => prev.filter((x) => x.id !== c.id));
+      setCoupons(updated);
+    } catch (e: any) {
+      toast({ title: "Delete failed", description: e.message, variant: "destructive" });
     }
   };
 
   const toggleActive = async (c: Coupon) => {
     setToggling(c.id);
-    const { data, error } = await supabase.functions.invoke("admin-write", {
-      body: { action: "update-coupon", token: adminToken, id: c.id, updates: { is_active: !c.is_active } },
-    });
-    if (!error && data?.success) {
-      setCoupons((prev) => prev.map((x) => x.id === c.id ? { ...x, is_active: !c.is_active } : x));
+    try {
+      const current = await loadCoupons();
+      const updated = current.map((x) => x.id === c.id ? { ...x, is_active: !c.is_active } : x);
+      await persistCoupons(adminToken, updated);
+      setCoupons(updated);
+    } catch (e: any) {
+      toast({ title: "Failed to toggle", description: e.message, variant: "destructive" });
+    } finally {
+      setToggling(null);
     }
-    setToggling(null);
   };
 
   const isExpired = (c: Coupon) => !!c.valid_until && new Date(c.valid_until) < new Date();
@@ -173,9 +220,7 @@ export function CouponEditor({ adminToken }: Props) {
                   </div>
                   <div className="text-sm text-muted-foreground flex flex-wrap gap-x-4 gap-y-1">
                     <span>
-                      {c.discount_type === "percentage"
-                        ? `${c.discount_value}% off`
-                        : `${c.discount_value} EGP off`}
+                      {c.discount_type === "percentage" ? `${c.discount_value}% off` : `${c.discount_value} EGP off`}
                     </span>
                     {c.min_order_amount > 0 && <span>Min: {c.min_order_amount} EGP</span>}
                     <span>{usageLabel(c)}</span>
@@ -227,14 +272,10 @@ export function CouponEditor({ adminToken }: Props) {
                   </SelectContent>
                 </Select>
               </div>
-
               <div className="space-y-2">
-                <Label>
-                  {editing.discount_type === "percentage" ? "Discount %" : "Discount EGP"} *
-                </Label>
+                <Label>{editing.discount_type === "percentage" ? "Discount %" : "Discount EGP"} *</Label>
                 <Input
-                  type="number"
-                  min="0"
+                  type="number" min="0"
                   max={editing.discount_type === "percentage" ? 100 : undefined}
                   value={editing.discount_value ?? ""}
                   onChange={(e) => setEditing({ ...editing, discount_value: Number(e.target.value) })}
@@ -246,18 +287,15 @@ export function CouponEditor({ adminToken }: Props) {
               <div className="space-y-2">
                 <Label>Min Order (EGP)</Label>
                 <Input
-                  type="number"
-                  min="0"
+                  type="number" min="0"
                   value={editing.min_order_amount ?? 0}
                   onChange={(e) => setEditing({ ...editing, min_order_amount: Number(e.target.value) })}
                 />
               </div>
-
               <div className="space-y-2">
                 <Label>Max Uses (blank = unlimited)</Label>
                 <Input
-                  type="number"
-                  min="1"
+                  type="number" min="1"
                   value={editing.max_uses ?? ""}
                   placeholder="Unlimited"
                   onChange={(e) => setEditing({ ...editing, max_uses: e.target.value ? Number(e.target.value) : null })}
@@ -274,7 +312,6 @@ export function CouponEditor({ adminToken }: Props) {
                   onChange={(e) => setEditing({ ...editing, valid_from: e.target.value })}
                 />
               </div>
-
               <div className="space-y-2">
                 <Label>Valid Until (blank = no expiry)</Label>
                 <Input

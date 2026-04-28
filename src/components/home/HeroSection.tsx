@@ -4,7 +4,7 @@ import { ArrowRight, Sparkles, Play, Search, Camera, X, Loader2 } from 'lucide-r
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import heroBg from '@/assets/hero-bg.jpg';
 import { useSiteInfo } from '@/hooks/useSiteInfo';
 import { supabase } from '@/integrations/supabase/client';
@@ -65,19 +65,37 @@ export function HeroSection() {
     { num: '04', label: isRTL ? 'احجز التركيب' : 'Book install' },
   ];
 
-  // Animated search bar state
+  // Typewriter search bar state
   const hints = isRTL ? SEARCH_HINTS_AR : SEARCH_HINTS_EN;
   const [hintIdx, setHintIdx] = useState(0);
+  const [typedText, setTypedText] = useState('');
   const [searchValue, setSearchValue] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const [imageLoading, setImageLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const typingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pauseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (isFocused || searchValue) return;
-    const id = setInterval(() => setHintIdx((i) => (i + 1) % hints.length), 2800);
-    return () => clearInterval(id);
-  }, [hints.length, isFocused, searchValue]);
+    if (isFocused || searchValue) { setTypedText(''); return; }
+    const target = hints[hintIdx];
+    let i = 0;
+    setTypedText('');
+    typingTimerRef.current = setInterval(() => {
+      i++;
+      setTypedText(target.slice(0, i));
+      if (i >= target.length) {
+        clearInterval(typingTimerRef.current!);
+        pauseTimerRef.current = setTimeout(() => {
+          setHintIdx((prev) => (prev + 1) % hints.length);
+        }, 2000);
+      }
+    }, 48);
+    return () => {
+      if (typingTimerRef.current) clearInterval(typingTimerRef.current);
+      if (pauseTimerRef.current) clearTimeout(pauseTimerRef.current);
+    };
+  }, [hintIdx, hints, isFocused, searchValue]);
 
   const handleSearch = useCallback((q: string) => {
     const query = q.trim();
@@ -203,21 +221,15 @@ export function HeroSection() {
                   className="w-full bg-transparent text-foreground text-sm outline-none placeholder-transparent"
                   aria-label={isRTL ? 'ابحث عن منتجات' : 'Search products'}
                 />
-                {/* Animated placeholder */}
+                {/* Typewriter placeholder */}
                 {!searchValue && (
                   <div className="absolute inset-0 flex items-center pointer-events-none overflow-hidden">
-                    <AnimatePresence mode="wait">
-                      <motion.span
-                        key={hintIdx}
-                        initial={{ y: 18, opacity: 0 }}
-                        animate={{ y: 0, opacity: 1 }}
-                        exit={{ y: -18, opacity: 0 }}
-                        transition={{ duration: 0.35 }}
-                        className="text-sm text-muted-foreground whitespace-nowrap"
-                      >
-                        {hints[hintIdx]}
-                      </motion.span>
-                    </AnimatePresence>
+                    <span className="text-sm text-muted-foreground whitespace-nowrap">
+                      {typedText}
+                      {typedText.length < hints[hintIdx].length && (
+                        <span className="inline-block w-0.5 h-3.5 bg-muted-foreground/60 ml-px align-middle animate-pulse" />
+                      )}
+                    </span>
                   </div>
                 )}
               </div>
