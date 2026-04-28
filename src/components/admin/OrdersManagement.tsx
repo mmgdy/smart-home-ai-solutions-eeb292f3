@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Package, Eye, Truck, CheckCircle, Clock, CreditCard, Banknote, Loader2, X, RefreshCcw } from 'lucide-react';
+import { Package, Eye, Truck, CheckCircle, Clock, CreditCard, Banknote, Loader2, X, RefreshCcw, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -16,6 +16,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+
+interface Props {
+  adminToken: string;
+}
 
 interface Order {
   id: string;
@@ -50,13 +54,14 @@ const statusIcons: Record<string, typeof Clock> = {
   cancelled: X,
 };
 
-export const OrdersManagement = () => {
+export const OrdersManagement = ({ adminToken }: Props) => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [loadingItems, setLoadingItems] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const fetchOrders = async () => {
@@ -67,20 +72,14 @@ export const OrdersManagement = () => {
       .order('created_at', { ascending: false });
 
     if (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to fetch orders',
-      });
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch orders' });
     } else {
       setOrders(data || []);
     }
     setLoading(false);
   };
 
-  useEffect(() => {
-    fetchOrders();
-  }, []);
+  useEffect(() => { fetchOrders(); }, []);
 
   const fetchOrderItems = async (orderId: string) => {
     setLoadingItems(true);
@@ -90,11 +89,7 @@ export const OrdersManagement = () => {
       .eq('order_id', orderId);
 
     if (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to fetch order items',
-      });
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch order items' });
     } else {
       setOrderItems(data || []);
     }
@@ -109,19 +104,28 @@ export const OrdersManagement = () => {
       .eq('id', orderId);
 
     if (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to update order status',
-      });
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to update order status' });
     } else {
-      toast({
-        title: 'Success',
-        description: `Order status updated to ${newStatus}`,
-      });
+      toast({ title: 'Success', description: `Order status updated to ${newStatus}` });
       fetchOrders();
     }
     setUpdatingStatus(null);
+  };
+
+  const deleteOrder = async (order: Order) => {
+    if (!confirm(`Delete order #${order.id.slice(0, 8)} from ${order.email}? This cannot be undone.`)) return;
+    setDeletingId(order.id);
+    const { data, error } = await supabase.functions.invoke('admin-write', {
+      body: { action: 'delete-order', token: adminToken, id: order.id },
+    });
+    if (error || !data?.success) {
+      toast({ variant: 'destructive', title: 'Delete failed', description: data?.error || error?.message });
+    } else {
+      toast({ title: 'Order deleted' });
+      setOrders((prev) => prev.filter((o) => o.id !== order.id));
+      if (selectedOrder?.id === order.id) setSelectedOrder(null);
+    }
+    setDeletingId(null);
   };
 
   const openOrderDetails = (order: Order) => {
@@ -129,25 +133,14 @@ export const OrdersManagement = () => {
     fetchOrderItems(order.id);
   };
 
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-EG', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
+  const formatDate = (dateStr: string) =>
+    new Date(dateStr).toLocaleDateString('en-EG', {
+      day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
     });
-  };
 
   const getPaymentMethod = (order: Order) => {
-    // Check if payment was made via PaySky (stripe_session_id will contain paysky payment reference)
-    // or if it's COD (no stripe_session_id or starts with 'cod_')
-    if (order.stripe_session_id?.startsWith('cod_')) {
-      return { type: 'cod', label: 'Cash on Delivery', icon: Banknote };
-    }
-    if (order.stripe_session_id) {
-      return { type: 'card', label: 'Online Payment', icon: CreditCard };
-    }
+    if (order.stripe_session_id?.startsWith('cod_')) return { type: 'cod', label: 'Cash on Delivery', icon: Banknote };
+    if (order.stripe_session_id) return { type: 'card', label: 'Online Payment', icon: CreditCard };
     return { type: 'cod', label: 'Cash on Delivery', icon: Banknote };
   };
 
@@ -173,9 +166,7 @@ export const OrdersManagement = () => {
       </div>
 
       {orders.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground">
-          No orders yet
-        </div>
+        <div className="text-center py-12 text-muted-foreground">No orders yet</div>
       ) : (
         <div className="space-y-4">
           {orders.map((order) => {
@@ -191,9 +182,7 @@ export const OrdersManagement = () => {
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3 mb-2">
-                      <span className="font-mono text-sm text-muted-foreground">
-                        #{order.id.slice(0, 8)}
-                      </span>
+                      <span className="font-mono text-sm text-muted-foreground">#{order.id.slice(0, 8)}</span>
                       <span className={`px-2 py-1 rounded-full text-xs font-medium border ${statusColors[order.status] || statusColors.pending}`}>
                         <StatusIcon className="w-3 h-3 inline mr-1" />
                         {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
@@ -204,16 +193,12 @@ export const OrdersManagement = () => {
                       </span>
                     </div>
                     <p className="font-medium text-foreground truncate">{order.email}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {formatDate(order.created_at)}
-                    </p>
+                    <p className="text-sm text-muted-foreground">{formatDate(order.created_at)}</p>
                   </div>
 
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-3">
                     <div className="text-right">
-                      <p className="text-lg font-bold text-primary">
-                        {order.total.toLocaleString()} EGP
-                      </p>
+                      <p className="text-lg font-bold text-primary">{order.total.toLocaleString()} EGP</p>
                     </div>
 
                     <Select
@@ -237,12 +222,20 @@ export const OrdersManagement = () => {
                       </SelectContent>
                     </Select>
 
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openOrderDetails(order)}
-                    >
+                    <Button variant="outline" size="sm" onClick={() => openOrderDetails(order)}>
                       <Eye className="w-4 h-4" />
+                    </Button>
+
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => deleteOrder(order)}
+                      disabled={deletingId === order.id}
+                    >
+                      {deletingId === order.id
+                        ? <Loader2 className="w-4 h-4 animate-spin" />
+                        : <Trash2 className="w-4 h-4 text-destructive" />
+                      }
                     </Button>
                   </div>
                 </div>
@@ -252,7 +245,6 @@ export const OrdersManagement = () => {
         </div>
       )}
 
-      {/* Order Details Dialog */}
       <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -264,7 +256,6 @@ export const OrdersManagement = () => {
 
           {selectedOrder && (
             <div className="space-y-6">
-              {/* Order Status */}
               <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
                 <div>
                   <p className="text-sm text-muted-foreground">Status</p>
@@ -272,13 +263,10 @@ export const OrdersManagement = () => {
                 </div>
                 <div className="text-right">
                   <p className="text-sm text-muted-foreground">Total</p>
-                  <p className="text-xl font-bold text-primary">
-                    {selectedOrder.total.toLocaleString()} EGP
-                  </p>
+                  <p className="text-xl font-bold text-primary">{selectedOrder.total.toLocaleString()} EGP</p>
                 </div>
               </div>
 
-              {/* Customer Info */}
               <div>
                 <h4 className="font-semibold mb-3">Customer Information</h4>
                 <div className="grid grid-cols-2 gap-4 text-sm">
@@ -309,7 +297,6 @@ export const OrdersManagement = () => {
                 </div>
               </div>
 
-              {/* Order Items */}
               <div>
                 <h4 className="font-semibold mb-3">Order Items</h4>
                 {loadingItems ? (
@@ -319,28 +306,37 @@ export const OrdersManagement = () => {
                 ) : (
                   <div className="space-y-3">
                     {orderItems.map((item) => (
-                      <div
-                        key={item.id}
-                        className="flex items-center justify-between p-3 bg-muted/30 rounded-lg"
-                      >
+                      <div key={item.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
                         <div>
                           <p className="font-medium">{item.product_name}</p>
                           <p className="text-sm text-muted-foreground">
                             Qty: {item.quantity} × {item.price.toLocaleString()} EGP
                           </p>
                         </div>
-                        <p className="font-bold">
-                          {(item.quantity * item.price).toLocaleString()} EGP
-                        </p>
+                        <p className="font-bold">{(item.quantity * item.price).toLocaleString()} EGP</p>
                       </div>
                     ))}
                   </div>
                 )}
               </div>
 
-              {/* Order Date */}
               <div className="text-sm text-muted-foreground text-center pt-4 border-t">
                 Order placed on {formatDate(selectedOrder.created_at)}
+              </div>
+
+              <div className="flex justify-end pt-2 border-t">
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => { setSelectedOrder(null); deleteOrder(selectedOrder); }}
+                  disabled={deletingId === selectedOrder.id}
+                >
+                  {deletingId === selectedOrder.id
+                    ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    : <Trash2 className="w-4 h-4 mr-2" />
+                  }
+                  Delete Order
+                </Button>
               </div>
             </div>
           )}

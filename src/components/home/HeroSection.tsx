@@ -1,16 +1,52 @@
-import { Link } from 'react-router-dom';
-import { ArrowRight, Sparkles, Play } from 'lucide-react';
+import { useRef, useState, useEffect, useCallback } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { ArrowRight, Sparkles, Play, Search, Camera, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import heroBg from '@/assets/hero-bg.jpg';
 import { useSiteInfo } from '@/hooks/useSiteInfo';
+import { supabase } from '@/integrations/supabase/client';
 
 const HERO_VIDEO = '/hero-loop.mp4';
 
+const SEARCH_HINTS_EN = [
+  'Smart bulbs for your living room…',
+  'Zigbee motion sensors…',
+  'Smart plugs with energy monitoring…',
+  'WiFi thermostat…',
+  'SONOFF switches…',
+  'Smart home security cameras…',
+  'Voice-controlled lighting…',
+  'Smart door locks…',
+];
+const SEARCH_HINTS_AR = [
+  'لمبات ذكية لغرفة المعيشة…',
+  'حساسات حركة Zigbee…',
+  'مقابس ذكية مع قياس الطاقة…',
+  'ترموستات واي فاي…',
+  'مفاتيح SONOFF…',
+  'كاميرات أمان ذكية…',
+  'إضاءة بالأوامر الصوتية…',
+  'أقفال أبواب ذكية…',
+];
+
+function toBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      resolve(result.split(',')[1]);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 export function HeroSection() {
   const { isRTL } = useLanguage();
+  const navigate = useNavigate();
   const { get } = useSiteInfo();
 
   const headline = get('hero', isRTL ? 'headline_ar' : 'headline_en',
@@ -29,9 +65,54 @@ export function HeroSection() {
     { num: '04', label: isRTL ? 'احجز التركيب' : 'Book install' },
   ];
 
+  // Animated search bar state
+  const hints = isRTL ? SEARCH_HINTS_AR : SEARCH_HINTS_EN;
+  const [hintIdx, setHintIdx] = useState(0);
+  const [searchValue, setSearchValue] = useState('');
+  const [isFocused, setIsFocused] = useState(false);
+  const [imageLoading, setImageLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isFocused || searchValue) return;
+    const id = setInterval(() => setHintIdx((i) => (i + 1) % hints.length), 2800);
+    return () => clearInterval(id);
+  }, [hints.length, isFocused, searchValue]);
+
+  const handleSearch = useCallback((q: string) => {
+    const query = q.trim();
+    if (query) navigate(`/products?q=${encodeURIComponent(query)}`);
+  }, [navigate]);
+
+  const handleKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') handleSearch(searchValue);
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    setImageLoading(true);
+    try {
+      const base64 = await toBase64(file);
+      const { data, error } = await supabase.functions.invoke('search-by-image', {
+        body: { imageBase64: base64, mimeType: file.type },
+      });
+      if (error || !data?.success) throw new Error(data?.error || 'Failed to analyse image');
+      if (data.query) {
+        navigate(`/products?q=${encodeURIComponent(data.query)}`);
+      }
+    } catch {
+      // fall back to products page with no query
+      navigate('/products');
+    } finally {
+      setImageLoading(false);
+    }
+  };
+
   return (
     <section className="relative min-h-[100svh] flex items-center overflow-hidden">
-      {/* Cinematic hook — looping video background */}
+      {/* Video background */}
       <div className="absolute inset-0">
         <video
           className="absolute inset-0 h-full w-full object-cover"
@@ -43,17 +124,9 @@ export function HeroSection() {
         >
           <source src={HERO_VIDEO} type="video/mp4" />
         </video>
-        {/* Image fallback that always renders behind the video */}
-        <img
-          src={heroBg}
-          alt=""
-          aria-hidden
-          className="absolute inset-0 h-full w-full object-cover -z-10"
-        />
-        {/* Color overlays for legibility + brand vibe */}
+        <img src={heroBg} alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover -z-10" />
         <div className="absolute inset-0 bg-gradient-to-b from-background/70 via-background/55 to-background/95" />
         <div className="absolute inset-0 bg-gradient-to-tr from-primary/20 via-transparent to-warning/15 mix-blend-overlay" />
-        {/* Animated shimmer accents */}
         <motion.div
           aria-hidden
           className="absolute -top-40 -right-32 h-[60vw] w-[60vw] rounded-full bg-gradient-to-br from-primary/30 via-cyan-500/15 to-transparent blur-3xl"
@@ -102,17 +175,88 @@ export function HeroSection() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.25 }}
-            className="text-lg md:text-xl text-foreground/85 max-w-2xl mx-auto mb-10 leading-relaxed font-medium drop-shadow-[0_1px_8px_rgba(0,0,0,0.4)]"
+            className="text-lg md:text-xl text-foreground/85 max-w-2xl mx-auto mb-8 leading-relaxed font-medium drop-shadow-[0_1px_8px_rgba(0,0,0,0.4)]"
           >
             {subheadline}
           </motion.p>
+
+          {/* Animated search bar */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.35 }}
+            className="max-w-xl mx-auto mb-8"
+          >
+            <div className={cn(
+              'flex items-center gap-2 px-4 py-3 rounded-2xl bg-background/80 backdrop-blur-xl border shadow-[0_8px_32px_-8px_rgba(0,0,0,0.4)] transition-shadow',
+              isFocused ? 'border-primary shadow-[0_8px_40px_-8px_hsl(var(--primary)/0.5)]' : 'border-border/60'
+            )}>
+              <Search className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+              <div className="relative flex-1 min-w-0">
+                <input
+                  type="text"
+                  value={searchValue}
+                  onChange={(e) => setSearchValue(e.target.value)}
+                  onKeyDown={handleKey}
+                  onFocus={() => setIsFocused(true)}
+                  onBlur={() => setIsFocused(false)}
+                  className="w-full bg-transparent text-foreground text-sm outline-none placeholder-transparent"
+                  aria-label={isRTL ? 'ابحث عن منتجات' : 'Search products'}
+                />
+                {/* Animated placeholder */}
+                {!searchValue && (
+                  <div className="absolute inset-0 flex items-center pointer-events-none overflow-hidden">
+                    <AnimatePresence mode="wait">
+                      <motion.span
+                        key={hintIdx}
+                        initial={{ y: 18, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        exit={{ y: -18, opacity: 0 }}
+                        transition={{ duration: 0.35 }}
+                        className="text-sm text-muted-foreground whitespace-nowrap"
+                      >
+                        {hints[hintIdx]}
+                      </motion.span>
+                    </AnimatePresence>
+                  </div>
+                )}
+              </div>
+              {searchValue && (
+                <button onClick={() => setSearchValue('')} className="text-muted-foreground hover:text-foreground flex-shrink-0">
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+              {/* Image upload button */}
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={imageLoading}
+                className="flex-shrink-0 p-1.5 rounded-lg bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                title={isRTL ? 'بحث بالصورة' : 'Search by image'}
+              >
+                {imageLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+              </button>
+              <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+              <Button
+                size="sm"
+                className="flex-shrink-0 rounded-xl h-8 px-4"
+                onClick={() => handleSearch(searchValue)}
+              >
+                {isRTL ? 'بحث' : 'Search'}
+              </Button>
+            </div>
+            <p className="text-xs text-foreground/50 mt-2">
+              {isRTL
+                ? 'أو ارفع صورة غرفتك للبحث عن المنتجات المناسبة'
+                : 'Or upload a room photo to find matching smart devices'}
+            </p>
+          </motion.div>
 
           {/* CTAs */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.4 }}
-            className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-14"
+            transition={{ duration: 0.7, delay: 0.45 }}
+            className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8"
           >
             <Link to="/bundles">
               <Button
@@ -137,6 +281,17 @@ export function HeroSection() {
                 {isRTL ? 'تصفح المنتجات' : 'Browse Products'}
               </Button>
             </Link>
+            {/* Floor plan AI link */}
+            <Link to="/calculator">
+              <Button
+                size="lg"
+                variant="outline"
+                className="h-14 px-8 text-base font-medium rounded-full border-primary/40 bg-primary/10 backdrop-blur-md hover:bg-primary/20 text-primary"
+              >
+                <Sparkles className="mr-2 h-4 w-4" />
+                {isRTL ? 'AI يرسم أجهزة على مخطط بيتك' : 'AI Floor Plan Designer'}
+              </Button>
+            </Link>
           </motion.div>
 
           {/* Steps indicator */}
@@ -146,7 +301,7 @@ export function HeroSection() {
             transition={{ duration: 0.7, delay: 0.55 }}
             className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-3xl mx-auto"
           >
-            {steps.map((step, i) => (
+            {steps.map((step) => (
               <motion.div
                 key={step.num}
                 whileHover={{ y: -4 }}

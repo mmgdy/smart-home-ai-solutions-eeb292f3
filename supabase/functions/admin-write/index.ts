@@ -264,6 +264,18 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ========== ORDERS ==========
+    if (action === "delete-order") {
+      const { id } = body;
+      const { error: itemsError } = await supabase.from("order_items").delete().eq("order_id", id);
+      if (itemsError) throw itemsError;
+      const { error: orderError } = await supabase.from("orders").delete().eq("id", id);
+      if (orderError) throw orderError;
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     return new Response(JSON.stringify({ success: false, error: "Unknown action" }), {
       status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

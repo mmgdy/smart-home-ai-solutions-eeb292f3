@@ -366,7 +366,7 @@ export default function Admin() {
 
           <TabsContent value="orders" className="mt-6">
             <div className="bg-card border border-border rounded-xl p-6">
-              <OrdersManagement />
+              <OrdersManagement adminToken={token} />
             </div>
           </TabsContent>
 
