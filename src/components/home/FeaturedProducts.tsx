@@ -12,19 +12,37 @@ import { motion } from 'framer-motion';
 export function FeaturedProducts() {
   const { t, isRTL } = useLanguage();
 
-  const { data: products, isLoading, isError } = useQuery({
+  const { data: hiddenIds } = useQuery({
+    queryKey: ['hidden-product-ids'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('site_info')
+        .select('value')
+        .eq('section', 'products')
+        .eq('key', 'hidden_ids')
+        .maybeSingle();
+      if (!data?.value) return [] as string[];
+      try { return JSON.parse(data.value) as string[]; } catch { return [] as string[]; }
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: rawProducts, isLoading, isError } = useQuery({
     queryKey: ['featured-products'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('products')
         .select('*')
         .eq('featured', true)
-        .eq('is_published', true)
-        .limit(8);
+        .limit(12);
       if (error) throw error;
       return data as Product[];
     },
   });
+
+  const products = rawProducts
+    ? rawProducts.filter((p) => !(hiddenIds ?? []).includes(p.id)).slice(0, 8)
+    : undefined;
 
   return (
     <section className="py-20 bg-background relative overflow-hidden">

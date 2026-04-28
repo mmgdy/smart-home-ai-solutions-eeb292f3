@@ -40,13 +40,27 @@ const Products = () => {
     },
   });
 
+  const { data: hiddenIds } = useQuery({
+    queryKey: ['hidden-product-ids'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('site_info')
+        .select('value')
+        .eq('section', 'products')
+        .eq('key', 'hidden_ids')
+        .maybeSingle();
+      if (!data?.value) return [] as string[];
+      try { return JSON.parse(data.value) as string[]; } catch { return [] as string[]; }
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
   const { data: products, isLoading } = useQuery({
     queryKey: ['products'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('products')
         .select('*')
-        .eq('is_published', true)
         .order('featured', { ascending: false });
       if (error) throw error;
       return data as Product[];
@@ -72,8 +86,9 @@ const Products = () => {
   // Apply all filters, search, sorting
   const filteredProducts = useMemo(() => {
     if (!products) return [];
+    const hidden = hiddenIds ?? [];
 
-    let result = [...products];
+    let result = products.filter((p) => !hidden.includes(p.id));
 
     // Category filter
     if (selectedCategory) {

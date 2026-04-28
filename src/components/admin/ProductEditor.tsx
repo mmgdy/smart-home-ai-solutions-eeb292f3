@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Loader2, Plus, Pencil, Trash2, Upload, Search, X, Save, Image as ImageIcon, Video } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, Upload, Search, X, Save, Image as ImageIcon, Video, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,7 +28,6 @@ interface Product {
   image_url: string | null;
   stock: number;
   featured: boolean | null;
-  is_published: boolean;
   video_url: string | null;
 }
 
@@ -37,7 +36,7 @@ interface Category { id: string; name: string; }
 const blank: Partial<Product> = {
   name: "", slug: "", description: "", price: 0, original_price: null,
   category_id: null, brand: "", protocol: "", image_url: "", stock: 10,
-  featured: false, is_published: true, video_url: "",
+  featured: false, video_url: "",
 };
 
 export function ProductEditor({ adminToken }: Props) {
@@ -46,6 +45,7 @@ export function ProductEditor({ adminToken }: Props) {
   const videoInputRef = useRef<HTMLInputElement>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [hiddenIds, setHiddenIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
@@ -53,15 +53,18 @@ export function ProductEditor({ adminToken }: Props) {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [videoUploading, setVideoUploading] = useState(false);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
-    const [{ data: p }, { data: c }] = await Promise.all([
-      supabase.from("products").select("id, name, slug, description, price, original_price, category_id, brand, protocol, image_url, stock, featured, is_published, video_url").order("updated_at", { ascending: false }).limit(500),
+    const [{ data: p }, { data: c }, vizResult] = await Promise.all([
+      supabase.from("products").select("id, name, slug, description, price, original_price, category_id, brand, protocol, image_url, stock, featured, video_url").order("updated_at", { ascending: false }).limit(500),
       supabase.from("categories").select("id, name").order("name"),
+      supabase.functions.invoke("admin-write", { body: { action: "get-product-visibility", token: adminToken } }),
     ]);
     setProducts((p as any) ?? []);
     setCategories((c as any) ?? []);
+    setHiddenIds(vizResult?.data?.hiddenIds ?? []);
     setLoading(false);
   };
 
@@ -156,6 +159,26 @@ export function ProductEditor({ adminToken }: Props) {
     }
   };
 
+  const toggleVisibility = async (p: Product) => {
+    setTogglingId(p.id);
+    const isHidden = hiddenIds.includes(p.id);
+    const newHiddenIds = isHidden
+      ? hiddenIds.filter((id) => id !== p.id)
+      : [...hiddenIds, p.id];
+    try {
+      const { data, error } = await supabase.functions.invoke("admin-write", {
+        body: { action: "set-product-visibility", token: adminToken, hiddenIds: newHiddenIds },
+      });
+      if (error || !data?.success) throw new Error(data?.error || error?.message || "Failed");
+      setHiddenIds(newHiddenIds);
+      toast({ title: isHidden ? "Product published" : "Product hidden" });
+    } catch (e: any) {
+      toast({ title: "Failed to update visibility", description: e.message, variant: "destructive" });
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
@@ -172,32 +195,49 @@ export function ProductEditor({ adminToken }: Props) {
       ) : (
         <div className="border border-border rounded-xl overflow-hidden">
           <div className="max-h-[600px] overflow-y-auto divide-y divide-border">
-            {filtered.slice(0, 200).map((p) => (
-              <div key={p.id} className="flex items-center gap-3 p-3 hover:bg-muted/40">
-                <img
-                  src={getProductImage(p as any)}
-                  alt={p.name}
-                  className="w-14 h-14 rounded-lg object-cover bg-muted flex-shrink-0"
-                  onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/placeholder.svg"; }}
-                />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="font-medium truncate">{p.name}</p>
-                    {p.is_published === false ? (
-                      <span className="text-xs bg-orange-500/10 text-orange-600 px-2 py-0.5 rounded-full shrink-0">Hidden</span>
-                    ) : (
-                      <span className="text-xs bg-green-500/10 text-green-600 px-2 py-0.5 rounded-full shrink-0">Published</span>
-                    )}
+            {filtered.slice(0, 200).map((p) => {
+              const isHidden = hiddenIds.includes(p.id);
+              return (
+                <div key={p.id} className="flex items-center gap-3 p-3 hover:bg-muted/40">
+                  <img
+                    src={getProductImage(p as any)}
+                    alt={p.name}
+                    className="w-14 h-14 rounded-lg object-cover bg-muted flex-shrink-0"
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/placeholder.svg"; }}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium truncate">{p.name}</p>
+                      {isHidden ? (
+                        <span className="text-xs bg-orange-500/10 text-orange-600 px-2 py-0.5 rounded-full shrink-0">Hidden</span>
+                      ) : (
+                        <span className="text-xs bg-green-500/10 text-green-600 px-2 py-0.5 rounded-full shrink-0">Published</span>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {p.brand || "No brand"} • {p.price} EGP • Stock: {p.stock}
+                      {p.featured ? " • ⭐ Featured" : ""}
+                    </p>
                   </div>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {p.brand || "No brand"} • {p.price} EGP • Stock: {p.stock}
-                    {p.featured ? " • ⭐ Featured" : ""}
-                  </p>
+                  <button
+                    onClick={() => toggleVisibility(p)}
+                    disabled={togglingId === p.id}
+                    className="shrink-0 text-muted-foreground hover:text-foreground disabled:opacity-50"
+                    title={isHidden ? "Click to publish" : "Click to hide"}
+                  >
+                    {togglingId === p.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : isHidden ? (
+                      <EyeOff className="h-4 w-4 text-orange-500" />
+                    ) : (
+                      <Eye className="h-4 w-4 text-green-600" />
+                    )}
+                  </button>
+                  <Button size="sm" variant="ghost" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
+                  <Button size="sm" variant="ghost" onClick={() => del(p)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                 </div>
-                <Button size="sm" variant="ghost" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
-                <Button size="sm" variant="ghost" onClick={() => del(p)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-              </div>
-            ))}
+              );
+            })}
             {filtered.length === 0 && <p className="p-8 text-center text-muted-foreground">No products match.</p>}
             {filtered.length > 200 && (
               <p className="p-3 text-center text-xs text-muted-foreground">Showing first 200 of {filtered.length}. Refine your search to see more.</p>
@@ -318,10 +358,12 @@ export function ProductEditor({ adminToken }: Props) {
               <Label>Featured on homepage</Label>
             </div>
 
-            <div className="flex items-center gap-3 md:col-span-2">
-              <Switch checked={editing.is_published !== false} onCheckedChange={(v) => setEditing({ ...editing, is_published: v })} />
-              <Label>Published (visible to customers)</Label>
-            </div>
+            {editing.id && (
+              <div className="md:col-span-2 p-3 bg-muted/40 rounded-lg text-sm text-muted-foreground flex items-center gap-2">
+                <Eye className="h-4 w-4" />
+                To show/hide this product from customers, use the eye icon in the product list.
+              </div>
+            )}
           </div>
 
           <DialogFooter>

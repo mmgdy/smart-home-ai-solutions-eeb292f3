@@ -203,12 +203,13 @@ export function CouponEditor({ adminToken }: Props) {
 
           <div className="grid gap-4">
             <div className="space-y-2">
-              <Label>Coupon Code *</Label>
+              <Label>Coupon Code {editing.id ? "(cannot change after creation)" : "*"}</Label>
               <Input
                 value={editing.code ?? ""}
-                onChange={(e) => setEditing({ ...editing, code: e.target.value.toUpperCase() })}
+                onChange={(e) => !editing.id && setEditing({ ...editing, code: e.target.value.toUpperCase() })}
                 placeholder="SUMMER20"
                 className="font-mono uppercase"
+                readOnly={!!editing.id}
               />
             </div>
 

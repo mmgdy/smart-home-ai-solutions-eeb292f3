@@ -24,6 +24,38 @@ async function verifyAdminToken(supabase: any, token: string): Promise<boolean> 
 const slugify = (s: string) =>
   s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 80) || "item";
 
+// Reads coupons JSON array from admin_settings
+async function readCoupons(supabase: any): Promise<any[]> {
+  const { data } = await supabase
+    .from("admin_settings")
+    .select("value")
+    .eq("key", "all_coupons")
+    .maybeSingle();
+  if (!data?.value) return [];
+  try { return JSON.parse(data.value); } catch { return []; }
+}
+
+// Writes coupons JSON array to admin_settings
+async function writeCoupons(supabase: any, coupons: any[]): Promise<void> {
+  await supabase.from("admin_settings").upsert({
+    key: "all_coupons",
+    value: JSON.stringify(coupons),
+    updated_at: new Date().toISOString(),
+  }, { onConflict: "key" });
+}
+
+// Reads hidden product IDs from site_info
+async function readHiddenIds(supabase: any): Promise<string[]> {
+  const { data } = await supabase
+    .from("site_info")
+    .select("value")
+    .eq("section", "products")
+    .eq("key", "hidden_ids")
+    .maybeSingle();
+  if (!data?.value) return [];
+  try { return JSON.parse(data.value); } catch { return []; }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -58,7 +90,6 @@ Deno.serve(async (req) => {
         images: product.images || [],
         stock: Number(product.stock) || 0,
         featured: !!product.featured,
-        is_published: product.is_published !== undefined ? !!product.is_published : true,
         video_url: product.video_url || null,
         specifications: product.specifications || {},
       }).select().single();
@@ -72,7 +103,7 @@ Deno.serve(async (req) => {
       const { id, updates } = body;
       const clean: Record<string, any> = {};
       const allowed = ["name", "slug", "description", "price", "original_price", "category_id",
-        "brand", "protocol", "image_url", "images", "stock", "featured", "is_published", "video_url", "specifications"];
+        "brand", "protocol", "image_url", "images", "stock", "featured", "video_url", "specifications"];
       for (const k of allowed) if (k in updates) clean[k] = updates[k];
       if (clean.price !== undefined) clean.price = Number(clean.price);
       if (clean.original_price !== undefined && clean.original_price !== null)
@@ -91,6 +122,27 @@ Deno.serve(async (req) => {
       const { id } = body;
       const { error } = await supabase.from("products").delete().eq("id", id);
       if (error) throw error;
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ========== PRODUCT VISIBILITY (stored in site_info) ==========
+    if (action === "get-product-visibility") {
+      const hiddenIds = await readHiddenIds(supabase);
+      return new Response(JSON.stringify({ success: true, hiddenIds }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "set-product-visibility") {
+      const { hiddenIds } = body; // string[]
+      if (!Array.isArray(hiddenIds)) throw new Error("hiddenIds must be an array");
+      await supabase.from("site_info").upsert({
+        section: "products",
+        key: "hidden_ids",
+        value: JSON.stringify(hiddenIds),
+      }, { onConflict: "section,key" });
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -151,52 +203,62 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ========== COUPONS ==========
+    // ========== COUPONS (stored in admin_settings as JSON, no DDL needed) ==========
     if (action === "list-coupons") {
-      const { data, error } = await supabase.from("coupons").select("*").order("created_at", { ascending: false });
-      if (error) throw error;
-      return new Response(JSON.stringify({ success: true, coupons: data }), {
+      const coupons = await readCoupons(supabase);
+      return new Response(JSON.stringify({ success: true, coupons }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     if (action === "create-coupon") {
       const { coupon } = body;
-      const { data, error } = await supabase.from("coupons").insert({
-        code: String(coupon.code).toUpperCase().trim(),
+      const coupons = await readCoupons(supabase);
+      const code = String(coupon.code).toUpperCase().trim();
+      if (coupons.some((c: any) => c.code === code)) {
+        return new Response(JSON.stringify({ success: false, error: "Coupon code already exists" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const newCoupon = {
+        id: crypto.randomUUID(),
+        code,
         discount_type: coupon.discount_type,
         discount_value: Number(coupon.discount_value),
         min_order_amount: Number(coupon.min_order_amount ?? 0),
         max_uses: coupon.max_uses ? Number(coupon.max_uses) : null,
+        used_count: 0,
         valid_from: coupon.valid_from || new Date().toISOString(),
         valid_until: coupon.valid_until || null,
         is_active: coupon.is_active !== false,
-      }).select().single();
-      if (error) throw error;
-      return new Response(JSON.stringify({ success: true, coupon: data }), {
+        created_at: new Date().toISOString(),
+      };
+      await writeCoupons(supabase, [...coupons, newCoupon]);
+      return new Response(JSON.stringify({ success: true, coupon: newCoupon }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     if (action === "update-coupon") {
       const { id, updates } = body;
-      const clean: Record<string, any> = {};
-      const allowed = ["code", "discount_type", "discount_value", "min_order_amount", "max_uses",
+      const coupons = await readCoupons(supabase);
+      const idx = coupons.findIndex((c: any) => c.id === id);
+      if (idx === -1) throw new Error("Coupon not found");
+      const allowed = ["discount_type", "discount_value", "min_order_amount", "max_uses",
         "valid_from", "valid_until", "is_active"];
-      for (const k of allowed) if (k in updates) clean[k] = updates[k];
-      if (clean.code) clean.code = String(clean.code).toUpperCase().trim();
-      clean.updated_at = new Date().toISOString();
-      const { data, error } = await supabase.from("coupons").update(clean).eq("id", id).select().single();
-      if (error) throw error;
-      return new Response(JSON.stringify({ success: true, coupon: data }), {
+      const updated = { ...coupons[idx] };
+      for (const k of allowed) if (k in updates) updated[k] = updates[k];
+      coupons[idx] = updated;
+      await writeCoupons(supabase, coupons);
+      return new Response(JSON.stringify({ success: true, coupon: updated }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     if (action === "delete-coupon") {
       const { id } = body;
-      const { error } = await supabase.from("coupons").delete().eq("id", id);
-      if (error) throw error;
+      const coupons = await readCoupons(supabase);
+      await writeCoupons(supabase, coupons.filter((c: any) => c.id !== id));
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

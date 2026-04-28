@@ -171,38 +171,16 @@ const Checkout = () => {
     if (!code) return;
     setCouponLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('coupons')
-        .select('*')
-        .eq('code', code)
-        .eq('is_active', true)
-        .single();
-      if (error || !data) {
-        toast({ title: language === 'ar' ? 'كود خصم غير صحيح' : 'Invalid coupon code', variant: 'destructive' });
+      const { data, error } = await supabase.functions.invoke('validate-coupon', {
+        body: { code, orderAmount: subtotal },
+      });
+      if (error || !data?.valid) {
+        const msg = data?.message || 'Invalid coupon code';
+        toast({ title: language === 'ar' ? 'كود غير صحيح' : msg, variant: 'destructive' });
         return;
       }
-      const now = new Date();
-      if (data.valid_until && new Date(data.valid_until) < now) {
-        toast({ title: language === 'ar' ? 'انتهت صلاحية الكود' : 'Coupon has expired', variant: 'destructive' });
-        return;
-      }
-      if (data.valid_from && new Date(data.valid_from) > now) {
-        toast({ title: language === 'ar' ? 'الكود غير متاح بعد' : 'Coupon is not yet valid', variant: 'destructive' });
-        return;
-      }
-      if (data.min_order_amount && subtotal < data.min_order_amount) {
-        toast({
-          title: language === 'ar' ? `الحد الأدنى للطلب ${data.min_order_amount} ج.م` : `Minimum order amount is ${data.min_order_amount} EGP`,
-          variant: 'destructive',
-        });
-        return;
-      }
-      if (data.max_uses !== null && data.used_count >= data.max_uses) {
-        toast({ title: language === 'ar' ? 'تم استنفاد الكود' : 'Coupon usage limit reached', variant: 'destructive' });
-        return;
-      }
-      setAppliedCoupon({ code: data.code, discountType: data.discount_type, discountValue: data.discount_value });
-      const discLabel = data.discount_type === 'percentage' ? `${data.discount_value}%` : `${data.discount_value} EGP`;
+      setAppliedCoupon({ code: data.code, discountType: data.discountType, discountValue: data.discountValue });
+      const discLabel = data.discountType === 'percentage' ? `${data.discountValue}%` : `${data.discountValue} EGP`;
       toast({ title: language === 'ar' ? 'تم تطبيق الكود!' : 'Coupon applied!', description: `${discLabel} off` });
     } catch {
       toast({ title: language === 'ar' ? 'خطأ في التحقق' : 'Failed to validate coupon', variant: 'destructive' });
@@ -288,10 +266,12 @@ const Checkout = () => {
       console.warn('Could not award loyalty points:', loyaltyError);
     }
 
-    // Increment coupon usage
+    // Increment coupon usage via edge function (no DDL required)
     if (appliedCoupon) {
       try {
-        await supabase.rpc('increment_coupon_usage', { p_code: appliedCoupon.code });
+        await supabase.functions.invoke('validate-coupon', {
+          body: { code: appliedCoupon.code, orderAmount: subtotal, use: true },
+        });
       } catch (e) {
         console.warn('Could not increment coupon usage:', e);
       }
