@@ -31,17 +31,42 @@ interface FloorPlanAnalysis {
   notes?: string;
 }
 
+const PHOTO_SYSTEM_PROMPT = `You are a smart home consultant analyzing a real photo of a home room. Identify the room type and suggest smart home devices that could realistically be installed.
+
+Return ONLY this JSON structure with no markdown, no extra text:
+{
+  "roomsDetected": [
+    { "type": "living_room", "name": "Living Room", "count": 1 }
+  ],
+  "suggestedFeatures": [
+    { "roomType": "living_room", "features": ["smart_lighting", "smart_curtains", "smart_ac"] }
+  ],
+  "devicePlacements": [
+    { "type": "smart_switch", "emoji": "💡", "x": 25, "y": 40, "room": "Living Room", "label": "Smart Light Switch" }
+  ],
+  "notes": "Modern living room"
+}
+
+For devicePlacements:
+- x and y are PERCENTAGES (0-100) of the image dimensions, pointing to the realistic installation spot visible in the photo
+- Place devices at real mounting locations: switches near doors, AC controllers on walls, cameras in upper corners, motion sensors high on walls
+- Suggest 4-10 devices based on visible features in the photo
+- Use emojis: 💡 light switch, ❄️ AC controller, 🪟 curtain motor, 📷 security camera, 🔐 smart lock, 👁️ motion sensor, 🚪 door sensor, 🔌 smart plug, 🚨 smoke detector, 🌡️ thermostat
+
+Valid room types: living_room, bedroom, master_bedroom, kitchen, bathroom, dining_room, office, hallway, entrance, balcony, garage, kids_room`;
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { imageUrl } = await req.json();
+    const body = await req.json();
+    const { imageUrl, imageBase64, mimeType, mode } = body;
 
-    if (!imageUrl) {
+    if (!imageUrl && !imageBase64) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Image URL is required' }),
+        JSON.stringify({ success: false, error: 'imageUrl or imageBase64 is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -54,20 +79,15 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log('Analyzing floor plan:', imageUrl);
+    const isPhotoMode = mode === 'photo';
+    console.log(`Analyzing ${isPhotoMode ? 'room photo' : 'floor plan'}:`, imageUrl ?? 'base64');
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${lovableApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-pro',
-        messages: [
-          {
-            role: 'system',
-            content: `You are a smart home consultant analyzing floor plans. Analyze the floor plan image and return a single JSON object.
+    // Build the image content part — either a URL or inline base64
+    const imageContent = imageBase64
+      ? { type: 'image_url', image_url: { url: `data:${mimeType || 'image/jpeg'};base64,${imageBase64}` } }
+      : { type: 'image_url', image_url: { url: imageUrl } };
+
+    const floorPlanSystemPrompt = `You are a smart home consultant analyzing floor plans. Analyze the floor plan image and return a single JSON object.
 
 Return ONLY this JSON structure with no markdown, no extra text:
 {
@@ -96,23 +116,33 @@ For devicePlacements:
 - Spread devices across the entire floor plan, not clustered in one corner
 
 Valid room types: living_room, bedroom, master_bedroom, kitchen, bathroom, dining_room, office, hallway, entrance, balcony, garden, garage, kids_room, guest_room
-Valid features: smart_lighting, smart_curtains, smart_ac, motion_sensor, door_sensor, temperature_sensor, smart_lock, camera, intercom, smart_plug, smart_switch, rgb_lighting, water_leak_sensor, smoke_detector, smart_thermostat`
+Valid features: smart_lighting, smart_curtains, smart_ac, motion_sensor, door_sensor, temperature_sensor, smart_lock, camera, intercom, smart_plug, smart_switch, rgb_lighting, water_leak_sensor, smoke_detector, smart_thermostat`;
+
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${lovableApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-pro',
+        messages: [
+          {
+            role: 'system',
+            content: isPhotoMode ? PHOTO_SYSTEM_PROMPT : floorPlanSystemPrompt,
           },
           {
             role: 'user',
             content: [
               {
                 type: 'text',
-                text: 'Analyze this floor plan. Identify all rooms and place smart home devices at their exact positions in the image.'
+                text: isPhotoMode
+                  ? 'Analyze this room photo. Identify the room type and mark where to install smart devices.'
+                  : 'Analyze this floor plan. Identify all rooms and place smart home devices at their exact positions.',
               },
-              {
-                type: 'image_url',
-                image_url: {
-                  url: imageUrl
-                }
-              }
-            ]
-          }
+              imageContent,
+            ],
+          },
         ],
       }),
     });

@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { ArrowRight, Loader2 } from 'lucide-react';
+import { useQuery } from 'react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Product } from '@/types/store';
 import { ProductCard } from '@/components/products/ProductCard';
@@ -76,7 +75,22 @@ export function FeaturedProducts() {
             <Link to="/products">
               <Button variant="outline" className="h-10 px-5 rounded-full border-foreground/20 hover:bg-foreground/5 group text-sm">
                 {t('viewAll')}
-                <ArrowRight className={cn("ml-2 h-4 w-4 transition-transform group-hover:translate-x-1", isRTL && "rotate-180 mr-2 ml-0")} />
+                <svg
+                  className={cn(
+                    'ml-2 h-4 w-4 transition-transform group-hover:translate-x-1',
+                    isRTL && 'rotate-180 mr-2 ml-0'
+                  )}
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M5 12h14" />
+                  <path d="m13 18 6-6-6-6" />
+                </svg>
               </Button>
             </Link>
           </motion.div>
@@ -84,7 +98,7 @@ export function FeaturedProducts() {
 
         {isLoading ? (
           <div className="flex justify-center py-16">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            <span className="inline-block h-8 w-8 animate-spin rounded-full border-2 border-current border-t-transparent text-muted-foreground" />
           </div>
         ) : isError ? (
           <p className="text-center text-muted-foreground py-16">

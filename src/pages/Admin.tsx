@@ -3,7 +3,7 @@ import { Helmet } from 'react-helmet-async';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Upload, Loader2, CheckCircle, AlertCircle, Image, FileText, Sparkles, Download, Filter, DollarSign, CreditCard, Package, Settings, Globe, RefreshCw, Link2, Users, Tag } from 'lucide-react';
+import { Upload, Loader2, CheckCircle, AlertCircle, Image, FileText, Sparkles, Download, Filter, DollarSign, CreditCard, Package, Settings, Globe, RefreshCw, Link2, Users, Tag, Zap } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
@@ -21,6 +21,7 @@ import { BulkImporter } from '@/components/admin/BulkImporter';
 import { UsersManagement } from '@/components/admin/UsersManagement';
 import { BundlesEditor } from '@/components/admin/BundlesEditor';
 import { CouponEditor } from '@/components/admin/CouponEditor';
+import { FlashSaleEditor } from '@/components/admin/FlashSaleEditor';
 
 interface ProductExport {
   id: string;
@@ -355,6 +356,7 @@ export default function Admin() {
             <TabsTrigger value="market-sync"><Globe className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Market</span></TabsTrigger>
             <TabsTrigger value="scraper"><Link2 className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Import URL</span></TabsTrigger>
             <TabsTrigger value="coupons"><Tag className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Coupons</span></TabsTrigger>
+            <TabsTrigger value="flash-sale"><Zap className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Discounts</span></TabsTrigger>
           </TabsList>
 
           <TabsContent value="users" className="mt-6"><UsersManagement adminToken={token} /></TabsContent>
@@ -744,6 +746,12 @@ export default function Admin() {
           <TabsContent value="coupons" className="mt-6">
             <div className="bg-card border border-border rounded-xl p-6">
               <CouponEditor adminToken={token} />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="flash-sale" className="mt-6">
+            <div className="bg-card border border-border rounded-xl p-6">
+              <FlashSaleEditor adminToken={token} />
             </div>
           </TabsContent>
         </Tabs>

@@ -41,25 +41,42 @@ declare global {
 // PaySky exposes its global with inconsistent casing / nesting across SDK versions.
 function getPaySkyLightbox(): any | null {
   const w = window as any;
-  const candidates = [w.Lightbox, w.lightbox, w.LightBox, w.PaySky, w.paysky, w.PAYSKY];
-  for (const c of candidates) {
-    if (!c) continue;
-    // Pattern A: Lightbox.Checkout.configure(...)
-    const checkout = c.Checkout || c.checkout;
-    if (checkout && typeof (checkout.configure || checkout.Configure) === 'function') {
+  const namedCandidates = [w.Lightbox, w.lightbox, w.LightBox, w.PaySky, w.paysky, w.PAYSKY, w.IPG, w.Checkout];
+
+  const tryExtract = (c: any) => {
+    if (!c) return null;
+    // Pattern A: obj.Checkout.configure(...)
+    const inner = c.Checkout || c.checkout;
+    if (inner && typeof (inner.configure || inner.Configure) === 'function') {
       return {
-        configure: (checkout.configure || checkout.Configure).bind(checkout),
-        showLightbox: (checkout.showLightbox || checkout.ShowLightbox || checkout.show)?.bind(checkout),
+        configure: (inner.configure || inner.Configure).bind(inner),
+        showLightbox: (inner.showLightbox || inner.ShowLightbox || inner.show)?.bind(inner),
       };
     }
-    // Pattern B: Lightbox.configure(...) directly
+    // Pattern B: obj.configure(...) directly
     if (typeof (c.configure || c.Configure) === 'function') {
       return {
         configure: (c.configure || c.Configure).bind(c),
         showLightbox: (c.showLightbox || c.ShowLightbox || c.show)?.bind(c),
       };
     }
+    return null;
+  };
+
+  for (const c of namedCandidates) {
+    const res = tryExtract(c);
+    if (res) return res;
   }
+
+  // Broad scan: any window property that has configure + showLightbox
+  try {
+    for (const key of Object.keys(w)) {
+      if (['window', 'document', 'self', 'top', 'parent'].includes(key)) continue;
+      const res = tryExtract(w[key]);
+      if (res) return res;
+    }
+  } catch { /* ignore */ }
+
   return null;
 }
 
@@ -106,49 +123,34 @@ const Checkout = () => {
 
   const BackArrow = isRTL ? ArrowRight : ArrowLeft;
 
-  // Load PaySky LightBox script — primary URL comes from edge fn (configurable via PAYSKY_LIGHTBOX_URL secret)
+  // Load PaySky LightBox script. Port 6006 is on the browser's blocked-port list so we skip it.
   useEffect(() => {
     const probe = () => { if (getPaySkyLightbox()) { setPayskyLoaded(true); return true; } return false; };
     if (probe()) return;
 
     let cancelled = false;
 
-    const loadUrls = (urls: string[]) => {
-      let idx = 0;
-      const next = () => {
-        if (cancelled || idx >= urls.length) return;
-        const url = urls[idx++];
-        if (document.querySelector(`script[src="${url}"]`)) {
-          setTimeout(() => { if (!probe()) next(); }, 400);
-          return;
-        }
-        const s = document.createElement('script');
-        s.src = url;
-        s.async = true;
-        s.onload = () => setTimeout(() => { if (!probe()) next(); }, 400);
-        s.onerror = () => next();
-        document.body.appendChild(s);
-      };
-      next();
-    };
-
-    const fallbacks = [
-      'https://acceptance.paysky.io:6006/js/LightBox.js',
-      'https://cube.paysky.io:6006/js/LightBox.js',
-      'https://cube.paysky.io/js/LightBox.js',
+    const urls = [
       'https://secure.paysky.io/js/LightBox.js',
+      'https://cube.paysky.io/js/LightBox.js',
+      'https://acceptance.paysky.io/js/LightBox.js',
     ];
-
-    // Ask the edge function for the correct lightboxUrl (respects PAYSKY_LIGHTBOX_URL secret)
-    supabase.functions
-      .invoke('paysky-checkout', { body: { orderId: 'init', amount: 1, merchantReference: 'init' } })
-      .then(({ data }) => {
-        if (cancelled) return;
-        const dynamic = data?.lightboxUrl as string | undefined;
-        const urls = dynamic ? [dynamic, ...fallbacks.filter(u => u !== dynamic)] : fallbacks;
-        loadUrls(urls);
-      })
-      .catch(() => { if (!cancelled) loadUrls(fallbacks); });
+    let idx = 0;
+    const next = () => {
+      if (cancelled || idx >= urls.length) return;
+      const url = urls[idx++];
+      if (document.querySelector(`script[src="${url}"]`)) {
+        setTimeout(() => { if (!probe()) next(); }, 600);
+        return;
+      }
+      const s = document.createElement('script');
+      s.src = url;
+      s.async = true;
+      s.onload = () => setTimeout(() => { if (!probe()) next(); }, 600);
+      s.onerror = () => setTimeout(next, 100);
+      document.body.appendChild(s);
+    };
+    next();
 
     return () => { cancelled = true; };
   }, []);
@@ -259,10 +261,10 @@ const Checkout = () => {
 
     if (orderError) throw orderError;
 
-    // Create order items
+    // Create order items — bundle items have virtual IDs so product_id is null
     const orderItems = items.map(item => ({
       order_id: order.id,
-      product_id: item.product.id,
+      product_id: item.product.id.startsWith('bundle-') ? null : item.product.id,
       product_name: item.product.name,
       quantity: item.quantity,
       price: item.product.price,

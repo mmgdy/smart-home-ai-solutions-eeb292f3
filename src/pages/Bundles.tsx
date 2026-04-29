@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/lib/i18n';
 import { useCart } from '@/hooks/useCart';
 import { useToast } from '@/hooks/use-toast';
+import type { Product } from '@/types/store';
 import { cn } from '@/lib/utils';
 import { normalizeBundles } from '@/lib/bundles';
 import { supabase } from '@/integrations/supabase/client';
@@ -120,7 +121,36 @@ const allBundles = [
 const Bundles = () => {
   const { isRTL, formatPrice } = useLanguage();
   const navigate = useNavigate();
+  const { addItem } = useCart();
+  const { toast } = useToast();
   const [bundles, setBundles] = useState(normalizeBundles(allBundles as any));
+
+  const handleOrderBundle = (bundle: ReturnType<typeof normalizeBundles>[number]) => {
+    const virtualProduct: Product = {
+      id: `bundle-${bundle.id}`,
+      name: isRTL ? bundle.nameAr : bundle.nameEn,
+      slug: `bundle-${bundle.id}`,
+      description: isRTL ? (bundle as any).descAr ?? '' : (bundle as any).descEn ?? '',
+      price: bundle.priceEgp,
+      original_price: bundle.originalPrice,
+      category_id: null,
+      image_url: null,
+      images: [],
+      brand: null,
+      protocol: null,
+      specifications: {},
+      stock: 99,
+      featured: false,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    addItem(virtualProduct, 1);
+    toast({
+      title: isRTL ? 'تمت الإضافة للسلة' : 'Added to cart',
+      description: isRTL ? bundle.nameAr : bundle.nameEn,
+    });
+    navigate('/cart');
+  };
 
   useEffect(() => {
     (async () => {
@@ -244,17 +274,10 @@ const Bundles = () => {
                     <div className="flex gap-2">
                       <Button
                         className="flex-1 rounded-full h-10 text-sm"
-                        onClick={() => {
-                          const name = isRTL ? bundle.nameAr : bundle.nameEn;
-                          const price = formatPrice(bundle.priceEgp);
-                          const msg = isRTL
-                            ? `أريد طلب "${name}" بسعر ${price}. ما هي الخطوات التالية؟`
-                            : `I want to order the "${name}" bundle for ${price}. What are the next steps?`;
-                          navigate('/ai-consultant', { state: { initialMessage: msg } });
-                        }}
+                        onClick={() => handleOrderBundle(bundle)}
                       >
                         <ShoppingCart className="mr-1.5 h-3.5 w-3.5" />
-                        {isRTL ? 'اطلب الآن' : 'Order Now'}
+                        {isRTL ? 'أضف للسلة' : 'Add to Cart'}
                       </Button>
                       <a href="https://wa.me/201234567890" target="_blank" rel="noopener noreferrer">
                         <Button variant="outline" size="icon" className="h-10 w-10 rounded-full">
