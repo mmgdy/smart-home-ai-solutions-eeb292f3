@@ -293,15 +293,15 @@ export function HeroSection() {
                 {isRTL ? 'تصفح المنتجات' : 'Browse Products'}
               </Button>
             </Link>
-            {/* Floor plan AI link */}
-            <Link to="/calculator">
+            {/* AI Home Designer link */}
+            <Link to="/home-designer">
               <Button
                 size="lg"
                 variant="outline"
                 className="h-14 px-8 text-base font-medium rounded-full border-primary/40 bg-primary/10 backdrop-blur-md hover:bg-primary/20 text-primary"
               >
                 <Sparkles className="mr-2 h-4 w-4" />
-                {isRTL ? 'AI يرسم أجهزة على مخطط بيتك' : 'AI Floor Plan Designer'}
+                {isRTL ? 'AI يرسم أجهزة على صورة بيتك' : 'AI Home Designer'}
               </Button>
             </Link>
           </motion.div>
