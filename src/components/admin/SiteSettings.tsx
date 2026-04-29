@@ -77,20 +77,21 @@ export function SiteSettings({ adminToken, onLogout }: SiteSettingsProps) {
     setIsUploading(true);
 
     try {
-      const fileName = `logo-${Date.now()}.${file.name.split('.').pop()}`;
-      
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('site-assets')
-        .upload(fileName, file, { upsert: true });
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve((reader.result as string).split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const ext = file.name.split('.').pop()?.toLowerCase() || 'png';
+      const filename = `logo-${Date.now()}.${ext}`;
 
-      if (uploadError) throw uploadError;
+      const { data: uploadData, error: uploadError } = await supabase.functions.invoke('admin-write', {
+        body: { action: 'upload-file', token: adminToken, filename, base64, mimeType: file.type, bucket: 'site-assets' },
+      });
+      if (uploadError || !uploadData?.success) throw new Error(uploadData?.error || uploadError?.message || 'Upload failed');
 
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from('site-assets')
-        .getPublicUrl(fileName);
-
-      const newLogoUrl = urlData.publicUrl;
+      const newLogoUrl = uploadData.publicUrl as string;
       setLogoUrl(newLogoUrl);
 
       // Save to settings via privileged edge function

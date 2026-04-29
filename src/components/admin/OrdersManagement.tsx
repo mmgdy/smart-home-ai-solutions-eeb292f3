@@ -98,13 +98,11 @@ export const OrdersManagement = ({ adminToken }: Props) => {
 
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
     setUpdatingStatus(orderId);
-    const { error } = await supabase
-      .from('orders')
-      .update({ status: newStatus })
-      .eq('id', orderId);
-
-    if (error) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to update order status' });
+    const { data, error } = await supabase.functions.invoke('admin-write', {
+      body: { action: 'update-order-status', token: adminToken, id: orderId, status: newStatus },
+    });
+    if (error || !data?.success) {
+      toast({ variant: 'destructive', title: 'Error', description: data?.error || error?.message || 'Failed to update order status' });
     } else {
       toast({ title: 'Success', description: `Order status updated to ${newStatus}` });
       fetchOrders();
@@ -115,19 +113,17 @@ export const OrdersManagement = ({ adminToken }: Props) => {
   const deleteOrder = async (order: Order) => {
     if (!confirm(`Delete order #${order.id.slice(0, 8)} from ${order.email}? This cannot be undone.`)) return;
     setDeletingId(order.id);
-    try {
-      const { error: itemsError } = await supabase.from('order_items').delete().eq('order_id', order.id);
-      if (itemsError) throw itemsError;
-      const { error: orderError } = await supabase.from('orders').delete().eq('id', order.id);
-      if (orderError) throw orderError;
+    const { data, error } = await supabase.functions.invoke('admin-write', {
+      body: { action: 'delete-order', token: adminToken, id: order.id },
+    });
+    if (error || !data?.success) {
+      toast({ variant: 'destructive', title: 'Delete failed', description: data?.error || error?.message });
+    } else {
       toast({ title: 'Order deleted' });
       setOrders((prev) => prev.filter((o) => o.id !== order.id));
       if (selectedOrder?.id === order.id) setSelectedOrder(null);
-    } catch (e: any) {
-      toast({ variant: 'destructive', title: 'Delete failed', description: e.message });
-    } finally {
-      setDeletingId(null);
     }
+    setDeletingId(null);
   };
 
   const openOrderDetails = (order: Order) => {

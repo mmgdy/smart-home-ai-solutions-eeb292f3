@@ -106,40 +106,50 @@ const Checkout = () => {
 
   const BackArrow = isRTL ? ArrowRight : ArrowLeft;
 
-  // Load PaySky LightBox script — try production URLs first, acceptance as last resort
+  // Load PaySky LightBox script — primary URL comes from edge fn (configurable via PAYSKY_LIGHTBOX_URL secret)
   useEffect(() => {
-    const probe = () => {
-      if (getPaySkyLightbox()) { setPayskyLoaded(true); return true; }
-      return false;
-    };
+    const probe = () => { if (getPaySkyLightbox()) { setPayskyLoaded(true); return true; } return false; };
     if (probe()) return;
 
-    // Production URLs first (no custom port), then with PaySky's port 6006, then acceptance test env
-    const urls = [
-      'https://cube.paysky.io/js/LightBox.js',
-      'https://secure.paysky.io/js/LightBox.js',
-      'https://cube.paysky.io:6006/js/LightBox.js',
-      'https://secure.paysky.io:6006/js/LightBox.js',
-      'https://acceptance.paysky.io:6006/js/LightBox.js',
-    ];
     let cancelled = false;
 
-    const loadOne = (idx: number) => {
-      if (cancelled || idx >= urls.length) return;
-      const url = urls[idx];
-      const existing = document.querySelector(`script[src="${url}"]`);
-      if (existing) {
-        setTimeout(() => { if (!probe()) loadOne(idx + 1); }, 400);
-        return;
-      }
-      const s = document.createElement('script');
-      s.src = url;
-      s.async = true;
-      s.onload = () => setTimeout(() => { if (!probe()) loadOne(idx + 1); }, 400);
-      s.onerror = () => loadOne(idx + 1);
-      document.body.appendChild(s);
+    const loadUrls = (urls: string[]) => {
+      let idx = 0;
+      const next = () => {
+        if (cancelled || idx >= urls.length) return;
+        const url = urls[idx++];
+        if (document.querySelector(`script[src="${url}"]`)) {
+          setTimeout(() => { if (!probe()) next(); }, 400);
+          return;
+        }
+        const s = document.createElement('script');
+        s.src = url;
+        s.async = true;
+        s.onload = () => setTimeout(() => { if (!probe()) next(); }, 400);
+        s.onerror = () => next();
+        document.body.appendChild(s);
+      };
+      next();
     };
-    loadOne(0);
+
+    const fallbacks = [
+      'https://acceptance.paysky.io:6006/js/LightBox.js',
+      'https://cube.paysky.io:6006/js/LightBox.js',
+      'https://cube.paysky.io/js/LightBox.js',
+      'https://secure.paysky.io/js/LightBox.js',
+    ];
+
+    // Ask the edge function for the correct lightboxUrl (respects PAYSKY_LIGHTBOX_URL secret)
+    supabase.functions
+      .invoke('paysky-checkout', { body: { orderId: 'init', amount: 1, merchantReference: 'init' } })
+      .then(({ data }) => {
+        if (cancelled) return;
+        const dynamic = data?.lightboxUrl as string | undefined;
+        const urls = dynamic ? [dynamic, ...fallbacks.filter(u => u !== dynamic)] : fallbacks;
+        loadUrls(urls);
+      })
+      .catch(() => { if (!cancelled) loadUrls(fallbacks); });
+
     return () => { cancelled = true; };
   }, []);
 

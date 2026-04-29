@@ -282,6 +282,17 @@ Deno.serve(async (req) => {
     }
 
     // ========== ORDERS ==========
+    if (action === "update-order-status") {
+      const { id, status } = body;
+      const allowed = ["pending", "processing", "shipped", "delivered", "cancelled"];
+      if (!allowed.includes(status)) throw new Error("Invalid status value");
+      const { error } = await supabase.from("orders").update({ status }).eq("id", id);
+      if (error) throw error;
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (action === "delete-order") {
       const { id } = body;
       const { error: itemsError } = await supabase.from("order_items").delete().eq("order_id", id);
