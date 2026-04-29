@@ -193,7 +193,7 @@ export default function Admin() {
       if (!response.ok) throw new Error('Failed to fetch CSV file');
       
       const csvContent = await response.text();
-      const { data, error } = await supabase.functions.invoke('import-products', { body: { csvContent } });
+      const { data, error } = await supabase.functions.invoke('import-products', { body: { csvContent, token } });
       if (error) throw error;
 
       setResult(data);

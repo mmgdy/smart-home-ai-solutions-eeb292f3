@@ -224,6 +224,22 @@ function createSlug(name: string): string {
     .slice(0, 100);
 }
 
+async function verifyAdminToken(supabase: any, token: string): Promise<boolean> {
+  if (!token) return false;
+  try {
+    const decoded = atob(token);
+    const [adminId] = decoded.split(":");
+    const { data } = await supabase
+      .from("admin_settings")
+      .select("value")
+      .eq("key", `admin_token_${adminId}`)
+      .single();
+    return !!data && data.value === token;
+  } catch {
+    return false;
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -235,7 +251,14 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Get CSV content from request body
-    const { csvContent } = await req.json();
+    const { csvContent, token } = await req.json();
+
+    if (!(await verifyAdminToken(supabase, token))) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
     
     if (!csvContent) {
       return new Response(

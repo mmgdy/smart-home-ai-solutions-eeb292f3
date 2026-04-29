@@ -1,10 +1,27 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
+import * as bcrypt from "https://deno.land/x/bcrypt@v0.4.1/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+async function verifyAdminTokenDb(supabase: any, token: string): Promise<string | null> {
+  if (!token) return null;
+  try {
+    const decoded = atob(token);
+    const [adminId] = decoded.split(":");
+    const { data } = await supabase
+      .from("admin_settings")
+      .select("value")
+      .eq("key", `admin_token_${adminId}`)
+      .single();
+    return data && data.value === token ? adminId : null;
+  } catch {
+    return null;
+  }
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -12,14 +29,14 @@ serve(async (req) => {
   }
 
   try {
-    const { action, username, password, newPassword, token } = await req.json();
-    
+    const body = await req.json();
+    const { action, username, password, newPassword, token } = body;
+
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     if (action === "login") {
-      // Verify credentials
       const { data: admin, error } = await supabase
         .from("admin_users")
         .select("id, username, password_hash")
@@ -33,30 +50,45 @@ serve(async (req) => {
         );
       }
 
-      // Simple password check (in production, use proper bcrypt)
-      if (admin.password_hash !== password) {
+      let passwordOk = false;
+      const storedHash: string = admin.password_hash ?? "";
+
+      if (storedHash.startsWith("$2")) {
+        // Bcrypt hash — compare properly
+        passwordOk = await bcrypt.compare(password, storedHash);
+      } else {
+        // Plaintext (legacy) — compare and upgrade on success
+        passwordOk = storedHash === password;
+        if (passwordOk) {
+          const newHash = await bcrypt.hash(password);
+          await supabase
+            .from("admin_users")
+            .update({ password_hash: newHash })
+            .eq("id", admin.id);
+        }
+      }
+
+      if (!passwordOk) {
         return new Response(
           JSON.stringify({ success: false, error: "Invalid credentials" }),
           { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
-      // Generate a simple token (in production, use JWT)
-      const token = btoa(`${admin.id}:${Date.now()}:${crypto.randomUUID()}`);
-      
-      // Store token in admin_settings for validation
+      const sessionToken = btoa(`${admin.id}:${Date.now()}:${crypto.randomUUID()}`);
+
       await supabase
         .from("admin_settings")
-        .upsert({ 
-          key: `admin_token_${admin.id}`, 
-          value: token 
-        }, { onConflict: 'key' });
+        .upsert({
+          key: `admin_token_${admin.id}`,
+          value: sessionToken,
+        }, { onConflict: "key" });
 
       return new Response(
-        JSON.stringify({ 
-          success: true, 
-          token,
-          admin: { id: admin.id, username: admin.username }
+        JSON.stringify({
+          success: true,
+          token: sessionToken,
+          admin: { id: admin.id, username: admin.username },
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -70,42 +102,24 @@ serve(async (req) => {
         );
       }
 
-      // Decode token to get admin ID
-      try {
-        const decoded = atob(token);
-        const [adminId] = decoded.split(":");
-        
-        // Verify token exists in settings
-        const { data: storedToken } = await supabase
-          .from("admin_settings")
-          .select("value")
-          .eq("key", `admin_token_${adminId}`)
-          .single();
-
-        if (!storedToken || storedToken.value !== token) {
-          return new Response(
-            JSON.stringify({ success: false, error: "Invalid token" }),
-            { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-
-        // Get admin info
-        const { data: admin } = await supabase
-          .from("admin_users")
-          .select("id, username")
-          .eq("id", adminId)
-          .single();
-
+      const adminId = await verifyAdminTokenDb(supabase, token);
+      if (!adminId) {
         return new Response(
-          JSON.stringify({ success: true, admin }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      } catch {
-        return new Response(
-          JSON.stringify({ success: false, error: "Invalid token format" }),
+          JSON.stringify({ success: false, error: "Invalid token" }),
           { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+
+      const { data: admin } = await supabase
+        .from("admin_users")
+        .select("id, username")
+        .eq("id", adminId)
+        .single();
+
+      return new Response(
+        JSON.stringify({ success: true, admin }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     if (action === "change-password") {
@@ -116,27 +130,19 @@ serve(async (req) => {
         );
       }
 
-      // Verify token
-      const decoded = atob(token);
-      const [adminId] = decoded.split(":");
-      
-      const { data: storedToken } = await supabase
-        .from("admin_settings")
-        .select("value")
-        .eq("key", `admin_token_${adminId}`)
-        .single();
-
-      if (!storedToken || storedToken.value !== token) {
+      const adminId = await verifyAdminTokenDb(supabase, token);
+      if (!adminId) {
         return new Response(
           JSON.stringify({ success: false, error: "Invalid token" }),
           { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
-      // Update password
+      const hashedPassword = await bcrypt.hash(newPassword);
+
       const { error: updateError } = await supabase
         .from("admin_users")
-        .update({ password_hash: newPassword })
+        .update({ password_hash: hashedPassword })
         .eq("id", adminId);
 
       if (updateError) {
@@ -157,8 +163,6 @@ serve(async (req) => {
         try {
           const decoded = atob(token);
           const [adminId] = decoded.split(":");
-          
-          // Remove token
           await supabase
             .from("admin_settings")
             .delete()
@@ -166,34 +170,6 @@ serve(async (req) => {
         } catch {
           // Ignore errors on logout
         }
-      }
-
-      return new Response(
-        JSON.stringify({ success: true }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    if (action === "update-setting") {
-      const { key, value } = await req.json();
-      
-      // Verify admin token first
-      if (!token) {
-        return new Response(
-          JSON.stringify({ success: false, error: "Unauthorized" }),
-          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      const { error } = await supabase
-        .from("admin_settings")
-        .upsert({ key, value }, { onConflict: 'key' });
-
-      if (error) {
-        return new Response(
-          JSON.stringify({ success: false, error: error.message }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
       }
 
       return new Response(

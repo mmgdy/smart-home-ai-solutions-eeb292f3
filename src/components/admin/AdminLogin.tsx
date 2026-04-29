@@ -124,13 +124,6 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
             </Button>
           </form>
 
-          <div className="mt-6 p-4 bg-muted/50 rounded-lg">
-            <p className="text-xs text-muted-foreground text-center">
-              Default credentials: <span className="font-mono">admin</span> / <span className="font-mono">admin123</span>
-              <br />
-              <strong>Change your password immediately after first login!</strong>
-            </p>
-          </div>
         </div>
       </div>
     </div>
