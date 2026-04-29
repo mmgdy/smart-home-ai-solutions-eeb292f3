@@ -116,7 +116,7 @@ serve(async (req) => {
           TrxDateTime: dateTimeLocalTrxn,
           SecureHash: secureHash,
         },
-        lightboxUrl: "https://acceptance.paysky.io:6006/js/LightBox.js",
+        lightboxUrl: Deno.env.get("PAYSKY_LIGHTBOX_URL") ?? "https://cube.paysky.io/js/LightBox.js",
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

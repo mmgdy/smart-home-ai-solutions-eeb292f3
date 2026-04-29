@@ -264,6 +264,23 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ========== FILE UPLOAD (bypasses storage RLS using service role) ==========
+    if (action === "upload-file") {
+      const { filename, base64, mimeType, bucket } = body;
+      const allowed = ["product-images", "product-videos", "site-assets"];
+      if (!allowed.includes(bucket)) throw new Error("Invalid bucket");
+      if (!filename || !base64) throw new Error("filename and base64 required");
+      const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+      const { error: upErr } = await supabase.storage
+        .from(bucket)
+        .upload(filename, bytes, { contentType: mimeType || "application/octet-stream", upsert: true, cacheControl: "31536000" });
+      if (upErr) throw upErr;
+      const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filename);
+      return new Response(JSON.stringify({ success: true, publicUrl: urlData.publicUrl }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // ========== ORDERS ==========
     if (action === "delete-order") {
       const { id } = body;

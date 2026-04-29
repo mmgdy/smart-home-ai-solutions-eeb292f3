@@ -38,18 +38,25 @@ declare global {
   }
 }
 
-// PaySky exposes its global with inconsistent casing across SDK versions.
-// We probe all known shapes so the integration keeps working.
+// PaySky exposes its global with inconsistent casing / nesting across SDK versions.
 function getPaySkyLightbox(): any | null {
   const w = window as any;
-  const candidates = [w.Lightbox, w.lightbox, w.LightBox];
+  const candidates = [w.Lightbox, w.lightbox, w.LightBox, w.PaySky, w.paysky, w.PAYSKY];
   for (const c of candidates) {
     if (!c) continue;
+    // Pattern A: Lightbox.Checkout.configure(...)
     const checkout = c.Checkout || c.checkout;
     if (checkout && typeof (checkout.configure || checkout.Configure) === 'function') {
       return {
         configure: (checkout.configure || checkout.Configure).bind(checkout),
         showLightbox: (checkout.showLightbox || checkout.ShowLightbox || checkout.show)?.bind(checkout),
+      };
+    }
+    // Pattern B: Lightbox.configure(...) directly
+    if (typeof (c.configure || c.Configure) === 'function') {
+      return {
+        configure: (c.configure || c.Configure).bind(c),
+        showLightbox: (c.showLightbox || c.ShowLightbox || c.show)?.bind(c),
       };
     }
   }
@@ -99,17 +106,21 @@ const Checkout = () => {
 
   const BackArrow = isRTL ? ArrowRight : ArrowLeft;
 
-  // Load PaySky LightBox script
+  // Load PaySky LightBox script — try production URLs first, acceptance as last resort
   useEffect(() => {
-    if (paymentMethod !== 'card') return;
+    const probe = () => {
+      if (getPaySkyLightbox()) { setPayskyLoaded(true); return true; }
+      return false;
+    };
+    if (probe()) return;
 
-    const probe = () => setPayskyLoaded(!!getPaySkyLightbox());
-    if (getPaySkyLightbox()) { setPayskyLoaded(true); return; }
-
-    // Try both the acceptance and the production URLs in order.
+    // Production URLs first (no custom port), then with PaySky's port 6006, then acceptance test env
     const urls = [
-      'https://acceptance.paysky.io:6006/js/LightBox.js',
+      'https://cube.paysky.io/js/LightBox.js',
+      'https://secure.paysky.io/js/LightBox.js',
       'https://cube.paysky.io:6006/js/LightBox.js',
+      'https://secure.paysky.io:6006/js/LightBox.js',
+      'https://acceptance.paysky.io:6006/js/LightBox.js',
     ];
     let cancelled = false;
 
@@ -118,26 +129,19 @@ const Checkout = () => {
       const url = urls[idx];
       const existing = document.querySelector(`script[src="${url}"]`);
       if (existing) {
-        // wait briefly for global to attach
-        setTimeout(() => {
-          if (getPaySkyLightbox()) probe();
-          else loadOne(idx + 1);
-        }, 300);
+        setTimeout(() => { if (!probe()) loadOne(idx + 1); }, 400);
         return;
       }
       const s = document.createElement('script');
       s.src = url;
       s.async = true;
-      s.onload = () => setTimeout(() => {
-        if (getPaySkyLightbox()) probe();
-        else loadOne(idx + 1);
-      }, 300);
+      s.onload = () => setTimeout(() => { if (!probe()) loadOne(idx + 1); }, 400);
       s.onerror = () => loadOne(idx + 1);
       document.body.appendChild(s);
     };
     loadOne(0);
     return () => { cancelled = true; };
-  }, [paymentMethod]);
+  }, []);
 
   // Redirect if cart is empty
   useEffect(() => {
