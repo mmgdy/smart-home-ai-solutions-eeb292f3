@@ -83,27 +83,17 @@ export function ProductEditor({ adminToken }: Props) {
   const openNew = () => { setEditing({ ...blank }); setOpen(true); };
   const openEdit = (p: Product) => { setEditing({ ...p }); setOpen(true); };
 
-  const uploadViaAdminWrite = async (file: File, bucket: string): Promise<string> => {
-    const base64 = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve((reader.result as string).split(",")[1]);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-    const ext = file.name.split(".").pop()?.toLowerCase() || "bin";
-    const filename = `manual/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-    const { data, error } = await supabase.functions.invoke("admin-write", {
-      body: { action: "upload-file", token: adminToken, filename, base64, mimeType: file.type, bucket },
-    });
-    if (error || !data?.success) throw new Error(data?.error || error?.message || "Upload failed");
-    return data.publicUrl as string;
-  };
-
   const handleImageUpload = async (file: File) => {
     setUploading(true);
     try {
-      const url = await uploadViaAdminWrite(file, "product-images");
-      setEditing((prev) => ({ ...prev, image_url: url }));
+      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+      const path = `manual/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { error } = await supabase.storage.from("product-images").upload(path, file, {
+        upsert: true, contentType: file.type, cacheControl: "31536000",
+      });
+      if (error) throw error;
+      const { data } = supabase.storage.from("product-images").getPublicUrl(path);
+      setEditing((prev) => ({ ...prev, image_url: data.publicUrl }));
       toast({ title: "Image uploaded" });
     } catch (e: any) {
       toast({ title: "Upload failed", description: e.message, variant: "destructive" });
@@ -115,8 +105,14 @@ export function ProductEditor({ adminToken }: Props) {
   const handleVideoUpload = async (file: File) => {
     setVideoUploading(true);
     try {
-      const url = await uploadViaAdminWrite(file, "product-videos");
-      setEditing((prev) => ({ ...prev, video_url: url }));
+      const ext = file.name.split(".").pop()?.toLowerCase() || "mp4";
+      const path = `manual/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { error } = await supabase.storage.from("product-videos").upload(path, file, {
+        upsert: true, contentType: file.type, cacheControl: "31536000",
+      });
+      if (error) throw error;
+      const { data } = supabase.storage.from("product-videos").getPublicUrl(path);
+      setEditing((prev) => ({ ...prev, video_url: data.publicUrl }));
       toast({ title: "Video uploaded" });
     } catch (e: any) {
       toast({ title: "Video upload failed", description: e.message, variant: "destructive" });
