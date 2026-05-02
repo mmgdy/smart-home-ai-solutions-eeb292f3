@@ -335,12 +335,14 @@ const Checkout = () => {
 
   const handlePaySkyPayment = async () => {
     try {
-      // Get PaySky configuration from edge function
+      // Create the order FIRST with status=pending_payment so PaySky can
+      // sign the authoritative amount server-side (prevents amount tampering).
+      const order = await createOrder('pending_payment');
+
       const { data, error } = await supabase.functions.invoke('paysky-checkout', {
         body: {
-          orderId: `order_${Date.now()}`,
-          amount: total,
-          merchantReference: `BZ_${Date.now()}`,
+          orderId: order.id,
+          merchantReference: `BZ_${order.id.slice(0, 8)}`,
         },
       });
 
@@ -363,10 +365,12 @@ const Checkout = () => {
           completeCallback: async (response: any) => {
             console.log('Payment complete:', response);
             if (response.Success) {
-              const order = await createOrder();
               await supabase
                 .from('orders')
-                .update({ stripe_session_id: response.TransactionNo || config.MerchantReference })
+                .update({
+                  status: 'pending',
+                  stripe_session_id: response.TransactionNo || config.MerchantReference,
+                })
                 .eq('id', order.id);
 
               toast({
