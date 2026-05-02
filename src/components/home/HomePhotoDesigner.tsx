@@ -37,7 +37,7 @@ function SuggestedProducts({ roomNames, formatPrice, isRTL, addItem }: {
   roomNames: string[];
   formatPrice: (n: number) => string;
   isRTL: boolean;
-  addItem: (p: any) => void;
+  addItem: (p: any, qty?: number) => void;
 }) {
   const keywords = Array.from(new Set(
     roomNames.flatMap(r => {
