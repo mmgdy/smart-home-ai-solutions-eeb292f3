@@ -8,6 +8,22 @@ const corsHeaders = {
 
 const PRODUCT_IMAGES_BUCKET = "product-images";
 
+async function verifyAdminToken(supabase: any, token: string): Promise<boolean> {
+  if (!token) return false;
+  try {
+    const decoded = atob(token);
+    const [adminId] = decoded.split(":");
+    const { data } = await supabase
+      .from("admin_settings")
+      .select("value")
+      .eq("key", `admin_token_${adminId}`)
+      .single();
+    return !!data && data.value === token;
+  } catch {
+    return false;
+  }
+}
+
 type ProductRow = {
   id: string;
   name: string;
@@ -60,8 +76,16 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const limit = Math.min(Math.max(Number(body?.limit ?? 50), 1), 100);
     const dryRun = Boolean(body?.dryRun);
+    const token = body?.token;
 
     const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+
+    if (!(await verifyAdminToken(supabase, token))) {
+      return new Response(JSON.stringify({ success: false, error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const { data: products, error: productsError } = await supabase
       .from("products")
