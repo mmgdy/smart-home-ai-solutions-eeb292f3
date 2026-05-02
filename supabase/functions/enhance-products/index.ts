@@ -5,6 +5,22 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+async function verifyAdminToken(supabase: any, token: string): Promise<boolean> {
+  if (!token) return false;
+  try {
+    const decoded = atob(token);
+    const [adminId] = decoded.split(":");
+    const { data } = await supabase
+      .from("admin_settings")
+      .select("value")
+      .eq("key", `admin_token_${adminId}`)
+      .single();
+    return !!data && data.value === token;
+  } catch {
+    return false;
+  }
+}
+
 interface Product {
   id: string;
   name: string;
