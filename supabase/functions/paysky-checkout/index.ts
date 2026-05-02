@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -65,7 +66,27 @@ serve(async (req) => {
   }
 
   try {
-    const { orderId, amount, merchantReference } = await req.json();
+    const { orderId, merchantReference } = await req.json();
+
+    if (!orderId || typeof orderId !== "string") {
+      return new Response(JSON.stringify({ error: "orderId required" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Look up the authoritative order amount from the database — never trust the client.
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+    const { data: order, error: orderErr } = await supabase
+      .from("orders").select("id, total, status").eq("id", orderId).single();
+    if (orderErr || !order) {
+      return new Response(JSON.stringify({ error: "Order not found" }), {
+        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const amount = Number(order.total);
 
     const PAYSKY_MERCHANT_ID = Deno.env.get("PAYSKY_MERCHANT_ID");
     const PAYSKY_TERMINAL_ID = Deno.env.get("PAYSKY_TERMINAL_ID");
@@ -84,22 +105,21 @@ serve(async (req) => {
       );
     }
 
-    const amountValue = Number(amount);
-    if (!Number.isFinite(amountValue) || amountValue <= 0) {
+    if (!Number.isFinite(amount) || amount <= 0) {
       return new Response(JSON.stringify({ error: "Invalid amount" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const amountInPiasters = Math.round(amountValue * 100);
+    const amountInPiasters = Math.round(amount * 100);
     const dateTimeLocalTrxn = getLocalTransactionTime();
 
     const hashParams = {
       Amount: amountInPiasters.toString(),
       DateTimeLocalTrxn: dateTimeLocalTrxn,
       MerchantId: PAYSKY_MERCHANT_ID,
-      MerchantReference: merchantReference || orderId || `BZ_${Date.now()}`,
+      MerchantReference: merchantReference || orderId,
       TerminalId: PAYSKY_TERMINAL_ID,
     };
 
