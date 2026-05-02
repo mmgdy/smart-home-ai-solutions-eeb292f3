@@ -428,7 +428,13 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    const { action, batchSize = 5, includeExternal = false } = await req.json();
+    const { action, batchSize = 5, includeExternal = false, token } = await req.json();
+
+    if (!(await verifyAdminToken(supabase, token))) {
+      return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     if (action === 'find-missing-images' || action === 'refresh-product-images') {
       const products = await getProductsForImageRefresh(supabase, Math.min(Math.max(Number(batchSize || 5), 1), 12), includeExternal || action === 'refresh-product-images');
