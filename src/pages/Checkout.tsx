@@ -306,25 +306,7 @@ const Checkout = () => {
     // Send order notification email
     try {
       await supabase.functions.invoke('send-order-notification', {
-        body: {
-          orderId: order.id,
-          email: formData.email,
-          total: total,
-          paymentMethod: paymentMethod,
-          items: orderItems.map(item => ({
-            product_name: item.product_name,
-            quantity: item.quantity,
-            price: item.price,
-          })),
-          shippingAddress: {
-            firstName: formData.firstName,
-            lastName: formData.lastName,
-            phone: formData.phone,
-            address: formData.address,
-            city: formData.city,
-            governorate: formData.governorate,
-          },
-        },
+        body: { orderId: order.id, paymentMethod },
       });
     } catch (emailError) {
       console.warn('Could not send order notification:', emailError);
