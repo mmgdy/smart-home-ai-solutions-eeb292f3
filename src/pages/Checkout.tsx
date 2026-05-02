@@ -231,12 +231,12 @@ const Checkout = () => {
     }
   };
 
-  const createOrder = async () => {
+  const createOrder = async (status: string = 'pending') => {
     // Create order in database
     const orderData = {
       email: formData.email,
       total: total,
-      status: 'pending',
+      status,
       stripe_session_id: null,
       shipping_address: {
         firstName: formData.firstName,
