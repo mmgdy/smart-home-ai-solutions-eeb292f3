@@ -5,6 +5,22 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+async function verifyAdminToken(supabase: any, token: string): Promise<boolean> {
+  if (!token) return false;
+  try {
+    const decoded = atob(token);
+    const [adminId] = decoded.split(":");
+    const { data } = await supabase
+      .from("admin_settings")
+      .select("value")
+      .eq("key", `admin_token_${adminId}`)
+      .single();
+    return !!data && data.value === token;
+  } catch {
+    return false;
+  }
+}
+
 const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY') ?? '';
 
 const callAI = async (systemPrompt: string, userPrompt: string): Promise<string> => {
@@ -72,7 +88,15 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { action = 'discover-products', category, batchSize = 8 } = await req.json().catch(() => ({}));
+    const { action = 'discover-products', category, batchSize = 8, token, cronSecret } = await req.json().catch(() => ({}));
+
+    const expectedCronSecret = Deno.env.get('CRON_SECRET');
+    const isCron = !!expectedCronSecret && cronSecret === expectedCronSecret;
+    if (!isCron && !(await verifyAdminToken(supabase, token))) {
+      return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     if (action === 'discover-products') {
       const targetCategory = category || CATEGORIES[Math.floor(Math.random() * CATEGORIES.length)];

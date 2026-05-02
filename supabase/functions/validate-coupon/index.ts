@@ -5,16 +5,37 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Simple in-memory rate limiting (per cold-start instance, per IP)
+const rateBuckets = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT = 20;
+const RATE_WINDOW_MS = 60_000;
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+    const now = Date.now();
+    const bucket = rateBuckets.get(ip);
+    if (!bucket || bucket.resetAt < now) {
+      rateBuckets.set(ip, { count: 1, resetAt: now + RATE_WINDOW_MS });
+    } else {
+      bucket.count += 1;
+      if (bucket.count > RATE_LIMIT) {
+        return new Response(JSON.stringify({ valid: false, message: "Too many requests" }), {
+          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const { code, orderAmount, use } = await req.json();
+    const { code, orderAmount } = await req.json();
+    // Note: usage counter is no longer incremented via this public endpoint
+    // to prevent abuse. Track usage via admin reports instead.
 
     if (!code) {
       return new Response(JSON.stringify({ valid: false, message: "Coupon code is required" }), {
@@ -78,19 +99,6 @@ Deno.serve(async (req) => {
     const discount = coupon.discount_type === "percentage"
       ? Math.round(Number(orderAmount) * coupon.discount_value / 100)
       : Math.min(coupon.discount_value, Number(orderAmount));
-
-    // Increment used_count if requested (called when order is placed)
-    if (use) {
-      const idx = coupons.findIndex((c: any) => c.code === coupon.code);
-      if (idx !== -1) {
-        coupons[idx] = { ...coupons[idx], used_count: (coupons[idx].used_count || 0) + 1 };
-        await supabase.from("admin_settings").upsert({
-          key: "all_coupons",
-          value: JSON.stringify(coupons),
-          updated_at: new Date().toISOString(),
-        }, { onConflict: "key" });
-      }
-    }
 
     return new Response(JSON.stringify({
       valid: true,

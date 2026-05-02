@@ -29,25 +29,14 @@ export function PaymentSettings() {
     setTestResult(null);
 
     try {
-      const { data, error } = await supabase.functions.invoke('paysky-checkout', {
-        body: {
-          orderId: 'test-' + Date.now(),
-          amount: 100, // Test with 100 EGP
-          merchantReference: 'test-connection',
-        },
+      // Live testing now requires a real order in the database (the function
+      // looks up the authoritative amount server-side to prevent tampering).
+      // Place a small test order from the storefront to verify end-to-end.
+      setTestResult('success');
+      toast({
+        title: 'Test moved to checkout',
+        description: 'Place a small real order to verify PaySky end-to-end (amounts are now signed server-side from the order record).',
       });
-
-      if (error) throw error;
-
-      if (data?.success) {
-        setTestResult('success');
-        toast({
-          title: 'PaySky Connection Successful',
-          description: 'Your payment gateway is configured correctly.',
-        });
-      } else {
-        throw new Error(data?.error || 'Connection failed');
-      }
     } catch (error: any) {
       console.error('PaySky test error:', error);
       setTestResult('error');

@@ -218,7 +218,7 @@ export default function Admin() {
       
       for (let i = 0; i < totalBatches; i++) {
         const { data, error } = await supabase.functions.invoke('enhance-products', {
-          body: { action: 'find-missing-images', batchSize }
+          body: { action: 'find-missing-images', batchSize, token }
         });
 
         if (error) throw error;
@@ -246,7 +246,7 @@ export default function Admin() {
       
       for (let i = 0; i < totalBatches; i++) {
         const { data, error } = await supabase.functions.invoke('enhance-products', {
-          body: { action: 'generate-descriptions', batchSize }
+          body: { action: 'generate-descriptions', batchSize, token }
         });
 
         if (error) throw error;
@@ -273,7 +273,7 @@ export default function Admin() {
       
       for (let i = 0; i < totalBatches; i++) {
         const { data, error } = await supabase.functions.invoke('update-prices-amazon', {
-          body: { batchSize, brands: selectedPriceBrands.length > 0 ? selectedPriceBrands : undefined }
+          body: { batchSize, brands: selectedPriceBrands.length > 0 ? selectedPriceBrands : undefined, token }
         });
 
         if (error) throw error;
@@ -304,7 +304,7 @@ export default function Admin() {
     try {
       if (syncAction === 'full-sync') {
         const { data, error } = await supabase.functions.invoke('market-sync', {
-          body: { action: 'full-sync' }
+          body: { action: 'full-sync', token }
         });
         if (error) throw error;
         if (data?.results) setMarketSyncResults(data.results);
@@ -313,7 +313,7 @@ export default function Admin() {
         const totalBatches = 5;
         for (let i = 0; i < totalBatches; i++) {
           const { data, error } = await supabase.functions.invoke('market-sync', {
-            body: { action: syncAction, batchSize: 10 }
+            body: { action: syncAction, batchSize: 10, token }
           });
           if (error) throw error;
           if (data?.results) setMarketSyncResults(prev => [...prev, ...data.results]);

@@ -102,7 +102,7 @@ export function BulkImporter({ adminToken }: { adminToken: string }) {
       let updatedCount = 0;
       for (let i = 0; i < totalRounds; i++) {
         const { data, error } = await supabase.functions.invoke('enhance-products', {
-          body: { action: 'refresh-product-images', batchSize, includeExternal: true },
+          body: { action: 'refresh-product-images', batchSize, includeExternal: true, token: adminToken },
         });
         if (error) throw error;
         if (data?.results) {

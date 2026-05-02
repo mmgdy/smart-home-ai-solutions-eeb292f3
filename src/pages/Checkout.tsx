@@ -231,12 +231,12 @@ const Checkout = () => {
     }
   };
 
-  const createOrder = async () => {
+  const createOrder = async (status: string = 'pending') => {
     // Create order in database
     const orderData = {
       email: formData.email,
       total: total,
-      status: 'pending',
+      status,
       stripe_session_id: null,
       shipping_address: {
         firstName: formData.firstName,
@@ -300,39 +300,13 @@ const Checkout = () => {
       console.warn('Could not award loyalty points:', loyaltyError);
     }
 
-    // Increment coupon usage via edge function (no DDL required)
-    if (appliedCoupon) {
-      try {
-        await supabase.functions.invoke('validate-coupon', {
-          body: { code: appliedCoupon.code, orderAmount: subtotal, use: true },
-        });
-      } catch (e) {
-        console.warn('Could not increment coupon usage:', e);
-      }
-    }
+    // Coupon usage tracking is handled via admin reports — public increment was removed
+    // to prevent abuse (anyone could exhaust max_uses by replaying the request).
 
     // Send order notification email
     try {
       await supabase.functions.invoke('send-order-notification', {
-        body: {
-          orderId: order.id,
-          email: formData.email,
-          total: total,
-          paymentMethod: paymentMethod,
-          items: orderItems.map(item => ({
-            product_name: item.product_name,
-            quantity: item.quantity,
-            price: item.price,
-          })),
-          shippingAddress: {
-            firstName: formData.firstName,
-            lastName: formData.lastName,
-            phone: formData.phone,
-            address: formData.address,
-            city: formData.city,
-            governorate: formData.governorate,
-          },
-        },
+        body: { orderId: order.id, paymentMethod },
       });
     } catch (emailError) {
       console.warn('Could not send order notification:', emailError);
@@ -343,12 +317,14 @@ const Checkout = () => {
 
   const handlePaySkyPayment = async () => {
     try {
-      // Get PaySky configuration from edge function
+      // Create the order FIRST with status=pending_payment so PaySky can
+      // sign the authoritative amount server-side (prevents amount tampering).
+      const order = await createOrder('pending_payment');
+
       const { data, error } = await supabase.functions.invoke('paysky-checkout', {
         body: {
-          orderId: `order_${Date.now()}`,
-          amount: total,
-          merchantReference: `BZ_${Date.now()}`,
+          orderId: order.id,
+          merchantReference: `BZ_${order.id.slice(0, 8)}`,
         },
       });
 
@@ -371,10 +347,12 @@ const Checkout = () => {
           completeCallback: async (response: any) => {
             console.log('Payment complete:', response);
             if (response.Success) {
-              const order = await createOrder();
               await supabase
                 .from('orders')
-                .update({ stripe_session_id: response.TransactionNo || config.MerchantReference })
+                .update({
+                  status: 'pending',
+                  stripe_session_id: response.TransactionNo || config.MerchantReference,
+                })
                 .eq('id', order.id);
 
               toast({
