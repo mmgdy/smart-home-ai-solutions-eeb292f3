@@ -5,6 +5,22 @@ const corsHeaders = {
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+async function verifyAdminToken(supabase: any, token: string): Promise<boolean> {
+  if (!token) return false;
+  try {
+    const decoded = atob(token);
+    const [adminId] = decoded.split(":");
+    const { data } = await supabase
+      .from("admin_settings")
+      .select("value")
+      .eq("key", `admin_token_${adminId}`)
+      .single();
+    return !!data && data.value === token;
+  } catch {
+    return false;
+  }
+}
+
 interface PriceResult {
   productId: string;
   productName: string;
@@ -21,7 +37,17 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { batchSize = 5, brands = [] } = await req.json();
+    const { batchSize = 5, brands = [], token } = await req.json();
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    if (!(await verifyAdminToken(supabase, token))) {
+      return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     const perplexityApiKey = Deno.env.get('PERPLEXITY_API_KEY');
     if (!perplexityApiKey) {
@@ -30,10 +56,6 @@ Deno.serve(async (req) => {
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Fetch products to update
     let query = supabase
