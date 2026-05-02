@@ -6,6 +6,49 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+async function verifyAdminToken(supabase: any, token: string): Promise<boolean> {
+  if (!token) return false;
+  try {
+    const decoded = atob(token);
+    const [adminId] = decoded.split(":");
+    const { data } = await supabase
+      .from("admin_settings")
+      .select("value")
+      .eq("key", `admin_token_${adminId}`)
+      .single();
+    return !!data && data.value === token;
+  } catch {
+    return false;
+  }
+}
+
+function isUrlAllowed(rawUrl: string): boolean {
+  try {
+    const u = new URL(rawUrl);
+    if (u.protocol !== "https:" && u.protocol !== "http:") return false;
+    const host = u.hostname.toLowerCase();
+    if (
+      host === "localhost" ||
+      host === "0.0.0.0" ||
+      host.endsWith(".local") ||
+      host.endsWith(".internal")
+    ) return false;
+    // Block IP literals in private/loopback/link-local ranges
+    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) {
+      const parts = host.split(".").map(Number);
+      const [a, b] = parts;
+      if (a === 10) return false;
+      if (a === 127) return false;
+      if (a === 169 && b === 254) return false;
+      if (a === 172 && b >= 16 && b <= 31) return false;
+      if (a === 192 && b === 168) return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -25,6 +68,20 @@ serve(async (req) => {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    if (!(await verifyAdminToken(supabase, adminToken))) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (!isUrlAllowed(url)) {
+      return new Response(JSON.stringify({ error: "URL not allowed" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Fetch the page content
     const pageResp = await fetch(url, {
