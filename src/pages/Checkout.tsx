@@ -300,16 +300,8 @@ const Checkout = () => {
       console.warn('Could not award loyalty points:', loyaltyError);
     }
 
-    // Increment coupon usage via edge function (no DDL required)
-    if (appliedCoupon) {
-      try {
-        await supabase.functions.invoke('validate-coupon', {
-          body: { code: appliedCoupon.code, orderAmount: subtotal, use: true },
-        });
-      } catch (e) {
-        console.warn('Could not increment coupon usage:', e);
-      }
-    }
+    // Coupon usage tracking is handled via admin reports — public increment was removed
+    // to prevent abuse (anyone could exhaust max_uses by replaying the request).
 
     // Send order notification email
     try {
