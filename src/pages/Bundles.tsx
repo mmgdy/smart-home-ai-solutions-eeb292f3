@@ -342,13 +342,16 @@ const Bundles = () => {
                         onClick={() => handleOrderBundle(bundle)}
                       >
                         <ShoppingCart className="mr-1.5 h-3.5 w-3.5" />
-                        {isRTL ? 'أضف للسلة' : 'Add to Cart'}
+                        {isRTL ? 'اطلب الآن' : 'Order Now'}
                       </Button>
-                      <a href="https://wa.me/201234567890" target="_blank" rel="noopener noreferrer">
-                        <Button variant="outline" size="icon" className="h-10 w-10 rounded-full">
-                          💬
-                        </Button>
-                      </a>
+                      <Button
+                        variant="outline"
+                        className="rounded-full h-10 text-sm"
+                        onClick={() => openCustomize(bundle)}
+                        title={isRTL ? 'تخصيص الباقة' : 'Customize bundle'}
+                      >
+                        <Settings2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </motion.div>
                 );
