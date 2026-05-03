@@ -381,6 +381,59 @@ const Bundles = () => {
           </div>
         </div>
       </Layout>
+      <Dialog open={customizeOpen} onOpenChange={setCustomizeOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>
+              {isRTL ? `تخصيص: ${activeBundle?.nameAr ?? ''}` : `Customize: ${activeBundle?.nameEn ?? ''}`}
+            </DialogTitle>
+          </DialogHeader>
+          <Input
+            placeholder={isRTL ? 'بحث عن منتج…' : 'Search products…'}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="mb-3"
+          />
+          <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+            {productsLoading && <div className="flex justify-center py-8"><Loader2 className="animate-spin" /></div>}
+            {!productsLoading && allProducts
+              .filter((p) => !search || p.name.toLowerCase().includes(search.toLowerCase()) || (p.brand || '').toLowerCase().includes(search.toLowerCase()))
+              .slice(0, 100)
+              .map((p) => {
+                const qty = selectedProducts[p.id] || 0;
+                return (
+                  <div key={p.id} className="flex items-center gap-3 border border-border rounded-lg p-2">
+                    <Checkbox
+                      checked={qty > 0}
+                      onCheckedChange={(v) => setSelectedProducts((s) => ({ ...s, [p.id]: v ? Math.max(1, qty) : 0 }))}
+                    />
+                    <img src={(p as any).image_url || '/placeholder.svg'} alt={p.name} className="w-10 h-10 rounded object-cover bg-muted" onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/placeholder.svg'; }} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{p.name}</p>
+                      <p className="text-xs text-muted-foreground">{formatPrice(p.price)}</p>
+                    </div>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={qty}
+                      onChange={(e) => setSelectedProducts((s) => ({ ...s, [p.id]: Math.max(0, parseInt(e.target.value || '0', 10)) }))}
+                      className="w-16 h-8 text-center"
+                    />
+                  </div>
+                );
+              })}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCustomizeOpen(false)}>
+              {isRTL ? 'إلغاء' : 'Cancel'}
+            </Button>
+            <Button onClick={addCustomizedToCart}>
+              <ShoppingCart className="mr-2 h-4 w-4" />
+              {isRTL ? 'أضف المختار للسلة' : 'Add selected to cart'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
