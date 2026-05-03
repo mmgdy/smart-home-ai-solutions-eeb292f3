@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
-import * as bcrypt from "https://deno.land/x/bcrypt@v0.4.1/mod.ts";
+// Use the sync API to avoid Web Worker (not available in Supabase edge runtime)
+import { hashSync, compareSync } from "https://deno.land/x/bcrypt@v0.4.1/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -54,17 +55,25 @@ serve(async (req) => {
       const storedHash: string = admin.password_hash ?? "";
 
       if (storedHash.startsWith("$2")) {
-        // Bcrypt hash — compare properly
-        passwordOk = await bcrypt.compare(password, storedHash);
+        try {
+          passwordOk = compareSync(password, storedHash);
+        } catch (e) {
+          console.error("bcrypt compare error", e);
+          passwordOk = false;
+        }
       } else {
         // Plaintext (legacy) — compare and upgrade on success
         passwordOk = storedHash === password;
         if (passwordOk) {
-          const newHash = await bcrypt.hash(password);
-          await supabase
-            .from("admin_users")
-            .update({ password_hash: newHash })
-            .eq("id", admin.id);
+          try {
+            const newHash = hashSync(password);
+            await supabase
+              .from("admin_users")
+              .update({ password_hash: newHash })
+              .eq("id", admin.id);
+          } catch (e) {
+            console.error("bcrypt hash error", e);
+          }
         }
       }
 
@@ -138,7 +147,7 @@ serve(async (req) => {
         );
       }
 
-      const hashedPassword = await bcrypt.hash(newPassword);
+      const hashedPassword = hashSync(newPassword);
 
       const { error: updateError } = await supabase
         .from("admin_users")
