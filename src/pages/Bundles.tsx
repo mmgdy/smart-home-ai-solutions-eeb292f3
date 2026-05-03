@@ -3,13 +3,15 @@ import { useEffect, useState } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowRight, Check, Wifi, ShoppingCart, Sparkles } from 'lucide-react';
+import { Check, Wifi, ShoppingCart, Sparkles, Settings2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
 import { useLanguage } from '@/lib/i18n';
 import { useCart } from '@/hooks/useCart';
 import { useToast } from '@/hooks/use-toast';
 import type { Product } from '@/types/store';
-import { cn } from '@/lib/utils';
 import { normalizeBundles } from '@/lib/bundles';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -124,30 +126,93 @@ const Bundles = () => {
   const { addItem } = useCart();
   const { toast } = useToast();
   const [bundles, setBundles] = useState(normalizeBundles(allBundles as any));
+  const [customizeOpen, setCustomizeOpen] = useState(false);
+  const [activeBundle, setActiveBundle] = useState<any>(null);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [productsLoading, setProductsLoading] = useState(false);
+  const [selectedProducts, setSelectedProducts] = useState<Record<string, number>>({});
+  const [search, setSearch] = useState('');
 
-  const handleOrderBundle = (bundle: ReturnType<typeof normalizeBundles>[number]) => {
-    const virtualProduct: Product = {
-      id: `bundle-${bundle.id}`,
-      name: isRTL ? bundle.nameAr : bundle.nameEn,
-      slug: `bundle-${bundle.id}`,
-      description: isRTL ? (bundle as any).descAr ?? '' : (bundle as any).descEn ?? '',
-      price: bundle.priceEgp,
-      original_price: bundle.originalPrice,
-      category_id: null,
-      image_url: null,
-      images: [],
-      brand: null,
-      protocol: null,
-      specifications: {},
-      stock: 99,
-      featured: false,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    addItem(virtualProduct, 1);
+  // Match device labels to real products by keyword
+  const matchProductsForBundle = (bundle: any, products: Product[]): Record<string, number> => {
+    const sel: Record<string, number> = {};
+    const devices: string[] = bundle.devicesEn ?? [];
+    devices.forEach((d) => {
+      const m = d.match(/^(\d+)\s*x?\s*(.+)$/i);
+      const qty = m ? parseInt(m[1], 10) : 1;
+      const term = (m ? m[2] : d).toLowerCase();
+      const tokens = term.split(/[\s,/-]+/).filter((t) => t.length > 2);
+      const found = products.find((p) =>
+        tokens.every((t) => (p.name + ' ' + (p.description || '') + ' ' + (p.brand || '')).toLowerCase().includes(t))
+      ) || products.find((p) => tokens.some((t) => p.name.toLowerCase().includes(t)));
+      if (found) sel[found.id] = (sel[found.id] || 0) + qty;
+    });
+    return sel;
+  };
+
+  const ensureProductsLoaded = async () => {
+    if (allProducts.length) return allProducts;
+    setProductsLoading(true);
+    const { data } = await supabase
+      .from('products')
+      .select('*')
+      .gt('stock', 0)
+      .order('name')
+      .limit(500);
+    const list = (data ?? []) as any as Product[];
+    setAllProducts(list);
+    setProductsLoading(false);
+    return list;
+  };
+
+  const openCustomize = async (bundle: any) => {
+    setActiveBundle(bundle);
+    setCustomizeOpen(true);
+    const products = await ensureProductsLoaded();
+    setSelectedProducts(matchProductsForBundle(bundle, products));
+  };
+
+  const addCustomizedToCart = () => {
+    let added = 0;
+    Object.entries(selectedProducts).forEach(([id, qty]) => {
+      if (qty <= 0) return;
+      const p = allProducts.find((x) => x.id === id);
+      if (p) { addItem(p as any, qty); added += qty; }
+    });
+    if (added === 0) {
+      toast({ title: isRTL ? 'لم يتم اختيار أي منتج' : 'No products selected', variant: 'destructive' });
+      return;
+    }
     toast({
       title: isRTL ? 'تمت الإضافة للسلة' : 'Added to cart',
-      description: isRTL ? bundle.nameAr : bundle.nameEn,
+      description: isRTL ? `${added} منتج من ${activeBundle.nameAr}` : `${added} items from ${activeBundle.nameEn}`,
+    });
+    setCustomizeOpen(false);
+    navigate('/cart');
+  };
+
+  const handleOrderBundle = async (bundle: ReturnType<typeof normalizeBundles>[number]) => {
+    const products = await ensureProductsLoaded();
+    const matched = matchProductsForBundle(bundle, products);
+    const ids = Object.keys(matched);
+    if (!ids.length) {
+      toast({
+        title: isRTL ? 'تعذّر إضافة الباقة' : "Couldn't auto-add bundle",
+        description: isRTL ? 'افتح "تخصيص" لاختيار المنتجات يدوياً' : 'Open "Customize" to pick products manually',
+        variant: 'destructive',
+      });
+      openCustomize(bundle);
+      return;
+    }
+    let total = 0;
+    ids.forEach((id) => {
+      const p = products.find((x) => x.id === id);
+      const qty = matched[id];
+      if (p) { addItem(p as any, qty); total += qty; }
+    });
+    toast({
+      title: isRTL ? 'تمت إضافة الباقة' : 'Bundle added to cart',
+      description: isRTL ? `${total} منتج من ${bundle.nameAr}` : `${total} items from ${bundle.nameEn}`,
     });
     navigate('/cart');
   };
