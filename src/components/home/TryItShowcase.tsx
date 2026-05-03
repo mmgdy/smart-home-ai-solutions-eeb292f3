@@ -21,19 +21,18 @@ function SceneProducts({ sceneId, isRTL, formatPrice }: { sceneId: string; isRTL
   const { data: products } = useQuery({
     queryKey: ['scene-products', sceneId],
     queryFn: async () => {
-      const orFilter = keywords.map(k => `name.ilike.%${k}%`).join(',');
+      const orFilter = keywords.map(k => `name.ilike.%${k}%,description.ilike.%${k}%`).join(',');
       const { data } = await supabase
         .from('products')
         .select('id, name, price, image_url, slug')
         .or(orFilter)
-        .eq('featured', true)
+        .gt('stock', 0)
         .limit(4);
       if (data && data.length > 0) return data;
-      // fallback: any featured products
       const { data: fallback } = await supabase
         .from('products')
         .select('id, name, price, image_url, slug')
-        .eq('featured', true)
+        .gt('stock', 0)
         .limit(4);
       return fallback ?? [];
     },
