@@ -3,13 +3,15 @@ import { useEffect, useState } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowRight, Check, Wifi, ShoppingCart, Sparkles } from 'lucide-react';
+import { Check, Wifi, ShoppingCart, Sparkles, Settings2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
 import { useLanguage } from '@/lib/i18n';
 import { useCart } from '@/hooks/useCart';
 import { useToast } from '@/hooks/use-toast';
 import type { Product } from '@/types/store';
-import { cn } from '@/lib/utils';
 import { normalizeBundles } from '@/lib/bundles';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -124,30 +126,93 @@ const Bundles = () => {
   const { addItem } = useCart();
   const { toast } = useToast();
   const [bundles, setBundles] = useState(normalizeBundles(allBundles as any));
+  const [customizeOpen, setCustomizeOpen] = useState(false);
+  const [activeBundle, setActiveBundle] = useState<any>(null);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [productsLoading, setProductsLoading] = useState(false);
+  const [selectedProducts, setSelectedProducts] = useState<Record<string, number>>({});
+  const [search, setSearch] = useState('');
 
-  const handleOrderBundle = (bundle: ReturnType<typeof normalizeBundles>[number]) => {
-    const virtualProduct: Product = {
-      id: `bundle-${bundle.id}`,
-      name: isRTL ? bundle.nameAr : bundle.nameEn,
-      slug: `bundle-${bundle.id}`,
-      description: isRTL ? (bundle as any).descAr ?? '' : (bundle as any).descEn ?? '',
-      price: bundle.priceEgp,
-      original_price: bundle.originalPrice,
-      category_id: null,
-      image_url: null,
-      images: [],
-      brand: null,
-      protocol: null,
-      specifications: {},
-      stock: 99,
-      featured: false,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    addItem(virtualProduct, 1);
+  // Match device labels to real products by keyword
+  const matchProductsForBundle = (bundle: any, products: Product[]): Record<string, number> => {
+    const sel: Record<string, number> = {};
+    const devices: string[] = bundle.devicesEn ?? [];
+    devices.forEach((d) => {
+      const m = d.match(/^(\d+)\s*x?\s*(.+)$/i);
+      const qty = m ? parseInt(m[1], 10) : 1;
+      const term = (m ? m[2] : d).toLowerCase();
+      const tokens = term.split(/[\s,/-]+/).filter((t) => t.length > 2);
+      const found = products.find((p) =>
+        tokens.every((t) => (p.name + ' ' + (p.description || '') + ' ' + (p.brand || '')).toLowerCase().includes(t))
+      ) || products.find((p) => tokens.some((t) => p.name.toLowerCase().includes(t)));
+      if (found) sel[found.id] = (sel[found.id] || 0) + qty;
+    });
+    return sel;
+  };
+
+  const ensureProductsLoaded = async () => {
+    if (allProducts.length) return allProducts;
+    setProductsLoading(true);
+    const { data } = await supabase
+      .from('products')
+      .select('*')
+      .gt('stock', 0)
+      .order('name')
+      .limit(500);
+    const list = (data ?? []) as any as Product[];
+    setAllProducts(list);
+    setProductsLoading(false);
+    return list;
+  };
+
+  const openCustomize = async (bundle: any) => {
+    setActiveBundle(bundle);
+    setCustomizeOpen(true);
+    const products = await ensureProductsLoaded();
+    setSelectedProducts(matchProductsForBundle(bundle, products));
+  };
+
+  const addCustomizedToCart = () => {
+    let added = 0;
+    Object.entries(selectedProducts).forEach(([id, qty]) => {
+      if (qty <= 0) return;
+      const p = allProducts.find((x) => x.id === id);
+      if (p) { addItem(p as any, qty); added += qty; }
+    });
+    if (added === 0) {
+      toast({ title: isRTL ? 'لم يتم اختيار أي منتج' : 'No products selected', variant: 'destructive' });
+      return;
+    }
     toast({
       title: isRTL ? 'تمت الإضافة للسلة' : 'Added to cart',
-      description: isRTL ? bundle.nameAr : bundle.nameEn,
+      description: isRTL ? `${added} منتج من ${activeBundle.nameAr}` : `${added} items from ${activeBundle.nameEn}`,
+    });
+    setCustomizeOpen(false);
+    navigate('/cart');
+  };
+
+  const handleOrderBundle = async (bundle: ReturnType<typeof normalizeBundles>[number]) => {
+    const products = await ensureProductsLoaded();
+    const matched = matchProductsForBundle(bundle, products);
+    const ids = Object.keys(matched);
+    if (!ids.length) {
+      toast({
+        title: isRTL ? 'تعذّر إضافة الباقة' : "Couldn't auto-add bundle",
+        description: isRTL ? 'افتح "تخصيص" لاختيار المنتجات يدوياً' : 'Open "Customize" to pick products manually',
+        variant: 'destructive',
+      });
+      openCustomize(bundle);
+      return;
+    }
+    let total = 0;
+    ids.forEach((id) => {
+      const p = products.find((x) => x.id === id);
+      const qty = matched[id];
+      if (p) { addItem(p as any, qty); total += qty; }
+    });
+    toast({
+      title: isRTL ? 'تمت إضافة الباقة' : 'Bundle added to cart',
+      description: isRTL ? `${total} منتج من ${bundle.nameAr}` : `${total} items from ${bundle.nameEn}`,
     });
     navigate('/cart');
   };
@@ -277,13 +342,16 @@ const Bundles = () => {
                         onClick={() => handleOrderBundle(bundle)}
                       >
                         <ShoppingCart className="mr-1.5 h-3.5 w-3.5" />
-                        {isRTL ? 'أضف للسلة' : 'Add to Cart'}
+                        {isRTL ? 'اطلب الآن' : 'Order Now'}
                       </Button>
-                      <a href="https://wa.me/201234567890" target="_blank" rel="noopener noreferrer">
-                        <Button variant="outline" size="icon" className="h-10 w-10 rounded-full">
-                          💬
-                        </Button>
-                      </a>
+                      <Button
+                        variant="outline"
+                        className="rounded-full h-10 text-sm"
+                        onClick={() => openCustomize(bundle)}
+                        title={isRTL ? 'تخصيص الباقة' : 'Customize bundle'}
+                      >
+                        <Settings2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </motion.div>
                 );
@@ -313,6 +381,59 @@ const Bundles = () => {
           </div>
         </div>
       </Layout>
+      <Dialog open={customizeOpen} onOpenChange={setCustomizeOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>
+              {isRTL ? `تخصيص: ${activeBundle?.nameAr ?? ''}` : `Customize: ${activeBundle?.nameEn ?? ''}`}
+            </DialogTitle>
+          </DialogHeader>
+          <Input
+            placeholder={isRTL ? 'بحث عن منتج…' : 'Search products…'}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="mb-3"
+          />
+          <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+            {productsLoading && <div className="flex justify-center py-8"><Loader2 className="animate-spin" /></div>}
+            {!productsLoading && allProducts
+              .filter((p) => !search || p.name.toLowerCase().includes(search.toLowerCase()) || (p.brand || '').toLowerCase().includes(search.toLowerCase()))
+              .slice(0, 100)
+              .map((p) => {
+                const qty = selectedProducts[p.id] || 0;
+                return (
+                  <div key={p.id} className="flex items-center gap-3 border border-border rounded-lg p-2">
+                    <Checkbox
+                      checked={qty > 0}
+                      onCheckedChange={(v) => setSelectedProducts((s) => ({ ...s, [p.id]: v ? Math.max(1, qty) : 0 }))}
+                    />
+                    <img src={(p as any).image_url || '/placeholder.svg'} alt={p.name} className="w-10 h-10 rounded object-cover bg-muted" onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/placeholder.svg'; }} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{p.name}</p>
+                      <p className="text-xs text-muted-foreground">{formatPrice(p.price)}</p>
+                    </div>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={qty}
+                      onChange={(e) => setSelectedProducts((s) => ({ ...s, [p.id]: Math.max(0, parseInt(e.target.value || '0', 10)) }))}
+                      className="w-16 h-8 text-center"
+                    />
+                  </div>
+                );
+              })}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCustomizeOpen(false)}>
+              {isRTL ? 'إلغاء' : 'Cancel'}
+            </Button>
+            <Button onClick={addCustomizedToCart}>
+              <ShoppingCart className="mr-2 h-4 w-4" />
+              {isRTL ? 'أضف المختار للسلة' : 'Add selected to cart'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };

@@ -79,8 +79,12 @@ serve(async (req) => {
         .gt("stock", 0);
       
       if (products && products.length > 0) {
-        productsInfo = products.map(p => 
-          `- **${p.name}** (${p.brand || 'Baytzaki'}): ${p.description || 'Smart home device'} - السعر/Price: ${p.price} ج.م/EGP - Protocol: ${p.protocol || 'WiFi'} - [View Product](/products/${p.slug})`
+        const { data: full } = await supabase
+          .from("products")
+          .select("name, description, price, brand, protocol, stock, slug, image_url")
+          .gt("stock", 0);
+        productsInfo = (full ?? products).map((p: any) =>
+          `- **${p.name}** (${p.brand || 'Baytzaki'}): ${p.description || 'Smart home device'} - السعر/Price: ${p.price} ج.م/EGP - Protocol: ${p.protocol || 'WiFi'} - Image: ${p.image_url || ''} - Link: /products/${p.slug}`
         ).join("\n");
       }
     }
@@ -109,7 +113,10 @@ ${productsInfo || "No products currently in stock."}
 ## Guidelines:
 - Be friendly, knowledgeable, and concise
 - Use clear markdown: **bold** for emphasis, bullet lists for recommendations, and headings (## / ###) for sections
-- Always include clickable product links in markdown: [Product Name](/products/slug)
+- For EACH recommended product, include BOTH the product image AND a clickable link in this exact format on its own line:
+  ![Product Name](IMAGE_URL)
+  **[Product Name](/products/slug)** — short reason — **PRICE ج.م**
+- Only use image URLs from the "Image:" field above. Skip the image line if Image is empty.
 - Group recommendations with short headings (e.g. "## Lighting", "## Security")
 - Be honest if we don't have what they need
 - **Always show prices in EGP (ج.م) - NEVER use dollars**
