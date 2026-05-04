@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Globe2, Loader2, DollarSign, Sparkles, CheckCircle2, XCircle, Wand2 } from 'lucide-react';
+import { Globe2, Loader2, DollarSign, Sparkles, CheckCircle2, XCircle, Wand2, ListPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
+import { Textarea } from '@/components/ui/textarea';
 
 export function BulkImporter({ adminToken }: { adminToken: string }) {
   const { toast } = useToast();
@@ -27,6 +28,83 @@ export function BulkImporter({ adminToken }: { adminToken: string }) {
   const [isFixing, setIsFixing] = useState(false);
   const [fixProgress, setFixProgress] = useState(0);
   const [fixResults, setFixResults] = useState<any[]>([]);
+
+  // Bulk-paste URL importer state
+  const [bulkUrls, setBulkUrls] = useState('');
+  const [isBulkImporting, setIsBulkImporting] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState(0);
+  const [bulkResults, setBulkResults] = useState<{ url: string; success: boolean; name?: string; error?: string }[]>([]);
+
+  const handleBulkPasteImport = async () => {
+    const urls = Array.from(new Set(
+      bulkUrls.split(/\s|,|;/).map(u => u.trim()).filter(u => /^https?:\/\//i.test(u))
+    ));
+    if (!urls.length) {
+      toast({ variant: 'destructive', title: 'No URLs found', description: 'Paste one URL per line.' });
+      return;
+    }
+    setIsBulkImporting(true);
+    setBulkResults([]);
+    setBulkProgress(0);
+
+    let done = 0;
+    for (const url of urls) {
+      try {
+        // 1) Scrape the product
+        const scrapeResp = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/scrape-product`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            },
+            body: JSON.stringify({ url, adminToken }),
+          }
+        );
+        const scraped = await scrapeResp.json();
+        if (!scrapeResp.ok || scraped.error) throw new Error(scraped.error || 'Scrape failed');
+        const p = scraped.product;
+
+        // 2) Save via admin-write (service role bypasses RLS)
+        const { data: saveData, error: saveErr } = await supabase.functions.invoke('admin-write', {
+          body: {
+            action: 'create-product',
+            token: adminToken,
+            product: {
+              name: p.name,
+              slug: p.slug,
+              price: Number(p.price) || 0,
+              original_price: p.original_price ?? null,
+              description: p.description ?? null,
+              brand: p.brand ?? null,
+              protocol: p.protocol ?? null,
+              image_url: p.image_url ?? null,
+              images: p.images || [],
+              specifications: p.specifications || {},
+              stock: 10,
+              featured: false,
+            },
+          },
+        });
+        if (saveErr || !saveData?.success) throw new Error(saveData?.error || saveErr?.message || 'Save failed');
+
+        setBulkResults(prev => [...prev, { url, success: true, name: p.name }]);
+      } catch (err) {
+        setBulkResults(prev => [...prev, {
+          url, success: false,
+          error: err instanceof Error ? err.message : 'Failed',
+        }]);
+      } finally {
+        done += 1;
+        setBulkProgress((done / urls.length) * 100);
+      }
+    }
+
+    setIsBulkImporting(false);
+    const okCount = bulkResults.filter(r => r.success).length;
+    toast({ title: 'Bulk import finished', description: `${urls.length} URLs processed.` });
+  };
 
   const handleCrawl = async () => {
     if (!rootUrl.trim()) return;
@@ -132,6 +210,57 @@ export function BulkImporter({ adminToken }: { adminToken: string }) {
 
   return (
     <div className="space-y-8">
+      {/* Bulk paste-URL importer */}
+      <div className="bg-card border-2 border-primary/40 rounded-xl p-6">
+        <h2 className="text-xl font-semibold mb-2 flex items-center gap-2">
+          <ListPlus className="w-5 h-5 text-primary" />
+          Bulk Import — Paste Many Product URLs
+        </h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          Paste one product URL per line (Amazon, Noon, AliExpress, brand sites…). We'll scrape each one
+          and add it to the store. Slow but reliable — keep the tab open.
+        </p>
+
+        <Textarea
+          rows={6}
+          placeholder={'https://www.amazon.eg/dp/B0...\nhttps://noon.com/...\nhttps://...'}
+          value={bulkUrls}
+          onChange={(e) => setBulkUrls(e.target.value)}
+          className="font-mono text-xs mb-3"
+        />
+
+        <Button onClick={handleBulkPasteImport} disabled={isBulkImporting || !bulkUrls.trim()} size="lg" className="w-full">
+          {isBulkImporting ? (
+            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Importing… ({Math.round(bulkProgress)}%)</>
+          ) : (
+            <><ListPlus className="w-4 h-4 mr-2" /> Import All Pasted URLs</>
+          )}
+        </Button>
+
+        {isBulkImporting && <Progress value={bulkProgress} className="mt-4" />}
+
+        {bulkResults.length > 0 && (
+          <div className="mt-4 max-h-72 overflow-y-auto space-y-1 text-xs">
+            <div className="text-sm font-medium mb-2">
+              Imported{' '}
+              <span className="text-success">{bulkResults.filter(r => r.success).length}</span>{' '}
+              of {bulkResults.length}
+            </div>
+            {bulkResults.map((r, idx) => (
+              <div key={idx} className="flex items-start gap-2 p-2 rounded bg-muted/30">
+                {r.success
+                  ? <CheckCircle2 className="w-4 h-4 text-success flex-shrink-0 mt-0.5" />
+                  : <XCircle className="w-4 h-4 text-destructive flex-shrink-0 mt-0.5" />}
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium truncate">{r.name || r.url}</div>
+                  {!r.success && <div className="text-muted-foreground">{r.error}</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Catalog crawler */}
       <div className="bg-card border border-border rounded-xl p-6">
         <h2 className="text-xl font-semibold mb-2 flex items-center gap-2">
