@@ -7,6 +7,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { getProductImage } from '@/lib/productImage';
 
 const SCENE_KEYWORDS: Record<string, string[]> = {
   morning:  ['curtain', 'lighting', 'switch', 'AC', 'coffee'],
@@ -63,7 +64,7 @@ function SceneProducts({ sceneId, isRTL, formatPrice }: { sceneId: string; isRTL
           <Link key={p.id} to={`/products/${p.slug}`} className="group">
             <div className="aspect-square rounded-xl overflow-hidden bg-muted mb-2 border border-border group-hover:border-primary/50 transition-colors">
               <img
-                src={p.image_url || '/placeholder.svg'}
+                src={getProductImage(p as any)}
                 alt={p.name}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                 onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/placeholder.svg'; }}

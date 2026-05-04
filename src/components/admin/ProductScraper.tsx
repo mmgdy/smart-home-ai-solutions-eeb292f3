@@ -94,23 +94,29 @@ export function ProductScraper({ adminToken }: { adminToken: string }) {
         .replace(/^-|-$/g, '')
         .substring(0, 80);
 
-      const { error } = await supabase.from('products').insert({
-        name: editName,
-        slug,
-        price: parseFloat(editPrice),
-        original_price: editOriginalPrice ? parseFloat(editOriginalPrice) : null,
-        description: editDescription,
-        brand: editBrand || null,
-        protocol: editProtocol || null,
-        image_url: scrapedProduct.image_url,
-        images: scrapedProduct.images || [],
-        specifications: scrapedProduct.specifications || {},
-        stock: 10,
-        featured: false,
-        video_url: editVideoUrl || null,
-      } as any);
-
-      if (error) throw error;
+      // Route through admin-write (service role) — public INSERT on products is denied by RLS.
+      const { data, error } = await supabase.functions.invoke('admin-write', {
+        body: {
+          action: 'create-product',
+          token: adminToken,
+          product: {
+            name: editName,
+            slug,
+            price: parseFloat(editPrice),
+            original_price: editOriginalPrice ? parseFloat(editOriginalPrice) : null,
+            description: editDescription,
+            brand: editBrand || null,
+            protocol: editProtocol || null,
+            image_url: scrapedProduct.image_url,
+            images: scrapedProduct.images || [],
+            specifications: scrapedProduct.specifications || {},
+            stock: 10,
+            featured: false,
+            video_url: editVideoUrl || null,
+          },
+        },
+      });
+      if (error || !data?.success) throw new Error(data?.error || error?.message || 'Save failed');
 
       setSaved(true);
       toast({ title: 'Product saved!', description: `${editName} added to store` });
