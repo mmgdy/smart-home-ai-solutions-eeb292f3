@@ -181,6 +181,40 @@ export function TryItShowcase() {
   const [autoPlay, setAutoPlay] = useState(false);
   const active = SCENES.find(s => s.id === activeId);
 
+  // Derive real visual state from triggered actions (works for any language).
+  const visual = (() => {
+    if (!active) return { lightOn: false, shutterClosed: false, brightness: 1 };
+    let lightOn = false;
+    let shutterClosed = false;
+    let brightness = 1;
+    active.actions.forEach((a, i) => {
+      const text = `${a.en} ${a.ar}`.toLowerCase();
+      const on = triggered.has(i);
+      if (/curtain|shutter|ستائر|ستارة/.test(text)) {
+        // "open" => not closed; "close|قفل|تقفل" => closed
+        if (on) shutterClosed = /close|قفل|تقفل/.test(text);
+        else if (/open|فتح|تفتح/.test(text)) {
+          // before opening it, treat as closed only when the scene starts closed
+        }
+      }
+      if (/light|lamp|💡|إضاءة|ضوء/.test(text)) {
+        if (on) {
+          if (/off|طفي|تطفي/.test(text)) { lightOn = false; brightness = 0.35; }
+          else {
+            lightOn = true;
+            const m = text.match(/(\d{1,3})\s*%|٪\s*(\d{1,3})/);
+            const pct = m ? Number(m[1] || m[2]) : 80;
+            brightness = Math.max(0.3, Math.min(1.4, pct / 100 + 0.4));
+          }
+        }
+      }
+    });
+    // Movie scene starts dark; sleep also dim
+    if (active.id === 'movie' && triggered.size === 0) brightness = 0.55;
+    if (active.id === 'sleep' && triggered.size === 0) brightness = 0.45;
+    return { lightOn, shutterClosed, brightness };
+  })();
+
   // Reset triggered when scene changes
   useEffect(() => {
     setTriggered(new Set());
@@ -286,6 +320,60 @@ export function TryItShowcase() {
                 className="relative aspect-[16/9] bg-cover bg-center"
                 style={{ backgroundImage: `url(${active.bgImage})` }}
               >
+                {/* Brightness layer reacts to lights & time-of-day */}
+                <motion.div
+                  className="absolute inset-0 pointer-events-none"
+                  animate={{ backgroundColor: `rgba(0,0,0,${Math.max(0, 1 - visual.brightness)})` }}
+                  transition={{ duration: 0.7, ease: 'easeOut' }}
+                />
+
+                {/* Real shutter that slides DOWN when closed and UP when open */}
+                <motion.div
+                  className="absolute inset-x-0 top-0 pointer-events-none origin-top overflow-hidden"
+                  initial={false}
+                  animate={{ height: visual.shutterClosed ? '100%' : '0%' }}
+                  transition={{ type: 'spring', stiffness: 70, damping: 18 }}
+                  style={{
+                    backgroundImage:
+                      'repeating-linear-gradient(180deg, rgba(20,20,25,0.95) 0px, rgba(20,20,25,0.95) 8px, rgba(45,45,55,0.95) 8px, rgba(45,45,55,0.95) 14px)',
+                    boxShadow: 'inset 0 -10px 20px rgba(0,0,0,0.5)',
+                  }}
+                />
+
+                {/* Light glow that fades smoothly */}
+                <AnimatePresence>
+                  {visual.lightOn && (
+                    <>
+                      <motion.div
+                        key="glow-l"
+                        initial={{ opacity: 0, scale: 0.6 }}
+                        animate={{ opacity: 0.55, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.6 }}
+                        transition={{ duration: 0.6 }}
+                        className="absolute top-6 left-[20%] w-40 h-40 rounded-full pointer-events-none"
+                        style={{
+                          background: `radial-gradient(circle, hsl(${active.accent} / 0.9) 0%, transparent 70%)`,
+                          filter: 'blur(20px)',
+                          willChange: 'transform, opacity',
+                        }}
+                      />
+                      <motion.div
+                        key="glow-r"
+                        initial={{ opacity: 0, scale: 0.6 }}
+                        animate={{ opacity: 0.55, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.6 }}
+                        transition={{ duration: 0.6, delay: 0.1 }}
+                        className="absolute top-6 right-[20%] w-40 h-40 rounded-full pointer-events-none"
+                        style={{
+                          background: `radial-gradient(circle, hsl(${active.accent} / 0.9) 0%, transparent 70%)`,
+                          filter: 'blur(20px)',
+                          willChange: 'transform, opacity',
+                        }}
+                      />
+                    </>
+                  )}
+                </AnimatePresence>
+
                 <div
                   className="absolute inset-0"
                   style={{
@@ -293,6 +381,7 @@ export function TryItShowcase() {
                       ? `linear-gradient(135deg, hsl(${active.accent} / ${0.3 + triggered.size * 0.1}), hsl(0 0% 0% / ${0.7 - triggered.size * 0.05}))`
                       : `linear-gradient(135deg, hsl(${active.accent} / 0.4), hsl(0 0% 0% / 0.6))`,
                     transition: 'background 0.6s ease',
+                    pointerEvents: 'none',
                   }}
                 />
 
