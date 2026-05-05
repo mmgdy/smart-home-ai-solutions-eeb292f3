@@ -26,6 +26,9 @@ export interface Product {
   updated_at: string;
   video_url?: string | null;
   category?: Category;
+  parent_id?: string | null;
+  variant_axis?: string | null;
+  variant_label?: string | null;
 }
 
 export interface CartItem {

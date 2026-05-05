@@ -1,3 +1,4 @@
+import { useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Helmet } from 'react-helmet-async';
@@ -26,7 +27,7 @@ const ProductDetail = () => {
   const { toast } = useToast();
   const { t, formatPrice, isRTL } = useLanguage();
 
-  const { data: product, isLoading } = useQuery({
+  const { data: master, isLoading } = useQuery({
     queryKey: ['product', slug],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -40,10 +41,37 @@ const ProductDetail = () => {
     enabled: !!slug,
   });
 
+  // Fetch variants if this is a master product
+  const { data: variants } = useQuery({
+    queryKey: ['product-variants', master?.id],
+    queryFn: async () => {
+      if (!master) return [] as Product[];
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('parent_id', master.id)
+        .order('price');
+      if (error) throw error;
+      return (data as Product[]) || [];
+    },
+    enabled: !!master?.id,
+  });
+
+  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
+
+  const activeProduct = useMemo<Product | null>(() => {
+    if (!master) return null;
+    if (variants && variants.length > 0) {
+      const sel = variants.find((v) => v.id === selectedVariantId);
+      return sel ?? variants[0];
+    }
+    return master;
+  }, [master, variants, selectedVariantId]);
+
   const handleAddToCart = () => {
-    if (product) {
-      addItem(product);
-      toast({ title: t('addedToCart'), description: `${product.name} ${t('hasBeenAdded')}` });
+    if (activeProduct) {
+      addItem(activeProduct);
+      toast({ title: t('addedToCart'), description: `${activeProduct.name} ${t('hasBeenAdded')}` });
     }
   };
 
@@ -57,7 +85,7 @@ const ProductDetail = () => {
     );
   }
 
-  if (!product) {
+  if (!master || !activeProduct) {
     return (
       <Layout>
         <div className="container py-20 text-center">
@@ -68,6 +96,10 @@ const ProductDetail = () => {
       </Layout>
     );
   }
+
+  const product = activeProduct;
+  const hasVariants = !!variants && variants.length > 0;
+  const variantAxis = hasVariants ? (variants![0].variant_axis || master.variant_axis) : null;
 
   const discount = product.original_price
     ? Math.round(((product.original_price - product.price) / product.original_price) * 100)
@@ -190,6 +222,42 @@ const ProductDetail = () => {
                   <span className="text-sm text-destructive">{t('outOfStock')}</span>
                 )}
               </div>
+
+              {/* Variant selector */}
+              {hasVariants && (
+                <div className="mb-5">
+                  <p className="text-sm font-medium mb-2">
+                    {variantAxis === 'color'
+                      ? (isRTL ? 'اللون' : 'Color')
+                      : variantAxis === 'channels'
+                        ? (isRTL ? 'عدد المفاتيح' : 'Channels')
+                        : (isRTL ? 'الخيار' : 'Option')}
+                    : <span className="text-muted-foreground font-normal">{product.variant_label}</span>
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {variants!.map((v) => {
+                      const isSelected = v.id === product.id;
+                      const oos = v.stock === 0;
+                      return (
+                        <button
+                          key={v.id}
+                          onClick={() => setSelectedVariantId(v.id)}
+                          disabled={oos}
+                          className={cn(
+                            "px-3 py-1.5 rounded-full border text-sm transition",
+                            isSelected
+                              ? "border-primary bg-primary/10 text-primary font-medium"
+                              : "border-border hover:border-primary/50",
+                            oos && "opacity-40 line-through cursor-not-allowed"
+                          )}
+                        >
+                          {v.variant_label || v.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Compatibility badges */}
               {compatBadges.length > 0 && (

@@ -3,7 +3,7 @@ import { Helmet } from 'react-helmet-async';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Upload, Loader2, CheckCircle, AlertCircle, Image, FileText, Sparkles, Download, Filter, DollarSign, CreditCard, Package, Settings, Globe, RefreshCw, Link2, Users, Tag, Zap } from 'lucide-react';
+import { Upload, Loader2, CheckCircle, AlertCircle, Image, FileText, Sparkles, Download, Filter, DollarSign, CreditCard, Package, Settings, Globe, RefreshCw, Link2, Users, Tag, Zap, Merge } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
@@ -22,6 +22,7 @@ import { UsersManagement } from '@/components/admin/UsersManagement';
 import { BundlesEditor } from '@/components/admin/BundlesEditor';
 import { CouponEditor } from '@/components/admin/CouponEditor';
 import { FlashSaleEditor } from '@/components/admin/FlashSaleEditor';
+import { VariantsManager } from '@/components/admin/VariantsManager';
 
 interface ProductExport {
   id: string;
@@ -345,6 +346,7 @@ export default function Admin() {
             <TabsTrigger value="users"><Users className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Users</span></TabsTrigger>
             <TabsTrigger value="products"><Package className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Products</span></TabsTrigger>
             <TabsTrigger value="bundles"><Package className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Bundles</span></TabsTrigger>
+            <TabsTrigger value="variants"><Merge className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Variants</span></TabsTrigger>
             <TabsTrigger value="bulk"><Globe className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Bulk Import</span></TabsTrigger>
             <TabsTrigger value="site-info"><Globe className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Site Info</span></TabsTrigger>
             <TabsTrigger value="settings"><Settings className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Site</span></TabsTrigger>
@@ -361,6 +363,7 @@ export default function Admin() {
 
           <TabsContent value="users" className="mt-6"><UsersManagement adminToken={token} /></TabsContent>
           <TabsContent value="bundles" className="mt-6"><BundlesEditor adminToken={token} /></TabsContent>
+          <TabsContent value="variants" className="mt-6"><VariantsManager adminToken={token} /></TabsContent>
 
           <TabsContent value="bulk" className="mt-6">
             <BulkImporter adminToken={token} />

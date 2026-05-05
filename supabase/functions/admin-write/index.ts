@@ -127,6 +127,85 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ========== VARIANT MERGE ==========
+    // Suggest groups of duplicate products by name similarity
+    if (action === "suggest-variant-groups") {
+      const { data: products, error } = await supabase
+        .from("products")
+        .select("id,name,brand,price,stock,image_url,parent_id,variant_axis,variant_label")
+        .is("parent_id", null);
+      if (error) throw error;
+
+      // Strip color/wattage/channel/size tokens to derive a base key
+      const stripTokens = (s: string) =>
+        s.toLowerCase()
+          .replace(/\b(\d+)\s*(w|watt|watts|m|cm|mm|amp|a|gang|ch|channel|key|button|buttons|way|ways)\b/g, "")
+          .replace(/\b(black|white|gold|silver|gray|grey|red|blue|green|brown|beige|champagne|rose|pink)\b/g, "")
+          .replace(/\b(1|2|3|4|5|6)[\s-]?(gang|channel|ch|button|key|way)\b/g, "")
+          .replace(/[^a-z0-9 ]+/g, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+
+      const groups: Record<string, any[]> = {};
+      for (const p of products || []) {
+        const key = `${(p.brand || "").toLowerCase()}::${stripTokens(p.name)}`;
+        if (!key.split("::")[1]) continue;
+        (groups[key] ||= []).push(p);
+      }
+      const suggestions = Object.entries(groups)
+        .filter(([, items]) => items.length >= 2)
+        .map(([key, items]) => ({ key, items }));
+      return new Response(JSON.stringify({ success: true, suggestions }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Merge: assign parent_id + axis + label to children
+    if (action === "merge-variants") {
+      const { masterId, variantIds, axis, labels } = body as {
+        masterId: string;
+        variantIds: string[];
+        axis: string;
+        labels: Record<string, string>;
+      };
+      if (!masterId || !Array.isArray(variantIds) || variantIds.length === 0) {
+        throw new Error("masterId and variantIds required");
+      }
+      // Set master axis + clear its parent
+      await supabase.from("products").update({
+        parent_id: null,
+        variant_axis: axis,
+        variant_label: labels[masterId] || null,
+      }).eq("id", masterId);
+
+      // Update each child
+      for (const vid of variantIds) {
+        if (vid === masterId) continue;
+        await supabase.from("products").update({
+          parent_id: masterId,
+          variant_axis: axis,
+          variant_label: labels[vid] || null,
+        }).eq("id", vid);
+      }
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Unmerge a variant (promote back to standalone)
+    if (action === "unmerge-variant") {
+      const { id } = body;
+      const { error } = await supabase.from("products").update({
+        parent_id: null,
+        variant_axis: null,
+        variant_label: null,
+      }).eq("id", id);
+      if (error) throw error;
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // ========== PRODUCT VISIBILITY (stored in site_info) ==========
     if (action === "get-product-visibility") {
       const hiddenIds = await readHiddenIds(supabase);
