@@ -1,3 +1,4 @@
+import { useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Helmet } from 'react-helmet-async';
@@ -26,7 +27,7 @@ const ProductDetail = () => {
   const { toast } = useToast();
   const { t, formatPrice, isRTL } = useLanguage();
 
-  const { data: product, isLoading } = useQuery({
+  const { data: master, isLoading } = useQuery({
     queryKey: ['product', slug],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -40,10 +41,37 @@ const ProductDetail = () => {
     enabled: !!slug,
   });
 
+  // Fetch variants if this is a master product
+  const { data: variants } = useQuery({
+    queryKey: ['product-variants', master?.id],
+    queryFn: async () => {
+      if (!master) return [] as Product[];
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('parent_id', master.id)
+        .order('price');
+      if (error) throw error;
+      return (data as Product[]) || [];
+    },
+    enabled: !!master?.id,
+  });
+
+  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
+
+  const activeProduct = useMemo<Product | null>(() => {
+    if (!master) return null;
+    if (variants && variants.length > 0) {
+      const sel = variants.find((v) => v.id === selectedVariantId);
+      return sel ?? variants[0];
+    }
+    return master;
+  }, [master, variants, selectedVariantId]);
+
   const handleAddToCart = () => {
-    if (product) {
-      addItem(product);
-      toast({ title: t('addedToCart'), description: `${product.name} ${t('hasBeenAdded')}` });
+    if (activeProduct) {
+      addItem(activeProduct);
+      toast({ title: t('addedToCart'), description: `${activeProduct.name} ${t('hasBeenAdded')}` });
     }
   };
 
@@ -57,7 +85,7 @@ const ProductDetail = () => {
     );
   }
 
-  if (!product) {
+  if (!master || !activeProduct) {
     return (
       <Layout>
         <div className="container py-20 text-center">
@@ -68,6 +96,10 @@ const ProductDetail = () => {
       </Layout>
     );
   }
+
+  const product = activeProduct;
+  const hasVariants = !!variants && variants.length > 0;
+  const variantAxis = hasVariants ? (variants![0].variant_axis || master.variant_axis) : null;
 
   const discount = product.original_price
     ? Math.round(((product.original_price - product.price) / product.original_price) * 100)
