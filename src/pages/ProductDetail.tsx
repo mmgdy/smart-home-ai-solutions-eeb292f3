@@ -223,6 +223,42 @@ const ProductDetail = () => {
                 )}
               </div>
 
+              {/* Variant selector */}
+              {hasVariants && (
+                <div className="mb-5">
+                  <p className="text-sm font-medium mb-2">
+                    {variantAxis === 'color'
+                      ? (isRTL ? 'اللون' : 'Color')
+                      : variantAxis === 'channels'
+                        ? (isRTL ? 'عدد المفاتيح' : 'Channels')
+                        : (isRTL ? 'الخيار' : 'Option')}
+                    : <span className="text-muted-foreground font-normal">{product.variant_label}</span>
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {variants!.map((v) => {
+                      const isSelected = v.id === product.id;
+                      const oos = v.stock === 0;
+                      return (
+                        <button
+                          key={v.id}
+                          onClick={() => setSelectedVariantId(v.id)}
+                          disabled={oos}
+                          className={cn(
+                            "px-3 py-1.5 rounded-full border text-sm transition",
+                            isSelected
+                              ? "border-primary bg-primary/10 text-primary font-medium"
+                              : "border-border hover:border-primary/50",
+                            oos && "opacity-40 line-through cursor-not-allowed"
+                          )}
+                        >
+                          {v.variant_label || v.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* Compatibility badges */}
               {compatBadges.length > 0 && (
                 <div className="flex items-center gap-2 mb-4">
