@@ -12,6 +12,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useCart } from '@/hooks/useCart';
 import { Product } from '@/types/store';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 // Map feature types to product search terms
 const FEATURE_TO_PRODUCT_KEYWORDS: Record<FeatureType, string[]> = {
@@ -259,47 +261,95 @@ export function QuoteSummaryWithCart() {
 
   const handleGeneratePDF = async () => {
     setIsGeneratingPDF(true);
-    
-    const quoteText = `
-SMART HOME QUOTATION
-=====================
 
-Property Type: ${propertyType?.toUpperCase()}
-Generated: ${new Date().toLocaleDateString()}
+    try {
+      const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const margin = 40;
 
-ROOMS & PRODUCTS
-----------------
-${rooms.map(room => {
-  const roomProducts = productsByRoom[room.id] || [];
-  return `
-${room.name}:
-${roomProducts.map(mp => `  - ${mp.product.name}: ${formatPrice(mp.product.price)} x ${mp.quantity}`).join('\n')}
-`;
-}).join('')}
+      // Header bar
+      doc.setFillColor(13, 148, 136); // teal
+      doc.rect(0, 0, pageWidth, 80, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(22);
+      doc.text('Baytzaki', margin, 38);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(11);
+      doc.text('Smart Home Quotation', margin, 58);
+      doc.setFontSize(9);
+      doc.text(`Generated: ${new Date().toLocaleDateString()}`, pageWidth - margin, 58, { align: 'right' });
 
-SUMMARY
--------
-Products: ${formatPrice(productSubtotal)}
-Installation: ${formatPrice(installationFee)}
-TOTAL: ${formatPrice(total)}
+      // Meta
+      let y = 110;
+      doc.setTextColor(40, 40, 40);
+      doc.setFontSize(11);
+      doc.text(`Property: ${(propertyType || '').toString().toUpperCase()}`, margin, y);
+      doc.text(`Rooms: ${rooms.length}`, margin, y + 16);
+      doc.text(`Contact: ${localEmail || localPhone || 'Not provided'}`, margin, y + 32);
+      y += 56;
 
-Contact: ${localEmail || localPhone || 'Not provided'}
-    `.trim();
+      // Build table rows grouped by room
+      const rows: any[] = [];
+      rooms.forEach((room) => {
+        const items = productsByRoom[room.id] || [];
+        if (items.length === 0) return;
+        rows.push([{ content: room.name, colSpan: 4, styles: { fillColor: [240, 253, 250], fontStyle: 'bold', textColor: [13, 148, 136] } }]);
+        items.forEach((mp) => {
+          rows.push([
+            mp.product.name,
+            mp.product.brand || '-',
+            String(mp.quantity),
+            formatPrice(mp.product.price * mp.quantity),
+          ]);
+        });
+      });
 
-    const blob = new Blob([quoteText], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `smart-home-quote-${Date.now()}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
+      autoTable(doc, {
+        startY: y,
+        head: [['Product', 'Brand', 'Qty', 'Total']],
+        body: rows,
+        theme: 'striped',
+        headStyles: { fillColor: [13, 148, 136], textColor: 255 },
+        styles: { fontSize: 10, cellPadding: 6 },
+        margin: { left: margin, right: margin },
+      });
 
-    setIsGeneratingPDF(false);
-    
-    toast({
-      title: isRTL ? 'تم تحميل العرض' : 'Quote Downloaded',
-      description: isRTL ? 'تم حفظ ملف العرض' : 'Quote file has been saved',
-    });
+      const finalY = (doc as any).lastAutoTable.finalY + 20;
+      doc.setFontSize(11);
+      doc.text(`Products Subtotal:`, pageWidth - margin - 160, finalY);
+      doc.text(formatPrice(productSubtotal), pageWidth - margin, finalY, { align: 'right' });
+      doc.text(`Installation:`, pageWidth - margin - 160, finalY + 16);
+      doc.text(formatPrice(installationFee), pageWidth - margin, finalY + 16, { align: 'right' });
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(13);
+      doc.setTextColor(13, 148, 136);
+      doc.text(`TOTAL:`, pageWidth - margin - 160, finalY + 38);
+      doc.text(formatPrice(total), pageWidth - margin, finalY + 38, { align: 'right' });
+
+      // Footer
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(120, 120, 120);
+      const ph = doc.internal.pageSize.getHeight();
+      doc.text('Baytzaki — Egypt\'s premier smart home provider | baytzaki.com | +20 105 062 7310', pageWidth / 2, ph - 24, { align: 'center' });
+
+      doc.save(`baytzaki-quote-${Date.now()}.pdf`);
+
+      toast({
+        title: isRTL ? 'تم تحميل العرض' : 'Quote Downloaded',
+        description: isRTL ? 'تم حفظ ملف PDF' : 'PDF saved successfully',
+      });
+    } catch (err) {
+      console.error('PDF generation error:', err);
+      toast({
+        title: isRTL ? 'خطأ' : 'Error',
+        description: isRTL ? 'فشل إنشاء PDF' : 'Failed to generate PDF',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsGeneratingPDF(false);
+    }
   };
 
   if (isLoadingProducts) {
