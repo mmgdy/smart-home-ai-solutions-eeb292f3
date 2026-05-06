@@ -88,11 +88,11 @@ export function ProductEditor({ adminToken }: Props) {
     try {
       const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
       const path = `manual/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-      const { error } = await supabase.storage.from("product-images").upload(path, file, {
-        upsert: true, contentType: file.type, cacheControl: "31536000",
+      const base64 = await fileToBase64(file);
+      const { data, error } = await supabase.functions.invoke("admin-write", {
+        body: { action: "upload-file", token: adminToken, bucket: "product-images", filename: path, base64, mimeType: file.type },
       });
-      if (error) throw error;
-      const { data } = supabase.storage.from("product-images").getPublicUrl(path);
+      if (error || !data?.success) throw new Error(data?.error || error?.message || "Upload failed");
       setEditing((prev) => ({ ...prev, image_url: data.publicUrl }));
       toast({ title: "Image uploaded" });
     } catch (e: any) {
@@ -107,11 +107,11 @@ export function ProductEditor({ adminToken }: Props) {
     try {
       const ext = file.name.split(".").pop()?.toLowerCase() || "mp4";
       const path = `manual/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-      const { error } = await supabase.storage.from("product-videos").upload(path, file, {
-        upsert: true, contentType: file.type, cacheControl: "31536000",
+      const base64 = await fileToBase64(file);
+      const { data, error } = await supabase.functions.invoke("admin-write", {
+        body: { action: "upload-file", token: adminToken, bucket: "product-videos", filename: path, base64, mimeType: file.type },
       });
-      if (error) throw error;
-      const { data } = supabase.storage.from("product-videos").getPublicUrl(path);
+      if (error || !data?.success) throw new Error(data?.error || error?.message || "Upload failed");
       setEditing((prev) => ({ ...prev, video_url: data.publicUrl }));
       toast({ title: "Video uploaded" });
     } catch (e: any) {
