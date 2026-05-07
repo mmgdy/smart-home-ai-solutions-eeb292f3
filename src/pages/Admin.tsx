@@ -550,15 +550,24 @@ export default function Admin() {
           <TabsContent value="import" className="mt-6">
             <div className="bg-card border border-border rounded-xl p-6 mb-8">
               <h2 className="text-xl font-semibold mb-4">Import Products from CSV</h2>
-              <p className="text-muted-foreground mb-6">This will import products from the uploaded CSV file with smart price conversion.</p>
-              
-              <Button onClick={handleImport} disabled={isImporting} size="lg" className="w-full">
-                {isImporting ? (
-                  <><Loader2 className="w-5 h-5 mr-2 animate-spin" />Importing Products...</>
-                ) : (
-                  <><Upload className="w-5 h-5 mr-2" />Start Import</>
-                )}
-              </Button>
+              <p className="text-muted-foreground mb-6">Upload your own CSV file, or import the bundled sample CSV.</p>
+
+              <div className="grid md:grid-cols-2 gap-3">
+                <label className="cursor-pointer">
+                  <input type="file" accept=".csv,text/csv" onChange={handleImportFile} disabled={isImporting} className="hidden" />
+                  <div className={`flex items-center justify-center gap-2 h-11 rounded-md border border-primary bg-primary text-primary-foreground hover:bg-primary/90 ${isImporting ? 'opacity-60 pointer-events-none' : ''}`}>
+                    {isImporting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Upload className="w-5 h-5" />}
+                    <span className="font-medium">Upload CSV File</span>
+                  </div>
+                </label>
+                <Button onClick={handleImport} disabled={isImporting} size="lg" variant="outline">
+                  {isImporting ? (
+                    <><Loader2 className="w-5 h-5 mr-2 animate-spin" />Importing...</>
+                  ) : (
+                    <><FileText className="w-5 h-5 mr-2" />Import Bundled Sample</>
+                  )}
+                </Button>
+              </div>
             </div>
 
             {result && (
