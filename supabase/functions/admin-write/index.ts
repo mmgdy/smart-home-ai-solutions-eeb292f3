@@ -92,6 +92,10 @@ Deno.serve(async (req) => {
         featured: !!product.featured,
         video_url: product.video_url || null,
         specifications: product.specifications || {},
+        seo_title: product.seo_title || null,
+        seo_description: product.seo_description || null,
+        seo_keywords: product.seo_keywords || [],
+        tags: product.tags || [],
       }).select().single();
       if (error) throw error;
       return new Response(JSON.stringify({ success: true, product: data }), {
@@ -103,7 +107,8 @@ Deno.serve(async (req) => {
       const { id, updates } = body;
       const clean: Record<string, any> = {};
       const allowed = ["name", "slug", "description", "price", "original_price", "category_id",
-        "brand", "protocol", "image_url", "images", "stock", "featured", "video_url", "specifications"];
+        "brand", "protocol", "image_url", "images", "stock", "featured", "video_url", "specifications",
+        "seo_title", "seo_description", "seo_keywords", "tags"];
       for (const k of allowed) if (k in updates) clean[k] = updates[k];
       if (clean.price !== undefined) clean.price = Number(clean.price);
       if (clean.original_price !== undefined && clean.original_price !== null)
@@ -123,6 +128,135 @@ Deno.serve(async (req) => {
       const { error } = await supabase.from("products").delete().eq("id", id);
       if (error) throw error;
       return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ========== BULK PRODUCT OPERATIONS ==========
+    // Filter products on the server by brand / category / price range, return matching IDs.
+    if (action === "filter-product-ids") {
+      const { brands: brandFilter, categoryId, minPrice, maxPrice, search } = body;
+      let q = supabase.from("products").select("id,name,brand,price,category_id").limit(5000);
+      if (Array.isArray(brandFilter) && brandFilter.length) q = q.in("brand", brandFilter);
+      if (categoryId) q = q.eq("category_id", categoryId);
+      if (typeof minPrice === "number") q = q.gte("price", minPrice);
+      if (typeof maxPrice === "number") q = q.lte("price", maxPrice);
+      if (search) q = q.ilike("name", `%${search}%`);
+      const { data, error } = await q;
+      if (error) throw error;
+      return new Response(JSON.stringify({ success: true, products: data || [] }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "bulk-update-products") {
+      const { ids, updates } = body as { ids: string[]; updates: Record<string, any> };
+      if (!Array.isArray(ids) || ids.length === 0) throw new Error("ids required");
+      const allowed = ["featured", "stock", "category_id", "brand", "tags",
+        "seo_keywords", "seo_title", "seo_description"];
+      const clean: Record<string, any> = { updated_at: new Date().toISOString() };
+      for (const k of allowed) if (k in updates) clean[k] = updates[k];
+      const { error } = await supabase.from("products").update(clean).in("id", ids);
+      if (error) throw error;
+      return new Response(JSON.stringify({ success: true, count: ids.length }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "bulk-delete-products") {
+      const { ids } = body as { ids: string[] };
+      if (!Array.isArray(ids) || ids.length === 0) throw new Error("ids required");
+      const { error } = await supabase.from("products").delete().in("id", ids);
+      if (error) throw error;
+      return new Response(JSON.stringify({ success: true, count: ids.length }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Apply % discount across many products in a single round-trip.
+    // mode: 'discount' (sets original_price=current price; price = current * (1-pct/100))
+    // mode: 'reset' (price = original_price; original_price = null)
+    if (action === "bulk-apply-discount") {
+      const { ids, mode, pct } = body as { ids: string[]; mode: "discount" | "reset"; pct?: number };
+      if (!Array.isArray(ids) || ids.length === 0) throw new Error("ids required");
+      const { data: rows, error: selErr } = await supabase
+        .from("products").select("id,price,original_price").in("id", ids);
+      if (selErr) throw selErr;
+      let success = 0;
+      for (const p of rows || []) {
+        let upd: Record<string, any>;
+        if (mode === "discount") {
+          if (!pct || pct <= 0 || pct >= 100) throw new Error("pct must be 1-99");
+          upd = {
+            price: Math.round(Number(p.price) * (1 - pct / 100)),
+            original_price: Number(p.price),
+            updated_at: new Date().toISOString(),
+          };
+        } else {
+          if (!p.original_price) continue;
+          upd = { price: Number(p.original_price), original_price: null, updated_at: new Date().toISOString() };
+        }
+        const { error } = await supabase.from("products").update(upd).eq("id", p.id);
+        if (!error) success++;
+      }
+      return new Response(JSON.stringify({ success: true, count: success }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Bulk visibility (hidden/published) — append/remove in site_info hidden_ids
+    if (action === "bulk-set-visibility") {
+      const { ids, hidden } = body as { ids: string[]; hidden: boolean };
+      if (!Array.isArray(ids)) throw new Error("ids required");
+      const current = await readHiddenIds(supabase);
+      const set = new Set(current);
+      for (const id of ids) hidden ? set.add(id) : set.delete(id);
+      await supabase.from("site_info").upsert({
+        section: "products", key: "hidden_ids", value: JSON.stringify(Array.from(set)),
+      }, { onConflict: "section,key" });
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // AI SEO autofill: generates seo_title, seo_description, seo_keywords, tags
+    if (action === "ai-generate-seo") {
+      const { id } = body;
+      const { data: p, error: pErr } = await supabase
+        .from("products")
+        .select("name,brand,description,protocol,categories(name)")
+        .eq("id", id).single();
+      if (pErr) throw pErr;
+      const apiKey = Deno.env.get("LOVABLE_API_KEY");
+      if (!apiKey) throw new Error("LOVABLE_API_KEY missing");
+      const ctx = `Product: ${p.name}\nBrand: ${p.brand ?? ""}\nProtocol: ${p.protocol ?? ""}\nCategory: ${(p as any).categories?.name ?? ""}\nDescription: ${p.description ?? ""}`;
+      const prompt = `You are an SEO expert for Baytzaki, a smart-home retailer in Egypt. Given the product context below, return ONLY a compact JSON object with keys: seo_title (max 60 chars, includes brand+product+key benefit), seo_description (max 155 chars, includes a value proposition + "Egypt" + a CTA), seo_keywords (array of 8-12 high-intent search keywords, mix of English and Arabic where helpful, no '#'), tags (array of 5-10 short topical tags). No markdown, no commentary.\n\n${ctx}`;
+      const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [{ role: "user", content: prompt }],
+        }),
+      });
+      if (!r.ok) throw new Error(`AI gateway ${r.status}`);
+      const j = await r.json();
+      const text: string = j.choices?.[0]?.message?.content ?? "{}";
+      const cleaned = text.replace(/```json|```/g, "").trim();
+      let parsed: any = {};
+      try { parsed = JSON.parse(cleaned); } catch {
+        const m = cleaned.match(/\{[\s\S]*\}/); if (m) parsed = JSON.parse(m[0]);
+      }
+      const upd = {
+        seo_title: (parsed.seo_title || "").slice(0, 70) || null,
+        seo_description: (parsed.seo_description || "").slice(0, 170) || null,
+        seo_keywords: Array.isArray(parsed.seo_keywords) ? parsed.seo_keywords.slice(0, 15) : [],
+        tags: Array.isArray(parsed.tags) ? parsed.tags.slice(0, 12) : [],
+        updated_at: new Date().toISOString(),
+      };
+      const { error: uErr } = await supabase.from("products").update(upd).eq("id", id);
+      if (uErr) throw uErr;
+      return new Response(JSON.stringify({ success: true, seo: upd }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
