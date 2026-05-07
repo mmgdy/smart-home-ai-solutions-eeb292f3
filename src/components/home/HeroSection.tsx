@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { ArrowRight, Sparkles, Play, Search, Camera, X, Loader2 } from 'lucide-react';
+import { ArrowRight, Sparkles, Play, Search, Camera, X, Loader2, Calculator } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
@@ -302,6 +302,16 @@ export function HeroSection() {
               >
                 <Sparkles className="mr-2 h-4 w-4" />
                 {isRTL ? 'AI يرسم أجهزة على صورة بيتك' : 'AI Home Designer'}
+              </Button>
+            </Link>
+            <Link to="/calculator">
+              <Button
+                size="lg"
+                variant="outline"
+                className="h-14 px-8 text-base font-medium rounded-full border-warning/40 bg-warning/10 backdrop-blur-md hover:bg-warning/20 text-warning"
+              >
+                <Calculator className="mr-2 h-4 w-4" />
+                {isRTL ? 'حاسبة التكلفة' : 'Cost Calculator'}
               </Button>
             </Link>
           </motion.div>

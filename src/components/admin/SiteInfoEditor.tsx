@@ -51,6 +51,8 @@ const SECTIONS: Array<{
     { key: "calculator_install_min", label: "Calculator: minimum install fee (EGP)" },
     { key: "checkout_install_per_device", label: "Checkout: install fee per device (EGP)" },
     { key: "checkout_install_cap", label: "Checkout: install fee cap (EGP)" },
+    { key: "shipping_flat", label: "Shipping: flat fee (EGP)" },
+    { key: "shipping_free_threshold", label: "Shipping: free over (EGP)" },
   ] },
 ];
 

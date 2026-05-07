@@ -15,6 +15,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { PointsRedemption } from '@/components/loyalty/PointsRedemption';
 import { useAuth } from '@/hooks/useAuth';
 import { AuthButton } from '@/components/auth/AuthButton';
+import { useSiteInfo } from '@/hooks/useSiteInfo';
 import { z } from 'zod';
 
 // Validation schema
@@ -86,6 +87,7 @@ const Checkout = () => {
   const { t, formatPrice, isRTL, language } = useLanguage();
   const { toast } = useToast();
   const { user } = useAuth();
+  const { get: getInfo } = useSiteInfo();
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<keyof CheckoutFormData, string>>>({});
@@ -163,7 +165,9 @@ const Checkout = () => {
   }, [items.length, navigate]);
 
   const subtotal = getTotal();
-  const shippingCost = subtotal >= 1000 ? 0 : 50;
+  const shippingFlat = Number(getInfo('service_prices', 'shipping_flat', '50')) || 0;
+  const shippingThreshold = Number(getInfo('service_prices', 'shipping_free_threshold', '1000')) || 0;
+  const shippingCost = shippingThreshold > 0 && subtotal >= shippingThreshold ? 0 : shippingFlat;
   // Auto-calculated installation fee: 150 EGP per device, capped at 1500 EGP.
   const deviceCount = items.reduce((n, i) => n + i.quantity, 0);
   const installationFee = includeInstallation
@@ -235,6 +239,7 @@ const Checkout = () => {
     // Create order in database
     const orderData = {
       email: formData.email,
+      user_id: user?.id ?? null,
       total: total,
       status,
       stripe_session_id: null,
