@@ -13,8 +13,8 @@ export const TrustAndStats = () => {
     },
     {
       icon: Truck,
-      title: isRTL ? 'الدفع عند الاستلام' : 'Cash on Delivery',
-      desc: isRTL ? 'ادفع عند استلام المنتج بباب بيتك' : 'Pay when you receive it at your door',
+      title: isRTL ? 'شحن لكل مصر' : 'Nationwide Shipping',
+      desc: isRTL ? 'توصيل سريع وآمن لباب بيتك' : 'Fast & safe delivery to your door',
     },
     {
       icon: Wrench,
