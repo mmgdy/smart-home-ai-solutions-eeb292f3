@@ -352,10 +352,14 @@ export type Database = {
           parent_id: string | null
           price: number
           protocol: string | null
+          seo_description: string | null
+          seo_keywords: string[] | null
+          seo_title: string | null
           sku: string | null
           slug: string
           specifications: Json | null
           stock: number
+          tags: string[] | null
           updated_at: string
           variant_axis: string | null
           variant_label: string | null
@@ -375,10 +379,14 @@ export type Database = {
           parent_id?: string | null
           price: number
           protocol?: string | null
+          seo_description?: string | null
+          seo_keywords?: string[] | null
+          seo_title?: string | null
           sku?: string | null
           slug: string
           specifications?: Json | null
           stock?: number
+          tags?: string[] | null
           updated_at?: string
           variant_axis?: string | null
           variant_label?: string | null
@@ -398,10 +406,14 @@ export type Database = {
           parent_id?: string | null
           price?: number
           protocol?: string | null
+          seo_description?: string | null
+          seo_keywords?: string[] | null
+          seo_title?: string | null
           sku?: string | null
           slug?: string
           specifications?: Json | null
           stock?: number
+          tags?: string[] | null
           updated_at?: string
           variant_axis?: string | null
           variant_label?: string | null

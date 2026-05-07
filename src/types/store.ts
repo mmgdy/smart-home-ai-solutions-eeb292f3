@@ -29,6 +29,10 @@ export interface Product {
   parent_id?: string | null;
   variant_axis?: string | null;
   variant_label?: string | null;
+  seo_title?: string | null;
+  seo_description?: string | null;
+  seo_keywords?: string[] | null;
+  tags?: string[] | null;
 }
 
 export interface CartItem {

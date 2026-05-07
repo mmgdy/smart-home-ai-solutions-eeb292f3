@@ -120,8 +120,40 @@ const ProductDetail = () => {
   return (
     <>
       <Helmet>
-        <title>{product.name} | Baytzaki</title>
-        <meta name="description" content={product.description || `Buy ${product.name} at Baytzaki - Smart Home Egypt`} />
+        <title>{product.seo_title || `${product.name} | Baytzaki`}</title>
+        <meta
+          name="description"
+          content={product.seo_description || product.description || `Buy ${product.name} at Baytzaki — Smart Home Egypt. Fast nationwide delivery.`}
+        />
+        {product.seo_keywords && product.seo_keywords.length > 0 && (
+          <meta name="keywords" content={product.seo_keywords.join(", ")} />
+        )}
+        <link rel="canonical" href={`https://baytzaki.com/product/${product.slug}`} />
+        {/* Open Graph */}
+        <meta property="og:type" content="product" />
+        <meta property="og:title" content={product.seo_title || product.name} />
+        <meta property="og:description" content={product.seo_description || product.description || `Buy ${product.name} at Baytzaki`} />
+        {product.image_url && <meta property="og:image" content={product.image_url} />}
+        {/* Twitter */}
+        <meta name="twitter:card" content="summary_large_image" />
+        {/* Product structured data */}
+        <script type="application/ld+json">{JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "Product",
+          name: product.name,
+          description: product.seo_description || product.description || undefined,
+          image: product.image_url || undefined,
+          brand: product.brand ? { "@type": "Brand", name: product.brand } : undefined,
+          sku: (product as any).sku || product.id,
+          offers: {
+            "@type": "Offer",
+            priceCurrency: "EGP",
+            price: product.price,
+            availability: product.stock > 0
+              ? "https://schema.org/InStock"
+              : "https://schema.org/OutOfStock",
+          },
+        })}</script>
       </Helmet>
       <Layout>
         <div className="container py-8 md:py-12 pt-24">
