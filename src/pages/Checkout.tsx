@@ -235,6 +235,7 @@ const Checkout = () => {
     // Create order in database
     const orderData = {
       email: formData.email,
+      user_id: user?.id ?? null,
       total: total,
       status,
       stripe_session_id: null,
