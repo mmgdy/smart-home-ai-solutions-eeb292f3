@@ -7,8 +7,6 @@ import { SmartBundles } from '@/components/home/SmartBundles';
 import { TrustAndStats } from '@/components/home/TrustAndStats';
 import { FeaturedProducts } from '@/components/home/FeaturedProducts';
 import { BrandShowcase } from '@/components/home/BrandShowcase';
-import { TrySmartLighting } from '@/components/home/TrySmartLighting';
-import { TryItShowcase } from '@/components/home/TryItShowcase';
 import { HomePhotoDesigner } from '@/components/home/HomePhotoDesigner';
 
 const Index = () => {
@@ -24,12 +22,10 @@ const Index = () => {
       <Layout>
         <HeroSection />
         <SolutionCategories />
-        <TryItShowcase />
         <AIAdvisorShowcase />
         <SmartBundles />
         <HomePhotoDesigner />
         <TrustAndStats />
-        <TrySmartLighting />
         <FeaturedProducts />
         <BrandShowcase />
       </Layout>
