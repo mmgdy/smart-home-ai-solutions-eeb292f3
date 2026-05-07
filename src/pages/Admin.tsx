@@ -208,6 +208,26 @@ export default function Admin() {
     }
   };
 
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setIsImporting(true);
+    setResult(null);
+    try {
+      const csvContent = await file.text();
+      const { data, error } = await supabase.functions.invoke('import-products', { body: { csvContent, token } });
+      if (error) throw error;
+      setResult(data);
+      toast({ title: 'Import Complete', description: `Successfully imported ${data.inserted} products` });
+    } catch (error: any) {
+      setResult({ error: error.message });
+      toast({ title: 'Import Failed', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
   const handleFindImages = async () => {
     setIsEnhancing(true);
     setEnhanceResults([]);
