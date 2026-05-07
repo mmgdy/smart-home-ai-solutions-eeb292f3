@@ -526,6 +526,63 @@ export function ProductEditor({ adminToken }: Props) {
               <Label>Featured on homepage</Label>
             </div>
 
+            {/* SEO + Tags */}
+            <div className="md:col-span-2 border-t border-border pt-4 mt-2">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-medium flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary" /> SEO & Tags
+                </h3>
+                <Button type="button" size="sm" variant="outline" onClick={aiGenerateSEO} disabled={aiBusy || !editing.id}>
+                  {aiBusy ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
+                  Auto-fill with AI
+                </Button>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="space-y-2 md:col-span-2">
+                  <Label>SEO Title <span className="text-xs text-muted-foreground">(≤60 chars)</span></Label>
+                  <Input
+                    maxLength={70}
+                    value={editing.seo_title ?? ""}
+                    onChange={(e) => setEditing({ ...editing, seo_title: e.target.value })}
+                    placeholder="Brand + Product + Benefit | Baytzaki"
+                  />
+                  <p className="text-xs text-muted-foreground">{(editing.seo_title ?? "").length}/60</p>
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label>SEO Description <span className="text-xs text-muted-foreground">(≤155 chars)</span></Label>
+                  <Textarea
+                    rows={2} maxLength={170}
+                    value={editing.seo_description ?? ""}
+                    onChange={(e) => setEditing({ ...editing, seo_description: e.target.value })}
+                    placeholder="Compelling pitch with key benefit, 'Egypt', and a CTA."
+                  />
+                  <p className="text-xs text-muted-foreground">{(editing.seo_description ?? "").length}/155</p>
+                </div>
+                <div className="space-y-2">
+                  <Label>SEO Keywords <span className="text-xs text-muted-foreground">(comma-separated)</span></Label>
+                  <Input
+                    value={(editing.seo_keywords ?? []).join(", ")}
+                    onChange={(e) => setEditing({
+                      ...editing,
+                      seo_keywords: e.target.value.split(",").map((s) => s.trim()).filter(Boolean),
+                    })}
+                    placeholder="smart switch, zigbee, egypt"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Tags <span className="text-xs text-muted-foreground">(comma-separated)</span></Label>
+                  <Input
+                    value={(editing.tags ?? []).join(", ")}
+                    onChange={(e) => setEditing({
+                      ...editing,
+                      tags: e.target.value.split(",").map((s) => s.trim()).filter(Boolean),
+                    })}
+                    placeholder="lighting, energy-saving, premium"
+                  />
+                </div>
+              </div>
+            </div>
+
             {editing.id && (
               <div className="md:col-span-2 p-3 bg-muted/40 rounded-lg text-sm text-muted-foreground flex items-center gap-2">
                 <Eye className="h-4 w-4" />
