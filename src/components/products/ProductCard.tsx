@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ShoppingCart, Zap } from 'lucide-react';
+import { Minus, Plus, ShoppingCart } from 'lucide-react';
 import { Product } from '@/types/store';
 import { Button } from '@/components/ui/button';
 import { useCart } from '@/hooks/useCart';
@@ -17,10 +18,18 @@ export function ProductCard({ product, className }: ProductCardProps) {
   const addItem = useCart((state) => state.addItem);
   const { toast } = useToast();
   const { t, formatPrice, isRTL } = useLanguage();
+  const [quantity, setQuantity] = useState(1);
+
+  const updateQuantity = (e: React.MouseEvent, next: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setQuantity(Math.max(1, Math.min(product.stock || 1, next)));
+  };
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
-    addItem(product);
+    e.stopPropagation();
+    addItem(product, quantity);
     toast({
       title: t('addedToCart'),
       description: `${product.name} ${t('hasBeenAdded')}`,
@@ -66,17 +75,6 @@ export function ProductCard({ product, className }: ProductCardProps) {
             )}
           </div>
 
-          {/* Quick add button */}
-          <Button
-            size="icon"
-            className={cn(
-              "absolute bottom-3 opacity-0 transition-opacity duration-300 group-hover:opacity-100",
-              isRTL ? "left-3" : "right-3"
-            )}
-            onClick={handleAddToCart}
-          >
-            <ShoppingCart className="h-4 w-4" />
-          </Button>
         </div>
 
         {/* Content */}
@@ -116,6 +114,22 @@ export function ProductCard({ product, className }: ProductCardProps) {
                 {formatPrice(product.original_price)}
               </span>
             )}
+          </div>
+
+          <div className="mt-3 flex items-center gap-2">
+            <div className="flex h-9 items-center rounded-full border border-border bg-background">
+              <button type="button" className="grid h-9 w-8 place-items-center text-muted-foreground hover:text-foreground" onClick={(e) => updateQuantity(e, quantity - 1)} disabled={quantity <= 1}>
+                <Minus className="h-3.5 w-3.5" />
+              </button>
+              <span className="w-7 text-center text-sm font-medium text-foreground">{quantity}</span>
+              <button type="button" className="grid h-9 w-8 place-items-center text-muted-foreground hover:text-foreground" onClick={(e) => updateQuantity(e, quantity + 1)} disabled={product.stock === 0 || quantity >= product.stock}>
+                <Plus className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <Button size="sm" className="min-w-0 flex-1 gap-1.5 rounded-full" onClick={handleAddToCart} disabled={product.stock === 0}>
+              <ShoppingCart className="h-4 w-4" />
+              <span className="truncate">{t('addToCart')}</span>
+            </Button>
           </div>
         </div>
       </article>

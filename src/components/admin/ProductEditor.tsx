@@ -78,14 +78,30 @@ export function ProductEditor({ adminToken }: Props) {
   const [discountPct, setDiscountPct] = useState("");
   const [aiBusy, setAiBusy] = useState(false);
 
+  const fetchAllProducts = async () => {
+    const pageSize = 1000;
+    const rows: Product[] = [];
+    for (let from = 0; ; from += pageSize) {
+      const { data, error } = await supabase
+        .from("products")
+        .select("id, name, slug, description, price, original_price, category_id, brand, protocol, image_url, stock, featured, video_url, seo_title, seo_description, seo_keywords, tags")
+        .order("updated_at", { ascending: false })
+        .range(from, from + pageSize - 1);
+      if (error) throw error;
+      rows.push(...((data as any) ?? []));
+      if (!data || data.length < pageSize) break;
+    }
+    return rows;
+  };
+
   const load = async () => {
     setLoading(true);
-    const [{ data: p }, { data: c }, { data: vizData }] = await Promise.all([
-      supabase.from("products").select("id, name, slug, description, price, original_price, category_id, brand, protocol, image_url, stock, featured, video_url, seo_title, seo_description, seo_keywords, tags").order("updated_at", { ascending: false }).limit(500),
+    const [p, { data: c }, { data: vizData }] = await Promise.all([
+      fetchAllProducts(),
       supabase.from("categories").select("id, name").order("name"),
       supabase.from("site_info").select("value").eq("section", "products").eq("key", "hidden_ids").maybeSingle(),
     ]);
-    setProducts((p as any) ?? []);
+    setProducts(p ?? []);
     setCategories((c as any) ?? []);
     try { setHiddenIds(vizData?.value ? JSON.parse(vizData.value) : []); } catch { setHiddenIds([]); }
     setLoading(false);
@@ -109,7 +125,7 @@ export function ProductEditor({ adminToken }: Props) {
     [products],
   );
 
-  const visibleSlice = filtered.slice(0, 200);
+  const visibleSlice = filtered;
   const allVisibleSelected = visibleSlice.length > 0 && visibleSlice.every((p) => selectedIds.has(p.id));
 
   const toggleSelect = (id: string) => {
@@ -407,9 +423,6 @@ export function ProductEditor({ adminToken }: Props) {
               );
             })}
             {filtered.length === 0 && <p className="p-8 text-center text-muted-foreground">No products match.</p>}
-            {filtered.length > 200 && (
-              <p className="p-3 text-center text-xs text-muted-foreground">Showing first 200 of {filtered.length}. Refine your search to see more.</p>
-            )}
           </div>
         </div>
       )}

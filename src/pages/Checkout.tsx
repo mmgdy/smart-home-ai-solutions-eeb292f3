@@ -236,10 +236,16 @@ const Checkout = () => {
   };
 
   const createOrder = async (status: string = 'pending') => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const authenticatedUserId = session?.user?.id ?? null;
+    const orderId = crypto.randomUUID();
+    const paymentToken = crypto.randomUUID();
+
     // Create order in database
     const orderData = {
+      id: orderId,
       email: formData.email,
-      user_id: user?.id ?? null,
+      user_id: authenticatedUserId,
       total: total,
       status,
       stripe_session_id: null,
@@ -255,20 +261,19 @@ const Checkout = () => {
           fee: installationFee,
           deviceCount,
         } : { requested: false },
+        paymentToken,
       },
     };
 
-    const { data: order, error: orderError } = await supabase
+    const { error: orderError } = await supabase
       .from('orders')
-      .insert(orderData)
-      .select()
-      .single();
+      .insert(orderData);
 
     if (orderError) throw orderError;
 
     // Create order items — bundle items have virtual IDs so product_id is null
     const orderItems = items.map(item => ({
-      order_id: order.id,
+      order_id: orderId,
       product_id: item.product.id.startsWith('bundle-') ? null : item.product.id,
       product_name: item.product.name,
       quantity: item.quantity,
@@ -287,7 +292,7 @@ const Checkout = () => {
         await supabase.rpc('redeem_loyalty_points', {
           p_email: formData.email,
           p_points: pointsToRedeem,
-          p_order_id: order.id,
+          p_order_id: orderId,
         });
       } catch (redeemError) {
         console.warn('Could not redeem loyalty points:', redeemError);
@@ -298,8 +303,9 @@ const Checkout = () => {
     try {
       await supabase.rpc('award_loyalty_points', {
         p_email: formData.email,
-        p_order_id: order.id,
+        p_order_id: orderId,
         p_order_total: total,
+        p_user_id: authenticatedUserId,
       });
     } catch (loyaltyError) {
       console.warn('Could not award loyalty points:', loyaltyError);
@@ -311,13 +317,13 @@ const Checkout = () => {
     // Send order notification email
     try {
       await supabase.functions.invoke('send-order-notification', {
-        body: { orderId: order.id, paymentMethod },
+        body: { orderId, paymentMethod },
       });
     } catch (emailError) {
       console.warn('Could not send order notification:', emailError);
     }
 
-    return order;
+    return orderData;
   };
 
   const handlePaySkyPayment = async () => {
@@ -330,6 +336,7 @@ const Checkout = () => {
         body: {
           orderId: order.id,
           merchantReference: `BZ_${order.id.slice(0, 8)}`,
+          paymentToken: order.shipping_address.paymentToken,
         },
       });
 
@@ -352,13 +359,14 @@ const Checkout = () => {
           completeCallback: async (response: any) => {
             console.log('Payment complete:', response);
             if (response.Success) {
-              await supabase
-                .from('orders')
-                .update({
-                  status: 'pending',
-                  stripe_session_id: response.TransactionNo || config.MerchantReference,
-                })
-                .eq('id', order.id);
+              await supabase.functions.invoke('paysky-checkout', {
+                body: {
+                  action: 'mark-paid',
+                  orderId: order.id,
+                  paymentToken: order.shipping_address.paymentToken,
+                  transactionNo: response.TransactionNo || config.MerchantReference,
+                },
+              });
 
               toast({
                 title: language === 'ar' ? 'تم الدفع بنجاح' : 'Payment Successful',
