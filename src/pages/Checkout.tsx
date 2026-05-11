@@ -239,6 +239,7 @@ const Checkout = () => {
     const { data: { session } } = await supabase.auth.getSession();
     const authenticatedUserId = session?.user?.id ?? null;
     const orderId = crypto.randomUUID();
+    const paymentToken = crypto.randomUUID();
 
     // Create order in database
     const orderData = {
@@ -260,6 +261,7 @@ const Checkout = () => {
           fee: installationFee,
           deviceCount,
         } : { requested: false },
+        paymentToken,
       },
     };
 
@@ -334,6 +336,7 @@ const Checkout = () => {
         body: {
           orderId: order.id,
           merchantReference: `BZ_${order.id.slice(0, 8)}`,
+          paymentToken: order.shipping_address.paymentToken,
         },
       });
 
@@ -356,13 +359,14 @@ const Checkout = () => {
           completeCallback: async (response: any) => {
             console.log('Payment complete:', response);
             if (response.Success) {
-              await supabase
-                .from('orders')
-                .update({
-                  status: 'pending',
-                  stripe_session_id: response.TransactionNo || config.MerchantReference,
-                })
-                .eq('id', order.id);
+              await supabase.functions.invoke('paysky-checkout', {
+                body: {
+                  action: 'mark-paid',
+                  orderId: order.id,
+                  paymentToken: order.shipping_address.paymentToken,
+                  transactionNo: response.TransactionNo || config.MerchantReference,
+                },
+              });
 
               toast({
                 title: language === 'ar' ? 'تم الدفع بنجاح' : 'Payment Successful',
