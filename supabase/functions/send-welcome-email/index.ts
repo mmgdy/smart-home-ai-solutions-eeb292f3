@@ -7,10 +7,38 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+function escapeHtml(v: unknown): string {
+  return String(v ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+// In-memory rate limiter (per IP) to prevent unsolicited email abuse
+const emailBuckets = new Map<string, { count: number; resetAt: number }>();
+const EMAIL_WINDOW_MS = 60_000;
+const EMAIL_MAX_PER_WINDOW = 5;
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+    const now = Date.now();
+    const bucket = emailBuckets.get(ip);
+    if (!bucket || bucket.resetAt < now) {
+      emailBuckets.set(ip, { count: 1, resetAt: now + EMAIL_WINDOW_MS });
+    } else {
+      bucket.count++;
+      if (bucket.count > EMAIL_MAX_PER_WINDOW) {
+        return new Response(JSON.stringify({ error: "Rate limit exceeded" }), {
+          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     const { email, name, language = "en" } = await req.json();
     if (!email) {
       return new Response(JSON.stringify({ error: "email required" }), {
@@ -40,7 +68,7 @@ Deno.serve(async (req) => {
     const resend = new Resend(RESEND_API_KEY);
 
     const isAr = language === "ar";
-    const displayName = name || email.split("@")[0];
+    const displayName = escapeHtml(name || email.split("@")[0]);
 
     const html = isAr ? `
       <div style="font-family:'Tahoma',Arial,sans-serif;direction:rtl;max-width:600px;margin:0 auto;padding:20px;background:#f5f5f5;">
