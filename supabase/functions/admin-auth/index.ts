@@ -8,6 +8,11 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// In-memory rate limiter for login attempts (per IP)
+const loginBuckets = new Map<string, { count: number; resetAt: number }>();
+const LOGIN_WINDOW_MS = 60_000;
+const LOGIN_MAX_ATTEMPTS = 5;
+
 async function verifyAdminTokenDb(supabase: any, token: string): Promise<string | null> {
   if (!token) return null;
   try {
@@ -38,6 +43,22 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     if (action === "login") {
+      // Rate limit brute-force attempts
+      const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+      const now = Date.now();
+      const bucket = loginBuckets.get(ip);
+      if (!bucket || bucket.resetAt < now) {
+        loginBuckets.set(ip, { count: 1, resetAt: now + LOGIN_WINDOW_MS });
+      } else {
+        bucket.count++;
+        if (bucket.count > LOGIN_MAX_ATTEMPTS) {
+          return new Response(
+            JSON.stringify({ success: false, error: "Too many attempts. Try again in a minute." }),
+            { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
+
       const { data: admin, error } = await supabase
         .from("admin_users")
         .select("id, username, password_hash")
