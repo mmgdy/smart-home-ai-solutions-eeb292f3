@@ -271,7 +271,7 @@ const Checkout = () => {
 
     // Create order items — bundle items have virtual IDs so product_id is null
     const orderItems = items.map(item => ({
-      order_id: order.id,
+      order_id: orderId,
       product_id: item.product.id.startsWith('bundle-') ? null : item.product.id,
       product_name: item.product.name,
       quantity: item.quantity,
@@ -290,7 +290,7 @@ const Checkout = () => {
         await supabase.rpc('redeem_loyalty_points', {
           p_email: formData.email,
           p_points: pointsToRedeem,
-          p_order_id: order.id,
+          p_order_id: orderId,
         });
       } catch (redeemError) {
         console.warn('Could not redeem loyalty points:', redeemError);
@@ -301,7 +301,7 @@ const Checkout = () => {
     try {
       await supabase.rpc('award_loyalty_points', {
         p_email: formData.email,
-        p_order_id: order.id,
+        p_order_id: orderId,
         p_order_total: total,
         p_user_id: authenticatedUserId,
       });
@@ -315,7 +315,7 @@ const Checkout = () => {
     // Send order notification email
     try {
       await supabase.functions.invoke('send-order-notification', {
-        body: { orderId: order.id, paymentMethod },
+        body: { orderId, paymentMethod },
       });
     } catch (emailError) {
       console.warn('Could not send order notification:', emailError);
