@@ -236,10 +236,15 @@ const Checkout = () => {
   };
 
   const createOrder = async (status: string = 'pending') => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const authenticatedUserId = session?.user?.id ?? null;
+    const orderId = crypto.randomUUID();
+
     // Create order in database
     const orderData = {
+      id: orderId,
       email: formData.email,
-      user_id: user?.id ?? null,
+      user_id: authenticatedUserId,
       total: total,
       status,
       stripe_session_id: null,
@@ -258,11 +263,9 @@ const Checkout = () => {
       },
     };
 
-    const { data: order, error: orderError } = await supabase
+    const { error: orderError } = await supabase
       .from('orders')
-      .insert(orderData)
-      .select()
-      .single();
+      .insert(orderData);
 
     if (orderError) throw orderError;
 
@@ -300,6 +303,7 @@ const Checkout = () => {
         p_email: formData.email,
         p_order_id: order.id,
         p_order_total: total,
+        p_user_id: authenticatedUserId,
       });
     } catch (loyaltyError) {
       console.warn('Could not award loyalty points:', loyaltyError);
@@ -317,7 +321,7 @@ const Checkout = () => {
       console.warn('Could not send order notification:', emailError);
     }
 
-    return order;
+    return orderData;
   };
 
   const handlePaySkyPayment = async () => {
