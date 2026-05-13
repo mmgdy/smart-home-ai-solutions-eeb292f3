@@ -41,7 +41,7 @@ export function FlashSaleEditor({ adminToken }: Props) {
   // Filters
   const [search, setSearch] = useState('');
   const [brandFilter, setBrandFilter] = useState<string[]>([]);
-  const [categoryFilter, setCategoryFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 100000]);
   const [maxPrice, setMaxPrice] = useState(100000);
   const [showDiscountedOnly, setShowDiscountedOnly] = useState(false);
@@ -77,7 +77,7 @@ export function FlashSaleEditor({ adminToken }: Props) {
   const filtered = products.filter(p => {
     if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
     if (brandFilter.length && !brandFilter.includes(p.brand || '')) return false;
-    if (categoryFilter && (p as any).category?.name !== categoryFilter) return false;
+    if (categoryFilter !== 'all' && (p as any).categories?.name !== categoryFilter) return false;
     if (p.price < priceRange[0] || p.price > priceRange[1]) return false;
     if (showDiscountedOnly && !p.original_price) return false;
     return true;
@@ -125,40 +125,42 @@ export function FlashSaleEditor({ adminToken }: Props) {
 
     setApplying(true);
     const selectedProducts = products.filter(p => selectedIds.has(p.id));
-    let success = 0;
-    let failed = 0;
 
-    for (const p of selectedProducts) {
-      let updates: Record<string, any>;
+    const updates = selectedProducts.flatMap(p => {
       if (mode === 'discount') {
         const pct = parseFloat(discountPct);
-        const newPrice = Math.round(p.price * (1 - pct / 100));
-        updates = {
-          price: newPrice,
-          original_price: p.price,
-        };
+        return [{ id: p.id, price: Math.round(p.price * (1 - pct / 100)), original_price: p.price }];
       } else {
-        if (!p.original_price) continue;
-        updates = {
-          price: p.original_price,
-          original_price: null,
-        };
+        if (!p.original_price) return [];
+        return [{ id: p.id, price: p.original_price, original_price: null }];
       }
+    });
 
-      const { data, error } = await supabase.functions.invoke('admin-write', {
-        body: { action: 'update-product', token: adminToken, id: p.id, updates },
-      });
-      if (error || !data?.success) failed++;
-      else success++;
+    if (updates.length === 0) {
+      toast({ title: 'No products to update (none have an original price to reset)', variant: 'destructive' });
+      setApplying(false);
+      return;
     }
 
-    toast({
-      title: mode === 'discount'
-        ? `Applied ${discountPct}% discount to ${success} products`
-        : `Reset ${success} products to original prices`,
-      description: failed ? `${failed} failed` : undefined,
-      variant: failed && !success ? 'destructive' : 'default',
+    const { data, error } = await supabase.functions.invoke('admin-write', {
+      body: { action: 'bulk-update-prices', token: adminToken, updates },
     });
+
+    if (error || !data?.success) {
+      toast({
+        title: 'Failed to apply changes',
+        description: error?.message || data?.error || 'Unknown error',
+        variant: 'destructive',
+      });
+    } else {
+      toast({
+        title: mode === 'discount'
+          ? `Applied ${discountPct}% discount to ${data.updated} products`
+          : `Reset ${data.updated} products to original prices`,
+        description: data.failed ? `${data.failed} failed` : undefined,
+        variant: data.failed && !data.updated ? 'destructive' : 'default',
+      });
+    }
 
     setApplying(false);
     await loadProducts();

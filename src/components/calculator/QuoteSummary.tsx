@@ -112,49 +112,128 @@ export function QuoteSummary() {
 
   const handleGeneratePDF = async () => {
     setIsGeneratingPDF(true);
-    
-    // Create a simple text-based quote for now
-    const quoteText = `
-SMART HOME QUOTATION
-=====================
 
-Property Type: ${propertyType?.toUpperCase()}
-Generated: ${new Date().toLocaleDateString()}
+    try {
+      // Fetch logo from admin settings
+      const { data: logoSetting } = await supabase
+        .from('admin_settings')
+        .select('value')
+        .eq('key', 'logo_url')
+        .maybeSingle();
+      const logoUrl = logoSetting?.value || null;
 
-ROOMS & DEVICES
----------------
-${rooms.map(room => {
-  const roomDevices = devicesByRoom[room.id] || [];
-  return `
-${room.name}:
-${roomDevices.map(d => `  - ${d.productName}: ${formatPrice(d.price)} x ${d.quantity}`).join('\n')}
-`;
-}).join('')}
+      const dateStr = new Date().toLocaleDateString(isRTL ? 'ar-EG' : 'en-US', {
+        year: 'numeric', month: 'long', day: 'numeric',
+      });
 
-SUMMARY
--------
-Subtotal: ${formatPrice(subtotal)}
-Installation: ${formatPrice(installationFee)}
-TOTAL: ${formatPrice(total)}
+      const rowsHtml = rooms.map(room => {
+        const roomDevices = devicesByRoom[room.id] || [];
+        if (!roomDevices.length) return '';
+        const roomTotal = roomDevices.reduce((s, d) => s + d.price * d.quantity, 0);
+        const deviceRows = roomDevices.map(d => `
+          <tr>
+            <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;">${d.productName}</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;text-align:center;">${d.quantity}</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;text-align:right;">${formatPrice(d.price)}</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;text-align:right;">${formatPrice(d.price * d.quantity)}</td>
+          </tr>`).join('');
+        return `
+          <tr><td colspan="4" style="padding:12px;background:#f8fafc;font-weight:700;font-size:14px;color:#1a1a1a;">
+            ${room.name} — ${formatPrice(roomTotal)}
+          </td></tr>
+          ${deviceRows}`;
+      }).join('');
 
-Contact: ${localEmail || localPhone || 'Not provided'}
-    `.trim();
+      const html = `<!DOCTYPE html>
+<html dir="${isRTL ? 'rtl' : 'ltr'}" lang="${isRTL ? 'ar' : 'en'}">
+<head>
+  <meta charset="UTF-8"/>
+  <title>${isRTL ? 'عرض سعر المنزل الذكي' : 'Smart Home Quotation'}</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family: ${isRTL ? "'Segoe UI','Tahoma',Arial,sans-serif" : "Arial,'Helvetica Neue',sans-serif"}; color:#1a1a1a; background:#fff; }
+    .page { max-width:800px; margin:0 auto; padding:40px; }
+    .header { display:flex; justify-content:space-between; align-items:flex-start; padding-bottom:24px; border-bottom:3px solid #0ea5e9; margin-bottom:28px; }
+    .logo img { max-height:60px; max-width:180px; object-fit:contain; }
+    .logo-text { font-size:24px; font-weight:800; color:#0ea5e9; letter-spacing:-0.5px; }
+    .header-right { text-align:${isRTL ? 'left' : 'right'}; }
+    .quote-title { font-size:22px; font-weight:700; color:#0ea5e9; margin-bottom:4px; }
+    .quote-meta { font-size:13px; color:#666; }
+    .section-title { font-size:16px; font-weight:700; margin:24px 0 10px; color:#0ea5e9; text-transform:uppercase; letter-spacing:0.05em; }
+    table { width:100%; border-collapse:collapse; margin-bottom:20px; }
+    thead tr { background:#0ea5e9; color:#fff; }
+    thead th { padding:10px 12px; text-align:left; font-size:13px; font-weight:600; }
+    thead th:last-child,thead th:nth-child(2),thead th:nth-child(3) { text-align:right; }
+    tbody tr:hover { background:#f8fafc; }
+    .summary-box { background:#f0f9ff; border:2px solid #0ea5e9; border-radius:10px; padding:20px 28px; margin-top:24px; }
+    .summary-row { display:flex; justify-content:space-between; padding:6px 0; font-size:15px; color:#444; }
+    .summary-total { display:flex; justify-content:space-between; padding:12px 0 0; margin-top:8px; border-top:2px solid #0ea5e9; font-size:20px; font-weight:800; color:#0ea5e9; }
+    .contact-box { margin-top:24px; padding:16px; background:#f8fafc; border-radius:8px; font-size:13px; color:#555; }
+    .footer { margin-top:36px; padding-top:16px; border-top:1px solid #e0e0e0; font-size:12px; color:#999; text-align:center; }
+    @media print { .page { padding:20px; } }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="header">
+      <div class="logo">
+        ${logoUrl ? `<img src="${logoUrl}" alt="Logo" />` : '<div class="logo-text">Baytzaki</div>'}
+      </div>
+      <div class="header-right">
+        <div class="quote-title">${isRTL ? 'عرض سعر المنزل الذكي' : 'Smart Home Quotation'}</div>
+        <div class="quote-meta">${isRTL ? 'تاريخ:' : 'Date:'} ${dateStr}</div>
+        <div class="quote-meta">${isRTL ? 'نوع العقار:' : 'Property:'} ${propertyType || '—'}</div>
+      </div>
+    </div>
 
-    // Create and download text file
-    const blob = new Blob([quoteText], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `smart-home-quote-${Date.now()}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
+    <div class="section-title">${isRTL ? 'تفاصيل الأجهزة' : 'Device Breakdown'}</div>
+    <table>
+      <thead>
+        <tr>
+          <th>${isRTL ? 'الجهاز' : 'Device'}</th>
+          <th style="text-align:center;">${isRTL ? 'الكمية' : 'Qty'}</th>
+          <th style="text-align:right;">${isRTL ? 'سعر الوحدة' : 'Unit Price'}</th>
+          <th style="text-align:right;">${isRTL ? 'الإجمالي' : 'Total'}</th>
+        </tr>
+      </thead>
+      <tbody>${rowsHtml}</tbody>
+    </table>
 
-    setIsGeneratingPDF(false);
-    
-    toast({
-      title: isRTL ? 'تم تحميل العرض' : 'Quote Downloaded',
-      description: isRTL ? 'تم حفظ ملف العرض' : 'Quote file has been saved',
-    });
+    <div class="summary-box">
+      <div class="summary-row"><span>${isRTL ? 'الأجهزة' : 'Devices'}</span><span>${formatPrice(subtotal)}</span></div>
+      <div class="summary-row"><span>${isRTL ? 'التركيب والبرمجة' : 'Installation & Setup'}</span><span>${formatPrice(installationFee)}</span></div>
+      <div class="summary-total"><span>${isRTL ? 'الإجمالي الكلي' : 'Grand Total'}</span><span>${formatPrice(total)}</span></div>
+    </div>
+
+    ${(localEmail || localPhone) ? `
+    <div class="contact-box">
+      <strong>${isRTL ? 'معلومات التواصل' : 'Contact Info'}:</strong>
+      ${localEmail ? `&nbsp; ${localEmail}` : ''}${localPhone ? `&nbsp;&nbsp;|&nbsp;&nbsp; ${localPhone}` : ''}
+    </div>` : ''}
+
+    <div class="footer">
+      baytzaki.com &nbsp;·&nbsp; ${isRTL ? 'عرض السعر صالح لمدة ٣٠ يوماً' : 'Quotation valid for 30 days'} &nbsp;·&nbsp; ${dateStr}
+    </div>
+  </div>
+  <script>window.onload = () => { window.print(); };<\/script>
+</body>
+</html>`;
+
+      const win = window.open('', '_blank', 'width=900,height=700');
+      if (win) {
+        win.document.write(html);
+        win.document.close();
+      }
+
+      toast({
+        title: isRTL ? 'جاهز للطباعة كـ PDF' : 'Ready to print as PDF',
+        description: isRTL ? 'اختر "حفظ كـ PDF" في نافذة الطباعة' : 'Choose "Save as PDF" in the print dialog',
+      });
+    } catch (err) {
+      console.error('PDF error:', err);
+    } finally {
+      setIsGeneratingPDF(false);
+    }
   };
 
   return (
@@ -325,7 +404,7 @@ Contact: ${localEmail || localPhone || 'Not provided'}
                 ) : (
                   <Download className="h-4 w-4" />
                 )}
-                {isRTL ? 'تحميل PDF' : 'Download PDF'}
+                {isRTL ? 'طباعة / PDF' : 'Print / PDF'}
               </Button>
             </div>
           </motion.div>

@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -8,6 +9,7 @@ import { LanguageProvider } from "@/lib/i18n";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { supabase } from "@/integrations/supabase/client";
 import Index from "./pages/Index";
 import Products from "./pages/Products";
 import ProductDetail from "./pages/ProductDetail";
@@ -29,12 +31,35 @@ import HomeDesigner from "./pages/HomeDesigner";
 
 const queryClient = new QueryClient();
 
+// Reads favicon_url from admin_settings and applies it to <link rel="icon"> on load.
+function FaviconUpdater() {
+  useEffect(() => {
+    supabase
+      .from('admin_settings')
+      .select('value')
+      .eq('key', 'favicon_url')
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!data?.value) return;
+        let link = document.querySelector("link[rel='icon']") as HTMLLinkElement | null;
+        if (!link) {
+          link = document.createElement('link');
+          link.rel = 'icon';
+          document.head.appendChild(link);
+        }
+        link.href = data.value;
+      });
+  }, []);
+  return null;
+}
+
 const App = () => (
   <ErrorBoundary>
     <HelmetProvider>
       <QueryClientProvider client={queryClient}>
         <LanguageProvider>
           <TooltipProvider>
+            <FaviconUpdater />
             <Toaster />
             <Sonner />
             <BrowserRouter>

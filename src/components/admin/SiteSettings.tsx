@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Upload, Loader2, Image, Lock, Eye, EyeOff, Save, LogOut, CheckCircle } from 'lucide-react';
+import { Upload, Loader2, Image, Lock, Eye, EyeOff, Save, LogOut, CheckCircle, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,6 +20,11 @@ export function SiteSettings({ adminToken, onLogout }: SiteSettingsProps) {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [logoSize, setLogoSize] = useState(100);
   const [isUploading, setIsUploading] = useState(false);
+
+  // Favicon settings
+  const faviconInputRef = useRef<HTMLInputElement>(null);
+  const [faviconUrl, setFaviconUrl] = useState<string | null>(null);
+  const [isUploadingFavicon, setIsUploadingFavicon] = useState(false);
   
   // Password change
   const [newPassword, setNewPassword] = useState('');
@@ -37,12 +42,13 @@ export function SiteSettings({ adminToken, onLogout }: SiteSettingsProps) {
       const { data: settings } = await supabase
         .from('admin_settings')
         .select('key, value')
-        .in('key', ['logo_url', 'logo_size']);
+        .in('key', ['logo_url', 'logo_size', 'favicon_url']);
 
       if (settings) {
         settings.forEach(s => {
           if (s.key === 'logo_url') setLogoUrl(s.value);
           if (s.key === 'logo_size') setLogoSize(parseInt(s.value || '100'));
+          if (s.key === 'favicon_url') setFaviconUrl(s.value);
         });
       }
     } catch (error) {
@@ -119,6 +125,56 @@ export function SiteSettings({ adminToken, onLogout }: SiteSettingsProps) {
       });
     } finally {
       setIsUploading(false);
+    }
+  };
+
+  const handleFaviconUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast({ title: 'Invalid file type', description: 'Please upload an image (PNG, ICO, SVG)', variant: 'destructive' });
+      return;
+    }
+    if (file.size > 1 * 1024 * 1024) {
+      toast({ title: 'File too large', description: 'Please upload an image smaller than 1MB', variant: 'destructive' });
+      return;
+    }
+
+    setIsUploadingFavicon(true);
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve((reader.result as string).split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const ext = file.name.split('.').pop()?.toLowerCase() || 'ico';
+      const filename = `favicon-${Date.now()}.${ext}`;
+
+      const { data: uploadData, error: uploadError } = await supabase.functions.invoke('admin-write', {
+        body: { action: 'upload-file', token: adminToken, filename, base64, mimeType: file.type, bucket: 'site-assets' },
+      });
+      if (uploadError || !uploadData?.success) throw new Error(uploadData?.error || uploadError?.message || 'Upload failed');
+
+      const newFaviconUrl = uploadData.publicUrl as string;
+      setFaviconUrl(newFaviconUrl);
+
+      const { data: writeData, error: writeError } = await supabase.functions.invoke('admin-write', {
+        body: { action: 'update-admin-settings', token: adminToken, entries: [{ key: 'favicon_url', value: newFaviconUrl }] },
+      });
+      if (writeError || !writeData?.success) throw new Error(writeData?.error || writeError?.message || 'Failed to save favicon');
+
+      // Apply immediately in this tab
+      let link = document.querySelector("link[rel='icon']") as HTMLLinkElement | null;
+      if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link); }
+      link.href = newFaviconUrl;
+
+      toast({ title: 'Favicon updated', description: 'The new favicon is now live' });
+    } catch (error: any) {
+      toast({ title: 'Upload failed', description: error.message || 'Failed to upload favicon', variant: 'destructive' });
+    } finally {
+      setIsUploadingFavicon(false);
     }
   };
 
@@ -295,6 +351,49 @@ export function SiteSettings({ adminToken, onLogout }: SiteSettingsProps) {
                 <span>Large (200px)</span>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Favicon Upload Section */}
+      <div className="bg-card border border-border rounded-xl p-6">
+        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+          <Globe className="w-5 h-5 text-primary" />
+          Site Favicon
+        </h2>
+        <p className="text-muted-foreground mb-6">
+          The small icon shown in browser tabs. Recommended: 32×32 or 64×64 PNG or ICO file.
+        </p>
+
+        <div className="flex items-center gap-6">
+          <div className="border border-border rounded-lg p-4 bg-muted/30 flex items-center justify-center w-20 h-20 shrink-0">
+            {faviconUrl ? (
+              <img src={faviconUrl} alt="Favicon" className="w-10 h-10 object-contain" />
+            ) : (
+              <Globe className="w-8 h-8 text-muted-foreground opacity-50" />
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <input
+              ref={faviconInputRef}
+              type="file"
+              accept="image/*,.ico"
+              onChange={handleFaviconUpload}
+              className="hidden"
+            />
+            <Button
+              onClick={() => faviconInputRef.current?.click()}
+              disabled={isUploadingFavicon}
+              variant="outline"
+            >
+              {isUploadingFavicon ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Uploading...</>
+              ) : (
+                <><Upload className="w-4 h-4 mr-2" />Upload Favicon</>
+              )}
+            </Button>
+            <p className="text-xs text-muted-foreground">Max 1MB. Formats: PNG, ICO, SVG</p>
           </div>
         </div>
       </div>

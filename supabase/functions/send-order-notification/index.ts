@@ -95,7 +95,7 @@ const handler = async (req: Request): Promise<Response> => {
       </tr>
     `).join('');
 
-    const paymentLabel = paymentMethod === 'cod' ? 'Cash on Delivery' : 'Online Payment (PaySky)';
+    const paymentLabel = (paymentMethod === 'cod' || paymentMethod === 'cash') ? 'Cash on Delivery' : 'Online Payment (PaySky)';
 
     // Send notification to admin
     const adminEmailHtml = `

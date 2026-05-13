@@ -66,15 +66,13 @@ export const OrdersManagement = ({ adminToken }: Props) => {
 
   const fetchOrders = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('orders')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) {
+    const { data, error } = await supabase.functions.invoke('admin-write', {
+      body: { action: 'list-orders', token: adminToken },
+    });
+    if (error || !data?.success) {
       toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch orders' });
     } else {
-      setOrders(data || []);
+      setOrders(data.data || []);
     }
     setLoading(false);
   };
@@ -83,15 +81,13 @@ export const OrdersManagement = ({ adminToken }: Props) => {
 
   const fetchOrderItems = async (orderId: string) => {
     setLoadingItems(true);
-    const { data, error } = await supabase
-      .from('order_items')
-      .select('*')
-      .eq('order_id', orderId);
-
-    if (error) {
+    const { data, error } = await supabase.functions.invoke('admin-write', {
+      body: { action: 'list-order-items', token: adminToken, orderId },
+    });
+    if (error || !data?.success) {
       toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch order items' });
     } else {
-      setOrderItems(data || []);
+      setOrderItems(data.data || []);
     }
     setLoadingItems(false);
   };

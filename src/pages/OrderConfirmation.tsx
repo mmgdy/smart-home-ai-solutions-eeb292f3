@@ -37,6 +37,8 @@ const OrderConfirmation = () => {
   const { toast } = useToast();
   
   const [order, setOrder] = useState<OrderDetails | null>(null);
+  // true once we've confirmed the order exists (even if full details aren't readable)
+  const [orderConfirmed, setOrderConfirmed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
 
@@ -49,25 +51,30 @@ const OrderConfirmation = () => {
         return;
       }
 
+      // If redirected straight from checkout, the order definitely exists.
+      // Guest orders are no longer readable via client-side SELECT (RLS), so
+      // we treat a null result as "order placed, details not available" rather
+      // than "order not found".
+      setOrderConfirmed(true);
+
       try {
-        const { data: orderData, error: orderError } = await supabase
+        const { data: orderData } = await supabase
           .from('orders')
           .select('*')
           .eq('id', orderId)
           .maybeSingle();
 
-        if (orderError) throw orderError;
         if (!orderData) {
+          // Authenticated user's own order — or fetch blocked by RLS (guest).
+          // Either way the order was placed; show the abbreviated confirmation.
           setLoading(false);
           return;
         }
 
-        const { data: itemsData, error: itemsError } = await supabase
+        const { data: itemsData } = await supabase
           .from('order_items')
           .select('*')
           .eq('order_id', orderId);
-
-        if (itemsError) throw itemsError;
 
         setOrder({
           ...orderData,
@@ -145,24 +152,70 @@ const OrderConfirmation = () => {
   }
 
   if (!order) {
+    // Either guest order (RLS blocked client read) or invalid orderId.
+    // When orderId is present we know the order was placed (set above).
+    if (!orderId || !orderConfirmed) {
+      return (
+        <>
+          <Helmet>
+            <title>{`${labels.orderNotFound} | Baytzaki`}</title>
+          </Helmet>
+          <Layout>
+            <div className="container py-20 text-center">
+              <div className="mx-auto max-w-md">
+                <Package className="mx-auto mb-6 h-16 w-16 text-muted-foreground" />
+                <h1 className="mb-4 font-display text-2xl font-bold text-foreground">
+                  {labels.orderNotFound}
+                </h1>
+                <p className="mb-8 text-muted-foreground">
+                  {labels.orderNotFoundDesc}
+                </p>
+                <Link to="/">
+                  <Button className="gap-2">
+                    {labels.backToHome}
+                    <NextArrow className="h-4 w-4" />
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </Layout>
+        </>
+      );
+    }
+
+    // Guest order placed successfully — full details not loaded for privacy.
     return (
       <>
         <Helmet>
-          <title>{`${labels.orderNotFound} | Baytzaki`}</title>
+          <title>{`${labels.orderConfirmed} | Baytzaki`}</title>
         </Helmet>
         <Layout>
-          <div className="container py-20 text-center">
+          <div className="container py-12 text-center">
             <div className="mx-auto max-w-md">
-              <Package className="mx-auto mb-6 h-16 w-16 text-muted-foreground" />
-              <h1 className="mb-4 font-display text-2xl font-bold text-foreground">
-                {labels.orderNotFound}
+              <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
+                <CheckCircle className="h-10 w-10 text-green-600 dark:text-green-400" />
+              </div>
+              <h1 className="mb-2 font-display text-3xl font-bold text-foreground">
+                {labels.orderConfirmed}
               </h1>
-              <p className="mb-8 text-muted-foreground">
-                {labels.orderNotFoundDesc}
+              <p className="mb-6 text-muted-foreground">{labels.thankYou}</p>
+              <div className="mb-6 rounded-xl border border-border bg-card p-4">
+                <p className="mb-1 text-sm text-muted-foreground">{labels.orderNumber}</p>
+                <div className="flex items-center justify-center gap-2">
+                  <code className="text-sm font-mono font-semibold">{orderId}</code>
+                  <button onClick={copyOrderId} className="text-muted-foreground hover:text-foreground">
+                    {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+              <p className="mb-8 text-sm text-muted-foreground">
+                {language === 'ar'
+                  ? 'سيتم التواصل معك قريباً لتأكيد الطلب والتوصيل'
+                  : 'We will contact you shortly to confirm your order and arrange delivery.'}
               </p>
               <Link to="/">
                 <Button className="gap-2">
-                  {labels.backToHome}
+                  {labels.continueShopping}
                   <NextArrow className="h-4 w-4" />
                 </Button>
               </Link>

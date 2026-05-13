@@ -68,6 +68,45 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { action, token } = body;
 
+    // ========== PUBLIC ACTIONS (no admin token required) ==========
+    if (action === "public-create-order") {
+      const { orderData, orderItems } = body;
+      if (!orderData?.email || orderData?.total == null) {
+        return new Response(JSON.stringify({ success: false, error: "email and total are required" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const { data: order, error: orderError } = await supabase
+        .from("orders")
+        .insert({
+          user_id: orderData.user_id || null,
+          email: String(orderData.email),
+          total: Number(orderData.total),
+          status: "pending",
+          stripe_session_id: orderData.stripe_session_id || null,
+          shipping_address: orderData.shipping_address || null,
+        })
+        .select()
+        .single();
+      if (orderError) throw orderError;
+
+      if (Array.isArray(orderItems) && orderItems.length > 0) {
+        const items = orderItems.map((item: any) => ({
+          order_id: order.id,
+          product_id: item.product_id || null,
+          product_name: String(item.product_name),
+          quantity: Number(item.quantity),
+          price: Number(item.price),
+        }));
+        const { error: itemsError } = await supabase.from("order_items").insert(items);
+        if (itemsError) throw itemsError;
+      }
+
+      return new Response(JSON.stringify({ success: true, order }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (!(await verifyAdminToken(supabase, token))) {
       return new Response(JSON.stringify({ success: false, error: "Unauthorized" }), {
         status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -513,6 +552,59 @@ Deno.serve(async (req) => {
       const { error: orderError } = await supabase.from("orders").delete().eq("id", id);
       if (orderError) throw orderError;
       return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ========== BULK OPERATIONS ==========
+    if (action === "bulk-delete-products") {
+      const { ids } = body;
+      if (!Array.isArray(ids) || ids.length === 0) throw new Error("ids must be a non-empty array");
+      const { error } = await supabase.from("products").delete().in("id", ids);
+      if (error) throw error;
+      return new Response(JSON.stringify({ success: true, deleted: ids.length }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "bulk-update-prices") {
+      const { updates } = body; // [{ id, price, original_price }]
+      if (!Array.isArray(updates) || updates.length === 0) throw new Error("updates must be a non-empty array");
+      let success = 0;
+      let failed = 0;
+      for (const u of updates) {
+        const clean: Record<string, any> = { updated_at: new Date().toISOString() };
+        if (u.price !== undefined) clean.price = Number(u.price);
+        if ("original_price" in u) clean.original_price = u.original_price !== null ? Number(u.original_price) : null;
+        const { error } = await supabase.from("products").update(clean).eq("id", u.id);
+        if (error) failed++;
+        else success++;
+      }
+      return new Response(JSON.stringify({ success: true, updated: success, failed }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "list-orders") {
+      const { data, error } = await supabase
+        .from("orders")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return new Response(JSON.stringify({ success: true, data }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "list-order-items") {
+      const { orderId } = body;
+      if (!orderId) throw new Error("orderId required");
+      const { data, error } = await supabase
+        .from("order_items")
+        .select("*")
+        .eq("order_id", orderId);
+      if (error) throw error;
+      return new Response(JSON.stringify({ success: true, data }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
