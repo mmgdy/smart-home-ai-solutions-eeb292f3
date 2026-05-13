@@ -39,45 +39,18 @@ declare global {
   }
 }
 
-// PaySky exposes its global with inconsistent casing / nesting across SDK versions.
+// PaySky LightBox.js defines window.Lightbox.Checkout (not window.Lightbox directly).
+// configure may be a plain object (not a function), so we detect by showLightbox.
 function getPaySkyLightbox(): any | null {
   const w = window as any;
-  const namedCandidates = [w.Lightbox, w.lightbox, w.LightBox, w.PaySky, w.paysky, w.PAYSKY, w.IPG, w.Checkout];
-
-  const tryExtract = (c: any) => {
-    if (!c) return null;
-    // Pattern A: obj.Checkout.configure(...)
-    const inner = c.Checkout || c.checkout;
-    if (inner && typeof (inner.configure || inner.Configure) === 'function') {
-      return {
-        configure: (inner.configure || inner.Configure).bind(inner),
-        showLightbox: (inner.showLightbox || inner.ShowLightbox || inner.show)?.bind(inner),
-      };
-    }
-    // Pattern B: obj.configure(...) directly
-    if (typeof (c.configure || c.Configure) === 'function') {
-      return {
-        configure: (c.configure || c.Configure).bind(c),
-        showLightbox: (c.showLightbox || c.ShowLightbox || c.show)?.bind(c),
-      };
-    }
-    return null;
-  };
-
-  for (const c of namedCandidates) {
-    const res = tryExtract(c);
-    if (res) return res;
+  const hasApi = (o: any) => o && typeof o.showLightbox === 'function';
+  for (const key of ['Lightbox', 'lightbox', 'LightBox', 'PaySky', 'paysky', 'PAYSKY', 'IPG']) {
+    const obj = w[key];
+    if (!obj) continue;
+    if (hasApi(obj)) return obj;
+    const inner = obj.Checkout || obj.checkout;
+    if (hasApi(inner)) return inner;
   }
-
-  // Broad scan: any window property that has configure + showLightbox
-  try {
-    for (const key of Object.keys(w)) {
-      if (['window', 'document', 'self', 'top', 'parent'].includes(key)) continue;
-      const res = tryExtract(w[key]);
-      if (res) return res;
-    }
-  } catch { /* ignore */ }
-
   return null;
 }
 
@@ -371,18 +344,27 @@ const Checkout = () => {
       const sig = await crypto.subtle.sign('HMAC', cryptoKey, new TextEncoder().encode(queryString));
       const secureHash = Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
 
-      // Load PaySky LightBox script on demand
+      // Load PaySky LightBox script on demand — try multiple URLs until one works.
+      // Port 6006 is blocked by browsers so we use the non-port URLs.
       let lightbox = getPaySkyLightbox();
       if (!lightbox) {
-        await new Promise<void>((resolve, reject) => {
-          if (document.querySelector(`script[src="${lightboxUrl}"]`)) { setTimeout(resolve, 800); return; }
-          const s = document.createElement('script');
-          s.src = lightboxUrl;
-          s.async = true;
-          s.onload = () => setTimeout(resolve, 300);
-          s.onerror = () => reject(new Error(language === 'ar' ? 'تعذر تحميل بوابة الدفع' : 'Failed to load payment gateway'));
-          document.body.appendChild(s);
-        });
+        const candidates = [
+          'https://secure.paysky.io/js/LightBox.js',
+          'https://cube.paysky.io/js/LightBox.js',
+          'https://acceptance.paysky.io/js/LightBox.js',
+        ];
+        for (const url of candidates) {
+          if (getPaySkyLightbox()) break;
+          await new Promise<void>((resolve) => {
+            if (document.querySelector(`script[src="${url}"]`)) { setTimeout(resolve, 800); return; }
+            const s = document.createElement('script');
+            s.src = url;
+            s.async = true;
+            s.onload = () => setTimeout(resolve, 400);
+            s.onerror = () => resolve();
+            document.body.appendChild(s);
+          });
+        }
         lightbox = getPaySkyLightbox();
       }
 
