@@ -288,14 +288,12 @@ const Checkout = () => {
     // Coupon usage tracking is handled via admin reports — public increment was removed
     // to prevent abuse (anyone could exhaust max_uses by replaying the request).
 
-    // Send order notification email
-    try {
-      await supabase.functions.invoke('send-order-notification', {
-        body: { orderId, paymentMethod },
-      });
-    } catch (emailError) {
-      console.warn('Could not send order notification:', emailError);
-    }
+    // Send order notification email — never block the order on email failures.
+    supabase.functions.invoke('send-order-notification', {
+      body: { orderId, paymentMethod },
+    }).then(({ error }) => {
+      if (error) console.warn('Could not send order notification:', error);
+    }).catch((e) => console.warn('Could not send order notification:', e));
 
     return orderData;
   };
@@ -315,7 +313,7 @@ const Checkout = () => {
       const MID       = db['paysky_mid'];
       const TID       = db['paysky_tid'];
       const secretKey = db['paysky_secret_key'];
-      const lightboxUrl = db['paysky_lightbox_url'] || 'https://cube.paysky.io/js/LightBox.js';
+      const lightboxUrl = db['paysky_lightbox_url'] || 'https://cube.paysky.io:6006/js/LightBox.js';
 
       if (!MID || !TID || !secretKey) {
         throw new Error(language === 'ar' ? 'بوابة الدفع غير مهيأة' : 'Payment gateway not configured');
@@ -345,31 +343,35 @@ const Checkout = () => {
       const sig = await crypto.subtle.sign('HMAC', cryptoKey, new TextEncoder().encode(queryString));
       const secureHash = Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
 
-      // Load PaySky LightBox script on demand — try multiple URLs until one works.
+      // Load PaySky LightBox script on demand — try lightboxUrl from DB first, then fallbacks.
       let lightbox = getPaySkyLightbox();
       if (!lightbox) {
         const candidates = [
+          lightboxUrl,
           'https://cube.paysky.io:6006/js/LightBox.js',
           'https://secure.paysky.io/js/LightBox.js',
           'https://cube.paysky.io/js/LightBox.js',
-          'https://acceptance.paysky.io/js/LightBox.js',
-        ];
+        ].filter((u, i, a) => a.indexOf(u) === i); // deduplicate
         for (const url of candidates) {
           if (getPaySkyLightbox()) break;
           await new Promise<void>((resolve) => {
-            if (document.querySelector(`script[src="${url}"]`)) { setTimeout(resolve, 800); return; }
+            if (document.querySelector(`script[src="${url}"]`)) { setTimeout(resolve, 1000); return; }
             const s = document.createElement('script');
             s.src = url;
             s.async = true;
-            s.onload = () => setTimeout(resolve, 400);
-            s.onerror = () => resolve();
+            s.onload = () => setTimeout(resolve, 600);
+            s.onerror = () => { console.warn('[PaySky] script 404/error:', url); resolve(); };
             document.body.appendChild(s);
           });
         }
         lightbox = getPaySkyLightbox();
+        if (!lightbox) {
+          const w = window as any;
+          console.error('[PaySky] LightBox not found after loading scripts. window.Lightbox =', w.Lightbox, '| window.lightbox =', w.lightbox);
+        }
       }
 
-      if (!lightbox || typeof lightbox.configure !== 'function') {
+      if (!lightbox) {
         throw new Error(language === 'ar' ? 'بوابة الدفع غير متاحة' : 'Payment gateway unavailable');
       }
 
