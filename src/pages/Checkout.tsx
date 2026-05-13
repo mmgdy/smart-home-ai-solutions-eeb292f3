@@ -98,7 +98,7 @@ const Checkout = () => {
 
   const BackArrow = isRTL ? ArrowRight : ArrowLeft;
 
-  // Load PaySky LightBox script. Port 6006 is on the browser's blocked-port list so we skip it.
+  // Load PaySky LightBox script eagerly so it's ready when the user clicks Pay.
   useEffect(() => {
     const probe = () => { if (getPaySkyLightbox()) { setPayskyLoaded(true); return true; } return false; };
     if (probe()) return;
@@ -106,6 +106,7 @@ const Checkout = () => {
     let cancelled = false;
 
     const urls = [
+      'https://cube.paysky.io:6006/js/LightBox.js',
       'https://secure.paysky.io/js/LightBox.js',
       'https://cube.paysky.io/js/LightBox.js',
       'https://acceptance.paysky.io/js/LightBox.js',
@@ -345,10 +346,10 @@ const Checkout = () => {
       const secureHash = Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
 
       // Load PaySky LightBox script on demand — try multiple URLs until one works.
-      // Port 6006 is blocked by browsers so we use the non-port URLs.
       let lightbox = getPaySkyLightbox();
       if (!lightbox) {
         const candidates = [
+          'https://cube.paysky.io:6006/js/LightBox.js',
           'https://secure.paysky.io/js/LightBox.js',
           'https://cube.paysky.io/js/LightBox.js',
           'https://acceptance.paysky.io/js/LightBox.js',
