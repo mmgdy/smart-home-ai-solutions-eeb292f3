@@ -328,100 +328,119 @@ const Checkout = () => {
 
   const handlePaySkyPayment = async () => {
     try {
-      // Create the order FIRST with status=pending_payment so PaySky can
-      // sign the authoritative amount server-side (prevents amount tampering).
-      const order = await createOrder('pending_payment');
+      // Read PaySky credentials directly from site_info — no edge function needed.
+      const { data: rows } = await supabase
+        .from('site_info')
+        .select('key, value')
+        .eq('section', 'payment')
+        .in('key', ['paysky_mid', 'paysky_tid', 'paysky_secret_key', 'paysky_lightbox_url']);
 
-      const { data, error } = await supabase.functions.invoke('paysky-checkout', {
-        body: {
-          orderId: order.id,
-          merchantReference: `BZ_${order.id.slice(0, 8)}`,
-          paymentToken: order.shipping_address.paymentToken,
+      const db: Record<string, string> = {};
+      (rows || []).forEach((r: any) => { db[r.key] = r.value; });
+
+      const MID       = db['paysky_mid'];
+      const TID       = db['paysky_tid'];
+      const secretKey = db['paysky_secret_key'];
+      const lightboxUrl = db['paysky_lightbox_url'] || 'https://cube.paysky.io/js/LightBox.js';
+
+      if (!MID || !TID || !secretKey) {
+        throw new Error(language === 'ar' ? 'بوابة الدفع غير مهيأة' : 'Payment gateway not configured');
+      }
+
+      // Build transaction params
+      const pad = (n: number) => n.toString().padStart(2, '0');
+      const now = new Date();
+      const trxDateTime = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}${pad(now.getHours())}${pad(now.getMinutes())}`;
+      const merchantRef = `BZ_${Date.now()}`;
+      const amountEGP   = Math.round(total);
+
+      // Compute SecureHash in the browser (Web Crypto API — no server round-trip)
+      const hashParams: Record<string, string> = {
+        Amount: amountEGP.toString(),
+        MerchantId: MID,
+        MerchantReference: merchantRef,
+        TerminalId: TID,
+        TrxDateTime: trxDateTime,
+      };
+      const queryString = Object.keys(hashParams).sort().map(k => `${k}=${hashParams[k]}`).join('&');
+      const cleaned = secretKey.trim().replace(/\s+/g, '');
+      const keyBytes = /^[0-9a-fA-F]+$/.test(cleaned) && cleaned.length % 2 === 0
+        ? new Uint8Array(cleaned.match(/.{1,2}/g)!.map((b: string) => parseInt(b, 16)))
+        : new TextEncoder().encode(cleaned);
+      const cryptoKey = await crypto.subtle.importKey('raw', keyBytes, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+      const sig = await crypto.subtle.sign('HMAC', cryptoKey, new TextEncoder().encode(queryString));
+      const secureHash = Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+
+      // Load PaySky LightBox script on demand
+      let lightbox = getPaySkyLightbox();
+      if (!lightbox) {
+        await new Promise<void>((resolve, reject) => {
+          if (document.querySelector(`script[src="${lightboxUrl}"]`)) { setTimeout(resolve, 800); return; }
+          const s = document.createElement('script');
+          s.src = lightboxUrl;
+          s.async = true;
+          s.onload = () => setTimeout(resolve, 300);
+          s.onerror = () => reject(new Error(language === 'ar' ? 'تعذر تحميل بوابة الدفع' : 'Failed to load payment gateway'));
+          document.body.appendChild(s);
+        });
+        lightbox = getPaySkyLightbox();
+      }
+
+      if (!lightbox || typeof lightbox.configure !== 'function') {
+        throw new Error(language === 'ar' ? 'بوابة الدفع غير متاحة' : 'Payment gateway unavailable');
+      }
+
+      lightbox.configure({
+        MID, TID,
+        AmountTrxn: amountEGP,
+        MerchantReference: merchantRef,
+        TrxDateTime: trxDateTime,
+        SecureHash: secureHash,
+        completeCallback: async (response: any) => {
+          if (response.Success) {
+            const order = await createOrder();
+            toast({
+              title: language === 'ar' ? 'تم الدفع بنجاح' : 'Payment Successful',
+              description: language === 'ar' ? 'تم إتمام طلبك بنجاح' : 'Your order has been placed successfully',
+            });
+            clearCart();
+            navigate(`/order-confirmation?orderId=${order.id}`);
+          } else {
+            toast({
+              variant: 'destructive',
+              title: language === 'ar' ? 'فشل الدفع' : 'Payment Failed',
+              description: response.Message || 'Payment was not successful',
+            });
+          }
+          setIsProcessing(false);
+        },
+        errorCallback: (err: any) => {
+          toast({
+            variant: 'destructive',
+            title: language === 'ar' ? 'خطأ في الدفع' : 'Payment Error',
+            description: err?.Message || 'An error occurred during payment',
+          });
+          setIsProcessing(false);
+        },
+        cancelCallback: () => {
+          toast({
+            title: language === 'ar' ? 'تم إلغاء الدفع' : 'Payment Cancelled',
+            description: language === 'ar' ? 'يمكنك المحاولة مرة أخرى' : 'You can try again',
+          });
+          setIsProcessing(false);
         },
       });
 
-      if (error || !data?.success) {
-        throw new Error(data?.error || 'Failed to initialize payment');
-      }
-
-      const config = data.config;
-
-      // Configure and show PaySky LightBox (handles SDK casing differences)
-      const lightbox = getPaySkyLightbox();
-      if (lightbox && typeof lightbox.configure === 'function') {
-        lightbox.configure({
-          MID: config.MID,
-          TID: config.TID,
-          AmountTrxn: config.AmountTrxn,
-          MerchantReference: config.MerchantReference,
-          TrxDateTime: config.TrxDateTime,
-          SecureHash: config.SecureHash,
-          completeCallback: async (response: any) => {
-            console.log('Payment complete:', response);
-            if (response.Success) {
-              await supabase.functions.invoke('paysky-checkout', {
-                body: {
-                  action: 'mark-paid',
-                  orderId: order.id,
-                  paymentToken: order.shipping_address.paymentToken,
-                  transactionNo: response.TransactionNo || config.MerchantReference,
-                },
-              });
-
-              toast({
-                title: language === 'ar' ? 'تم الدفع بنجاح' : 'Payment Successful',
-                description: language === 'ar' ? 'تم إتمام طلبك بنجاح' : 'Your order has been placed successfully',
-              });
-
-              clearCart();
-              navigate(`/order-confirmation?orderId=${order.id}`);
-            } else {
-              toast({
-                variant: 'destructive',
-                title: language === 'ar' ? 'فشل الدفع' : 'Payment Failed',
-                description: response.Message || 'Payment was not successful',
-              });
-            }
-            setIsProcessing(false);
-          },
-          errorCallback: (error: any) => {
-            console.error('Payment error:', error);
-            toast({
-              variant: 'destructive',
-              title: language === 'ar' ? 'خطأ في الدفع' : 'Payment Error',
-              description: error?.Message || 'An error occurred during payment',
-            });
-            setIsProcessing(false);
-          },
-          cancelCallback: () => {
-            toast({
-              title: language === 'ar' ? 'تم إلغاء الدفع' : 'Payment Cancelled',
-              description: language === 'ar' ? 'يمكنك المحاولة مرة أخرى' : 'You can try again',
-            });
-            setIsProcessing(false);
-          },
-        });
-
-        if (typeof lightbox.showLightbox === 'function') {
-          lightbox.showLightbox();
-        } else {
-          throw new Error('PaySky LightBox cannot be displayed');
-        }
+      if (typeof lightbox.showLightbox === 'function') {
+        lightbox.showLightbox();
       } else {
-        toast({
-          variant: 'destructive',
-          title: language === 'ar' ? 'بوابة الدفع غير متاحة' : 'Payment gateway unavailable',
-          description: language === 'ar'
-            ? 'حاول مرة أخرى لاحقاً'
-            : 'Please try again later',
-        });
-        throw new Error('PaySky LightBox not loaded');
+        throw new Error('PaySky showLightbox method not found');
       }
     } catch (error: any) {
       console.error('PaySky error:', error);
       toast({
         variant: 'destructive',
-        title: language === 'ar' ? 'خطأ' : 'Error',
+        title: language === 'ar' ? 'خطأ في الدفع' : 'Payment Error',
         description: error.message || 'Failed to initialize payment',
       });
       setIsProcessing(false);
