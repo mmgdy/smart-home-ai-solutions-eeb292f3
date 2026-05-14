@@ -308,18 +308,21 @@ const Checkout = () => {
       // Build transaction params
       const pad = (n: number) => n.toString().padStart(2, '0');
       const now = new Date();
-      const trxDateTime = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}${pad(now.getHours())}${pad(now.getMinutes())}`;
-      const merchantRef = `BZ_${Date.now()}`;
-      const amountEGP   = Math.round(total);
+      const dateTimeLocalTrxn = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}${pad(now.getHours())}${pad(now.getMinutes())}`;
+      const merchantRef  = `BZ_${Date.now()}`;
+      // LightBox.js does: amount(URL) = AmountTrxn(configure) / 100 — piasters in, EGP out.
+      const amountPiasters = Math.round(total * 100);
+      const amountEGP      = amountPiasters / 100;
 
-      // Compute SecureHash in the browser (Web Crypto API).
-      // Hash key names differ from URL param names: Amount/MerchantId/TerminalId vs amount/MID/TID.
+      // Compute SecureHash (HMAC-SHA256).
+      // Hash uses PaySky's internal key names which differ from URL param names:
+      //   Amount (piasters) / DateTimeLocalTrxn / MerchantId / MerchantReference / TerminalId
       const hashParams: Record<string, string> = {
-        Amount: amountEGP.toString(),
+        Amount: amountPiasters.toString(),
+        DateTimeLocalTrxn: dateTimeLocalTrxn,
         MerchantId: MID,
         MerchantReference: merchantRef,
         TerminalId: TID,
-        TrxDateTime: trxDateTime,
       };
       const queryString = Object.keys(hashParams).sort().map(k => `${k}=${hashParams[k]}`).join('&');
       const cleaned = secretKey.trim().replace(/\s+/g, '');
@@ -330,15 +333,15 @@ const Checkout = () => {
       const sig = await crypto.subtle.sign('HMAC', cryptoKey, new TextEncoder().encode(queryString));
       const secureHash = Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
 
-      // Build the PaySky hosted checkout URL and open it in our own iframe modal.
-      // This bypasses LightBox.js entirely — same payment page, no script dependency.
+      // Build the PaySky hosted checkout URL — URL param names from LightBox.js source:
+      //   amount (EGP), trxDateTime (lowercase), secureHashAnonymous (not SecureHash)
       const params = new URLSearchParams({
         MID,
         TID,
         amount: amountEGP.toString(),
-        TrxDateTime: trxDateTime,
+        trxDateTime: dateTimeLocalTrxn,
         MerchantReference: merchantRef,
-        SecureHash: secureHash,
+        secureHashAnonymous: secureHash,
       });
       setPaySkyCheckoutUrl(`https://cube.paysky.io:6006/Home/LightboxHostedCheckout/?${params}`);
       // Payment result arrives via postMessage — handled in the useEffect above.
