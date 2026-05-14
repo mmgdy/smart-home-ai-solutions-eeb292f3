@@ -31,28 +31,6 @@ const checkoutSchema = z.object({
 
 type CheckoutFormData = z.infer<typeof checkoutSchema>;
 
-declare global {
-  interface Window {
-    Lightbox?: any;
-    lightbox?: any;
-    LightBox?: any;
-  }
-}
-
-// PaySky LightBox.js defines window.Lightbox.Checkout (not window.Lightbox directly).
-// configure may be a plain object (not a function), so we detect by showLightbox.
-function getPaySkyLightbox(): any | null {
-  const w = window as any;
-  const hasApi = (o: any) => o && typeof o.showLightbox === 'function';
-  for (const key of ['Lightbox', 'lightbox', 'LightBox', 'PaySky', 'paysky', 'PAYSKY', 'IPG']) {
-    const obj = w[key];
-    if (!obj) continue;
-    if (hasApi(obj)) return obj;
-    const inner = obj.Checkout || obj.checkout;
-    if (hasApi(inner)) return inner;
-  }
-  return null;
-}
 
 const Checkout = () => {
   const navigate = useNavigate();
@@ -70,7 +48,7 @@ const Checkout = () => {
   const [couponLoading, setCouponLoading] = useState(false);
   const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discountType: 'percentage' | 'fixed'; discountValue: number } | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'fawry' | 'vodafone' | 'applepay'>('card');
-  const [payskyLoaded, setPayskyLoaded] = useState(false);
+  const [paySkyCheckoutUrl, setPaySkyCheckoutUrl] = useState<string | null>(null);
   const [includeInstallation, setIncludeInstallation] = useState(true);
   const [formData, setFormData] = useState<CheckoutFormData>({
     firstName: '',
@@ -98,38 +76,46 @@ const Checkout = () => {
 
   const BackArrow = isRTL ? ArrowRight : ArrowLeft;
 
-  // Load PaySky LightBox script eagerly so it's ready when the user clicks Pay.
+  // Listen for PaySky postMessage callbacks while the checkout iframe is open.
   useEffect(() => {
-    const probe = () => { if (getPaySkyLightbox()) { setPayskyLoaded(true); return true; } return false; };
-    if (probe()) return;
+    if (!paySkyCheckoutUrl) return;
 
-    let cancelled = false;
+    const handleMessage = async (event: MessageEvent) => {
+      if (!String(event.origin).includes('paysky.io')) return;
+      const data = event.data;
+      if (!data?.callback) return;
 
-    const urls = [
-      'https://cube.paysky.io:6006/js/LightBox.js',
-      'https://secure.paysky.io/js/LightBox.js',
-      'https://cube.paysky.io/js/LightBox.js',
-      'https://acceptance.paysky.io/js/LightBox.js',
-    ];
-    let idx = 0;
-    const next = () => {
-      if (cancelled || idx >= urls.length) return;
-      const url = urls[idx++];
-      if (document.querySelector(`script[src="${url}"]`)) {
-        setTimeout(() => { if (!probe()) next(); }, 600);
-        return;
+      if (data.callback === 'completeCallback') {
+        window.removeEventListener('message', handleMessage);
+        setPaySkyCheckoutUrl(null);
+        try {
+          const order = await createOrder();
+          toast({
+            title: language === 'ar' ? 'تم الدفع بنجاح' : 'Payment Successful',
+            description: language === 'ar' ? 'تم إتمام طلبك بنجاح' : 'Your order has been placed successfully',
+          });
+          clearCart();
+          navigate(`/order-confirmation?orderId=${order.id}`);
+        } catch (err: any) {
+          toast({ variant: 'destructive', title: language === 'ar' ? 'خطأ' : 'Error', description: err.message });
+        }
+        setIsProcessing(false);
+      } else if (data.callback === 'errorCallback') {
+        window.removeEventListener('message', handleMessage);
+        setPaySkyCheckoutUrl(null);
+        toast({ variant: 'destructive', title: language === 'ar' ? 'فشل الدفع' : 'Payment Failed', description: data.Info?.message || data.Info || 'Payment was not successful' });
+        setIsProcessing(false);
+      } else if (data.callback === 'cancelCallback') {
+        window.removeEventListener('message', handleMessage);
+        setPaySkyCheckoutUrl(null);
+        toast({ title: language === 'ar' ? 'تم إلغاء الدفع' : 'Payment Cancelled' });
+        setIsProcessing(false);
       }
-      const s = document.createElement('script');
-      s.src = url;
-      s.async = true;
-      s.onload = () => setTimeout(() => { if (!probe()) next(); }, 600);
-      s.onerror = () => setTimeout(next, 100);
-      document.body.appendChild(s);
     };
-    next();
 
-    return () => { cancelled = true; };
-  }, []);
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [paySkyCheckoutUrl]);
 
   // Redirect if cart is empty
   useEffect(() => {
@@ -301,11 +287,12 @@ const Checkout = () => {
   const handlePaySkyPayment = async () => {
     try {
       // Read PaySky credentials directly from site_info — no edge function needed.
+      // Read credentials from site_info.
       const { data: rows } = await supabase
         .from('site_info')
         .select('key, value')
         .eq('section', 'payment')
-        .in('key', ['paysky_mid', 'paysky_tid', 'paysky_secret_key', 'paysky_lightbox_url']);
+        .in('key', ['paysky_mid', 'paysky_tid', 'paysky_secret_key']);
 
       const db: Record<string, string> = {};
       (rows || []).forEach((r: any) => { db[r.key] = r.value; });
@@ -313,7 +300,6 @@ const Checkout = () => {
       const MID       = db['paysky_mid'];
       const TID       = db['paysky_tid'];
       const secretKey = db['paysky_secret_key'];
-      const lightboxUrl = db['paysky_lightbox_url'] || 'https://cube.paysky.io:6006/js/LightBox.js';
 
       if (!MID || !TID || !secretKey) {
         throw new Error(language === 'ar' ? 'بوابة الدفع غير مهيأة' : 'Payment gateway not configured');
@@ -326,7 +312,8 @@ const Checkout = () => {
       const merchantRef = `BZ_${Date.now()}`;
       const amountEGP   = Math.round(total);
 
-      // Compute SecureHash in the browser (Web Crypto API — no server round-trip)
+      // Compute SecureHash in the browser (Web Crypto API).
+      // Hash key names differ from URL param names: Amount/MerchantId/TerminalId vs amount/MID/TID.
       const hashParams: Record<string, string> = {
         Amount: amountEGP.toString(),
         MerchantId: MID,
@@ -343,84 +330,18 @@ const Checkout = () => {
       const sig = await crypto.subtle.sign('HMAC', cryptoKey, new TextEncoder().encode(queryString));
       const secureHash = Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
 
-      // Load PaySky LightBox script on demand — try lightboxUrl from DB first, then fallbacks.
-      let lightbox = getPaySkyLightbox();
-      if (!lightbox) {
-        const candidates = [
-          lightboxUrl,
-          'https://cube.paysky.io:6006/js/LightBox.js',
-          'https://secure.paysky.io/js/LightBox.js',
-          'https://cube.paysky.io/js/LightBox.js',
-        ].filter((u, i, a) => a.indexOf(u) === i); // deduplicate
-        for (const url of candidates) {
-          if (getPaySkyLightbox()) break;
-          await new Promise<void>((resolve) => {
-            if (document.querySelector(`script[src="${url}"]`)) { setTimeout(resolve, 1000); return; }
-            const s = document.createElement('script');
-            s.src = url;
-            s.async = true;
-            s.onload = () => setTimeout(resolve, 600);
-            s.onerror = () => { console.warn('[PaySky] script 404/error:', url); resolve(); };
-            document.body.appendChild(s);
-          });
-        }
-        lightbox = getPaySkyLightbox();
-        if (!lightbox) {
-          const w = window as any;
-          console.error('[PaySky] LightBox not found after loading scripts. window.Lightbox =', w.Lightbox, '| window.lightbox =', w.lightbox);
-        }
-      }
-
-      if (!lightbox) {
-        throw new Error(language === 'ar' ? 'بوابة الدفع غير متاحة' : 'Payment gateway unavailable');
-      }
-
-      lightbox.configure({
-        MID, TID,
-        AmountTrxn: amountEGP,
-        MerchantReference: merchantRef,
+      // Build the PaySky hosted checkout URL and open it in our own iframe modal.
+      // This bypasses LightBox.js entirely — same payment page, no script dependency.
+      const params = new URLSearchParams({
+        MID,
+        TID,
+        amount: amountEGP.toString(),
         TrxDateTime: trxDateTime,
+        MerchantReference: merchantRef,
         SecureHash: secureHash,
-        completeCallback: async (response: any) => {
-          if (response.Success) {
-            const order = await createOrder();
-            toast({
-              title: language === 'ar' ? 'تم الدفع بنجاح' : 'Payment Successful',
-              description: language === 'ar' ? 'تم إتمام طلبك بنجاح' : 'Your order has been placed successfully',
-            });
-            clearCart();
-            navigate(`/order-confirmation?orderId=${order.id}`);
-          } else {
-            toast({
-              variant: 'destructive',
-              title: language === 'ar' ? 'فشل الدفع' : 'Payment Failed',
-              description: response.Message || 'Payment was not successful',
-            });
-          }
-          setIsProcessing(false);
-        },
-        errorCallback: (err: any) => {
-          toast({
-            variant: 'destructive',
-            title: language === 'ar' ? 'خطأ في الدفع' : 'Payment Error',
-            description: err?.Message || 'An error occurred during payment',
-          });
-          setIsProcessing(false);
-        },
-        cancelCallback: () => {
-          toast({
-            title: language === 'ar' ? 'تم إلغاء الدفع' : 'Payment Cancelled',
-            description: language === 'ar' ? 'يمكنك المحاولة مرة أخرى' : 'You can try again',
-          });
-          setIsProcessing(false);
-        },
       });
-
-      if (typeof lightbox.showLightbox === 'function') {
-        lightbox.showLightbox();
-      } else {
-        throw new Error('PaySky showLightbox method not found');
-      }
+      setPaySkyCheckoutUrl(`https://cube.paysky.io:6006/Home/LightboxHostedCheckout/?${params}`);
+      // Payment result arrives via postMessage — handled in the useEffect above.
     } catch (error: any) {
       console.error('PaySky error:', error);
       toast({
@@ -513,6 +434,29 @@ const Checkout = () => {
       <Helmet>
         <title>{`${labels.checkout} | Baytzaki`}</title>
       </Helmet>
+
+      {/* PaySky Payment Modal */}
+      {paySkyCheckoutUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.75)' }}>
+          <div className="relative bg-white rounded-xl overflow-hidden shadow-2xl" style={{ width: '520px', maxWidth: '96vw', height: '660px', maxHeight: '92vh' }}>
+            <button
+              type="button"
+              onClick={() => { setPaySkyCheckoutUrl(null); setIsProcessing(false); }}
+              className="absolute top-3 right-3 z-10 flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600"
+              aria-label="Close payment"
+            >
+              <XIcon className="w-4 h-4" />
+            </button>
+            <iframe
+              src={paySkyCheckoutUrl}
+              className="w-full h-full border-0"
+              title={language === 'ar' ? 'الدفع الآمن' : 'Secure Payment'}
+              allow="payment"
+            />
+          </div>
+        </div>
+      )}
+
       <Layout>
         <div className="container py-8 md:py-12">
           {/* Back Button */}
