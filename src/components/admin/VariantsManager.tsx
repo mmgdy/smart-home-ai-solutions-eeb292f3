@@ -47,25 +47,51 @@ export function VariantsManager({ adminToken }: { adminToken: string }) {
 
   useEffect(() => { loadAll(); }, []);
 
-  const callAdmin = async (body: any) => {
-    const { data, error } = await supabase.functions.invoke('admin-write', {
-      body: { ...body, token: adminToken },
-    });
-    if (error) throw error;
-    if (!data?.success) throw new Error(data?.error || 'Failed');
-    return data;
+  // Strip variant tokens to derive a base key for grouping suggestions
+  const stripTokens = (s: string) =>
+    s.toLowerCase()
+      .replace(/\b(\d+)\s*(w|watt|watts|m|cm|mm|amp|a|gang|ch|channel|key|button|buttons|way|ways)\b/g, '')
+      .replace(/\b(black|white|gold|silver|gray|grey|red|blue|green|brown|beige|champagne|rose|pink)\b/g, '')
+      .replace(/\b(1|2|3|4|5|6)[\s-]?(gang|channel|ch|button|key|way)\b/g, '')
+      .replace(/[^a-z0-9 ]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  // Suggestions are computed client-side from already-loaded allProducts — no edge call needed.
+  const computeSuggestions = (products: AllProduct[]): Suggestion[] => {
+    const groups: Record<string, AllProduct[]> = {};
+    for (const p of products) {
+      if (p.parent_id) continue;
+      const key = `${(p.brand || '').toLowerCase()}::${stripTokens(p.name)}`;
+      if (!key.split('::')[1]) continue;
+      (groups[key] ||= []).push(p);
+    }
+    return Object.entries(groups)
+      .filter(([, items]) => items.length >= 2)
+      .map(([key, items]) => ({ key, items }));
   };
 
   const fetchSuggestions = async () => {
     setLoading(true);
     try {
-      const data = await callAdmin({ action: 'suggest-variant-groups' });
-      setSuggestions(data.suggestions || []);
+      const { data } = await supabase
+        .from('products')
+        .select('id,name,brand,price,stock,image_url,parent_id,variant_axis,variant_label')
+        .is('parent_id', null);
+      setSuggestions(computeSuggestions((data as AllProduct[]) || []));
     } catch (e: any) {
       toast({ title: 'Error', description: e.message, variant: 'destructive' });
     } finally {
       setLoading(false);
     }
+  };
+
+  const callRpc = async (fn: string, params: Record<string, any>) => {
+    const { data, error } = await supabase.rpc(fn as any, params);
+    if (error) throw error;
+    const result = data as any;
+    if (!result?.success) throw new Error(result?.error || 'Failed');
+    return result;
   };
 
   const toggleSelect = (id: string) => {
@@ -88,12 +114,12 @@ export function VariantsManager({ adminToken }: { adminToken: string }) {
     }
     setMerging(true);
     try {
-      await callAdmin({
-        action: 'merge-variants',
-        masterId,
-        variantIds: selectedIds,
-        axis,
-        labels,
+      await callRpc('admin_merge_variants', {
+        p_token: adminToken,
+        p_master_id: masterId,
+        p_variant_ids: selectedIds,
+        p_axis: axis,
+        p_labels: labels,
       });
       toast({ title: 'Merged ✓', description: `${selectedIds.length} products merged into one variant group.` });
       setSelectedIds([]);
@@ -109,7 +135,7 @@ export function VariantsManager({ adminToken }: { adminToken: string }) {
 
   const handleUnmerge = async (id: string) => {
     try {
-      await callAdmin({ action: 'unmerge-variant', id });
+      await callRpc('admin_unmerge_variant', { p_token: adminToken, p_id: id });
       toast({ title: 'Unmerged' });
       await loadAll();
     } catch (e: any) {
