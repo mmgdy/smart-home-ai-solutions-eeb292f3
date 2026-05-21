@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Textarea } from '@/components/ui/textarea';
+import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from '@/integrations/supabase/config';
 
 export function BulkImporter({ adminToken }: { adminToken: string }) {
   const { toast } = useToast();
@@ -52,12 +53,12 @@ export function BulkImporter({ adminToken }: { adminToken: string }) {
       try {
         // 1) Scrape the product
         const scrapeResp = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/scrape-product`,
+          `${SUPABASE_URL}/functions/v1/scrape-product`,
           {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              Authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
             },
             body: JSON.stringify({ url, adminToken }),
           }

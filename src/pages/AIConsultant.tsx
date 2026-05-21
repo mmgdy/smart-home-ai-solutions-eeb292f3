@@ -14,10 +14,11 @@ import remarkGfm from 'remark-gfm';
 import { Link, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from '@/integrations/supabase/config';
 
 type Message = { role: 'user' | 'assistant'; content: string };
 
-const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/smart-home-consultant`;
+const CHAT_URL = `${SUPABASE_URL}/functions/v1/smart-home-consultant`;
 
 function extractProductSlugs(content: string): string[] {
   const seen = new Set<string>();
@@ -110,7 +111,7 @@ const AIConsultant = () => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        Authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
       },
       body: JSON.stringify({ messages: userMessages }),
     });
