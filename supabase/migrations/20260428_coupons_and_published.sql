@@ -20,8 +20,19 @@ CREATE TABLE IF NOT EXISTS coupons (
 -- RLS: public can read active coupons (needed for checkout validation)
 ALTER TABLE coupons ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "Public can read active coupons" ON coupons
-  FOR SELECT USING (is_active = TRUE);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'coupons'
+      AND policyname = 'Public can read active coupons'
+  ) THEN
+    CREATE POLICY "Public can read active coupons" ON coupons
+      FOR SELECT USING (is_active = TRUE);
+  END IF;
+END $$;
 
 -- RPC to safely increment coupon usage (SECURITY DEFINER bypasses RLS for the UPDATE)
 CREATE OR REPLACE FUNCTION increment_coupon_usage(p_code TEXT)
