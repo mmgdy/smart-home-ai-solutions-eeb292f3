@@ -49,6 +49,7 @@ const Checkout = () => {
   const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discountType: 'percentage' | 'fixed'; discountValue: number } | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'fawry' | 'vodafone' | 'applepay'>('card');
   const [paySkyCheckoutUrl, setPaySkyCheckoutUrl] = useState<string | null>(null);
+  const [paySkyOrderId, setPaySkyOrderId] = useState<string | null>(null);
   const [includeInstallation, setIncludeInstallation] = useState(true);
   const [formData, setFormData] = useState<CheckoutFormData>({
     firstName: '',
@@ -89,13 +90,13 @@ const Checkout = () => {
         window.removeEventListener('message', handleMessage);
         setPaySkyCheckoutUrl(null);
         try {
-          const order = await createOrder();
+          if (!paySkyOrderId) throw new Error('Missing order id');
           toast({
             title: language === 'ar' ? 'تم الدفع بنجاح' : 'Payment Successful',
             description: language === 'ar' ? 'تم إتمام طلبك بنجاح' : 'Your order has been placed successfully',
           });
           clearCart();
-          navigate(`/order-confirmation?orderId=${order.id}`);
+          navigate(`/order-confirmation?orderId=${paySkyOrderId}`);
         } catch (err: any) {
           toast({ variant: 'destructive', title: language === 'ar' ? 'خطأ' : 'Error', description: err.message });
         }
@@ -115,7 +116,7 @@ const Checkout = () => {
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [paySkyCheckoutUrl]);
+  }, [paySkyCheckoutUrl, paySkyOrderId]);
 
   // Redirect if cart is empty
   useEffect(() => {
@@ -286,6 +287,28 @@ const Checkout = () => {
 
   const handlePaySkyPayment = async () => {
     try {
+      const order = await createOrder('pending');
+      setPaySkyOrderId(order.id);
+
+      const { data, error } = await supabase.functions.invoke('paysky-checkout', {
+        body: { orderId: order.id, merchantReference: `BZ_${Date.now()}` },
+      });
+
+      if (error || !data?.success) {
+        throw new Error(data?.message || data?.error || error?.message || 'Payment gateway not configured');
+      }
+
+      const config = data.config;
+      const paySkyParams = new URLSearchParams({
+        MID: config.MID,
+        TID: config.TID,
+        amount: (Number(config.AmountTrxn) / 100).toString(),
+        trxDateTime: config.TrxDateTime,
+        MerchantReference: config.MerchantReference,
+        secureHashAnonymous: config.SecureHash,
+      });
+      setPaySkyCheckoutUrl(`https://cube.paysky.io:6006/Home/LightboxHostedCheckout/?${paySkyParams}`);
+      return;
       // Read PaySky credentials directly from site_info — no edge function needed.
       // Read credentials from site_info.
       const { data: rows } = await supabase
