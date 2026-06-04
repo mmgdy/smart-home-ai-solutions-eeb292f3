@@ -361,6 +361,10 @@ export function ProductEditor({ adminToken }: Props) {
         )}
         <div className="flex-1" />
         <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" variant="outline" onClick={refreshMissingPhotos} disabled={photoBusy}>
+            {photoBusy ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />}
+            Refresh missing photos
+          </Button>
           <Input
             type="number" min="1" max="99" placeholder="%"
             value={discountPct} onChange={(e) => setDiscountPct(e.target.value)}
