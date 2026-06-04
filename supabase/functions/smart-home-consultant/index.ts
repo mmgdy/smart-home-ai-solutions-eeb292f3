@@ -125,17 +125,25 @@ ${productsInfo || "No products currently in stock."}
 
     // Try Lovable AI first, fallback to Groq
     let response;
+    let upstreamStatus: number | null = null;
     try {
       response = await callLovableAI(messages, systemPrompt);
     } catch (err: any) {
+      upstreamStatus = err?.status ?? null;
       if (err?.fallback) {
         console.log("Lovable AI limit hit, falling back to Groq");
         try {
           response = await callGroqAI(messages, systemPrompt);
         } catch (groqErr) {
           console.error("Groq also failed:", groqErr);
-          return new Response(JSON.stringify({ error: "AI service temporarily unavailable. Please try again later." }), {
-            status: 503,
+          const msg =
+            upstreamStatus === 402
+              ? "AI credits exhausted. Please add credits to continue using the assistant."
+              : upstreamStatus === 429
+                ? "Too many requests. Please wait a moment and try again."
+                : "AI service temporarily unavailable. Please try again later.";
+          return new Response(JSON.stringify({ error: msg }), {
+            status: upstreamStatus === 402 ? 402 : upstreamStatus === 429 ? 429 : 503,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
