@@ -489,21 +489,41 @@ const Checkout = () => {
       {/* PaySky Payment Modal */}
       {paySkyCheckoutUrl && (
         <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.75)' }}>
-          <div className="relative bg-white rounded-xl overflow-hidden shadow-2xl" style={{ width: '520px', maxWidth: '96vw', height: '660px', maxHeight: '92vh' }}>
+          <div className="relative bg-white rounded-xl overflow-hidden shadow-2xl p-6 text-center" style={{ width: '440px', maxWidth: '96vw' }}>
             <button
               type="button"
-              onClick={() => { setPaySkyCheckoutUrl(null); setIsProcessing(false); }}
+              onClick={() => { try { paySkyWindowRef.current?.close(); } catch {} setPaySkyCheckoutUrl(null); setIsProcessing(false); }}
               className="absolute top-3 right-3 z-10 flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600"
               aria-label="Close payment"
             >
               <XIcon className="w-4 h-4" />
             </button>
-            <iframe
-              src={paySkyCheckoutUrl}
-              className="w-full h-full border-0"
-              title={language === 'ar' ? 'الدفع الآمن' : 'Secure Payment'}
-              allow="payment"
-            />
+            <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+              <Loader2 className="w-6 h-6 animate-spin text-primary" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              {language === 'ar' ? 'إكمال الدفع' : 'Complete Payment'}
+            </h3>
+            <p className="text-sm text-gray-600 mb-5">
+              {language === 'ar'
+                ? 'تم فتح نافذة الدفع الآمنة. أكمل عملية الدفع هناك وستعود للموقع تلقائياً.'
+                : 'A secure payment window has opened. Complete the payment there and you will be returned automatically.'}
+            </p>
+            <a
+              href={paySkyCheckoutUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block w-full rounded-lg bg-primary text-primary-foreground font-medium py-3 px-4 hover:opacity-90 transition"
+            >
+              {language === 'ar' ? 'فتح نافذة الدفع مرة أخرى' : 'Re-open payment window'}
+            </a>
+            <button
+              type="button"
+              onClick={() => { try { paySkyWindowRef.current?.close(); } catch {} setPaySkyCheckoutUrl(null); setIsProcessing(false); }}
+              className="mt-3 w-full text-sm text-gray-500 hover:text-gray-700"
+            >
+              {language === 'ar' ? 'إلغاء' : 'Cancel'}
+            </button>
           </div>
         </div>
       )}
