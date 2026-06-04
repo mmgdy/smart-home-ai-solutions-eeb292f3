@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { ArrowLeft, ArrowRight, CreditCard, Truck, Shield, Loader2, Gift, Banknote, CheckCircle, LogIn, Wrench, Tag, X as XIcon } from 'lucide-react';
@@ -50,6 +50,7 @@ const Checkout = () => {
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'fawry' | 'vodafone' | 'applepay'>('card');
   const [paySkyCheckoutUrl, setPaySkyCheckoutUrl] = useState<string | null>(null);
   const [paySkyOrderId, setPaySkyOrderId] = useState<string | null>(null);
+  const paySkyWindowRef = useRef<Window | null>(null);
   const [includeInstallation, setIncludeInstallation] = useState(true);
   const [formData, setFormData] = useState<CheckoutFormData>({
     firstName: '',
@@ -88,6 +89,7 @@ const Checkout = () => {
 
       if (data.callback === 'completeCallback') {
         window.removeEventListener('message', handleMessage);
+        try { paySkyWindowRef.current?.close(); } catch {}
         setPaySkyCheckoutUrl(null);
         try {
           if (!paySkyOrderId) throw new Error('Missing order id');
@@ -103,11 +105,13 @@ const Checkout = () => {
         setIsProcessing(false);
       } else if (data.callback === 'errorCallback') {
         window.removeEventListener('message', handleMessage);
+        try { paySkyWindowRef.current?.close(); } catch {}
         setPaySkyCheckoutUrl(null);
         toast({ variant: 'destructive', title: language === 'ar' ? 'فشل الدفع' : 'Payment Failed', description: data.Info?.message || data.Info || 'Payment was not successful' });
         setIsProcessing(false);
       } else if (data.callback === 'cancelCallback') {
         window.removeEventListener('message', handleMessage);
+        try { paySkyWindowRef.current?.close(); } catch {}
         setPaySkyCheckoutUrl(null);
         toast({ title: language === 'ar' ? 'تم إلغاء الدفع' : 'Payment Cancelled' });
         setIsProcessing(false);
@@ -307,7 +311,28 @@ const Checkout = () => {
         MerchantReference: config.MerchantReference,
         secureHashAnonymous: config.SecureHash,
       });
-      setPaySkyCheckoutUrl(`https://cube.paysky.io:6006/Home/LightboxHostedCheckout/?${paySkyParams}`);
+      const url = `https://cube.paysky.io:6006/Home/LightboxHostedCheckout/?${paySkyParams}`;
+      // Open in a centered popup. PaySky's hosted page sends X-Frame-Options, so
+      // an iframe ends up blank — a popup window reliably renders the LightBox.
+      const w = 520, h = 720;
+      const left = (window.screen.availWidth - w) / 2;
+      const top = (window.screen.availHeight - h) / 2;
+      const popup = window.open(
+        url,
+        'paysky-checkout',
+        `width=${w},height=${h},left=${left},top=${top},resizable=yes,scrollbars=yes,status=no,menubar=no,toolbar=no`
+      );
+      paySkyWindowRef.current = popup;
+      if (!popup || popup.closed) {
+        toast({
+          variant: 'destructive',
+          title: language === 'ar' ? 'تم حظر النافذة' : 'Popup Blocked',
+          description: language === 'ar'
+            ? 'فضلاً اسمح بالنوافذ المنبثقة لإكمال الدفع، أو اضغط على رابط الدفع في النافذة.'
+            : 'Please allow popups to complete payment, or use the open-payment link in the dialog.',
+        });
+      }
+      setPaySkyCheckoutUrl(url);
       return;
       // Read PaySky credentials directly from site_info — no edge function needed.
       // Read credentials from site_info.
@@ -464,21 +489,41 @@ const Checkout = () => {
       {/* PaySky Payment Modal */}
       {paySkyCheckoutUrl && (
         <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.75)' }}>
-          <div className="relative bg-white rounded-xl overflow-hidden shadow-2xl" style={{ width: '520px', maxWidth: '96vw', height: '660px', maxHeight: '92vh' }}>
+          <div className="relative bg-white rounded-xl overflow-hidden shadow-2xl p-6 text-center" style={{ width: '440px', maxWidth: '96vw' }}>
             <button
               type="button"
-              onClick={() => { setPaySkyCheckoutUrl(null); setIsProcessing(false); }}
+              onClick={() => { try { paySkyWindowRef.current?.close(); } catch {} setPaySkyCheckoutUrl(null); setIsProcessing(false); }}
               className="absolute top-3 right-3 z-10 flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600"
               aria-label="Close payment"
             >
               <XIcon className="w-4 h-4" />
             </button>
-            <iframe
-              src={paySkyCheckoutUrl}
-              className="w-full h-full border-0"
-              title={language === 'ar' ? 'الدفع الآمن' : 'Secure Payment'}
-              allow="payment"
-            />
+            <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+              <Loader2 className="w-6 h-6 animate-spin text-primary" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              {language === 'ar' ? 'إكمال الدفع' : 'Complete Payment'}
+            </h3>
+            <p className="text-sm text-gray-600 mb-5">
+              {language === 'ar'
+                ? 'تم فتح نافذة الدفع الآمنة. أكمل عملية الدفع هناك وستعود للموقع تلقائياً.'
+                : 'A secure payment window has opened. Complete the payment there and you will be returned automatically.'}
+            </p>
+            <a
+              href={paySkyCheckoutUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block w-full rounded-lg bg-primary text-primary-foreground font-medium py-3 px-4 hover:opacity-90 transition"
+            >
+              {language === 'ar' ? 'فتح نافذة الدفع مرة أخرى' : 'Re-open payment window'}
+            </a>
+            <button
+              type="button"
+              onClick={() => { try { paySkyWindowRef.current?.close(); } catch {} setPaySkyCheckoutUrl(null); setIsProcessing(false); }}
+              className="mt-3 w-full text-sm text-gray-500 hover:text-gray-700"
+            >
+              {language === 'ar' ? 'إلغاء' : 'Cancel'}
+            </button>
           </div>
         </div>
       )}

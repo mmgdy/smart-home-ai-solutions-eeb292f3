@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Loader2, Plus, Pencil, Trash2, Upload, Search, X, Save, Image as ImageIcon, Video, Eye, EyeOff, Sparkles, Percent, CheckSquare, Square } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, Upload, Search, X, Save, Image as ImageIcon, Video, Eye, EyeOff, Sparkles, Percent, CheckSquare, Square, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -77,6 +77,7 @@ export function ProductEditor({ adminToken }: Props) {
   const [bulkBusy, setBulkBusy] = useState(false);
   const [discountPct, setDiscountPct] = useState("");
   const [aiBusy, setAiBusy] = useState(false);
+  const [photoBusy, setPhotoBusy] = useState(false);
 
   const fetchAllProducts = async () => {
     const pageSize = 1000;
@@ -108,6 +109,28 @@ export function ProductEditor({ adminToken }: Props) {
   };
 
   useEffect(() => { load(); }, []);
+
+  const refreshMissingPhotos = async () => {
+    setPhotoBusy(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('enhance-products', {
+        body: { action: 'find-missing-images', batchSize: 8, token: adminToken },
+      });
+      if (error || !data?.success) throw new Error(data?.error || error?.message || 'Refresh failed');
+      const results: any[] = data.results || [];
+      const updated = results.filter((r) => r.success && r.image_updated).length;
+      const failed = results.filter((r) => !r.success).length;
+      toast({
+        title: 'Photo refresh complete',
+        description: `Updated ${updated} • Skipped ${failed}. Re-run to process more.`,
+      });
+      await load();
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: 'Refresh failed', description: e?.message || String(e) });
+    } finally {
+      setPhotoBusy(false);
+    }
+  };
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -338,6 +361,10 @@ export function ProductEditor({ adminToken }: Props) {
         )}
         <div className="flex-1" />
         <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" variant="outline" onClick={refreshMissingPhotos} disabled={photoBusy}>
+            {photoBusy ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />}
+            Refresh missing photos
+          </Button>
           <Input
             type="number" min="1" max="99" placeholder="%"
             value={discountPct} onChange={(e) => setDiscountPct(e.target.value)}
