@@ -311,7 +311,28 @@ const Checkout = () => {
         MerchantReference: config.MerchantReference,
         secureHashAnonymous: config.SecureHash,
       });
-      setPaySkyCheckoutUrl(`https://cube.paysky.io:6006/Home/LightboxHostedCheckout/?${paySkyParams}`);
+      const url = `https://cube.paysky.io:6006/Home/LightboxHostedCheckout/?${paySkyParams}`;
+      // Open in a centered popup. PaySky's hosted page sends X-Frame-Options, so
+      // an iframe ends up blank — a popup window reliably renders the LightBox.
+      const w = 520, h = 720;
+      const left = (window.screen.availWidth - w) / 2;
+      const top = (window.screen.availHeight - h) / 2;
+      const popup = window.open(
+        url,
+        'paysky-checkout',
+        `width=${w},height=${h},left=${left},top=${top},resizable=yes,scrollbars=yes,status=no,menubar=no,toolbar=no`
+      );
+      paySkyWindowRef.current = popup;
+      if (!popup || popup.closed) {
+        toast({
+          variant: 'destructive',
+          title: language === 'ar' ? 'تم حظر النافذة' : 'Popup Blocked',
+          description: language === 'ar'
+            ? 'فضلاً اسمح بالنوافذ المنبثقة لإكمال الدفع، أو اضغط على رابط الدفع في النافذة.'
+            : 'Please allow popups to complete payment, or use the open-payment link in the dialog.',
+        });
+      }
+      setPaySkyCheckoutUrl(url);
       return;
       // Read PaySky credentials directly from site_info — no edge function needed.
       // Read credentials from site_info.
