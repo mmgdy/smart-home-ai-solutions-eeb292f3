@@ -50,6 +50,7 @@ const Checkout = () => {
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'fawry' | 'vodafone' | 'applepay'>('card');
   const [paySkyCheckoutUrl, setPaySkyCheckoutUrl] = useState<string | null>(null);
   const [paySkyOrderId, setPaySkyOrderId] = useState<string | null>(null);
+  const paySkyWindowRef = useRef<Window | null>(null);
   const [includeInstallation, setIncludeInstallation] = useState(true);
   const [formData, setFormData] = useState<CheckoutFormData>({
     firstName: '',
@@ -88,6 +89,7 @@ const Checkout = () => {
 
       if (data.callback === 'completeCallback') {
         window.removeEventListener('message', handleMessage);
+        try { paySkyWindowRef.current?.close(); } catch {}
         setPaySkyCheckoutUrl(null);
         try {
           if (!paySkyOrderId) throw new Error('Missing order id');
@@ -103,11 +105,13 @@ const Checkout = () => {
         setIsProcessing(false);
       } else if (data.callback === 'errorCallback') {
         window.removeEventListener('message', handleMessage);
+        try { paySkyWindowRef.current?.close(); } catch {}
         setPaySkyCheckoutUrl(null);
         toast({ variant: 'destructive', title: language === 'ar' ? 'فشل الدفع' : 'Payment Failed', description: data.Info?.message || data.Info || 'Payment was not successful' });
         setIsProcessing(false);
       } else if (data.callback === 'cancelCallback') {
         window.removeEventListener('message', handleMessage);
+        try { paySkyWindowRef.current?.close(); } catch {}
         setPaySkyCheckoutUrl(null);
         toast({ title: language === 'ar' ? 'تم إلغاء الدفع' : 'Payment Cancelled' });
         setIsProcessing(false);
