@@ -566,6 +566,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_merge_variants: {
+        Args: {
+          p_axis: string
+          p_labels?: Json
+          p_master_id: string
+          p_token: string
+          p_variant_ids: string[]
+        }
+        Returns: Json
+      }
+      admin_unmerge_variant: {
+        Args: { p_id: string; p_token: string }
+        Returns: Json
+      }
       award_loyalty_points: {
         Args: {
           p_email: string
