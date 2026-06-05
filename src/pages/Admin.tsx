@@ -788,6 +788,12 @@ export default function Admin() {
               <FlashSaleEditor adminToken={token} />
             </div>
           </TabsContent>
+
+          <TabsContent value="push" className="mt-6">
+            <div className="bg-card border border-border rounded-xl p-6">
+              <PushBroadcaster adminToken={token} />
+            </div>
+          </TabsContent>
         </Tabs>
       </div>
     </Layout>
