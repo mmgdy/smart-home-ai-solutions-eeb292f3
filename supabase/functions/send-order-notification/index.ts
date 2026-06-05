@@ -249,12 +249,6 @@ const handler = async (req: Request): Promise<Response> => {
         message: `Order #${orderId.slice(0, 8)} • ${total.toLocaleString()} EGP. We'll notify you on every status update.`,
         url: `/order-confirmation?orderId=${orderId}`,
       });
-      // Notify admin devices too — opt-in admins receive a heads-up
-      await sendPushToAll(supabase, {
-        title: `🛒 New order • ${total.toLocaleString()} EGP`,
-        message: `${shippingAddress.firstName} ${shippingAddress.lastName} • ${paymentLabel}`,
-        url: `/admin`,
-      }).catch(() => {});
     } catch (e) {
       console.warn("Push notification failed (non-fatal):", e);
     }
