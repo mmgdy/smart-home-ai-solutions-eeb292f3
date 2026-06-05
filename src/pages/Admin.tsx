@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Upload, Loader2, CheckCircle, AlertCircle, Image, FileText, Sparkles, Download, Filter, DollarSign, CreditCard, Package, Settings, Globe, RefreshCw, Link2, Users, Tag, Zap, Merge } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { PushBroadcaster } from '@/components/admin/PushBroadcaster';
 import { Progress } from '@/components/ui/progress';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
@@ -379,6 +380,7 @@ export default function Admin() {
             <TabsTrigger value="scraper"><Link2 className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Import URL</span></TabsTrigger>
             <TabsTrigger value="coupons"><Tag className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Coupons</span></TabsTrigger>
             <TabsTrigger value="flash-sale"><Zap className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Discounts</span></TabsTrigger>
+            <TabsTrigger value="push"><Bell className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Push</span></TabsTrigger>
           </TabsList>
 
           <TabsContent value="users" className="mt-6"><UsersManagement adminToken={token} /></TabsContent>
