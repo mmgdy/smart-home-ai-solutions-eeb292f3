@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { Resend } from "https://esm.sh/resend@2.0.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { sendPushToEmail, sendPushToAll } from "../_shared/fcm.ts";
+import { sendPushToEmail } from "../_shared/fcm.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
