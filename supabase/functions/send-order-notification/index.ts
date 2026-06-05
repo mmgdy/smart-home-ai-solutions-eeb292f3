@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { Resend } from "https://esm.sh/resend@2.0.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { sendPushToEmail } from "../_shared/fcm.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
@@ -240,6 +241,17 @@ const handler = async (req: Request): Promise<Response> => {
     });
 
     console.log("Customer confirmation sent:", customerEmailResponse);
+
+    // Fire-and-forget push notifications (don't block response if FCM not configured)
+    try {
+      await sendPushToEmail(supabase, email, {
+        title: "Order confirmed 🎉",
+        message: `Order #${orderId.slice(0, 8)} • ${total.toLocaleString()} EGP. We'll notify you on every status update.`,
+        url: `/order-confirmation?orderId=${orderId}`,
+      });
+    } catch (e) {
+      console.warn("Push notification failed (non-fatal):", e);
+    }
 
     return new Response(
       JSON.stringify({ 

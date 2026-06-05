@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { sendPushToEmail } from "../_shared/fcm.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -538,8 +539,27 @@ Deno.serve(async (req) => {
       const { id, status } = body;
       const allowed = ["pending", "processing", "shipped", "delivered", "cancelled"];
       if (!allowed.includes(status)) throw new Error("Invalid status value");
+      const { data: orderRow } = await supabase.from("orders").select("email, total").eq("id", id).single();
       const { error } = await supabase.from("orders").update({ status }).eq("id", id);
       if (error) throw error;
+      // Notify the customer's devices about the status change (non-fatal if push not configured)
+      try {
+        const labels: Record<string, { title: string; msg: string }> = {
+          pending:    { title: "Order received", msg: "We've received your order and are reviewing it." },
+          processing: { title: "Order is being prepared 📦", msg: "Your order is being processed." },
+          shipped:    { title: "Your order shipped 🚚", msg: "Your order is on its way!" },
+          delivered:  { title: "Order delivered ✅", msg: "Thanks for shopping with Baytzaki!" },
+          cancelled:  { title: "Order cancelled", msg: "Your order has been cancelled. Contact us if this is a mistake." },
+        };
+        const L = labels[status];
+        if (L && orderRow?.email) {
+          await sendPushToEmail(supabase, orderRow.email, {
+            title: L.title,
+            message: `Order #${String(id).slice(0, 8)} • ${L.msg}`,
+            url: `/order-confirmation?orderId=${id}`,
+          });
+        }
+      } catch (e) { console.warn("status push failed:", e); }
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
