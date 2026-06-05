@@ -112,6 +112,25 @@ const Profile = () => {
             </div>
           </motion.div>
 
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05 }}
+            className="mb-6 rounded-2xl border border-border bg-card p-5 flex flex-col sm:flex-row items-start sm:items-center gap-3 justify-between"
+          >
+            <div>
+              <h3 className="font-display text-base font-semibold">
+                {language === 'ar' ? 'تنبيهات العروض والطلبات' : 'Deal & order alerts'}
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                {language === 'ar'
+                  ? 'فعّل الإشعارات لتصلك العروض الحصرية وتحديثات الطلب فوراً.'
+                  : 'Turn on notifications to get exclusive deals and order updates instantly.'}
+              </p>
+            </div>
+            <PushNotificationsButton />
+          </motion.div>
+
           <div className="grid gap-6 md:grid-cols-2">
             {/* Loyalty Section */}
             <motion.div
