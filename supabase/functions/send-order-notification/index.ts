@@ -242,6 +242,23 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("Customer confirmation sent:", customerEmailResponse);
 
+    // Fire-and-forget push notifications (don't block response if FCM not configured)
+    try {
+      await sendPushToEmail(supabase, email, {
+        title: "Order confirmed 🎉",
+        message: `Order #${orderId.slice(0, 8)} • ${total.toLocaleString()} EGP. We'll notify you on every status update.`,
+        url: `/order-confirmation?orderId=${orderId}`,
+      });
+      // Notify admin devices too — opt-in admins receive a heads-up
+      await sendPushToAll(supabase, {
+        title: `🛒 New order • ${total.toLocaleString()} EGP`,
+        message: `${shippingAddress.firstName} ${shippingAddress.lastName} • ${paymentLabel}`,
+        url: `/admin`,
+      }).catch(() => {});
+    } catch (e) {
+      console.warn("Push notification failed (non-fatal):", e);
+    }
+
     return new Response(
       JSON.stringify({ 
         success: true, 
