@@ -436,6 +436,45 @@ export type Database = {
           },
         ]
       }
+      push_subscriptions: {
+        Row: {
+          created_at: string
+          email: string | null
+          enabled: boolean
+          fcm_token: string
+          id: string
+          locale: string | null
+          platform: string
+          updated_at: string
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          enabled?: boolean
+          fcm_token: string
+          id?: string
+          locale?: string | null
+          platform?: string
+          updated_at?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          enabled?: boolean
+          fcm_token?: string
+          id?: string
+          locale?: string | null
+          platform?: string
+          updated_at?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       quotes: {
         Row: {
           ai_analysis: Json | null
