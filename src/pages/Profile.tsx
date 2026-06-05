@@ -9,6 +9,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/lib/i18n';
 import { useLoyalty, getTierColor, getTierNextThreshold } from '@/hooks/useLoyalty';
 import { LoyaltyBadge } from '@/components/loyalty/LoyaltyBadge';
+import { PushNotificationsButton } from '@/components/PushNotificationsButton';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 
