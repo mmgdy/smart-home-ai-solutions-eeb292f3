@@ -3,9 +3,10 @@ import { Helmet } from 'react-helmet-async';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Upload, Loader2, CheckCircle, AlertCircle, Image, FileText, Sparkles, Download, Filter, DollarSign, CreditCard, Package, Settings, Globe, RefreshCw, Link2, Users, Tag, Zap, Merge } from 'lucide-react';
+import { Upload, Loader2, CheckCircle, AlertCircle, Image, FileText, Sparkles, Download, Filter, DollarSign, CreditCard, Package, Settings, Globe, RefreshCw, Link2, Users, Tag, Zap, Merge, Bell } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { PushBroadcaster } from '@/components/admin/PushBroadcaster';
 import { Progress } from '@/components/ui/progress';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
@@ -379,6 +380,7 @@ export default function Admin() {
             <TabsTrigger value="scraper"><Link2 className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Import URL</span></TabsTrigger>
             <TabsTrigger value="coupons"><Tag className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Coupons</span></TabsTrigger>
             <TabsTrigger value="flash-sale"><Zap className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Discounts</span></TabsTrigger>
+            <TabsTrigger value="push"><Bell className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Push</span></TabsTrigger>
           </TabsList>
 
           <TabsContent value="users" className="mt-6"><UsersManagement adminToken={token} /></TabsContent>
@@ -784,6 +786,12 @@ export default function Admin() {
           <TabsContent value="flash-sale" className="mt-6">
             <div className="bg-card border border-border rounded-xl p-6">
               <FlashSaleEditor adminToken={token} />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="push" className="mt-6">
+            <div className="bg-card border border-border rounded-xl p-6">
+              <PushBroadcaster adminToken={token} />
             </div>
           </TabsContent>
         </Tabs>

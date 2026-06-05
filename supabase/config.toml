@@ -56,3 +56,9 @@ verify_jwt = false
 
 [functions.validate-coupon]
 verify_jwt = false
+
+[functions.firebase-config]
+verify_jwt = false
+
+[functions.send-push]
+verify_jwt = false
