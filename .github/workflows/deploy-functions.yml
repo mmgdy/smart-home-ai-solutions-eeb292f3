@@ -19,7 +19,7 @@ jobs:
       - name: Deploy each edge function
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_ID }}
+          PROJECT_REF: vgwptcvjhmphqhoepbri
         run: |
           set -e
           for dir in supabase/functions/*/; do

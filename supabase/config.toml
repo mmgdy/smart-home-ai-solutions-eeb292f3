@@ -1,4 +1,4 @@
-project_id = "djsibxhkfvwtjzvnjmhp"
+project_id = "vgwptcvjhmphqhoepbri"
 
 [functions.paysky-checkout]
 verify_jwt = false
