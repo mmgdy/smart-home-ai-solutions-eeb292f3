@@ -236,10 +236,27 @@ const Checkout = () => {
 
     if (orderError) throw orderError;
 
-    // Create order items — bundle items have virtual IDs so product_id is null
-    const orderItems = items.map(item => ({
+    // Resolve which product IDs actually exist — guards against stale carts after
+    // backend migrations where a product UUID may no longer be in the catalog.
+    const candidateIds = items
+      .map((i) => i.product.id)
+      .filter((id) => typeof id === 'string' && !id.startsWith('bundle-'));
+    let validIds = new Set<string>();
+    if (candidateIds.length > 0) {
+      const { data: existing } = await supabase
+        .from('products')
+        .select('id')
+        .in('id', candidateIds);
+      validIds = new Set((existing ?? []).map((p: any) => p.id));
+    }
+
+    // Bundle items + unknown products are stored with product_id = null so the FK holds.
+    const orderItems = items.map((item) => ({
       order_id: orderId,
-      product_id: item.product.id.startsWith('bundle-') ? null : item.product.id,
+      product_id:
+        item.product.id.startsWith('bundle-') || !validIds.has(item.product.id)
+          ? null
+          : item.product.id,
       product_name: item.product.name,
       quantity: item.quantity,
       price: item.product.price,
