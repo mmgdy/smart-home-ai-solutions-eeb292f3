@@ -489,7 +489,7 @@ const Checkout = () => {
     processing: language === 'ar' ? 'جاري المعالجة...' : 'Processing...',
     backToCart: language === 'ar' ? 'العودة للسلة' : 'Back to Cart',
     paymentMethod: language === 'ar' ? 'طريقة الدفع' : 'Payment Method',
-    cardPayment: language === 'ar' ? 'بطاقة ائتمان / مدى' : 'Credit / Debit Card',
+    cardPayment: language === 'ar' ? 'بطاقة ائتمان' : 'Credit / Debit Card',
     pointsDiscount: language === 'ar' ? 'خصم النقاط' : 'Points Discount',
   };
 
@@ -747,9 +747,6 @@ const Checkout = () => {
                             <span className="inline-flex h-6 w-9 items-center justify-center rounded-md bg-white px-1 shadow-sm ring-1 ring-black/5">
                               <span className="block h-3.5 w-3.5 rounded-full bg-[#EB001B]" />
                               <span className="-ml-1.5 block h-3.5 w-3.5 rounded-full bg-[#F79E1B] mix-blend-multiply" />
-                            </span>
-                            <span className="inline-flex h-6 items-center rounded-md bg-emerald-600 px-2 text-[10px] font-bold text-white">
-                              مدى
                             </span>
                           </div>
                         </div>

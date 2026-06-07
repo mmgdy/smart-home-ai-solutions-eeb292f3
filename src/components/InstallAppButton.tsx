@@ -46,10 +46,8 @@ export function InstallAppButton({ className }: { className?: string }) {
       setDeferred(null);
       return;
     }
-    if (isIos) setShowIosHelp(true);
+    setShowIosHelp(true);
   };
-
-  if (!deferred && !isIos) return null;
 
   return (
     <>
@@ -61,7 +59,7 @@ export function InstallAppButton({ className }: { className?: string }) {
         className={className}
       >
         <Download className="h-4 w-4" />
-        <span className="hidden sm:inline">
+        <span className="hidden md:inline">
           {language === 'ar' ? 'تثبيت التطبيق' : 'Install App'}
         </span>
       </Button>
@@ -78,6 +76,7 @@ export function InstallAppButton({ className }: { className?: string }) {
             <h3 className="mb-3 font-display text-lg font-semibold">
               {language === 'ar' ? 'ثبّت Baytzaki على شاشتك الرئيسية' : 'Install Baytzaki on your Home Screen'}
             </h3>
+            {isIos ? (
             <ol className="space-y-3 text-sm text-muted-foreground">
               <li className="flex items-start gap-2">
                 <Share className="h-4 w-4 mt-0.5 text-primary" />
@@ -88,6 +87,22 @@ export function InstallAppButton({ className }: { className?: string }) {
                 {language === 'ar' ? 'اختر "إضافة إلى الشاشة الرئيسية"' : 'Choose "Add to Home Screen"'}
               </li>
             </ol>
+            ) : (
+            <ol className="space-y-3 text-sm text-muted-foreground">
+              <li className="flex items-start gap-2">
+                <Share className="h-4 w-4 mt-0.5 text-primary" />
+                {language === 'ar'
+                  ? 'افتح قائمة المتصفح (⋮) ثم اختر "تثبيت التطبيق" أو "إضافة إلى الشاشة الرئيسية"'
+                  : 'Open your browser menu (⋮) and choose "Install app" or "Add to Home screen"'}
+              </li>
+              <li className="flex items-start gap-2">
+                <Check className="h-4 w-4 mt-0.5 text-primary" />
+                {language === 'ar'
+                  ? 'للحصول على أفضل تجربة، استخدم Chrome أو Edge على Android، أو Safari على iPhone.'
+                  : 'For the best experience, use Chrome / Edge on Android or Safari on iPhone.'}
+              </li>
+            </ol>
+            )}
             <Button className="mt-5 w-full" onClick={() => setShowIosHelp(false)}>
               {language === 'ar' ? 'حسناً' : 'Got it'}
             </Button>
