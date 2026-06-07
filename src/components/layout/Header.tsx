@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import defaultLogoImage from '@/assets/logo.png';
 import { AuthButton } from '@/components/auth/AuthButton';
+import { InstallAppButton } from '@/components/InstallAppButton';
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -85,6 +86,7 @@ export function Header() {
         {/* Right side */}
         <div className={cn("flex items-center gap-2", isRTL && "flex-row-reverse")}>
           <AuthButton variant="ghost" size="sm" />
+          <InstallAppButton className="hidden sm:inline-flex" />
           <LanguageToggle />
           <Link to="/cart" className="relative group">
             <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full hover:bg-foreground/5">
@@ -132,6 +134,9 @@ export function Header() {
               <Link to="/calculator" onClick={() => setMobileMenuOpen(false)} className="block text-center text-muted-foreground hover:text-foreground py-2">
                 {isRTL ? 'حاسبة التكلفة' : 'Cost Calculator'}
               </Link>
+              <div className="mt-3 flex justify-center">
+                <InstallAppButton />
+              </div>
             </div>
           </nav>
         </div>

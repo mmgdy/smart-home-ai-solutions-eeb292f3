@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { ArrowLeft, ArrowRight, CreditCard, Truck, Shield, Loader2, Gift, Banknote, CheckCircle, LogIn, Wrench, Tag, X as XIcon } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CreditCard, Truck, Shield, Loader2, Gift, CheckCircle, LogIn, Wrench, Tag, X as XIcon } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -47,7 +47,7 @@ const Checkout = () => {
   const [couponCode, setCouponCode] = useState('');
   const [couponLoading, setCouponLoading] = useState(false);
   const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discountType: 'percentage' | 'fixed'; discountValue: number } | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<'card' | 'fawry' | 'vodafone' | 'applepay'>('card');
+  const [paymentMethod, setPaymentMethod] = useState<'card'>('card');
   const [paySkyCheckoutUrl, setPaySkyCheckoutUrl] = useState<string | null>(null);
   const [paySkyOrderId, setPaySkyOrderId] = useState<string | null>(null);
   const paySkyWindowRef = useRef<Window | null>(null);
@@ -740,79 +740,18 @@ const Checkout = () => {
                               </p>
                             </div>
                           </div>
-                          <div className="flex gap-2">
-                            <img src="https://upload.wikimedia.org/wikipedia/commons/5/5e/Visa_Inc._logo.svg" alt="Visa" className="h-6" />
-                            <img src="https://upload.wikimedia.org/wikipedia/commons/2/2a/Mastercard-logo.svg" alt="Mastercard" className="h-6" />
+                          <div className="flex items-center gap-1.5">
+                            <span className="inline-flex h-6 items-center rounded-md bg-[#1A1F71] px-2 text-[11px] font-bold italic tracking-wider text-white">
+                              VISA
+                            </span>
+                            <span className="inline-flex h-6 w-9 items-center justify-center rounded-md bg-white px-1 shadow-sm ring-1 ring-black/5">
+                              <span className="block h-3.5 w-3.5 rounded-full bg-[#EB001B]" />
+                              <span className="-ml-1.5 block h-3.5 w-3.5 rounded-full bg-[#F79E1B] mix-blend-multiply" />
+                            </span>
+                            <span className="inline-flex h-6 items-center rounded-md bg-emerald-600 px-2 text-[10px] font-bold text-white">
+                              مدى
+                            </span>
                           </div>
-                        </div>
-                      </Label>
-                    </div>
-
-                    {/* Fawry - Coming Soon */}
-                    <div 
-                      className="flex items-center space-x-4 p-4 rounded-lg border-2 border-border opacity-60 cursor-not-allowed relative"
-                    >
-                      <RadioGroupItem value="fawry" id="fawry" disabled />
-                      <Label htmlFor="fawry" className="flex-1 cursor-not-allowed">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <Banknote className="h-5 w-5 text-muted-foreground" />
-                            <div>
-                              <p className="font-medium">{language === 'ar' ? 'فوري' : 'Fawry'}</p>
-                              <p className="text-sm text-muted-foreground">
-                                {language === 'ar' ? 'ادفع عبر منافذ فوري' : 'Pay at Fawry outlets'}
-                              </p>
-                            </div>
-                          </div>
-                          <span className="rounded-full bg-muted px-2 py-1 text-[10px] font-medium text-muted-foreground">
-                            {language === 'ar' ? 'قريباً' : 'Soon'}
-                          </span>
-                        </div>
-                      </Label>
-                    </div>
-
-                    {/* Vodafone Cash - Coming Soon */}
-                    <div 
-                      className="flex items-center space-x-4 p-4 rounded-lg border-2 border-border opacity-60 cursor-not-allowed relative"
-                    >
-                      <RadioGroupItem value="vodafone" id="vodafone" disabled />
-                      <Label htmlFor="vodafone" className="flex-1 cursor-not-allowed">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <Banknote className="h-5 w-5 text-muted-foreground" />
-                            <div>
-                              <p className="font-medium">{language === 'ar' ? 'فودافون كاش' : 'Vodafone Cash'}</p>
-                              <p className="text-sm text-muted-foreground">
-                                {language === 'ar' ? 'ادفع عبر محفظة فودافون كاش' : 'Pay via Vodafone Cash wallet'}
-                              </p>
-                            </div>
-                          </div>
-                          <span className="rounded-full bg-muted px-2 py-1 text-[10px] font-medium text-muted-foreground">
-                            {language === 'ar' ? 'قريباً' : 'Soon'}
-                          </span>
-                        </div>
-                      </Label>
-                    </div>
-
-                    {/* Apple Pay / Google Pay - Coming Soon */}
-                    <div 
-                      className="flex items-center space-x-4 p-4 rounded-lg border-2 border-border opacity-60 cursor-not-allowed relative"
-                    >
-                      <RadioGroupItem value="applepay" id="applepay" disabled />
-                      <Label htmlFor="applepay" className="flex-1 cursor-not-allowed">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <CreditCard className="h-5 w-5 text-muted-foreground" />
-                            <div>
-                              <p className="font-medium">Apple Pay / Google Pay</p>
-                              <p className="text-sm text-muted-foreground">
-                                {language === 'ar' ? 'دفع سريع عبر الهاتف' : 'Express mobile payment'}
-                              </p>
-                            </div>
-                          </div>
-                          <span className="rounded-full bg-muted px-2 py-1 text-[10px] font-medium text-muted-foreground">
-                            {language === 'ar' ? 'قريباً' : 'Soon'}
-                          </span>
                         </div>
                       </Label>
                     </div>

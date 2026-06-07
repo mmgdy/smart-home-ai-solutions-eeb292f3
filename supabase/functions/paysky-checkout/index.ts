@@ -11,8 +11,20 @@ const corsHeaders = {
 const toTwoDigits = (value: number) => value.toString().padStart(2, "0");
 
 const getLocalTransactionTime = () => {
-  const now = new Date();
-  return `${now.getFullYear()}${toTwoDigits(now.getMonth() + 1)}${toTwoDigits(now.getDate())}${toTwoDigits(now.getHours())}${toTwoDigits(now.getMinutes())}`;
+  // PaySky validates the timestamp against Cairo wall-clock time (server is in Egypt).
+  // Deno edge runs in UTC, so derive the Africa/Cairo time explicitly — otherwise the
+  // gateway rejects the request with a generic "something went wrong" screen.
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Africa/Cairo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date());
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "00";
+  return `${get("year")}${get("month")}${get("day")}${get("hour")}${get("minute")}`;
 };
 
 const normalizeHexKey = (secretKey: string) => {
