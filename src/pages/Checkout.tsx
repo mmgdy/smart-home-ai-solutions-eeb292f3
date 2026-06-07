@@ -740,9 +740,17 @@ const Checkout = () => {
                               </p>
                             </div>
                           </div>
-                          <div className="flex gap-2">
-                            <img src="https://upload.wikimedia.org/wikipedia/commons/5/5e/Visa_Inc._logo.svg" alt="Visa" className="h-6" />
-                            <img src="https://upload.wikimedia.org/wikipedia/commons/2/2a/Mastercard-logo.svg" alt="Mastercard" className="h-6" />
+                          <div className="flex items-center gap-1.5">
+                            <span className="inline-flex h-6 items-center rounded-md bg-[#1A1F71] px-2 text-[11px] font-bold italic tracking-wider text-white">
+                              VISA
+                            </span>
+                            <span className="inline-flex h-6 w-9 items-center justify-center rounded-md bg-white px-1 shadow-sm ring-1 ring-black/5">
+                              <span className="block h-3.5 w-3.5 rounded-full bg-[#EB001B]" />
+                              <span className="-ml-1.5 block h-3.5 w-3.5 rounded-full bg-[#F79E1B] mix-blend-multiply" />
+                            </span>
+                            <span className="inline-flex h-6 items-center rounded-md bg-emerald-600 px-2 text-[10px] font-bold text-white">
+                              مدى
+                            </span>
                           </div>
                         </div>
                       </Label>
