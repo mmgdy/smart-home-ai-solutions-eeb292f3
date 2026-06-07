@@ -21,10 +21,14 @@ const getLocalTransactionTime = () => {
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
+    second: "2-digit",
     hour12: false,
   }).formatToParts(new Date());
   const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "00";
-  return `${get("year")}${get("month")}${get("day")}${get("hour")}${get("minute")}`;
+  // PaySky expects YYYYMMDDHHMMSS (14 chars). Their gateway rejects 12-char timestamps
+  // with a generic "something went wrong" error.
+  const hour = get("hour") === "24" ? "00" : get("hour");
+  return `${get("year")}${get("month")}${get("day")}${hour}${get("minute")}${get("second")}`;
 };
 
 const normalizeHexKey = (secretKey: string) => {
