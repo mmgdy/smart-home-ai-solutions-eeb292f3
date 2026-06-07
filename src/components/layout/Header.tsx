@@ -134,6 +134,9 @@ export function Header() {
               <Link to="/calculator" onClick={() => setMobileMenuOpen(false)} className="block text-center text-muted-foreground hover:text-foreground py-2">
                 {isRTL ? 'حاسبة التكلفة' : 'Cost Calculator'}
               </Link>
+              <div className="mt-3 flex justify-center">
+                <InstallAppButton />
+              </div>
             </div>
           </nav>
         </div>
