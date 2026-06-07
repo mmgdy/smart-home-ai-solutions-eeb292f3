@@ -489,7 +489,7 @@ const Checkout = () => {
     processing: language === 'ar' ? 'جاري المعالجة...' : 'Processing...',
     backToCart: language === 'ar' ? 'العودة للسلة' : 'Back to Cart',
     paymentMethod: language === 'ar' ? 'طريقة الدفع' : 'Payment Method',
-    cardPayment: language === 'ar' ? 'بطاقة ائتمان / مدى' : 'Credit / Debit Card',
+    cardPayment: language === 'ar' ? 'بطاقة ائتمان' : 'Credit / Debit Card',
     pointsDiscount: language === 'ar' ? 'خصم النقاط' : 'Points Discount',
   };
 
