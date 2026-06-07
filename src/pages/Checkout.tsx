@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { ArrowLeft, ArrowRight, CreditCard, Truck, Shield, Loader2, Gift, Banknote, CheckCircle, LogIn, Wrench, Tag, X as XIcon } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CreditCard, Truck, Shield, Loader2, Gift, CheckCircle, LogIn, Wrench, Tag, X as XIcon } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -47,7 +47,7 @@ const Checkout = () => {
   const [couponCode, setCouponCode] = useState('');
   const [couponLoading, setCouponLoading] = useState(false);
   const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discountType: 'percentage' | 'fixed'; discountValue: number } | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<'card' | 'fawry' | 'vodafone' | 'applepay'>('card');
+  const [paymentMethod, setPaymentMethod] = useState<'card'>('card');
   const [paySkyCheckoutUrl, setPaySkyCheckoutUrl] = useState<string | null>(null);
   const [paySkyOrderId, setPaySkyOrderId] = useState<string | null>(null);
   const paySkyWindowRef = useRef<Window | null>(null);
