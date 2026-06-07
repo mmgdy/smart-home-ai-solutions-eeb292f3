@@ -59,7 +59,7 @@ export function InstallAppButton({ className }: { className?: string }) {
         className={className}
       >
         <Download className="h-4 w-4" />
-        <span className="hidden sm:inline">
+        <span className="hidden md:inline">
           {language === 'ar' ? 'تثبيت التطبيق' : 'Install App'}
         </span>
       </Button>
