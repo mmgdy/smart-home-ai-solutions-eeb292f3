@@ -46,10 +46,8 @@ export function InstallAppButton({ className }: { className?: string }) {
       setDeferred(null);
       return;
     }
-    if (isIos) setShowIosHelp(true);
+    setShowIosHelp(true);
   };
-
-  if (!deferred && !isIos) return null;
 
   return (
     <>
