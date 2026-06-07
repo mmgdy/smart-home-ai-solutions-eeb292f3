@@ -748,9 +748,6 @@ const Checkout = () => {
                               <span className="block h-3.5 w-3.5 rounded-full bg-[#EB001B]" />
                               <span className="-ml-1.5 block h-3.5 w-3.5 rounded-full bg-[#F79E1B] mix-blend-multiply" />
                             </span>
-                            <span className="inline-flex h-6 items-center rounded-md bg-emerald-600 px-2 text-[10px] font-bold text-white">
-                              مدى
-                            </span>
                           </div>
                         </div>
                       </Label>
