@@ -46,7 +46,7 @@ export function Header() {
   // Problem-based emotional navigation
   const navLinks = [
     { href: '/ai-consultant', label: isRTL ? 'اجعل بيتي ذكي' : 'Make My Home Smart', icon: '🏠' },
-    { href: '/products?category=lighting', label: isRTL ? 'تحكم في الإضاءة' : 'Control Lights', icon: '💡' },
+    { href: '/app-simulator', label: isRTL ? 'جرّب التطبيقات' : 'Try the Apps', icon: '📱' },
     { href: '/products?category=security', label: isRTL ? 'أمّن عائلتي' : 'Protect Family', icon: '🛡️' },
     { href: '/bundles', label: isRTL ? 'الباقات' : 'Bundles', icon: '📦' },
     { href: '/services', label: isRTL ? 'احجز التركيب' : 'Book Install', icon: '🔧' },

@@ -28,27 +28,53 @@ import Bundles from "./pages/Bundles";
 import About from "./pages/About";
 import Brands from "./pages/Brands";
 import HomeDesigner from "./pages/HomeDesigner";
+import AppSimulator from "./pages/AppSimulator";
 
 const queryClient = new QueryClient();
 
-// Reads favicon_url from admin_settings and applies it to <link rel="icon"> on load.
+// Reads favicon_url / app_icon_url from admin_settings and applies them to the
+// document head + dynamic web app manifest.
 function FaviconUpdater() {
   useEffect(() => {
-    supabase
-      .from('admin_settings')
-      .select('value')
-      .eq('key', 'favicon_url')
-      .maybeSingle()
-      .then(({ data }) => {
-        if (!data?.value) return;
+    (async () => {
+      const { data } = await supabase
+        .from('admin_settings')
+        .select('key, value')
+        .in('key', ['favicon_url', 'app_icon_url']);
+      const map: Record<string, string> = {};
+      (data ?? []).forEach((r: any) => { if (r.value) map[r.key] = r.value; });
+
+      if (map.favicon_url) {
         let link = document.querySelector("link[rel='icon']") as HTMLLinkElement | null;
-        if (!link) {
-          link = document.createElement('link');
-          link.rel = 'icon';
-          document.head.appendChild(link);
+        if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link); }
+        link.href = map.favicon_url;
+      }
+
+      if (map.app_icon_url) {
+        // Apple touch icon
+        let apple = document.querySelector("link[rel='apple-touch-icon']") as HTMLLinkElement | null;
+        if (!apple) { apple = document.createElement('link'); apple.rel = 'apple-touch-icon'; document.head.appendChild(apple); }
+        apple.href = map.app_icon_url;
+
+        // Dynamic manifest swap so PWA install uses the new icon
+        try {
+          const res = await fetch('/manifest.webmanifest', { cache: 'no-store' });
+          const manifest = await res.json();
+          manifest.icons = [
+            { src: map.app_icon_url, sizes: '192x192', type: 'image/png', purpose: 'any' },
+            { src: map.app_icon_url, sizes: '512x512', type: 'image/png', purpose: 'any' },
+            { src: map.app_icon_url, sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+          ];
+          const blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
+          const url = URL.createObjectURL(blob);
+          let mlink = document.querySelector("link[rel='manifest']") as HTMLLinkElement | null;
+          if (!mlink) { mlink = document.createElement('link'); mlink.rel = 'manifest'; document.head.appendChild(mlink); }
+          mlink.href = url;
+        } catch (e) {
+          console.warn('Manifest swap failed', e);
         }
-        link.href = data.value;
-      });
+      }
+    })();
   }, []);
   return null;
 }
@@ -78,6 +104,7 @@ const App = () => (
                 <Route path="/about" element={<About />} />
                 <Route path="/brands" element={<Brands />} />
                 <Route path="/home-designer" element={<HomeDesigner />} />
+                <Route path="/app-simulator" element={<AppSimulator />} />
                 <Route path="/admin" element={<Admin />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/legal/:page" element={<Legal />} />
