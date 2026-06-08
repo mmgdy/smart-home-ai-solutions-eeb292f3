@@ -404,6 +404,86 @@ export function SiteSettings({ adminToken, onLogout }: SiteSettingsProps) {
         </div>
       </div>
 
+      {/* App Icon (PWA) Upload Section */}
+      <div className="bg-card border border-border rounded-xl p-6">
+        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+          <Smartphone className="w-5 h-5 text-primary" />
+          App Icon (PWA / Home Screen)
+        </h2>
+        <p className="text-muted-foreground mb-6">
+          The icon shown when users install the app on their phone or desktop. Recommended: square 512×512 PNG with transparent or solid background.
+        </p>
+
+        <div className="flex items-center gap-6">
+          <div className="border border-border rounded-2xl p-3 bg-muted/30 flex items-center justify-center w-24 h-24 shrink-0 overflow-hidden">
+            {appIconUrl ? (
+              <img src={appIconUrl} alt="App icon" className="w-full h-full object-contain rounded-xl" />
+            ) : (
+              <Smartphone className="w-10 h-10 text-muted-foreground opacity-50" />
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <input
+              ref={appIconInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/svg+xml"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                if (!file.type.startsWith('image/')) {
+                  toast({ title: 'Invalid file type', description: 'Use PNG, JPG, or SVG', variant: 'destructive' });
+                  return;
+                }
+                if (file.size > 2 * 1024 * 1024) {
+                  toast({ title: 'File too large', description: 'Max 2MB', variant: 'destructive' });
+                  return;
+                }
+                setIsUploadingAppIcon(true);
+                try {
+                  const base64 = await new Promise<string>((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve((reader.result as string).split(',')[1]);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                  });
+                  const ext = file.name.split('.').pop()?.toLowerCase() || 'png';
+                  const filename = `app-icon-${Date.now()}.${ext}`;
+                  const { data: uploadData, error: uploadError } = await supabase.functions.invoke('admin-write', {
+                    body: { action: 'upload-file', token: adminToken, filename, base64, mimeType: file.type, bucket: 'site-assets' },
+                  });
+                  if (uploadError || !uploadData?.success) throw new Error(uploadData?.error || uploadError?.message || 'Upload failed');
+                  const newUrl = uploadData.publicUrl as string;
+                  setAppIconUrl(newUrl);
+                  const { data: writeData, error: writeError } = await supabase.functions.invoke('admin-write', {
+                    body: { action: 'update-admin-settings', token: adminToken, entries: [{ key: 'app_icon_url', value: newUrl }] },
+                  });
+                  if (writeError || !writeData?.success) throw new Error(writeData?.error || writeError?.message || 'Failed to save');
+                  // Apply apple-touch-icon immediately for visual feedback
+                  let apple = document.querySelector("link[rel='apple-touch-icon']") as HTMLLinkElement | null;
+                  if (!apple) { apple = document.createElement('link'); apple.rel = 'apple-touch-icon'; document.head.appendChild(apple); }
+                  apple.href = newUrl;
+                  toast({ title: 'App icon updated', description: 'Users installing the app will see the new icon' });
+                } catch (err: any) {
+                  toast({ title: 'Upload failed', description: err.message || 'Failed to upload', variant: 'destructive' });
+                } finally {
+                  setIsUploadingAppIcon(false);
+                }
+              }}
+              className="hidden"
+            />
+            <Button onClick={() => appIconInputRef.current?.click()} disabled={isUploadingAppIcon} variant="outline">
+              {isUploadingAppIcon ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Uploading...</>
+              ) : (
+                <><Upload className="w-4 h-4 mr-2" />Upload App Icon</>
+              )}
+            </Button>
+            <p className="text-xs text-muted-foreground">Max 2MB · 512×512 PNG recommended</p>
+          </div>
+        </div>
+      </div>
+
       {/* Change Password Section */}
       <div className="bg-card border border-border rounded-xl p-6">
         <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
