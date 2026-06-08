@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Upload, Loader2, Image, Lock, Eye, EyeOff, Save, LogOut, CheckCircle, Globe } from 'lucide-react';
+import { Upload, Loader2, Image, Lock, Eye, EyeOff, Save, LogOut, CheckCircle, Globe, Smartphone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -25,6 +25,11 @@ export function SiteSettings({ adminToken, onLogout }: SiteSettingsProps) {
   const faviconInputRef = useRef<HTMLInputElement>(null);
   const [faviconUrl, setFaviconUrl] = useState<string | null>(null);
   const [isUploadingFavicon, setIsUploadingFavicon] = useState(false);
+
+  // App icon (PWA) settings
+  const appIconInputRef = useRef<HTMLInputElement>(null);
+  const [appIconUrl, setAppIconUrl] = useState<string | null>(null);
+  const [isUploadingAppIcon, setIsUploadingAppIcon] = useState(false);
   
   // Password change
   const [newPassword, setNewPassword] = useState('');
@@ -42,13 +47,14 @@ export function SiteSettings({ adminToken, onLogout }: SiteSettingsProps) {
       const { data: settings } = await supabase
         .from('admin_settings')
         .select('key, value')
-        .in('key', ['logo_url', 'logo_size', 'favicon_url']);
+        .in('key', ['logo_url', 'logo_size', 'favicon_url', 'app_icon_url']);
 
       if (settings) {
         settings.forEach(s => {
           if (s.key === 'logo_url') setLogoUrl(s.value);
           if (s.key === 'logo_size') setLogoSize(parseInt(s.value || '100'));
           if (s.key === 'favicon_url') setFaviconUrl(s.value);
+          if (s.key === 'app_icon_url') setAppIconUrl(s.value);
         });
       }
     } catch (error) {
