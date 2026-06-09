@@ -55,24 +55,12 @@ function FaviconUpdater() {
         let apple = document.querySelector("link[rel='apple-touch-icon']") as HTMLLinkElement | null;
         if (!apple) { apple = document.createElement('link'); apple.rel = 'apple-touch-icon'; document.head.appendChild(apple); }
         apple.href = map.app_icon_url;
-
-        // Dynamic manifest swap so PWA install uses the new icon
-        try {
-          const res = await fetch('/manifest.webmanifest', { cache: 'no-store' });
-          const manifest = await res.json();
-          manifest.icons = [
-            { src: map.app_icon_url, sizes: '192x192', type: 'image/png', purpose: 'any' },
-            { src: map.app_icon_url, sizes: '512x512', type: 'image/png', purpose: 'any' },
-            { src: map.app_icon_url, sizes: '512x512', type: 'image/png', purpose: 'maskable' },
-          ];
-          const blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
-          const url = URL.createObjectURL(blob);
-          let mlink = document.querySelector("link[rel='manifest']") as HTMLLinkElement | null;
-          if (!mlink) { mlink = document.createElement('link'); mlink.rel = 'manifest'; document.head.appendChild(mlink); }
-          mlink.href = url;
-        } catch (e) {
-          console.warn('Manifest swap failed', e);
-        }
+        // NOTE: We intentionally do NOT swap the <link rel="manifest"> at runtime.
+        // Chrome requires a stable, same-origin manifest with reachable icons to fire
+        // `beforeinstallprompt`. Swapping to a blob: URL whose icons live on a
+        // cross-origin storage host suppresses the install prompt entirely.
+        // The admin-uploaded icon is still used as the apple-touch-icon (iOS home screen)
+        // above; for the Android install icon, replace /public/icons/icon-512.png in code.
       }
     })();
   }, []);
