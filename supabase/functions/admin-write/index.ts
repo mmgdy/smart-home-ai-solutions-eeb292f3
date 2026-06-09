@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendPushToEmail } from "../_shared/fcm.ts";
+import { Resend } from "https://esm.sh/resend@2.0.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -539,7 +540,7 @@ Deno.serve(async (req) => {
       const { id, status } = body;
       const allowed = ["pending", "processing", "shipped", "delivered", "cancelled"];
       if (!allowed.includes(status)) throw new Error("Invalid status value");
-      const { data: orderRow } = await supabase.from("orders").select("email, total").eq("id", id).single();
+      const { data: orderRow } = await supabase.from("orders").select("email, total, shipping_address").eq("id", id).single();
       const { error } = await supabase.from("orders").update({ status }).eq("id", id);
       if (error) throw error;
       // Notify the customer's devices about the status change (non-fatal if push not configured)
@@ -560,6 +561,48 @@ Deno.serve(async (req) => {
           });
         }
       } catch (e) { console.warn("status push failed:", e); }
+      // Email the customer about the status change
+      try {
+        const resendKey = Deno.env.get("RESEND_API_KEY");
+        const labels: Record<string, { title: string; msg: string; emoji: string }> = {
+          pending:    { title: "Order received",            msg: "We've received your order and are reviewing it.", emoji: "📥" },
+          processing: { title: "Your order is being prepared", msg: "We're picking and packing your items now.",     emoji: "📦" },
+          shipped:    { title: "Your order is on the way",   msg: "Your order has shipped and is heading to you.",  emoji: "🚚" },
+          delivered:  { title: "Order delivered",            msg: "Thanks for shopping with Baytzaki! We hope you love it.", emoji: "✅" },
+          cancelled:  { title: "Order cancelled",            msg: "Your order has been cancelled. Reach out if this was a mistake.", emoji: "❌" },
+        };
+        const L = labels[status];
+        if (resendKey && L && orderRow?.email) {
+          const resend = new Resend(resendKey);
+          const sa = (orderRow.shipping_address ?? {}) as any;
+          const firstName = String(sa.firstName ?? "").trim() || "there";
+          const total = Number(orderRow.total) || 0;
+          const html = `
+            <!DOCTYPE html><html><body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;background:#f5f5f5;">
+              <div style="background:#0f172a;padding:20px;border-radius:12px 12px 0 0;text-align:center;">
+                <h1 style="color:#00bfa5;margin:0;">${L.emoji} ${L.title}</h1>
+              </div>
+              <div style="background:#fff;padding:30px;border-radius:0 0 12px 12px;box-shadow:0 4px 6px rgba(0,0,0,0.1);">
+                <p style="font-size:16px;color:#333;">Hi ${firstName},</p>
+                <p style="color:#666;line-height:1.6;">${L.msg}</p>
+                <div style="background:#00bfa5;color:#fff;padding:15px;border-radius:8px;margin:20px 0;">
+                  <h2 style="margin:0;font-size:18px;">Order #${String(id).slice(0,8)}</h2>
+                  <p style="margin:5px 0 0;opacity:.9;">Status: <strong style="text-transform:capitalize;">${status}</strong></p>
+                  <p style="margin:5px 0 0;opacity:.9;">Total: ${total.toLocaleString()} EGP</p>
+                </div>
+                <p style="color:#666;">Questions? Contact us at <a href="mailto:info@baytzaki.com" style="color:#00bfa5;">info@baytzaki.com</a></p>
+              </div>
+              <p style="text-align:center;color:#999;font-size:12px;margin-top:20px;">© ${new Date().getFullYear()} Baytzaki. All rights reserved.</p>
+            </body></html>
+          `;
+          await resend.emails.send({
+            from: "Baytzaki <orders@baytzaki.com>",
+            to: [orderRow.email],
+            subject: `${L.emoji} ${L.title} — Order #${String(id).slice(0,8)}`,
+            html,
+          });
+        }
+      } catch (e) { console.warn("status email failed:", e); }
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

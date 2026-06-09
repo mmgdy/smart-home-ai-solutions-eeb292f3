@@ -1,11 +1,15 @@
 import { MessageCircle } from 'lucide-react';
 import { useLanguage } from '@/lib/i18n';
+import { useSiteInfo } from '@/hooks/useSiteInfo';
 import { cn } from '@/lib/utils';
 
 export function WhatsAppButton() {
   const { isRTL } = useLanguage();
-  const phone = '201234567890'; // Placeholder Egyptian phone number
+  const { get } = useSiteInfo();
+  const phone = (get('contact', 'whatsapp', '201234567890') || '201234567890').replace(/\D/g, '');
   const message = encodeURIComponent('Hi Baytzaki! I need help with smart home products.');
+
+  if (!phone) return null;
 
   return (
     <a
