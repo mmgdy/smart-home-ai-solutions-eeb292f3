@@ -3,10 +3,25 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 // Use the sync API to avoid Web Worker (not available in Supabase edge runtime)
 import { hashSync, compareSync } from "https://deno.land/x/bcrypt@v0.4.1/mod.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+// Restrict CORS to known Baytzaki origins. Anonymous wildcard access to the
+// admin auth surface lets any site drive login attempts against it.
+const ALLOWED_ORIGINS = [
+  "https://baytzaki.com",
+  "https://www.baytzaki.com",
+  "http://localhost:3000",
+  "http://localhost:5173",
+];
+
+function corsHeadersFor(req: Request) {
+  const origin = req.headers.get("origin") ?? "";
+  const allowOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    "Access-Control-Allow-Origin": allowOrigin,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Vary": "Origin",
+  };
+}
 
 // In-memory rate limiter for login attempts (per IP)
 const loginBuckets = new Map<string, { count: number; resetAt: number }>();
@@ -30,6 +45,7 @@ async function verifyAdminTokenDb(supabase: any, token: string): Promise<string 
 }
 
 serve(async (req) => {
+  const corsHeaders = corsHeadersFor(req);
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }

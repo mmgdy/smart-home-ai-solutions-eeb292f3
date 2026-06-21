@@ -1,14 +1,20 @@
-User-agent: Googlebot
+# Baytzaki — smart home store & installation (Egypt)
+# Public shopping pages are fully crawlable.
+
+User-agent: *
+Allow: /
+# Keep private/transactional pages out of the index.
+Disallow: /admin
+Disallow: /cart
+Disallow: /checkout
+Disallow: /order-confirmation
+Disallow: /profile
+
+# Allow rich media crawlers to index product imagery.
+User-agent: Googlebot-Image
 Allow: /
 
 User-agent: Bingbot
 Allow: /
 
-User-agent: Twitterbot
-Allow: /
-
-User-agent: facebookexternalhit
-Allow: /
-
-User-agent: *
-Allow: /
+Sitemap: https://baytzaki.com/sitemap.xml
