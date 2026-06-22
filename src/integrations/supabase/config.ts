@@ -2,29 +2,14 @@ const configuredProjectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
 const configuredUrl = import.meta.env.VITE_SUPABASE_URL;
 const configuredKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-const isActiveBackend =
-  configuredProjectId === 'djsibxhkfvwtjzvnjmhp' ||
-  configuredUrl?.includes('djsibxhkfvwtjzvnjmhp');
+const DEFAULT_SUPABASE_PROJECT_ID = 'djsibxhkfvwtjzvnjmhp';
+const DEFAULT_SUPABASE_URL = `https://${DEFAULT_SUPABASE_PROJECT_ID}.supabase.co`;
+const DEFAULT_SUPABASE_PUBLISHABLE_KEY =
+  'sb_publishable_tfQAgq9bXUVRQnvZ1WjgWg_e7dF_T6W';
 
-// Project ID is not secret (it appears in the public Supabase URL), so a
-// fallback is acceptable for the active project.
-export const SUPABASE_PROJECT_ID = isActiveBackend
-  ? configuredProjectId || 'djsibxhkfvwtjzvnjmhp'
-  : configuredProjectId!;
-
-export const SUPABASE_URL = isActiveBackend
-  ? configuredUrl || `https://djsibxhkfvwtjzvnjmhp.supabase.co`
-  : configuredUrl || `https://${SUPABASE_PROJECT_ID}.supabase.co`;
-
-// The publishable (anon) key is designed to be public, but we must NOT hardcode
-// a real key as a build-time fallback — that ships the live key in the bundle
-// for every environment. Require it explicitly from env, and fail loudly at
-// runtime if it is missing instead of silently using a baked-in value.
-export const SUPABASE_PUBLISHABLE_KEY = configuredKey as string;
-
-if (!SUPABASE_PUBLISHABLE_KEY) {
-  console.error(
-    '[supabase] VITE_SUPABASE_PUBLISHABLE_KEY is not set. ' +
-      'Add it to your .env (see .env.example). Authentication and data access will fail.'
-  );
-}
+// Project ID and publishable key are browser-safe Supabase values. These
+// fallbacks keep production builds rendering if host env vars are missing.
+export const SUPABASE_PROJECT_ID = configuredProjectId || DEFAULT_SUPABASE_PROJECT_ID;
+export const SUPABASE_URL = configuredUrl || DEFAULT_SUPABASE_URL;
+export const SUPABASE_PUBLISHABLE_KEY =
+  configuredKey || DEFAULT_SUPABASE_PUBLISHABLE_KEY;
