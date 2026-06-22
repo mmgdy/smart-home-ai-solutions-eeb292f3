@@ -2,18 +2,18 @@ const configuredProjectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
 const configuredUrl = import.meta.env.VITE_SUPABASE_URL;
 const configuredKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-const isLegacyBackend =
+const isActiveBackend =
   configuredProjectId === 'djsibxhkfvwtjzvnjmhp' ||
   configuredUrl?.includes('djsibxhkfvwtjzvnjmhp');
 
 // Project ID is not secret (it appears in the public Supabase URL), so a
-// fallback is acceptable for the legacy project.
-export const SUPABASE_PROJECT_ID = isLegacyBackend
-  ? configuredProjectId || 'vgwptcvjhmphqhoepbri'
+// fallback is acceptable for the active project.
+export const SUPABASE_PROJECT_ID = isActiveBackend
+  ? configuredProjectId || 'djsibxhkfvwtjzvnjmhp'
   : configuredProjectId!;
 
-export const SUPABASE_URL = isLegacyBackend
-  ? configuredUrl || `https://vgwptcvjhmphqhoepbri.supabase.co`
+export const SUPABASE_URL = isActiveBackend
+  ? configuredUrl || `https://djsibxhkfvwtjzvnjmhp.supabase.co`
   : configuredUrl || `https://${SUPABASE_PROJECT_ID}.supabase.co`;
 
 // The publishable (anon) key is designed to be public, but we must NOT hardcode
