@@ -104,9 +104,27 @@ serve(async (req) => {
     }
     const amount = Number(order.total);
 
-    const PAYSKY_MERCHANT_ID = Deno.env.get("PAYSKY_MERCHANT_ID");
-    const PAYSKY_TERMINAL_ID = Deno.env.get("PAYSKY_TERMINAL_ID");
-    const PAYSKY_SECRET_KEY = Deno.env.get("PAYSKY_SECRET_KEY");
+    // Try env secrets first, then fall back to site_info table (synced from old project).
+    let PAYSKY_MERCHANT_ID = Deno.env.get("PAYSKY_MERCHANT_ID");
+    let PAYSKY_TERMINAL_ID = Deno.env.get("PAYSKY_TERMINAL_ID");
+    let PAYSKY_SECRET_KEY = Deno.env.get("PAYSKY_SECRET_KEY");
+    let PAYSKY_LIGHTBOX_URL = Deno.env.get("PAYSKY_LIGHTBOX_URL");
+
+    if (!PAYSKY_MERCHANT_ID || !PAYSKY_TERMINAL_ID || !PAYSKY_SECRET_KEY) {
+      console.log("PaySky env secrets missing, falling back to site_info table");
+      const { data: rows, error: siErr } = await supabase
+        .from("site_info")
+        .select("key, value")
+        .in("key", ["paysky_mid", "paysky_tid", "paysky_secret_key", "paysky_lightbox_url"]);
+      if (siErr) console.error("site_info query failed:", siErr);
+      if (rows && rows.length > 0) {
+        const map = Object.fromEntries(rows.map((r: any) => [r.key, r.value]));
+        PAYSKY_MERCHANT_ID = PAYSKY_MERCHANT_ID || map.paysky_mid;
+        PAYSKY_TERMINAL_ID = PAYSKY_TERMINAL_ID || map.paysky_tid;
+        PAYSKY_SECRET_KEY = PAYSKY_SECRET_KEY || map.paysky_secret_key;
+        PAYSKY_LIGHTBOX_URL = PAYSKY_LIGHTBOX_URL || map.paysky_lightbox_url;
+      }
+    }
 
     if (!PAYSKY_MERCHANT_ID || !PAYSKY_TERMINAL_ID || !PAYSKY_SECRET_KEY) {
       return new Response(
@@ -152,7 +170,7 @@ serve(async (req) => {
           TrxDateTime: dateTimeLocalTrxn,
           SecureHash: secureHash,
         },
-        lightboxUrl: Deno.env.get("PAYSKY_LIGHTBOX_URL") ?? "https://cube.paysky.io/js/LightBox.js",
+        lightboxUrl: PAYSKY_LIGHTBOX_URL ?? Deno.env.get("PAYSKY_LIGHTBOX_URL") ?? "https://cube.paysky.io/js/LightBox.js",
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
