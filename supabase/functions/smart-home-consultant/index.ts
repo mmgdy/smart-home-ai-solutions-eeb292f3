@@ -6,46 +6,16 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-async function callLovableAI(messages: any[], systemPrompt: string) {
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+// Pollinations AI is a free, keyless, OpenAI-compatible gateway (anonymous tier).
+// It supports streaming chat completions with system prompts.
+const POLLINATIONS_URL = "https://text.pollinations.ai/openai";
 
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+async function callAI(messages: any[], systemPrompt: string) {
+  const response = await fetch(POLLINATIONS_URL, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${LOVABLE_API_KEY}`,
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: "openai/gpt-5-mini",
-      messages: [{ role: "system", content: systemPrompt }, ...messages],
-      stream: true,
-    }),
-  });
-
-  if (response.status === 429 || response.status === 402) {
-    throw { status: response.status, fallback: true };
-  }
-  if (!response.ok) {
-    const t = await response.text();
-    console.error("Lovable AI error:", response.status, t);
-    throw { status: response.status, fallback: true };
-  }
-  return response;
-}
-
-async function callGroqAI(messages: any[], systemPrompt: string) {
-  const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
-  if (!GROQ_API_KEY) throw new Error("GROQ_API_KEY not configured");
-
-  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${GROQ_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "llama-3.3-70b-versatile",
+      model: "openai",
       messages: [{ role: "system", content: systemPrompt }, ...messages],
       stream: true,
     }),
@@ -53,8 +23,8 @@ async function callGroqAI(messages: any[], systemPrompt: string) {
 
   if (!response.ok) {
     const t = await response.text();
-    console.error("Groq error:", response.status, t);
-    throw new Error("Groq AI error");
+    console.error("Pollinations AI error:", response.status, t);
+    throw { status: response.status, message: t };
   }
   return response;
 }
@@ -77,7 +47,7 @@ serve(async (req) => {
         .from("products")
         .select("name, description, price, brand, protocol, stock, slug")
         .gt("stock", 0);
-      
+
       if (products && products.length > 0) {
         const { data: full } = await supabase
           .from("products")
@@ -123,42 +93,19 @@ ${productsInfo || "No products currently in stock."}
 - Ask clarifying questions when needed
 - Keep responses focused and actionable`;
 
-    // Try Lovable AI first, fallback to Groq
-    let response;
-    let upstreamStatus: number | null = null;
-    try {
-      response = await callLovableAI(messages, systemPrompt);
-    } catch (err: any) {
-      upstreamStatus = err?.status ?? null;
-      if (err?.fallback) {
-        console.log("Lovable AI limit hit, falling back to Groq");
-        try {
-          response = await callGroqAI(messages, systemPrompt);
-        } catch (groqErr) {
-          console.error("Groq also failed:", groqErr);
-          const msg =
-            upstreamStatus === 402
-              ? "AI credits exhausted. Please add credits to continue using the assistant."
-              : upstreamStatus === 429
-                ? "Too many requests. Please wait a moment and try again."
-                : "AI service temporarily unavailable. Please try again later.";
-          return new Response(JSON.stringify({ error: msg }), {
-            status: upstreamStatus === 402 ? 402 : upstreamStatus === 429 ? 429 : 503,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-      } else {
-        throw err;
-      }
-    }
+    const response = await callAI(messages, systemPrompt);
 
     return new Response(response.body, {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Smart home consultant error:", error);
-    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }), {
-      status: 500,
+    const msg =
+      error?.status === 429
+        ? "Too many requests. Please wait a moment and try again."
+        : "AI service temporarily unavailable. Please try again later.";
+    return new Response(JSON.stringify({ error: msg }), {
+      status: error?.status === 429 ? 429 : 503,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
