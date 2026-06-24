@@ -122,7 +122,7 @@ function buildMessage(token: string, payload: PushPayload) {
       },
       // Web push config — ensures PWA notification works on desktop/Chrome
       webpush: {
-        fcmOptions: {
+        fcm_options: {
           link: clickUrl,
         },
         notification: {
@@ -163,7 +163,7 @@ export async function sendPushToTokens(
       failed++;
       const j = await r.json().catch(() => ({}));
       const code = j?.error?.details?.[0]?.errorCode || j?.error?.status;
-      if (code === "UNREGISTERED" || code === "INVALID_ARGUMENT" || code === "NOT_FOUND") {
+      if (code === "UNREGISTERED" || code === "NOT_FOUND") {
         stale.push(tk);
       } else {
         console.error("FCM send failed for token:", tk.slice(0, 12), "code:", code);

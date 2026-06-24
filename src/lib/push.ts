@@ -81,25 +81,17 @@ export async function enablePushNotifications(): Promise<{ token: string } | { e
     const cfgB64 = btoa(JSON.stringify(config));
     const swUrl = `/firebase-messaging-sw.js?cfg=${encodeURIComponent(cfgB64)}&v=${Date.now()}`;
 
-    // Update existing registration or create new one
+    // Always replace the Firebase worker so older registrations without the
+    // config query can start handling background messages.
     const existingRegs = await navigator.serviceWorker.getRegistrations();
-    const firebaseReg = existingRegs.find(
-      (r) => r.active && r.active.scriptURL.includes('firebase-messaging-sw')
-    );
-
-    let reg: ServiceWorkerRegistration;
-    if (firebaseReg) {
-      // Update existing registration to pick up new SDK version
-      reg = await firebaseReg.update().then(() => firebaseReg);
-    } else {
-      // Unregister any old firebase SWs to avoid conflicts
-      for (const r of existingRegs) {
-        if (r.active && r.active.scriptURL.includes('firebase-messaging-sw')) {
-          await r.unregister();
-        }
+    for (const r of existingRegs) {
+      const scriptURL = r.active?.scriptURL || r.installing?.scriptURL || r.waiting?.scriptURL || '';
+      if (scriptURL.includes('firebase-messaging-sw')) {
+        await r.unregister();
       }
-      reg = await navigator.serviceWorker.register(swUrl, { scope: '/' });
     }
+
+    const reg = await navigator.serviceWorker.register(swUrl, { scope: '/' });
     await navigator.serviceWorker.ready;
 
     const { messaging } = await init();

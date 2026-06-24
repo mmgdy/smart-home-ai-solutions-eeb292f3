@@ -107,7 +107,7 @@ function buildMessage(token: string, title: string, message: string, url: string
         headers: { "apns-priority": "10", "apns-push-type": "alert" },
       },
       webpush: {
-        fcmOptions: { link: clickUrl },
+        fcm_options: { link: clickUrl },
         notification: {
           icon: toAbsoluteHttpsUrl("/icons/icon-192.png"),
           badge: toAbsoluteHttpsUrl("/icons/icon-192.png"),
@@ -169,7 +169,7 @@ Deno.serve(async (req) => {
         const j = await r.json().catch(() => ({}));
         if (!r.ok) {
           const code = j?.error?.details?.[0]?.errorCode || j?.error?.status;
-          if (code === "UNREGISTERED" || code === "INVALID_ARGUMENT" || code === "NOT_FOUND") stale.push(tk);
+          if (code === "UNREGISTERED" || code === "NOT_FOUND") stale.push(tk);
           results.push({ token: tk.slice(0, 12), ok: false, error: code || j?.error?.message });
         } else {
           results.push({ token: tk.slice(0, 12), ok: true });
