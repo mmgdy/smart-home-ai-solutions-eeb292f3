@@ -28,7 +28,7 @@ export function PushBroadcaster({ adminToken }: { adminToken: string }) {
       if (error || data?.error) throw new Error(data?.error || error?.message);
       toast({
         title: 'Broadcast sent',
-        description: `Delivered to ${data.sent} device(s) • ${data.failed} failed • ${data.removed_stale} stale removed.`,
+        description: `Delivered to ${data.sent} device(s) • ${data.failed} failed • ${data.disabled_stale} stale disabled.`,
       });
     } catch (e: any) {
       toast({ variant: 'destructive', title: 'Broadcast failed', description: e?.message || String(e) });

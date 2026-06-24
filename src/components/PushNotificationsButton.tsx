@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Bell, BellOff, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -10,6 +10,14 @@ export function PushNotificationsButton() {
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
   const [enabled, setEnabled] = useState(() => isPushEnabled());
+
+  useEffect(() => {
+    if (!enabled || typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+
+    enablePushNotifications().then((res) => {
+      if ('error' in res) setEnabled(false);
+    });
+  }, [enabled]);
 
   const handle = async () => {
     setBusy(true);
@@ -28,7 +36,7 @@ export function PushNotificationsButton() {
   };
 
   return (
-    <Button variant={enabled ? 'secondary' : 'default'} onClick={handle} disabled={busy || enabled} className="gap-2">
+    <Button variant={enabled ? 'secondary' : 'default'} onClick={handle} disabled={busy} className="gap-2">
       {busy
         ? <Loader2 className="h-4 w-4 animate-spin" />
         : enabled
