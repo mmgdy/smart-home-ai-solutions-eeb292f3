@@ -1,5 +1,10 @@
 // Shared FCM v1 sender for server-to-server pushes.
 // Reads FIREBASE_SERVICE_ACCOUNT_JSON. Caller passes a Supabase service-role client.
+//
+// Sends payloads compatible with:
+//   - Android Chrome / WebView
+//   - iOS 16.4+ Safari (via APNs through FCM)
+//   - Desktop Chrome / Edge / Firefox
 import { create, getNumericDate } from "https://deno.land/x/djwt@v3.0.2/mod.ts";
 
 export type PushPayload = {
@@ -7,6 +12,7 @@ export type PushPayload = {
   message: string;
   url?: string;
   image?: string;
+  tag?: string;
 };
 
 function pemToBinaryDer(pem: string): Uint8Array {
@@ -50,6 +56,64 @@ async function getAccessToken(sa: any): Promise<string> {
   return j.access_token as string;
 }
 
+/** Build the FCM v1 message payload with platform-specific configs. */
+function buildMessage(token: string, payload: PushPayload) {
+  const notification: Record<string, string> = {
+    title: payload.title,
+    body: payload.message,
+  };
+  if (payload.image) notification.image = payload.image;
+
+  const data: Record<string, string> = {
+    url: payload.url || "/",
+  };
+  if (payload.image) data.image = payload.image;
+  if (payload.tag) data.tag = payload.tag;
+
+  return {
+    message: {
+      token,
+      notification,
+      data,
+      // Android config — high priority ensures immediate delivery
+      android: {
+        priority: "high",
+        notification: {
+          channel_id: "baytzaki_deals",
+          sound: "default",
+          click_action: payload.url || "/",
+        },
+      },
+      // APNs config — critical for iOS 16.4+ push delivery
+      apns: {
+        payload: {
+          aps: {
+            sound: "default",
+            badge: 1,
+            contentAvailable: true,
+          },
+        },
+        headers: {
+          "apns-priority": "10",
+          "apns-push-type": "alert",
+        },
+      },
+      // Web push config — ensures PWA notification works on desktop/Chrome
+      webpush: {
+        fcmOptions: {
+          link: payload.url || "/",
+        },
+        notification: {
+          icon: "/icons/icon-192.png",
+          badge: "/icons/icon-192.png",
+          tag: payload.tag || "baytzaki",
+          requireInteraction: false,
+        },
+      },
+    },
+  };
+}
+
 export async function sendPushToTokens(
   supabase: any,
   tokens: string[],
@@ -63,28 +127,36 @@ export async function sendPushToTokens(
   const endpoint = `https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`;
   const stale: string[] = [];
   let sent = 0, failed = 0;
+
+  // Batch send (FCM v1 supports up to 500 tokens per multicast, but we send
+  // individually for per-token error tracking and stale cleanup).
   for (const tk of tokens) {
-    const body = {
-      message: {
-        token: tk,
-        notification: { title: payload.title, body: payload.message, ...(payload.image ? { image: payload.image } : {}) },
-        data: { url: payload.url || "/", ...(payload.image ? { image: payload.image } : {}) },
-        webpush: { fcmOptions: { link: payload.url || "/" } },
-      },
-    };
-    const r = await fetch(endpoint, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    if (r.ok) { sent++; continue; }
-    failed++;
-    const j = await r.json().catch(() => ({}));
-    const code = j?.error?.details?.[0]?.errorCode || j?.error?.status;
-    if (code === "UNREGISTERED" || code === "INVALID_ARGUMENT" || code === "NOT_FOUND") stale.push(tk);
+    try {
+      const r = await fetch(endpoint, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify(buildMessage(tk, payload)),
+      });
+      if (r.ok) { sent++; continue; }
+      failed++;
+      const j = await r.json().catch(() => ({}));
+      const code = j?.error?.details?.[0]?.errorCode || j?.error?.status;
+      if (code === "UNREGISTERED" || code === "INVALID_ARGUMENT" || code === "NOT_FOUND") {
+        stale.push(tk);
+      } else {
+        console.error("FCM send failed for token:", tk.slice(0, 12), "code:", code);
+      }
+    } catch (err) {
+      failed++;
+      console.error("FCM send error:", err);
+    }
   }
+
+  // Clean up stale tokens
   if (stale.length) {
-    try { await supabase.from("push_subscriptions").delete().in("fcm_token", stale); } catch { /* ignore */ }
+    try {
+      await supabase.from("push_subscriptions").update({ enabled: false }).in("fcm_token", stale);
+    } catch { /* ignore */ }
   }
   return { sent, failed, removed_stale: stale.length };
 }

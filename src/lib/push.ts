@@ -1,6 +1,8 @@
 // Web Push (FCM) helpers — initialize Firebase, register the messaging SW
 // with the public web config (fetched from edge function), request permission,
 // and persist the FCM token to push_subscriptions for broadcasts.
+//
+// Supports: iOS 16.4+ Safari (PWA), Android Chrome, desktop Chrome/Edge/Firefox
 import { initializeApp, type FirebaseApp } from 'firebase/app';
 import { getMessaging, getToken, onMessage, isSupported, type Messaging } from 'firebase/messaging';
 import { supabase } from '@/integrations/supabase/client';
@@ -13,23 +15,38 @@ type FbConfig = {
 
 let cached: { app: FirebaseApp; messaging: Messaging; vapidKey: string } | null = null;
 
+const STORAGE_KEY = 'baytzaki_push_enabled';
+
+// Check if running inside a preview iframe (Lovable/StackBlitz editors)
 const isPreview = () => {
   if (typeof window === 'undefined') return true;
-  const h = window.location.hostname;
-  return (
-    h.startsWith('id-preview--') ||
-    h.startsWith('preview--') ||
-    h.endsWith('.lovableproject.com') ||
-    h.endsWith('.lovableproject-dev.com') ||
-    h.endsWith('.beta.lovable.dev') ||
-    window.self !== window.top
-  );
+  try {
+    // Only treat as preview if it's an actual editor — allow iframed PWAs
+    const h = window.location.hostname;
+    return (
+      h.startsWith('id-preview--') ||
+      h.startsWith('preview--') ||
+      h.endsWith('.lovableproject.com') ||
+      h.endsWith('.lovableproject-dev.com') ||
+      h.endsWith('.beta.lovable.dev')
+    );
+  } catch { return false; }
 };
 
 export async function isPushSupported(): Promise<boolean> {
   if (typeof window === 'undefined') return false;
   if (!('serviceWorker' in navigator) || !('Notification' in window)) return false;
-  return await isSupported().catch(() => false);
+  try { return await isSupported(); } catch { return false; }
+}
+
+/** Check if user has previously enabled push (persists across sessions). */
+export function isPushEnabled(): boolean {
+  try { return localStorage.getItem(STORAGE_KEY) === 'true'; } catch { return false; }
+}
+
+/** Clear the persisted push state (e.g. after permission denial). */
+export function clearPushState(): void {
+  try { localStorage.removeItem(STORAGE_KEY); } catch { /* noop */ }
 }
 
 async function fetchFirebaseConfig(): Promise<{ config: FbConfig; vapidKey: string }> {
@@ -53,46 +70,85 @@ export async function enablePushNotifications(): Promise<{ token: string } | { e
     if (!(await isPushSupported())) return { error: 'Push notifications are not supported on this browser/device.' };
 
     const perm = await Notification.requestPermission();
-    if (perm !== 'granted') return { error: 'Notification permission denied.' };
+    if (perm !== 'granted') {
+      clearPushState();
+      return { error: 'Notification permission denied.' };
+    }
 
     const { config, vapidKey } = await fetchFirebaseConfig();
-    // Register the messaging SW with the public Firebase config baked into the URL.
+
+    // Register the messaging SW with the Firebase config baked into the URL.
     const cfgB64 = btoa(JSON.stringify(config));
-    const reg = await navigator.serviceWorker.register(
-      `/firebase-messaging-sw.js?cfg=${encodeURIComponent(cfgB64)}`,
-      { scope: '/' },
+    const swUrl = `/firebase-messaging-sw.js?cfg=${encodeURIComponent(cfgB64)}&v=${Date.now()}`;
+
+    // Update existing registration or create new one
+    const existingRegs = await navigator.serviceWorker.getRegistrations();
+    const firebaseReg = existingRegs.find(
+      (r) => r.active && r.active.scriptURL.includes('firebase-messaging-sw')
     );
+
+    let reg: ServiceWorkerRegistration;
+    if (firebaseReg) {
+      // Update existing registration to pick up new SDK version
+      reg = await firebaseReg.update().then(() => firebaseReg);
+    } else {
+      // Unregister any old firebase SWs to avoid conflicts
+      for (const r of existingRegs) {
+        if (r.active && r.active.scriptURL.includes('firebase-messaging-sw')) {
+          await r.unregister();
+        }
+      }
+      reg = await navigator.serviceWorker.register(swUrl, { scope: '/' });
+    }
     await navigator.serviceWorker.ready;
 
     const { messaging } = await init();
     const token = await getToken(messaging, { vapidKey, serviceWorkerRegistration: reg });
     if (!token) return { error: 'Could not get notification token.' };
 
+    // Detect platform for better targeting
+    const ua = navigator.userAgent;
+    const platform = /iPhone|iPad|iPod/.test(ua) ? 'ios'
+      : /Android/.test(ua) ? 'android'
+      : 'web';
+
     // Persist token (best-effort upsert via select-then-insert; ignore duplicates).
     const { data: existing } = await supabase
-      .from('push_subscriptions').select('id').eq('fcm_token', token).maybeSingle();
+      .from('push_subscriptions').select('id,enabled').eq('fcm_token', token).maybeSingle();
     if (!existing) {
       const { data: { user } } = await supabase.auth.getUser();
       await supabase.from('push_subscriptions').insert({
         fcm_token: token,
         user_id: user?.id ?? null,
         email: user?.email ?? null,
-        platform: 'web',
-        locale: typeof navigator !== 'undefined' ? navigator.language : 'en',
-        user_agent: typeof navigator !== 'undefined' ? navigator.userAgent.slice(0, 255) : null,
+        platform,
+        locale: navigator.language || 'en',
+        user_agent: ua.slice(0, 255),
       });
+    } else if (!existing.enabled) {
+      // Re-enable if it was disabled
+      await supabase.from('push_subscriptions').update({ enabled: true }).eq('id', existing.id);
     }
 
-    // Foreground messages — show a simple toast-style notification.
+    // Persist enabled state in localStorage for UI persistence
+    try { localStorage.setItem(STORAGE_KEY, 'true'); } catch { /* noop */ }
+
+    // Foreground messages — show a toast-style notification.
     onMessage(messaging, (payload) => {
       const n = payload.notification;
       if (n?.title && 'Notification' in window) {
-        new Notification(n.title, { body: n.body, icon: n.icon || '/icons/icon-192.png' });
+        new Notification(n.title, {
+          body: n.body,
+          icon: n.icon || '/icons/icon-192.png',
+          badge: '/icons/icon-192.png',
+          data: { url: n.click_action || payload.data?.url || '/' },
+        });
       }
     });
 
     return { token };
   } catch (e: any) {
+    clearPushState();
     return { error: e?.message || 'Failed to enable notifications' };
   }
 }

@@ -1,10 +1,12 @@
 /* Baytzaki — Firebase Cloud Messaging service worker.
  * Reads Firebase config from URL query params at registration time so we
  * can keep config server-side. Receives background pushes and shows them.
+ *
+ * Compatible with: iOS 16.4+ Safari, Android Chrome, desktop Chrome/Edge/Firefox.
  */
 /* global importScripts, firebase */
-importScripts('https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/11.8.1/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/11.8.1/firebase-messaging-compat.js');
 
 const params = new URL(self.location).searchParams;
 const cfg = (() => {
@@ -28,6 +30,8 @@ if (cfg && cfg.apiKey) {
       data: { url: data.url || n.click_action || '/' },
       tag: data.tag || 'baytzaki',
       requireInteraction: false,
+      // iOS Safari requires these for rich notifications
+      ...(self.Notification && self.Notification.maxActions ? { actions: [] } : {}),
     };
     self.registration.showNotification(title, options);
   });

@@ -1,6 +1,8 @@
 // Broadcast or targeted FCM push via Firebase HTTP v1 API.
 // Admin-token gated. Uses FIREBASE_SERVICE_ACCOUNT_JSON to sign a Google
 // OAuth2 access token with the messaging scope.
+//
+// Supports: iOS 16.4+ (APNs via FCM), Android Chrome, desktop browsers.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { create, getNumericDate } from "https://deno.land/x/djwt@v3.0.2/mod.ts";
 
@@ -29,7 +31,10 @@ function pemToBinaryDer(pem: string): Uint8Array {
   return bytes;
 }
 
+let cachedToken: { token: string; exp: number } | null = null;
+
 async function getAccessToken(sa: any): Promise<string> {
+  if (cachedToken && cachedToken.exp > Date.now() + 60_000) return cachedToken.token;
   const der = pemToBinaryDer(sa.private_key);
   const key = await crypto.subtle.importKey(
     "pkcs8", der, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["sign"]
@@ -55,7 +60,36 @@ async function getAccessToken(sa: any): Promise<string> {
   });
   const j = await resp.json();
   if (!resp.ok) throw new Error("OAuth token failed: " + JSON.stringify(j));
+  cachedToken = { token: j.access_token, exp: Date.now() + 3500_000 };
   return j.access_token as string;
+}
+
+function buildMessage(token: string, title: string, message: string, url: string, image?: string) {
+  const notification: Record<string, string> = { title, body: message };
+  if (image) notification.image = image;
+
+  const data: Record<string, string> = { url: url || "/" };
+  if (image) data.image = image;
+
+  return {
+    message: {
+      token,
+      notification,
+      data,
+      android: {
+        priority: "high",
+        notification: { channel_id: "baytzaki_deals", sound: "default", click_action: url || "/" },
+      },
+      apns: {
+        payload: { aps: { sound: "default", badge: 1, contentAvailable: true } },
+        headers: { "apns-priority": "10", "apns-push-type": "alert" },
+      },
+      webpush: {
+        fcmOptions: { link: url || "/" },
+        notification: { icon: "/icons/icon-192.png", badge: "/icons/icon-192.png", tag: "baytzaki", requireInteraction: false },
+      },
+    },
+  };
 }
 
 Deno.serve(async (req) => {
@@ -99,38 +133,36 @@ Deno.serve(async (req) => {
     const stale: string[] = [];
 
     for (const tk of targets) {
-      const payload = {
-        message: {
-          token: tk,
-          notification: { title, body: message, ...(image ? { image } : {}) },
-          data: { url: url || "/", ...(image ? { image } : {}) },
-          webpush: { fcmOptions: { link: url || "/" } },
-        },
-      };
-      const r = await fetch(endpoint, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const j = await r.json().catch(() => ({}));
-      if (!r.ok) {
-        const code = j?.error?.details?.[0]?.errorCode || j?.error?.status;
-        if (code === "UNREGISTERED" || code === "INVALID_ARGUMENT" || code === "NOT_FOUND") stale.push(tk);
-        results.push({ token: tk.slice(0, 12), ok: false, error: code || j?.error?.message });
-      } else {
-        results.push({ token: tk.slice(0, 12), ok: true });
+      try {
+        const r = await fetch(endpoint, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+          body: JSON.stringify(buildMessage(tk, title, message, url || "/", image)),
+        });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          const code = j?.error?.details?.[0]?.errorCode || j?.error?.status;
+          if (code === "UNREGISTERED" || code === "INVALID_ARGUMENT" || code === "NOT_FOUND") stale.push(tk);
+          results.push({ token: tk.slice(0, 12), ok: false, error: code || j?.error?.message });
+        } else {
+          results.push({ token: tk.slice(0, 12), ok: true });
+        }
+      } catch (err: any) {
+        results.push({ token: tk.slice(0, 12), ok: false, error: err?.message || "fetch_error" });
       }
     }
 
+    // Soft-disable stale tokens instead of hard deleting (preserves audit trail)
     if (stale.length) {
-      await supabase.from("push_subscriptions").delete().in("fcm_token", stale);
+      await supabase.from("push_subscriptions").update({ enabled: false }).in("fcm_token", stale);
     }
 
     return new Response(JSON.stringify({
       success: true,
       sent: results.filter((r) => r.ok).length,
       failed: results.filter((r) => !r.ok).length,
-      removed_stale: stale.length,
+      disabled_stale: stale.length,
+      total_subscribers: targets.length,
       results,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
