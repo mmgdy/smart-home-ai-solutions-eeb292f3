@@ -32,6 +32,26 @@ function pemToBinaryDer(pem: string): Uint8Array {
 }
 
 let cachedToken: { token: string; exp: number } | null = null;
+const SITE_URL = Deno.env.get("SITE_URL") || "https://baytzaki.com";
+
+function toAbsoluteHttpsUrl(value: string | undefined, fallbackPath = "/"): string {
+  try {
+    const parsed = new URL(value || fallbackPath, SITE_URL);
+    return parsed.protocol === "https:" ? parsed.toString() : new URL(fallbackPath, SITE_URL).toString();
+  } catch {
+    return new URL(fallbackPath, SITE_URL).toString();
+  }
+}
+
+function toOptionalAbsoluteHttpsUrl(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  try {
+    const parsed = new URL(value, SITE_URL);
+    return parsed.protocol === "https:" ? parsed.toString() : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 async function getAccessToken(sa: any): Promise<string> {
   if (cachedToken && cachedToken.exp > Date.now() + 60_000) return cachedToken.token;
@@ -65,11 +85,13 @@ async function getAccessToken(sa: any): Promise<string> {
 }
 
 function buildMessage(token: string, title: string, message: string, url: string, image?: string) {
+  const clickUrl = toAbsoluteHttpsUrl(url);
+  const imageUrl = toOptionalAbsoluteHttpsUrl(image);
   const notification: Record<string, string> = { title, body: message };
-  if (image) notification.image = image;
+  if (imageUrl) notification.image = imageUrl;
 
-  const data: Record<string, string> = { url: url || "/" };
-  if (image) data.image = image;
+  const data: Record<string, string> = { url: clickUrl };
+  if (imageUrl) data.image = imageUrl;
 
   return {
     message: {
@@ -78,15 +100,20 @@ function buildMessage(token: string, title: string, message: string, url: string
       data,
       android: {
         priority: "high",
-        notification: { channel_id: "baytzaki_deals", sound: "default", click_action: url || "/" },
+        notification: { channel_id: "baytzaki_deals", sound: "default", click_action: clickUrl },
       },
       apns: {
         payload: { aps: { sound: "default", badge: 1, contentAvailable: true } },
         headers: { "apns-priority": "10", "apns-push-type": "alert" },
       },
       webpush: {
-        fcmOptions: { link: url || "/" },
-        notification: { icon: "/icons/icon-192.png", badge: "/icons/icon-192.png", tag: "baytzaki", requireInteraction: false },
+        fcmOptions: { link: clickUrl },
+        notification: {
+          icon: toAbsoluteHttpsUrl("/icons/icon-192.png"),
+          badge: toAbsoluteHttpsUrl("/icons/icon-192.png"),
+          tag: "baytzaki",
+          requireInteraction: false,
+        },
       },
     },
   };

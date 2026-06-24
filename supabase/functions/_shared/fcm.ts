@@ -24,6 +24,26 @@ function pemToBinaryDer(pem: string): Uint8Array {
 }
 
 let cachedToken: { token: string; exp: number } | null = null;
+const SITE_URL = Deno.env.get("SITE_URL") || "https://baytzaki.com";
+
+function toAbsoluteHttpsUrl(value: string | undefined, fallbackPath = "/"): string {
+  try {
+    const parsed = new URL(value || fallbackPath, SITE_URL);
+    return parsed.protocol === "https:" ? parsed.toString() : new URL(fallbackPath, SITE_URL).toString();
+  } catch {
+    return new URL(fallbackPath, SITE_URL).toString();
+  }
+}
+
+function toOptionalAbsoluteHttpsUrl(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  try {
+    const parsed = new URL(value, SITE_URL);
+    return parsed.protocol === "https:" ? parsed.toString() : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 async function getAccessToken(sa: any): Promise<string> {
   if (cachedToken && cachedToken.exp > Date.now() + 60_000) return cachedToken.token;
@@ -58,16 +78,18 @@ async function getAccessToken(sa: any): Promise<string> {
 
 /** Build the FCM v1 message payload with platform-specific configs. */
 function buildMessage(token: string, payload: PushPayload) {
+  const clickUrl = toAbsoluteHttpsUrl(payload.url);
+  const imageUrl = toOptionalAbsoluteHttpsUrl(payload.image);
   const notification: Record<string, string> = {
     title: payload.title,
     body: payload.message,
   };
-  if (payload.image) notification.image = payload.image;
+  if (imageUrl) notification.image = imageUrl;
 
   const data: Record<string, string> = {
-    url: payload.url || "/",
+    url: clickUrl,
   };
-  if (payload.image) data.image = payload.image;
+  if (imageUrl) data.image = imageUrl;
   if (payload.tag) data.tag = payload.tag;
 
   return {
@@ -81,7 +103,7 @@ function buildMessage(token: string, payload: PushPayload) {
         notification: {
           channel_id: "baytzaki_deals",
           sound: "default",
-          click_action: payload.url || "/",
+          click_action: clickUrl,
         },
       },
       // APNs config — critical for iOS 16.4+ push delivery
@@ -101,11 +123,11 @@ function buildMessage(token: string, payload: PushPayload) {
       // Web push config — ensures PWA notification works on desktop/Chrome
       webpush: {
         fcmOptions: {
-          link: payload.url || "/",
+          link: clickUrl,
         },
         notification: {
-          icon: "/icons/icon-192.png",
-          badge: "/icons/icon-192.png",
+          icon: toAbsoluteHttpsUrl("/icons/icon-192.png"),
+          badge: toAbsoluteHttpsUrl("/icons/icon-192.png"),
           tag: payload.tag || "baytzaki",
           requireInteraction: false,
         },
