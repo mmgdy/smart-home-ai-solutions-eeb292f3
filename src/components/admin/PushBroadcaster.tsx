@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Bell, Loader2, Send } from 'lucide-react';
+import { PushNotificationsButton } from '@/components/PushNotificationsButton';
 
 export function PushBroadcaster({ adminToken }: { adminToken: string }) {
   const { toast } = useToast();
@@ -26,9 +27,17 @@ export function PushBroadcaster({ adminToken }: { adminToken: string }) {
         body: { token: adminToken, title, message, url, image: image || undefined },
       });
       if (error || data?.error) throw new Error(data?.error || error?.message);
+      if (!data.total_subscribers) {
+        toast({
+          variant: 'destructive',
+          title: 'No subscribed devices',
+          description: 'Enable notifications on at least one device, then send the broadcast again.',
+        });
+        return;
+      }
       toast({
         title: 'Broadcast sent',
-        description: `Delivered to ${data.sent} device(s) • ${data.failed} failed • ${data.disabled_stale} stale disabled.`,
+        description: `Delivered to ${data.sent} of ${data.total_subscribers} device(s) • ${data.failed} failed • ${data.disabled_stale} stale disabled.`,
       });
     } catch (e: any) {
       toast({ variant: 'destructive', title: 'Broadcast failed', description: e?.message || String(e) });
@@ -46,6 +55,14 @@ export function PushBroadcaster({ adminToken }: { adminToken: string }) {
         <p className="text-sm text-muted-foreground">
           Send a notification to every device that has enabled alerts. Works on Android, desktop browsers, and installed iOS PWAs (iOS 16.4+).
         </p>
+      </div>
+
+      <div className="rounded-lg border border-border bg-muted/30 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div>
+          <Label className="text-sm font-medium">This device</Label>
+          <p className="text-sm text-muted-foreground">Enable this browser before sending a test broadcast.</p>
+        </div>
+        <PushNotificationsButton />
       </div>
 
       <div className="space-y-2">

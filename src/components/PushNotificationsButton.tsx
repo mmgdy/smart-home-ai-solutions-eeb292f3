@@ -30,7 +30,9 @@ export function PushNotificationsButton() {
       setEnabled(true);
       toast({
         title: isRTL ? 'تم تفعيل الإشعارات' : 'Notifications enabled',
-        description: isRTL ? 'ستصلك تنبيهات العروض والطلبات.' : "You'll get alerts for deals and order updates.",
+        description: isRTL
+          ? `تم حفظ الجهاز: ${res.token.slice(-12)}`
+          : `Device saved: ${res.token.slice(-12)}`,
       });
     }
   };
