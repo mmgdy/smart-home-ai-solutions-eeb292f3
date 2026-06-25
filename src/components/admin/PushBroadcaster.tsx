@@ -35,9 +35,14 @@ export function PushBroadcaster({ adminToken }: { adminToken: string }) {
         });
         return;
       }
+
+      const firstFailure = data.results?.find((result: { ok: boolean }) => !result.ok);
       toast({
         title: 'Broadcast sent',
-        description: `Delivered to ${data.sent} of ${data.total_subscribers} device(s) • ${data.failed} failed • ${data.disabled_stale} stale disabled.`,
+        description: [
+          `Delivered to ${data.sent} of ${data.total_subscribers} device(s) - ${data.failed} failed - ${data.disabled_stale} stale disabled.`,
+          firstFailure ? `First error: ${firstFailure.error || 'unknown'}` : '',
+        ].filter(Boolean).join(' '),
       });
     } catch (e: any) {
       toast({ variant: 'destructive', title: 'Broadcast failed', description: e?.message || String(e) });
@@ -67,11 +72,11 @@ export function PushBroadcaster({ adminToken }: { adminToken: string }) {
 
       <div className="space-y-2">
         <Label>Title</Label>
-        <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="🔥 Flash sale — 20% off smart lights" />
+        <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Flash sale - 20% off smart lights" />
       </div>
       <div className="space-y-2">
         <Label>Message</Label>
-        <Textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={3} placeholder="Hurry — sale ends tonight." />
+        <Textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={3} placeholder="Hurry - sale ends tonight." />
       </div>
       <div className="grid sm:grid-cols-2 gap-3">
         <div className="space-y-2">

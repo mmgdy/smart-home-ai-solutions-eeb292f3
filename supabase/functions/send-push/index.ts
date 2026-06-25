@@ -150,8 +150,13 @@ Deno.serve(async (req) => {
 
     let targets: string[] = Array.isArray(targetTokens) ? targetTokens : [];
     if (!targets.length) {
+      await supabase
+        .from("push_subscriptions")
+        .update({ enabled: false })
+        .like("fcm_token", "debug_%");
+
       const { data } = await supabase
-        .from("push_subscriptions").select("fcm_token").eq("enabled", true);
+        .from("push_subscriptions").select("fcm_token").eq("enabled", true).neq("platform", "debug");
       targets = (data || []).map((r: any) => r.fcm_token).filter(Boolean);
     }
 
@@ -160,6 +165,12 @@ Deno.serve(async (req) => {
     const stale: string[] = [];
 
     for (const tk of targets) {
+      if (tk.startsWith("debug_")) {
+        stale.push(tk);
+        results.push({ token: tk.slice(0, 12), ok: false, error: "debug_token_disabled" });
+        continue;
+      }
+
       try {
         const r = await fetch(endpoint, {
           method: "POST",
