@@ -21,19 +21,13 @@ async function verifyAdminToken(supabase: any, token: string): Promise<boolean> 
   }
 }
 
-const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY') ?? '';
-
 const callAI = async (systemPrompt: string, userPrompt: string): Promise<string> => {
-  if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY not configured');
-
-  const res = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+  const res = await fetch('https://text.pollinations.ai/openai', {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: 'google/gemini-2.5-flash',
+      model: 'openai',
+      stream: false,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
@@ -43,8 +37,6 @@ const callAI = async (systemPrompt: string, userPrompt: string): Promise<string>
 
   const raw = await res.text();
   if (!res.ok) {
-    if (res.status === 429) throw new Error('RATE_LIMITED: Lovable AI rate limit reached');
-    if (res.status === 402) throw new Error('PAYMENT_REQUIRED: Add credits in Settings → Workspace → Usage');
     throw new Error(`AI error (${res.status}): ${raw.slice(0, 300)}`);
   }
 

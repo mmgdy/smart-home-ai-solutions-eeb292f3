@@ -268,16 +268,15 @@ Deno.serve(async (req) => {
         .select("name,brand,description,protocol,categories(name)")
         .eq("id", id).single();
       if (pErr) throw pErr;
-      const apiKey = Deno.env.get("LOVABLE_API_KEY");
-      if (!apiKey) throw new Error("LOVABLE_API_KEY missing");
       const ctx = `Product: ${p.name}\nBrand: ${p.brand ?? ""}\nProtocol: ${p.protocol ?? ""}\nCategory: ${(p as any).categories?.name ?? ""}\nDescription: ${p.description ?? ""}`;
       const prompt = `You are an SEO expert for Baytzaki, a smart-home retailer in Egypt. Given the product context below, return ONLY a compact JSON object with keys: seo_title (max 60 chars, includes brand+product+key benefit), seo_description (max 155 chars, includes a value proposition + "Egypt" + a CTA), seo_keywords (array of 8-12 high-intent search keywords, mix of English and Arabic where helpful, no '#'), tags (array of 5-10 short topical tags). No markdown, no commentary.\n\n${ctx}`;
-      const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const r = await fetch("https://text.pollinations.ai/openai", {
         method: "POST",
-        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
+          model: "openai",
           messages: [{ role: "user", content: prompt }],
+          stream: false,
         }),
       });
       if (!r.ok) throw new Error(`AI gateway ${r.status}`);

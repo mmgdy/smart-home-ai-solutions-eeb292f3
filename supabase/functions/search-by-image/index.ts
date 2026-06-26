@@ -1,3 +1,9 @@
+// Search-by-image — uses Google Gemini 2.0 Flash (free tier vision model).
+// Analyzes an uploaded room/product photo and returns smart-home keywords.
+//
+// Gemini free tier: 15 RPM, 1500 requests/day. Get a free key at
+// https://aistudio.google.com/apikey and set GEMINI_API_KEY secret.
+// If no key, returns a graceful error so the UI can fall back to text search.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -12,8 +18,16 @@ Deno.serve(async (req) => {
     const { imageBase64, mimeType = "image/jpeg" } = await req.json();
     if (!imageBase64) throw new Error("imageBase64 is required");
 
-    const apiKey = Deno.env.get("LOVABLE_API_KEY");
-    const model = "google/gemini-2.5-pro";
+    const apiKey = Deno.env.get("GEMINI_API_KEY");
+    if (!apiKey) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Image search requires a Gemini API key. Please set GEMINI_API_KEY in Supabase secrets.",
+        }),
+        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     const prompt = `You are a smart home product expert. Analyze this image and identify smart home devices, electronics, or room features visible.
 Return a JSON object with:
@@ -23,42 +37,46 @@ Return a JSON object with:
 Focus on smart home automation products. Be specific with product types.
 Return ONLY valid JSON, no markdown.`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "image_url",
-                image_url: { url: `data:${mimeType};base64,${imageBase64}` },
-              },
-              { type: "text", text: prompt },
+    // Gemini REST API (v1beta) — supports inline_data for base64 images.
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { text: prompt },
+              { inline_data: { mime_type: mimeType, data: imageBase64 } },
             ],
-          },
-        ],
-        max_tokens: 256,
-        temperature: 0.3,
-      }),
-    });
+          }],
+          generationConfig: { temperature: 0.3, maxOutputTokens: 256 },
+        }),
+      }
+    );
 
     if (!response.ok) {
       const err = await response.text();
-      throw new Error(`AI API error: ${err}`);
+      console.error("Gemini vision error:", response.status, err.slice(0, 200));
+      if (response.status === 429) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Rate limit reached. Please try again in a minute." }),
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      throw new Error(`Vision API error (${response.status})`);
     }
 
-    const aiData = await response.json();
-    const content = aiData.choices?.[0]?.message?.content ?? "{}";
+    const data = await response.json();
+    const content = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
 
     let parsed: { keywords?: string[]; description?: string };
     try {
-      parsed = JSON.parse(content);
+      let jsonStr = content.trim();
+      if (jsonStr.startsWith("```json")) jsonStr = jsonStr.slice(7);
+      if (jsonStr.startsWith("```")) jsonStr = jsonStr.slice(3);
+      if (jsonStr.endsWith("```")) jsonStr = jsonStr.slice(0, -3);
+      parsed = JSON.parse(jsonStr.trim());
     } catch {
       const match = content.match(/\{[\s\S]*\}/);
       parsed = match ? JSON.parse(match[0]) : { keywords: [], description: "" };

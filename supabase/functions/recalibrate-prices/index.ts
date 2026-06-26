@@ -57,11 +57,11 @@ Deno.serve(async (req) => {
     const results: any[] = [];
     for (const p of products) {
       try {
-        const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        const aiResp = await fetch("https://text.pollinations.ai/openai", {
           method: "POST",
-          headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            model: "google/gemini-2.5-flash",
+            model: "openai",
             messages: [
               {
                 role: "system",

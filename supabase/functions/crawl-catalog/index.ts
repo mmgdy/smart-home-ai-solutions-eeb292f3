@@ -95,11 +95,11 @@ async function mirrorImage(supabase: any, imageUrl: string, productId: string) {
 
 async function extractProductWithAI(markdown: string, sourceUrl: string, apiKey: string) {
   const truncated = markdown.substring(0, 18000);
-  const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const resp = await fetch("https://text.pollinations.ai/openai", {
     method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
+      model: "openai",
       messages: [
         {
           role: "system",
