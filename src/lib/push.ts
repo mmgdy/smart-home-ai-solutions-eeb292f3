@@ -136,7 +136,7 @@ export async function enablePushNotifications(): Promise<{ token: string } | { e
           body: n.body,
           icon: n.icon || '/icons/icon-192.png',
           badge: '/icons/icon-192.png',
-          data: { url: n.click_action || payload.data?.url || '/' },
+          data: { url: (n as any).click_action || payload.data?.url || '/' },
         });
       }
     });
