@@ -8,6 +8,7 @@ import { TrustAndStats } from '@/components/home/TrustAndStats';
 import { FeaturedProducts } from '@/components/home/FeaturedProducts';
 import { BrandShowcase } from '@/components/home/BrandShowcase';
 import { HomePhotoDesigner } from '@/components/home/HomePhotoDesigner';
+import { ArtFurnitureShowcase } from '@/components/home/ArtFurnitureShowcase';
 
 const Index = () => {
   return (
@@ -24,6 +25,7 @@ const Index = () => {
         <SolutionCategories />
         <AIAdvisorShowcase />
         <SmartBundles />
+        <ArtFurnitureShowcase />
         <HomePhotoDesigner />
         <TrustAndStats />
         <FeaturedProducts />

@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import defaultLogoImage from '@/assets/logo.png';
 import { AuthButton } from '@/components/auth/AuthButton';
 import { InstallAppButton } from '@/components/InstallAppButton';
+import { AISearchDialog } from '@/components/AISearchDialog';
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -86,6 +87,7 @@ export function Header() {
         {/* Right side */}
         <div className={cn("flex items-center gap-2", isRTL && "flex-row-reverse")}>
           <AuthButton variant="ghost" size="sm" />
+          <AISearchDialog />
           <InstallAppButton />
           <LanguageToggle />
           <Link to="/cart" className="relative group">
