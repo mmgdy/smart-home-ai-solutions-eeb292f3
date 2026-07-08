@@ -565,6 +565,9 @@ const Checkout = () => {
             <div className="grid gap-8 lg:grid-cols-[1fr_400px]">
               {/* Shipping Form */}
               <div className="space-y-6">
+                {/* AI Compatibility Check */}
+                <CompatibilityCheck />
+
                 {/* Sign-in banner */}
                 {!user && (
                   <div className="rounded-xl border border-primary/30 bg-primary/5 p-5">
