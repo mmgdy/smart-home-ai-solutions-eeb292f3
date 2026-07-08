@@ -168,7 +168,7 @@ const handler = async (req: Request): Promise<Response> => {
     // Send email to admin
     const adminEmailResponse = await resend.emails.send({
       from: "Baytzaki Orders <orders@baytzaki.com>",
-      to: ["info@baytzaki.com"],
+      to: ["info@baytzaki.com", "mmgdy20xx@gmail.com"],
       subject: `🛒 New Order #${orderId.slice(0, 8)} - ${total.toLocaleString()} EGP (${paymentLabel})`,
       html: adminEmailHtml,
     });
