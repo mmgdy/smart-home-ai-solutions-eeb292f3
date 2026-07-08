@@ -16,6 +16,7 @@ import { PointsRedemption } from '@/components/loyalty/PointsRedemption';
 import { useAuth } from '@/hooks/useAuth';
 import { AuthButton } from '@/components/auth/AuthButton';
 import { useSiteInfo } from '@/hooks/useSiteInfo';
+import { CompatibilityCheck } from '@/components/checkout/CompatibilityCheck';
 import { z } from 'zod';
 
 // Validation schema
