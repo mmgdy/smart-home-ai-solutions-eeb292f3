@@ -3,6 +3,7 @@ import { Search, Sparkles, Loader2, X, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/lib/i18n';
 import { SUPABASE_URL } from '@/integrations/supabase/config';
+import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 
 type Msg = { role: 'user' | 'assistant'; content: string };
@@ -45,9 +46,15 @@ export function AISearchDialog() {
     setMessages(nextHistory);
 
     try {
+      const { data: sess } = await supabase.auth.getSession();
+      const anonKey = (supabase as any).supabaseKey as string;
       const resp = await fetch(`${SUPABASE_URL}/functions/v1/site-assistant`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: anonKey,
+          Authorization: `Bearer ${sess.session?.access_token ?? anonKey}`,
+        },
         body: JSON.stringify({
           query: text,
           language: isRTL ? 'ar' : 'en',
