@@ -14,14 +14,20 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const POLLINATIONS_URL = "https://text.pollinations.ai/openai";
+const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const MODEL = "google/gemini-2.5-flash";
 
 async function callAI(messages: any[], systemPrompt: string): Promise<string> {
-  const response = await fetch(POLLINATIONS_URL, {
+  const apiKey = Deno.env.get("LOVABLE_API_KEY");
+  if (!apiKey) throw new Error("LOVABLE_API_KEY missing");
+  const response = await fetch(GATEWAY_URL, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "Lovable-API-Key": apiKey,
+    },
     body: JSON.stringify({
-      model: "openai",
+      model: MODEL,
       messages: [{ role: "system", content: systemPrompt }, ...messages],
       stream: false,
     }),
@@ -29,7 +35,7 @@ async function callAI(messages: any[], systemPrompt: string): Promise<string> {
 
   if (!response.ok) {
     const t = await response.text();
-    console.error("Pollinations AI error:", response.status, t.slice(0, 200));
+    console.error("Lovable AI gateway error:", response.status, t.slice(0, 300));
     throw { status: response.status, message: t };
   }
 

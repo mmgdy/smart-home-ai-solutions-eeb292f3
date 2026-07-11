@@ -86,9 +86,13 @@ export function Header() {
 
         {/* Right side */}
         <div className={cn("flex items-center gap-2", isRTL && "flex-row-reverse")}>
-          <AuthButton variant="ghost" size="sm" />
+          <div className="hidden lg:flex items-center gap-2">
+            <AuthButton variant="ghost" size="sm" />
+          </div>
           <AISearchDialog />
-          <InstallAppButton />
+          <div className="hidden md:flex items-center gap-2">
+            <InstallAppButton />
+          </div>
           <LanguageToggle />
           <Link to="/cart" className="relative group">
             <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full hover:bg-foreground/5">
@@ -117,13 +121,13 @@ export function Header() {
       {/* Mobile Navigation */}
       {mobileMenuOpen && (
         <div className="fixed inset-0 top-16 bg-background/98 backdrop-blur-xl z-40 lg:hidden">
-          <nav className="flex flex-col items-center justify-center h-full gap-6 p-8">
+          <nav className="flex flex-col items-center justify-center h-full gap-5 p-8 overflow-y-auto">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
                 to={link.href}
                 onClick={() => setMobileMenuOpen(false)}
-                className="text-2xl font-display font-bold text-foreground hover:text-primary transition-colors flex items-center gap-3"
+                className="text-xl font-display font-bold text-foreground hover:text-primary transition-colors flex items-center gap-3"
               >
                 <span>{link.icon}</span>
                 {link.label}
@@ -136,7 +140,8 @@ export function Header() {
               <Link to="/calculator" onClick={() => setMobileMenuOpen(false)} className="block text-center text-muted-foreground hover:text-foreground py-2">
                 {isRTL ? 'حاسبة التكلفة' : 'Cost Calculator'}
               </Link>
-              <div className="mt-3 flex justify-center">
+              <div className="mt-3 flex flex-col items-center gap-2">
+                <AuthButton variant="outline" size="sm" />
                 <InstallAppButton />
               </div>
             </div>
