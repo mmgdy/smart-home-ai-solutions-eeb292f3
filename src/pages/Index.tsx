@@ -9,6 +9,7 @@ import { FeaturedProducts } from '@/components/home/FeaturedProducts';
 import { BrandShowcase } from '@/components/home/BrandShowcase';
 import { HomePhotoDesigner } from '@/components/home/HomePhotoDesigner';
 import { ArtFurnitureShowcase } from '@/components/home/ArtFurnitureShowcase';
+import { RFIDShowcase } from '@/components/home/RFIDShowcase';
 
 const Index = () => {
   return (
@@ -25,6 +26,7 @@ const Index = () => {
         <SolutionCategories />
         <AIAdvisorShowcase />
         <SmartBundles />
+        <RFIDShowcase />
         <ArtFurnitureShowcase />
         <HomePhotoDesigner />
         <TrustAndStats />
