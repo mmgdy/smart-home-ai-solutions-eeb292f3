@@ -29,6 +29,8 @@ import About from "./pages/About";
 import Brands from "./pages/Brands";
 import HomeDesigner from "./pages/HomeDesigner";
 import AppSimulator from "./pages/AppSimulator";
+import Login from "./pages/Login";
+import OAuthConsent from "./pages/OAuthConsent";
 
 const queryClient = new QueryClient();
 
@@ -96,6 +98,8 @@ const App = () => (
                 <Route path="/admin" element={<Admin />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/legal/:page" element={<Legal />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
               <Analytics />
