@@ -116,19 +116,20 @@ export function ProductCard({ product, className }: ProductCardProps) {
             )}
           </div>
 
-          <div className="mt-3 flex items-center gap-2">
-            <div className="flex h-9 items-center rounded-full border border-border bg-background">
-              <button type="button" className="grid h-9 w-8 place-items-center text-muted-foreground hover:text-foreground" onClick={(e) => updateQuantity(e, quantity - 1)} disabled={quantity <= 1}>
+          <div className="mt-3 flex items-center gap-1.5 sm:gap-2">
+            <div className="flex h-9 items-center rounded-full border border-border bg-background shrink-0">
+              <button type="button" className="grid h-9 w-7 sm:w-8 place-items-center text-muted-foreground hover:text-foreground" onClick={(e) => updateQuantity(e, quantity - 1)} disabled={quantity <= 1}>
                 <Minus className="h-3.5 w-3.5" />
               </button>
-              <span className="w-7 text-center text-sm font-medium text-foreground">{quantity}</span>
-              <button type="button" className="grid h-9 w-8 place-items-center text-muted-foreground hover:text-foreground" onClick={(e) => updateQuantity(e, quantity + 1)} disabled={product.stock === 0 || quantity >= product.stock}>
+              <span className="w-6 sm:w-7 text-center text-sm font-medium text-foreground">{quantity}</span>
+              <button type="button" className="grid h-9 w-7 sm:w-8 place-items-center text-muted-foreground hover:text-foreground" onClick={(e) => updateQuantity(e, quantity + 1)} disabled={product.stock === 0 || quantity >= product.stock}>
                 <Plus className="h-3.5 w-3.5" />
               </button>
             </div>
-            <Button size="sm" className="min-w-0 flex-1 gap-1.5 rounded-full" onClick={handleAddToCart} disabled={product.stock === 0}>
-              <ShoppingCart className="h-4 w-4" />
-              <span className="truncate">{t('addToCart')}</span>
+            <Button size="sm" className="min-w-0 flex-1 gap-1.5 rounded-full px-2 sm:px-3" onClick={handleAddToCart} disabled={product.stock === 0}>
+              <ShoppingCart className="h-4 w-4 shrink-0" />
+              <span className="truncate hidden sm:inline">{t('addToCart')}</span>
+              <span className="truncate sm:hidden">{t('addToCart').split(' ')[0]}</span>
             </Button>
           </div>
         </div>

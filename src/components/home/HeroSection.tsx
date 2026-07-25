@@ -159,7 +159,7 @@ export function HeroSection() {
         />
       </div>
 
-      <div className="container relative z-10 px-6 md:px-12 pt-28 pb-24">
+      <div className="container relative z-10 px-4 md:px-12 pt-24 md:pt-28 pb-24">
         <div className="max-w-5xl mx-auto text-center">
           {/* Badge */}
           <motion.div
@@ -182,7 +182,7 @@ export function HeroSection() {
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.1 }}
-            className="font-display text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold tracking-tight leading-[1.05] mb-6"
+            className="font-display text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold tracking-tight leading-[1.08] mb-5 md:mb-6"
           >
             <span className="block text-foreground drop-shadow-[0_2px_20px_rgba(0,0,0,0.5)]">
               {headline}
@@ -193,7 +193,7 @@ export function HeroSection() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.25 }}
-            className="text-lg md:text-xl text-foreground/85 max-w-2xl mx-auto mb-8 leading-relaxed font-medium drop-shadow-[0_1px_8px_rgba(0,0,0,0.4)]"
+            className="text-base md:text-xl text-foreground/85 max-w-2xl mx-auto mb-6 md:mb-8 leading-relaxed font-medium drop-shadow-[0_1px_8px_rgba(0,0,0,0.4)]"
           >
             {subheadline}
           </motion.p>
@@ -268,12 +268,12 @@ export function HeroSection() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.45 }}
-            className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8"
+            className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center flex-wrap gap-3 sm:gap-4 mb-8"
           >
-            <Link to="/bundles">
+            <Link to="/bundles" className="w-full sm:w-auto">
               <Button
                 size="lg"
-                className="h-14 px-10 text-base font-semibold bg-primary text-primary-foreground hover:bg-primary/90 rounded-full group glow-primary shadow-[0_10px_40px_-10px_hsl(var(--primary)/0.7)]"
+                className="w-full sm:w-auto h-12 sm:h-14 px-6 sm:px-10 text-sm sm:text-base font-semibold bg-primary text-primary-foreground hover:bg-primary/90 rounded-full group glow-primary shadow-[0_10px_40px_-10px_hsl(var(--primary)/0.7)]"
               >
                 <Sparkles className="mr-2 h-5 w-5" />
                 {ctaLabel}
@@ -283,32 +283,32 @@ export function HeroSection() {
                 )} />
               </Button>
             </Link>
-            <Link to="/products">
+            <Link to="/products" className="w-full sm:w-auto">
               <Button
                 size="lg"
                 variant="outline"
-                className="h-14 px-8 text-base font-medium rounded-full border-foreground/30 bg-background/30 backdrop-blur-md hover:bg-background/50 text-foreground"
+                className="w-full sm:w-auto h-12 sm:h-14 px-6 sm:px-8 text-sm sm:text-base font-medium rounded-full border-foreground/30 bg-background/30 backdrop-blur-md hover:bg-background/50 text-foreground"
               >
                 <Play className="mr-2 h-4 w-4 fill-current" />
                 {isRTL ? 'تصفح المنتجات' : 'Browse Products'}
               </Button>
             </Link>
             {/* AI Home Designer link */}
-            <Link to="/home-designer">
+            <Link to="/home-designer" className="w-full sm:w-auto">
               <Button
                 size="lg"
                 variant="outline"
-                className="h-14 px-8 text-base font-medium rounded-full border-primary/40 bg-primary/10 backdrop-blur-md hover:bg-primary/20 text-primary"
+                className="w-full sm:w-auto h-12 sm:h-14 px-6 sm:px-8 text-sm sm:text-base font-medium rounded-full border-primary/40 bg-primary/10 backdrop-blur-md hover:bg-primary/20 text-primary"
               >
                 <Sparkles className="mr-2 h-4 w-4" />
                 {isRTL ? 'AI يرسم أجهزة على صورة بيتك' : 'AI Home Designer'}
               </Button>
             </Link>
-            <Link to="/calculator">
+            <Link to="/calculator" className="w-full sm:w-auto">
               <Button
                 size="lg"
                 variant="outline"
-                className="h-14 px-8 text-base font-medium rounded-full border-warning/40 bg-warning/10 backdrop-blur-md hover:bg-warning/20 text-warning"
+                className="w-full sm:w-auto h-12 sm:h-14 px-6 sm:px-8 text-sm sm:text-base font-medium rounded-full border-warning/40 bg-warning/10 backdrop-blur-md hover:bg-warning/20 text-warning"
               >
                 <Calculator className="mr-2 h-4 w-4" />
                 {isRTL ? 'حاسبة التكلفة' : 'Cost Calculator'}

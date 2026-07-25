@@ -1,0 +1,1 @@
+INSERT INTO public.categories (slug, name, description) VALUES ('art-furniture', 'Art Furniture', 'Unique curated art & designer furniture pieces that complement your smart home') ON CONFLICT (slug) DO NOTHING;

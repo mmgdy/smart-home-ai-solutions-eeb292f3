@@ -1,13 +1,6 @@
 // Smart Home Consultant — powered by Pollinations AI (free, keyless gateway).
-//
-// Two performance fixes vs. the old version:
-// 1. Pollinations streams content into delta.reasoning (not delta.content), so we
-//    call NON-streaming and re-stream the full text as proper SSE to the client.
-// 2. We don't dump all 874 products into the prompt (it times out / degrades).
-//    Instead we pick the ~30 most relevant products based on the user's message
-//    and a category summary, so responses are fast and high quality.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 import { corsHeadersFor } from "../_shared/cors.ts";
 import { checkRate, getIp } from "../_shared/rate-limit.ts";
 import { clamp, cleanString } from "../_shared/validate.ts";
@@ -27,7 +20,7 @@ async function callAI(messages: any[], systemPrompt: string): Promise<string> {
 
   if (!response.ok) {
     const t = await response.text();
-    console.error("Pollinations AI error:", response.status, t.slice(0, 200));
+    console.error("Pollinations AI error:", response.status, t.slice(0, 300));
     throw new Error(`AI request failed (${response.status})`);
   }
 
@@ -37,14 +30,10 @@ async function callAI(messages: any[], systemPrompt: string): Promise<string> {
   return content;
 }
 
-/** Score products by keyword/brand overlap with the user's message. */
 function scoreProducts(message: string, products: any[]): any[] {
-  const terms = message
-    .toLowerCase()
-    .split(/\W+/)
-    .filter((t) => t.length > 2);
+  const terms = message.toLowerCase().split(/\W+/).filter((t) => t.length > 2);
   const scored = products.map((p) => {
-    const hay = `${p.name || ""} ${p.brand || ""} ${p.category || ""} ${p.description || ""}`.toLowerCase();
+    const hay = `${p.name ?? ""} ${p.brand ?? ""} ${p.category ?? ""} ${p.description ?? ""}`.toLowerCase();
     const score = terms.reduce((acc, term) => acc + (hay.includes(term) ? 1 : 0), 0);
     return { product: p, score };
   });
@@ -53,13 +42,9 @@ function scoreProducts(message: string, products: any[]): any[] {
 }
 
 function makeProductContext(products: any[]): string {
-  return products
-    .slice(0, 25)
-    .map(
-      (p) =>
-        `- ${p.name}${p.brand ? ` (${p.brand})` : ""}${p.price ? ` — ${p.price} EGP` : ""}${p.category ? ` [${p.category}]` : ""}`
-    )
-    .join("\n");
+  return products.slice(0, 25).map((p) =>
+    `- ${p.name}${p.brand ? ` (${p.brand})` : ""}${p.price ? ` — ${p.price} EGP` : ""}${p.category ? ` [${p.category}]` : ""}`
+  ).join("\n");
 }
 
 function makeCategorySummary(products: any[]): string {
@@ -68,11 +53,7 @@ function makeCategorySummary(products: any[]): string {
     const c = p.category || "Other";
     cats[c] = (cats[c] || 0) + 1;
   }
-  return Object.entries(cats)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 10)
-    .map(([name, count]) => `- ${name}: ${count}`)
-    .join("\n");
+  return Object.entries(cats).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([n, c]) => `- ${n}: ${c}`).join("\n");
 }
 
 function streamText(text: string, encoder: TextEncoder): ReadableStream {
@@ -93,7 +74,9 @@ function streamText(text: string, encoder: TextEncoder): ReadableStream {
         controller.enqueue(encoder.encode(`data: ${payload}\n\n`));
         setTimeout(send, 18);
       };
-      controller.enqueue(encoder.encode(`data: {"id":"${id}","object":"chat.completion.chunk","created":${Math.floor(Date.now() / 1000)},"model":"gpt-4","choices":[{"index":0,"delta":{"role":"assistant"},"finish_reason":null}]}\n\n`));
+      controller.enqueue(encoder.encode(
+        `data: {"id":"${id}","object":"chat.completion.chunk","created":${Math.floor(Date.now() / 1000)},"model":"gpt-4","choices":[{"index":0,"delta":{"role":"assistant"},"finish_reason":null}]}\n\n`
+      ));
       setTimeout(send, 30);
     },
   });
@@ -104,7 +87,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   const ip = getIp(req);
-  const rate = checkRate(ip, { windowMs: 60000, maxRequests: 10 });
+  const rate = checkRate(ip, { windowMs: 60_000, maxRequests: 10 });
   if (!rate.ok) {
     return new Response(JSON.stringify({ error: "Rate limit exceeded. Try again later." }), {
       status: 429,
