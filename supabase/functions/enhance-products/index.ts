@@ -1,9 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
+import { corsHeadersFor } from "../_shared/cors.ts";
+import { checkRate, getIp } from "../_shared/rate-limit.ts";
 
 async function verifyAdminToken(supabase: any, token: string): Promise<boolean> {
   if (!token) return false;
@@ -420,8 +417,17 @@ const getProductsForImageRefresh = async (supabase: ReturnType<typeof createClie
 };
 
 Deno.serve(async (req) => {
+  const corsHeaders = corsHeadersFor(req);
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  const ip = getIp(req);
+  const rate = checkRate(ip, { windowMs: 60_000, maxRequests: 5 });
+  if (!rate.ok) {
+    return new Response(JSON.stringify({ error: 'Too many requests' }), {
+      status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(Math.ceil(rate.retryAfterMs / 1000)) },
+    });
   }
 
   try {

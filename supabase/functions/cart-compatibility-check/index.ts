@@ -1,22 +1,24 @@
 // AI-powered checkout compatibility check.
-// Input: { items: [{ id, name, brand?, protocol?, category?, quantity }], language: 'en'|'ar' }
-// Output: {
-//   summary: string,
-//   issues: [{ severity: 'warning'|'info', message: string }],
-//   suggestions: [{ productId, name, price, image_url, slug, reason }]
-// }
+// Switched from dead Lovable gateway to Pollinations (free, keyless).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
+import { corsHeadersFor } from "../_shared/cors.ts";
+import { checkRate, getIp } from "../_shared/rate-limit.ts";
+import { clamp, cleanString } from "../_shared/validate.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
-
-const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const MODEL = "google/gemini-2.5-flash";
+const POLLINATIONS_URL = "https://text.pollinations.ai/openai";
 
 Deno.serve(async (req) => {
+  const corsHeaders = corsHeadersFor(req);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+
+  const ip = getIp(req);
+  const rate = checkRate(ip, { windowMs: 60_000, maxRequests: 10 });
+  if (!rate.ok) {
+    return new Response(JSON.stringify({ error: "Too many requests" }), {
+      status: 429, headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": String(Math.ceil(rate.retryAfterMs / 1000)) },
+    });
+  }
+
   try {
     const { items = [], language = "en" } = await req.json();
     if (!Array.isArray(items) || items.length === 0) {
@@ -25,15 +27,11 @@ Deno.serve(async (req) => {
       });
     }
 
-    const apiKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!apiKey) throw new Error("LOVABLE_API_KEY missing");
-
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Fetch a compact candidate catalog (accessories & common companions).
     const { data: catalog } = await supabase
       .from("products")
       .select("id, name, slug, price, brand, protocol, category_id, image_url, description")
@@ -61,24 +59,21 @@ Language: ${language === "ar" ? "Arabic" : "English"}. Keep messages short and f
 
     const user = `CART:\n${cartLines}\n\nCATALOG (id | name | price | brand | protocol):\n${catalogLines}`;
 
-    const resp = await fetch(GATEWAY_URL, {
+    const resp = await fetch(POLLINATIONS_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Lovable-API-Key": apiKey },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: MODEL,
+        model: "openai",
         messages: [
           { role: "system", content: system },
           { role: "user", content: user },
         ],
-        response_format: { type: "json_object" },
       }),
     });
 
     if (!resp.ok) {
-      const t = await resp.text();
-      return new Response(JSON.stringify({ error: t.slice(0, 300) }), {
-        status: resp.status,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      return new Response(JSON.stringify({ error: "AI analysis failed. Try again later." }), {
+        status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -116,9 +111,9 @@ Language: ${language === "ar" ? "Arabic" : "English"}. Keep messages short and f
       suggestions: enriched,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    console.error("cart-compatibility-check error:", e);
+    return new Response(JSON.stringify({ error: "Analysis failed. Try again later." }), {
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });

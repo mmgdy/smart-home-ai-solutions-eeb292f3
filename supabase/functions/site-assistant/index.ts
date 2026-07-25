@@ -1,50 +1,70 @@
 // Site assistant — bilingual AI search & site guide.
-// Uses Lovable AI Gateway; streams SSE chunks to the client.
-// Given a user question, fetches top matching products/bundles/categories
-// from Supabase and returns a helpful reply with product recommendations.
+// Switched from dead Lovable gateway to Pollinations (free, keyless).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
+import { corsHeadersFor } from "../_shared/cors.ts";
+import { checkRate, getIp } from "../_shared/rate-limit.ts";
+import { cleanString } from "../_shared/validate.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+const POLLINATIONS_URL = "https://text.pollinations.ai/openai";
 
-const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const MODEL = "google/gemini-2.5-flash";
+function streamText(text: string, encoder: TextEncoder): ReadableStream {
+  return new ReadableStream({
+    start(controller) {
+      const chunkSize = 6;
+      let i = 0;
+      const id = crypto.randomUUID();
+      const send = () => {
+        if (i >= text.length) {
+          controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
+          controller.close();
+          return;
+        }
+        const chunk = text.slice(i, i + chunkSize);
+        i += chunkSize;
+        const payload = JSON.stringify({ choices: [{ delta: { content: chunk } }] });
+        controller.enqueue(encoder.encode(`data: ${payload}\n\n`));
+        setTimeout(send, 18);
+      };
+      controller.enqueue(encoder.encode(
+        `data: {"id":"${id}","object":"chat.completion.chunk","created":${Math.floor(Date.now() / 1000)},"model":"gpt-4","choices":[{"index":0,"delta":{"role":"assistant"},"finish_reason":null}]}\n\n`
+      ));
+      setTimeout(send, 30);
+    },
+  });
+}
 
 Deno.serve(async (req) => {
+  const corsHeaders = corsHeadersFor(req);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+
+  const ip = getIp(req);
+  const rate = checkRate(ip, { windowMs: 60_000, maxRequests: 10 });
+  if (!rate.ok) {
+    return new Response(JSON.stringify({ error: "Too many requests" }), {
+      status: 429, headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": String(Math.ceil(rate.retryAfterMs / 1000)) },
+    });
+  }
+
   try {
     const { query, language = "en", history = [] } = await req.json();
-    if (!query || typeof query !== "string") {
+    const cleanQuery = cleanString(query, 500);
+    if (!cleanQuery) {
       return new Response(JSON.stringify({ error: "query is required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    const apiKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!apiKey) throw new Error("LOVABLE_API_KEY missing");
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Pull a compact catalog for grounding. Keep it small and cheap.
     const [{ data: products }, { data: categories }] = await Promise.all([
-      supabase
-        .from("products")
-        .select("name, slug, price, brand, category_id, description")
-        .limit(80),
+      supabase.from("products").select("name, slug, price, brand, category_id, description").limit(80),
       supabase.from("categories").select("slug, name, description"),
     ]);
 
-    const catById: Record<string, string> = {};
-    (categories ?? []).forEach((c: any) => { catById[c.slug] = c.name; });
-
-    // Very lightweight keyword scoring against name/desc/brand
-    const q = query.toLowerCase();
+    const q = cleanQuery.toLowerCase();
     const words = q.split(/\s+/).filter((w) => w.length > 2);
     const scored = (products ?? []).map((p: any) => {
       const hay = `${p.name} ${p.brand ?? ""} ${p.description ?? ""}`.toLowerCase();
@@ -85,30 +105,29 @@ ${catLines}
 
 Useful pages: /bundles /ai-consultant /calculator /brands /services`;
 
-    const messages = [
+    const msgs = [
       { role: "system", content: system },
-      ...history.slice(-6),
-      { role: "user", content: query },
+      ...(history ?? []).slice(-6),
+      { role: "user", content: cleanQuery },
     ];
 
-    const resp = await fetch(GATEWAY_URL, {
+    const resp = await fetch(POLLINATIONS_URL, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Lovable-API-Key": apiKey,
-      },
-      body: JSON.stringify({ model: MODEL, messages, stream: true }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: "openai", messages: msgs, stream: false }),
     });
 
     if (!resp.ok) {
-      const t = await resp.text();
-      return new Response(JSON.stringify({ error: t.slice(0, 300) }), {
-        status: resp.status,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      return new Response(JSON.stringify({ error: "AI service temporarily unavailable. Try again later." }), {
+        status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    return new Response(resp.body, {
+    const j = await resp.json();
+    const fullText = j?.choices?.[0]?.message?.content ?? "";
+
+    const encoder = new TextEncoder();
+    return new Response(streamText(fullText, encoder), {
       headers: {
         ...corsHeaders,
         "Content-Type": "text/event-stream",
@@ -117,9 +136,9 @@ Useful pages: /bundles /ai-consultant /calculator /brands /services`;
       },
     });
   } catch (e) {
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    console.error("site-assistant error:", e);
+    return new Response(JSON.stringify({ error: "Service temporarily unavailable. Try again later." }), {
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
