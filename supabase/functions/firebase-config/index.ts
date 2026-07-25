@@ -1,12 +1,9 @@
 // Returns the public Firebase Web config + VAPID key so the client can
 // initialize the messaging service worker without exposing config in the repo.
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-};
+import { corsHeadersFor } from "../_shared/cors.ts";
 
 Deno.serve((req) => {
+  const corsHeaders = corsHeadersFor(req);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   const cfg = {

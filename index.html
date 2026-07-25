@@ -4,6 +4,21 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
+    <!-- Content-Security-Policy -->
+    <meta http-equiv="Content-Security-Policy" content="
+      default-src 'self';
+      script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://www.googletagmanager.com;
+      connect-src 'self' https://djsibxhkfvwtjzvnjmhp.supabase.co https://*.supabase.co https://text.pollinations.ai https://generativelanguage.googleapis.com https://fcm.googleapis.com https://translate.google.com https://accounts.google.com;
+      img-src 'self' data: blob: https:;
+      style-src 'self' 'unsafe-inline';
+      font-src 'self';
+      frame-src 'self' https://omni paysky.secure.ipg-online.com;
+      manifest-src 'self';
+      worker-src 'self';
+      base-uri 'self';
+      form-action 'self';
+    " />
+
     <!-- PWA -->
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="theme-color" content="#0EA5A4" />

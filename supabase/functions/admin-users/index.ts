@@ -1,10 +1,8 @@
 // List all registered users (admin only)
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { corsHeadersFor } from "../_shared/cors.ts";
+import { checkRate, getIp } from "../_shared/rate-limit.ts";
+import { clamp } from "../_shared/validate.ts";
 
 async function verifyAdminToken(supabase: any, token: string): Promise<boolean> {
   if (!token) return false;
@@ -23,7 +21,17 @@ async function verifyAdminToken(supabase: any, token: string): Promise<boolean> 
 }
 
 Deno.serve(async (req) => {
+  const corsHeaders = corsHeadersFor(req);
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const ip = getIp(req);
+  const rate = checkRate(ip, { windowMs: 60000, maxRequests: 20 });
+  if (!rate.ok) {
+    return new Response(JSON.stringify({ error: "Rate limit exceeded" }), {
+      status: 429,
+      headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": String(Math.ceil(rate.retryAfterMs / 1000)) },
+    });
+  }
 
   try {
     const supabase = createClient(
@@ -31,52 +39,33 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const { token } = await req.json();
+    const authHeader = req.headers.get("Authorization") || "";
+    const token = authHeader.replace("Bearer ", "");
     if (!(await verifyAdminToken(supabase, token))) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // List users via admin API
-    const { data, error } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    const { data: users, error } = await supabase.auth.admin.listUsers();
     if (error) throw error;
 
-    // Enrich with order count + total spent + loyalty
-    const users = await Promise.all((data.users || []).map(async (u: any) => {
-      const { data: orders } = await supabase
-        .from("orders")
-        .select("total")
-        .eq("email", u.email);
-      const totalSpent = (orders || []).reduce((s: number, o: any) => s + Number(o.total || 0), 0);
-      const { data: loyalty } = await supabase
-        .from("loyalty_points")
-        .select("points_balance, tier, lifetime_points")
-        .eq("email", u.email)
-        .maybeSingle();
-      return {
-        id: u.id,
-        email: u.email,
-        full_name: u.user_metadata?.full_name || null,
-        avatar_url: u.user_metadata?.avatar_url || null,
-        provider: u.app_metadata?.provider || "email",
-        created_at: u.created_at,
-        last_sign_in_at: u.last_sign_in_at,
-        email_confirmed_at: u.email_confirmed_at,
-        order_count: (orders || []).length,
-        total_spent: totalSpent,
-        loyalty_points: loyalty?.points_balance || 0,
-        tier: loyalty?.tier || "bronze",
-      };
-    }));
-
-    return new Response(JSON.stringify({ users, total: users.length }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  } catch (e) {
-    console.error("admin-users error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        users: users.users.map((u: any) => ({
+          id: u.id,
+          email: u.email,
+          created_at: u.created_at,
+          last_sign_in_at: u.last_sign_in_at,
+        })),
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  } catch (error) {
+    console.error("Admin users error:", error);
+    return new Response(
+      JSON.stringify({ error: "Failed to fetch users" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   }
 });

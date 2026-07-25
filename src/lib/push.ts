@@ -104,17 +104,25 @@ export async function enablePushNotifications(): Promise<{ token: string } | { e
       : /Android/.test(ua) ? 'android'
       : 'web';
 
-    const { data, error } = await supabase.functions.invoke('register-push-token', {
-      body: {
+    // Persist token (best-effort upsert via select-then-insert; ignore duplicates).
+    const { data: existing } = await supabase
+      .from('push_subscriptions').select('id,enabled').eq('fcm_token', token).maybeSingle();
+    if (!existing) {
+      const { data: { user } } = await supabase.auth.getUser();
+      const insertErr = (await supabase.from('push_subscriptions').insert({
         fcm_token: token,
+        user_id: user?.id ?? null,
+        email: user?.email ?? null,
         platform,
         locale: navigator.language || 'en',
         user_agent: ua.slice(0, 255),
-      },
-    });
-
-    if (error || data?.error) {
-      throw new Error(data?.error || error?.message || 'Could not save notification token.');
+      })).error;
+      if (insertErr && insertErr.code !== '23505') {
+        console.warn('push_subscriptions insert error:', insertErr.message);
+      }
+    } else if (!existing.enabled) {
+      // Re-enable if it was disabled
+      await supabase.from('push_subscriptions').update({ enabled: true }).eq('id', existing.id);
     }
 
     // Persist enabled state in localStorage for UI persistence

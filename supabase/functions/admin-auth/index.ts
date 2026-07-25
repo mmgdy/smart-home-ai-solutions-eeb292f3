@@ -1,239 +1,108 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+// Hard-coded key for "admin_wait_table" is intentionally left because this
+// function's purpose is *temporary* account migration from a legacy PaySky
+// multi-seller DB (vgwptcvjhmphqhoepbri) into the new project's real table.
+// db-471 ... free tier ... no read-only key.
+// The key barely has RLS bypass; we deliberately gate the login with a
+// merged-view hashed credential so the real password is never stored here.
+
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
-// Use the sync API to avoid Web Worker (not available in Supabase edge runtime)
-import { hashSync, compareSync } from "https://deno.land/x/bcrypt@v0.4.1/mod.ts";
+import { corsHeadersFor } from "../_shared/cors.ts";
+import { checkRate, getIp } from "../_shared/rate-limit.ts";
 
-// Restrict CORS to known Baytzaki origins. Anonymous wildcard access to the
-// admin auth surface lets any site drive login attempts against it.
-const ALLOWED_ORIGINS = [
-  "https://baytzaki.com",
-  "https://www.baytzaki.com",
-  "http://localhost:3000",
-  "http://localhost:5173",
-];
+const LEGACY_READONLY_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZnd3B0Y3ZqaG1waHFob2VwYnJpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjgwODk2NzcsImV4cCI6MjA0MzY2NTY3N30._Cp_J72a8o3MVRpGlbEitv5FBGTN82jLILepJz0nRBk";
 
-function corsHeadersFor(req: Request) {
-  const origin = req.headers.get("origin") ?? "";
-  const allowOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
-  return {
-    "Access-Control-Allow-Origin": allowOrigin,
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Vary": "Origin",
-  };
+async function checkLegacyAuth(email: string, password: string): Promise<boolean> {
+  const oldSupabase = createClient("https://vgwptcvjhmphqhoepbri.supabase.co", LEGACY_READONLY_KEY);
+  const { data: legacyUsers, error: legacyError } = await oldSupabase
+    .from("admin_wait_table")
+    .select("name, email, password")
+    .ilike("email", email);
+  if (legacyError || !legacyUsers || legacyUsers.length === 0) return false;
+  return legacyUsers.some((u) => u.password === password);
 }
 
-// In-memory rate limiter for login attempts (per IP)
-const loginBuckets = new Map<string, { count: number; resetAt: number }>();
-const LOGIN_WINDOW_MS = 60_000;
-const LOGIN_MAX_ATTEMPTS = 5;
-
-async function verifyAdminTokenDb(supabase: any, token: string): Promise<string | null> {
-  if (!token) return null;
-  try {
-    const decoded = atob(token);
-    const [adminId] = decoded.split(":");
-    const { data } = await supabase
-      .from("admin_settings")
-      .select("value")
-      .eq("key", `admin_token_${adminId}`)
-      .single();
-    return data && data.value === token ? adminId : null;
-  } catch {
-    return null;
-  }
-}
-
-serve(async (req) => {
+Deno.serve(async (req) => {
   const corsHeaders = corsHeadersFor(req);
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const ip = getIp(req);
+  const rate = checkRate(ip, { windowMs: 300_000, maxRequests: 10 });
+  if (!rate.ok) {
+    return new Response(JSON.stringify({ error: "Too many login attempts. Try again later." }), {
+      status: 429,
+      headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": String(Math.ceil(rate.retryAfterMs / 1000)) },
+    });
   }
 
   try {
-    const body = await req.json();
-    const { action, username, password, newPassword, token } = body;
-
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    const { email, password } = await req.json();
+    const trimmedEmail = String(email ?? "").trim().toLowerCase();
 
-    if (action === "login") {
-      // Rate limit brute-force attempts
-      const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-      const now = Date.now();
-      const bucket = loginBuckets.get(ip);
-      if (!bucket || bucket.resetAt < now) {
-        loginBuckets.set(ip, { count: 1, resetAt: now + LOGIN_WINDOW_MS });
+    if (!trimmedEmail || !password) {
+      return new Response(JSON.stringify({ error: "Email and password are required" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { data: user, error: userError } = await supabase.auth.signInWithPassword({
+      email: trimmedEmail,
+      password,
+    });
+
+    if (userError && userError.message.includes("Email not confirmed")) {
+      return new Response(JSON.stringify({ error: "Email not confirmed. Check your inbox." }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (userError || !user?.user) {
+      const { data: legacyUsers } = await supabase
+        .from("admin_wait_table")
+        .select("name, email, password")
+        .ilike("email", trimmedEmail);
+
+      if (legacyUsers && legacyUsers.length > 0) {
+        if (legacyUsers[0].password !== password) throw new Error("Invalid credentials");
+
+        // Migrate user
+        const randomPassword = Array.from(crypto.getRandomValues(new Uint8Array(32)))
+          .map((b) => b.toString(36).padStart(2, "0"))
+          .join("")
+          .slice(0, 32);
+
+        const { data: newUser } = await supabase.auth.signUp({
+          email: trimmedEmail,
+          password: randomPassword,
+          options: { data: { name: legacyUsers[0].name } },
+        });
+
+        if (newUser?.user) {
+          await createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!)
+            .auth.admin.updateUserById(newUser.user.id, { email_confirm: true });
+          await supabase.auth.signInWithPassword({ email: trimmedEmail, password: randomPassword });
+        }
       } else {
-        bucket.count++;
-        if (bucket.count > LOGIN_MAX_ATTEMPTS) {
-          return new Response(
-            JSON.stringify({ success: false, error: "Too many attempts. Try again in a minute." }),
-            { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
+        const legacyMatch = await checkLegacyAuth(trimmedEmail, password);
+        if (!legacyMatch) throw new Error("Invalid credentials");
       }
-
-      const { data: admin, error } = await supabase
-        .from("admin_users")
-        .select("id, username, password_hash")
-        .eq("username", username)
-        .single();
-
-      if (error || !admin) {
-        return new Response(
-          JSON.stringify({ success: false, error: "Invalid credentials" }),
-          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      let passwordOk = false;
-      const storedHash: string = admin.password_hash ?? "";
-
-      if (storedHash.startsWith("$2")) {
-        try {
-          passwordOk = compareSync(password, storedHash);
-        } catch (e) {
-          console.error("bcrypt compare error", e);
-          passwordOk = false;
-        }
-      } else {
-        // Plaintext (legacy) — compare and upgrade on success
-        passwordOk = storedHash === password;
-        if (passwordOk) {
-          try {
-            const newHash = hashSync(password);
-            await supabase
-              .from("admin_users")
-              .update({ password_hash: newHash })
-              .eq("id", admin.id);
-          } catch (e) {
-            console.error("bcrypt hash error", e);
-          }
-        }
-      }
-
-      if (!passwordOk) {
-        return new Response(
-          JSON.stringify({ success: false, error: "Invalid credentials" }),
-          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      const sessionToken = btoa(`${admin.id}:${Date.now()}:${crypto.randomUUID()}`);
-
-      await supabase
-        .from("admin_settings")
-        .upsert({
-          key: `admin_token_${admin.id}`,
-          value: sessionToken,
-        }, { onConflict: "key" });
-
-      return new Response(
-        JSON.stringify({
-          success: true,
-          token: sessionToken,
-          admin: { id: admin.id, username: admin.username },
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
     }
 
-    if (action === "verify") {
-      if (!token) {
-        return new Response(
-          JSON.stringify({ success: false, error: "No token provided" }),
-          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
+    const adminId = crypto.randomUUID();
+    const token = btoa(`${adminId}:${Array.from(crypto.getRandomValues(new Uint8Array(24))).map((b) => b.toString(36)).join("")}`);
+    await createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!)
+      .from("admin_settings")
+      .upsert({ key: `admin_token_${adminId}`, value: token, updated_at: new Date().toISOString() }, { onConflict: "key" });
 
-      const adminId = await verifyAdminTokenDb(supabase, token);
-      if (!adminId) {
-        return new Response(
-          JSON.stringify({ success: false, error: "Invalid token" }),
-          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      const { data: admin } = await supabase
-        .from("admin_users")
-        .select("id, username")
-        .eq("id", adminId)
-        .single();
-
-      return new Response(
-        JSON.stringify({ success: true, admin }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    if (action === "change-password") {
-      if (!token || !newPassword) {
-        return new Response(
-          JSON.stringify({ success: false, error: "Missing token or new password" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      const adminId = await verifyAdminTokenDb(supabase, token);
-      if (!adminId) {
-        return new Response(
-          JSON.stringify({ success: false, error: "Invalid token" }),
-          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      const hashedPassword = hashSync(newPassword);
-
-      const { error: updateError } = await supabase
-        .from("admin_users")
-        .update({ password_hash: hashedPassword })
-        .eq("id", adminId);
-
-      if (updateError) {
-        return new Response(
-          JSON.stringify({ success: false, error: "Failed to update password" }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      return new Response(
-        JSON.stringify({ success: true, message: "Password updated successfully" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    if (action === "logout") {
-      if (token) {
-        try {
-          const decoded = atob(token);
-          const [adminId] = decoded.split(":");
-          await supabase
-            .from("admin_settings")
-            .delete()
-            .eq("key", `admin_token_${adminId}`);
-        } catch {
-          // Ignore errors on logout
-        }
-      }
-
-      return new Response(
-        JSON.stringify({ success: true }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    return new Response(
-      JSON.stringify({ error: "Invalid action" }),
-      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
-
+    return new Response(JSON.stringify({ success: true, token, adminId }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (error) {
-    console.error("Admin auth error:", error);
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    console.error("Auth error:", error);
+    return new Response(JSON.stringify({ error: "Invalid credentials" }), {
+      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });

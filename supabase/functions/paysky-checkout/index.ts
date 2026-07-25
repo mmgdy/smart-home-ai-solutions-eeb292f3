@@ -1,19 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Max-Age": "86400",
-};
+import { corsHeadersFor } from "../_shared/cors.ts";
+import { checkRate, getIp } from "../_shared/rate-limit.ts";
+import { clamp } from "../_shared/validate.ts";
 
 const toTwoDigits = (value: number) => value.toString().padStart(2, "0");
 
 const getLocalTransactionTime = () => {
-  // PaySky validates the timestamp against Cairo wall-clock time (server is in Egypt).
-  // Deno edge runs in UTC, so derive the Africa/Cairo time explicitly — otherwise the
-  // gateway rejects the request with a generic "something went wrong" screen.
   const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Africa/Cairo",
     year: "numeric",
@@ -25,8 +18,6 @@ const getLocalTransactionTime = () => {
     hour12: false,
   }).formatToParts(new Date());
   const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "00";
-  // PaySky expects YYYYMMDDHHMMSS (14 chars). Their gateway rejects 12-char timestamps
-  // with a generic "something went wrong" error.
   const hour = get("hour") === "24" ? "00" : get("hour");
   return `${get("year")}${get("month")}${get("day")}${hour}${get("minute")}${get("second")}`;
 };
@@ -39,149 +30,104 @@ const normalizeHexKey = (secretKey: string) => {
   return normalized;
 };
 
-// Helper function to generate HMAC SHA-256
 async function generateSecureHash(params: Record<string, string>, secretKey: string): Promise<string> {
   const sortedKeys = Object.keys(params).sort();
   const queryString = sortedKeys.map((key) => `${key}=${params[key]}`).join("&");
-
-  const normalizedSecret = normalizeHexKey(secretKey);
-  const keyBytes = new Uint8Array(
-    normalizedSecret.match(/.{1,2}/g)!.map((byte) => parseInt(byte, 16))
+  const encoder = new TextEncoder();
+  const keyBuffer = new Uint8Array(
+    normalizeHexKey(secretKey).match(/.{2}/g)!.map((byte) => parseInt(byte, 16))
   );
-
   const cryptoKey = await crypto.subtle.importKey(
     "raw",
-    keyBytes,
+    keyBuffer,
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["sign"]
   );
-
-  const signature = await crypto.subtle.sign(
-    "HMAC",
-    cryptoKey,
-    new TextEncoder().encode(queryString)
-  );
-
+  const signature = await crypto.subtle.sign("HMAC", cryptoKey, encoder.encode(queryString));
   return Array.from(new Uint8Array(signature))
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("")
-    .toUpperCase();
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
-  }
+  const corsHeaders = corsHeadersFor(req);
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
-  if (req.method !== "POST") {
-    return new Response(JSON.stringify({ error: "Method not allowed" }), {
-      status: 405,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+  const ip = getIp(req);
+  const rate = checkRate(ip, { windowMs: 60000, maxRequests: 10 });
+  if (!rate.ok) {
+    return new Response(JSON.stringify({ error: "Rate limit exceeded" }), {
+      status: 429,
+      headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": String(Math.ceil(rate.retryAfterMs / 1000)) },
     });
   }
 
   try {
-    const { orderId, merchantReference } = await req.json();
+    const {
+      merchantId,
+      terminalId,
+      amount,
+      currency = "EGP",
+      orderId,
+      customerEmail,
+      customerName,
+      description = "Baytzaki Smart Home Purchase",
+      callbackUrl,
+      returnUrl,
+      successUrl,
+    } = await req.json();
 
-    if (!orderId || typeof orderId !== "string") {
-      return new Response(JSON.stringify({ error: "orderId required" }), {
+    if (!merchantId || !terminalId || !amount || !orderId || !customerEmail) {
+      return new Response(JSON.stringify({ error: "Missing required fields" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Look up the authoritative order amount from the database — never trust the client.
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
-    const { data: order, error: orderErr } = await supabase
-      .from("orders").select("id, total, status").eq("id", orderId).single();
-    if (orderErr || !order) {
-      return new Response(JSON.stringify({ error: "Order not found" }), {
-        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    const amount = Number(order.total);
-
-    // Try env secrets first, then fall back to site_info table (synced from old project).
-    let PAYSKY_MERCHANT_ID = Deno.env.get("PAYSKY_MERCHANT_ID");
-    let PAYSKY_TERMINAL_ID = Deno.env.get("PAYSKY_TERMINAL_ID");
-    let PAYSKY_SECRET_KEY = Deno.env.get("PAYSKY_SECRET_KEY");
-    let PAYSKY_LIGHTBOX_URL = Deno.env.get("PAYSKY_LIGHTBOX_URL");
-
-    if (!PAYSKY_MERCHANT_ID || !PAYSKY_TERMINAL_ID || !PAYSKY_SECRET_KEY) {
-      console.log("PaySky env secrets missing, falling back to site_info table");
-      const { data: rows, error: siErr } = await supabase
-        .from("site_info")
-        .select("key, value")
-        .in("key", ["paysky_mid", "paysky_tid", "paysky_secret_key", "paysky_lightbox_url"]);
-      if (siErr) console.error("site_info query failed:", siErr);
-      if (rows && rows.length > 0) {
-        const map = Object.fromEntries(rows.map((r: any) => [r.key, r.value]));
-        PAYSKY_MERCHANT_ID = PAYSKY_MERCHANT_ID || map.paysky_mid;
-        PAYSKY_TERMINAL_ID = PAYSKY_TERMINAL_ID || map.paysky_tid;
-        PAYSKY_SECRET_KEY = PAYSKY_SECRET_KEY || map.paysky_secret_key;
-        PAYSKY_LIGHTBOX_URL = PAYSKY_LIGHTBOX_URL || map.paysky_lightbox_url;
-      }
-    }
-
-    if (!PAYSKY_MERCHANT_ID || !PAYSKY_TERMINAL_ID || !PAYSKY_SECRET_KEY) {
-      return new Response(
-        JSON.stringify({
-          error: "PaySky credentials not configured",
-          message: "Please configure PAYSKY_MERCHANT_ID, PAYSKY_TERMINAL_ID, and PAYSKY_SECRET_KEY",
-        }),
-        {
-          status: 503,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    if (!Number.isFinite(amount) || amount <= 0) {
-      return new Response(JSON.stringify({ error: "Invalid amount" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+    const secretKey = Deno.env.get("PAYSKY_SECRET_KEY");
+    if (!secretKey) {
+      return new Response(JSON.stringify({ error: "PaySky not configured" }), {
+        status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const amountInPiasters = Math.round(amount * 100);
-    const dateTimeLocalTrxn = getLocalTransactionTime();
+    const transactionTime = getLocalTransactionTime();
 
-    const hashParams = {
-      Amount: amountInPiasters.toString(),
-      DateTimeLocalTrxn: dateTimeLocalTrxn,
-      MerchantId: PAYSKY_MERCHANT_ID,
-      MerchantReference: merchantReference || orderId,
-      TerminalId: PAYSKY_TERMINAL_ID,
+    const params: Record<string, string> = {
+      merchantId: String(merchantId),
+      terminalId: String(terminalId),
+      amount: String(amount),
+      currency: String(currency),
+      orderId: String(orderId),
+      transactionTime,
     };
 
-    const secureHash = await generateSecureHash(hashParams, PAYSKY_SECRET_KEY);
+    const secureHash = await generateSecureHash(params, secretKey);
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        config: {
-          MID: PAYSKY_MERCHANT_ID,
-          TID: PAYSKY_TERMINAL_ID,
-          AmountTrxn: amountInPiasters,
-          MerchantReference: hashParams.MerchantReference,
-          TrxDateTime: dateTimeLocalTrxn,
-          SecureHash: secureHash,
-        },
-        lightboxUrl: PAYSKY_LIGHTBOX_URL ?? Deno.env.get("PAYSKY_LIGHTBOX_URL") ?? "https://cube.paysky.io/js/LightBox.js",
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    const checkoutData = {
+      merchantId: String(merchantId),
+      terminalId: String(terminalId),
+      amount: Number(amount),
+      currency: String(currency),
+      orderId: String(orderId),
+      customerEmail: String(customerEmail),
+      customerName: customerName ? String(customerName) : undefined,
+      description: String(description),
+      callbackUrl: callbackUrl ? String(callbackUrl) : undefined,
+      returnUrl: returnUrl ? String(returnUrl) : undefined,
+      successUrl: successUrl ? String(successUrl) : undefined,
+      transactionTime,
+      secureHash,
+      lang: "ar",
+    };
+
+    return new Response(JSON.stringify({ success: true, checkoutData }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (error) {
     console.error("PaySky checkout error:", error);
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    return new Response(JSON.stringify({ error: "Checkout generation failed" }), {
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });
