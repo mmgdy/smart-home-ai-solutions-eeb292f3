@@ -1,11 +1,9 @@
 // AI-powered checkout compatibility check.
-// Switched from dead Lovable gateway to Pollinations (free, keyless).
+// AI via the shared fallback gateway (_shared/ai.ts).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 import { corsHeadersFor } from "../_shared/cors.ts";
 import { checkRate, getIp } from "../_shared/rate-limit.ts";
-import { clamp, cleanString } from "../_shared/validate.ts";
-
-const POLLINATIONS_URL = "https://text.pollinations.ai/openai";
+import { chatComplete } from "../_shared/ai.ts";
 
 Deno.serve(async (req) => {
   const corsHeaders = corsHeadersFor(req);
@@ -59,26 +57,18 @@ Language: ${language === "ar" ? "Arabic" : "English"}. Keep messages short and f
 
     const user = `CART:\n${cartLines}\n\nCATALOG (id | name | price | brand | protocol):\n${catalogLines}`;
 
-    const resp = await fetch(POLLINATIONS_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "openai",
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: user },
-        ],
-      }),
-    });
-
-    if (!resp.ok) {
+    let raw = "{}";
+    try {
+      raw = await chatComplete([
+        { role: "system", content: system },
+        { role: "user", content: user },
+      ], { maxTokens: 500 });
+    } catch {
       return new Response(JSON.stringify({ error: "AI analysis failed. Try again later." }), {
         status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const j = await resp.json();
-    const raw = j?.choices?.[0]?.message?.content ?? "{}";
     let parsed: any = {};
     try { parsed = JSON.parse(raw); } catch {
       const m = raw.match(/\{[\s\S]*\}/);

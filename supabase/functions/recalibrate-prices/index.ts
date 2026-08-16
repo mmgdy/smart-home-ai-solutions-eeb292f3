@@ -2,6 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 
 import { corsHeadersFor } from "../_shared/cors.ts";
 import { checkRate, getIp } from "../_shared/rate-limit.ts";
+import { chatCompleteRaw } from "../_shared/ai.ts";
 
 async function verifyAdminToken(supabase: any, token: string): Promise<boolean> {
   if (!token) return false;
@@ -56,48 +57,35 @@ Deno.serve(async (req) => {
     const results: any[] = [];
     for (const p of products) {
       try {
-        const aiResp = await fetch("https://text.pollinations.ai/openai", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            model: "openai",
-            messages: [
-              {
-                role: "system",
-                content: `You are a smart-home pricing expert for the Egyptian market (EGP). Given a product, estimate its realistic retail price in EGP based on Amazon Egypt, Noon, Jumia, and B.TECH. Use real market knowledge. Return both retail price and original/MSRP. Be realistic — most SONOFF/MOES items are 400-3000 EGP, FIBARO/HELTUN 4000-15000 EGP, hubs 1500-6000 EGP.`,
-              },
-              {
-                role: "user",
-                content: `Product: ${p.name}\nBrand: ${p.brand || "unknown"}\nProtocol: ${p.protocol || "unknown"}\nCurrent price: ${p.price} EGP`,
-              },
-            ],
-            tools: [{
-              type: "function",
-              function: {
-                name: "set_price",
-                parameters: {
-                  type: "object",
-                  properties: {
-                    market_price_egp: { type: "number", description: "Realistic current retail price in EGP" },
-                    original_price_egp: { type: "number", description: "Original/MSRP price in EGP (10-20% higher than market_price)" },
-                    confidence: { type: "string", enum: ["high", "medium", "low"] },
-                    reasoning: { type: "string" },
-                  },
-                  required: ["market_price_egp", "original_price_egp", "confidence"],
+        const aiData = await chatCompleteRaw({
+          messages: [
+            {
+              role: "system",
+              content: `You are a smart-home pricing expert for the Egyptian market (EGP). Given a product, estimate its realistic retail price in EGP based on Amazon Egypt, Noon, Jumia, and B.TECH. Use real market knowledge. Return both retail price and original/MSRP. Be realistic — most SONOFF/MOES items are 400-3000 EGP, FIBARO/HELTUN 4000-15000 EGP, hubs 1500-6000 EGP.`,
+            },
+            {
+              role: "user",
+              content: `Product: ${p.name}\nBrand: ${p.brand || "unknown"}\nProtocol: ${p.protocol || "unknown"}\nCurrent price: ${p.price} EGP`,
+            },
+          ],
+          tools: [{
+            type: "function",
+            function: {
+              name: "set_price",
+              parameters: {
+                type: "object",
+                properties: {
+                  market_price_egp: { type: "number", description: "Realistic current retail price in EGP" },
+                  original_price_egp: { type: "number", description: "Original/MSRP price in EGP (10-20% higher than market_price)" },
+                  confidence: { type: "string", enum: ["high", "medium", "low"] },
+                  reasoning: { type: "string" },
                 },
+                required: ["market_price_egp", "original_price_egp", "confidence"],
               },
-            }],
-            tool_choice: { type: "function", function: { name: "set_price" } },
-          }),
+            },
+          }],
+          tool_choice: { type: "function", function: { name: "set_price" } },
         });
-
-        if (!aiResp.ok) {
-          const t = await aiResp.text();
-          results.push({ id: p.id, name: p.name, success: false, error: `AI ${aiResp.status}: ${t.substring(0, 100)}` });
-          continue;
-        }
-
-        const aiData = await aiResp.json();
         const args = aiData.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
         if (!args) {
           results.push({ id: p.id, name: p.name, success: false, error: "no AI response" });

@@ -2,6 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 
 import { corsHeadersFor } from "../_shared/cors.ts";
 import { checkRate, getIp } from "../_shared/rate-limit.ts";
+import { chatCompleteRaw } from "../_shared/ai.ts";
 
 const FIRECRAWL = "https://api.firecrawl.dev/v2";
 
@@ -93,49 +94,38 @@ async function mirrorImage(supabase: any, imageUrl: string, productId: string) {
 
 async function extractProductWithAI(markdown: string, sourceUrl: string, apiKey: string) {
   const truncated = markdown.substring(0, 18000);
-  const resp = await fetch("https://text.pollinations.ai/openai", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "openai",
-      messages: [
-        {
-          role: "system",
-          content: `Extract smart-home product data from global web pages. Use any reliable worldwide source in the content, not only Egyptian stores. Convert realistic current retail pricing to EGP using USD*50, EUR*55, GBP*64, SAR*13.5, AED*13.7, and add a realistic Egypt import/warranty margin when needed. Prefer official manufacturer/shop images and never invent URLs. If no clear product on page, set name to "" so caller can skip.`,
-        },
-        { role: "user", content: `URL: ${sourceUrl}\n\n${truncated}` },
-      ],
-      tools: [{
-        type: "function",
-        function: {
-          name: "extract_product",
-          parameters: {
-            type: "object",
-            properties: {
-              name: { type: "string" },
-              description: { type: "string" },
-              price: { type: "number" },
-              original_price: { type: "number" },
-              brand: { type: "string" },
-              image_url: { type: "string" },
-              images: { type: "array", items: { type: "string" } },
-              specifications: { type: "object" },
-              protocol: { type: "string" },
-              category: { type: "string" },
-            },
-            required: ["name"],
+  const data = await chatCompleteRaw({
+    messages: [
+      {
+        role: "system",
+        content: `Extract smart-home product data from global web pages. Use any reliable worldwide source in the content, not only Egyptian stores. Convert realistic current retail pricing to EGP using USD*50, EUR*55, GBP*64, SAR*13.5, AED*13.7, and add a realistic Egypt import/warranty margin when needed. Prefer official manufacturer/shop images and never invent URLs. If no clear product on page, set name to "" so caller can skip.`,
+      },
+      { role: "user", content: `URL: ${sourceUrl}\n\n${truncated}` },
+    ],
+    tools: [{
+      type: "function",
+      function: {
+        name: "extract_product",
+        parameters: {
+          type: "object",
+          properties: {
+            name: { type: "string" },
+            description: { type: "string" },
+            price: { type: "number" },
+            original_price: { type: "number" },
+            brand: { type: "string" },
+            image_url: { type: "string" },
+            images: { type: "array", items: { type: "string" } },
+            specifications: { type: "object" },
+            protocol: { type: "string" },
+            category: { type: "string" },
           },
+          required: ["name"],
         },
-      }],
-      tool_choice: { type: "function", function: { name: "extract_product" } },
-    }),
+      },
+    }],
+    tool_choice: { type: "function", function: { name: "extract_product" } },
   });
-
-  if (!resp.ok) {
-    const t = await resp.text();
-    throw new Error(`AI ${resp.status}: ${t.substring(0, 200)}`);
-  }
-  const data = await resp.json();
   const args = data.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
   if (!args) return null;
   return JSON.parse(args);

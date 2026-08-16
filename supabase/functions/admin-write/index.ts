@@ -1,9 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 import { corsHeadersFor } from "../_shared/cors.ts";
 import { checkRate, getIp } from "../_shared/rate-limit.ts";
-
-const POLLINATIONS_TEXT_URL = "https://text.pollinations.ai/openai/v1/chat/completions";
-const MODEL = "openai";
+import { chatComplete } from "../_shared/ai.ts";
 
 async function verifyAdminToken(supabase: any, token: string): Promise<boolean> {
   if (!token) return false;
@@ -24,28 +22,7 @@ async function verifyAdminToken(supabase: any, token: string): Promise<boolean> 
 async function generateSeoContentWithPollinations(contentType: string, topic: string, language: string): Promise<string> {
   const prompt = `Create ${contentType} for: ${topic}\n\nLanguage: ${language}\n\nRequirements:\n- SEO-friendly\n- Engaging and professional\n- Include relevant keywords\n- Appropriate length for the content type\n- Use proper formatting\n\nReturn only the content without any prefixes or explanations.`;
 
-  const response = await fetch(POLLINATIONS_TEXT_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ model: MODEL, messages: [{ role: "user", content: prompt }] }),
-  });
-
-  const raw = await response.text();
-  let parsed: any = null;
-  try { parsed = JSON.parse(raw); } catch {}
-
-  if (!response.ok) {
-    const detail = parsed?.error || raw.slice(0, 300);
-    throw new Error(`Pollinations error (${response.status}): ${detail}`);
-  }
-
-  const content =
-    typeof parsed?.choices?.[0]?.message?.content === "string"
-      ? parsed.choices[0].message.content
-      : "";
-
-  if (!content) throw new Error("Empty response from Pollinations");
-  return content;
+  return chatComplete([{ role: "user", content: prompt }], { maxTokens: 400 });
 }
 
 Deno.serve(async (req) => {

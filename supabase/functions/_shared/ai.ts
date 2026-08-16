@@ -125,3 +125,87 @@ export async function chatComplete(
 }
 
 const lastOutcome = new Map<string, string>();
+
+/** Raw chat-completions call with the same provider fallbacks. Use this for
+ *  features that need tool/function calling or non-standard response fields;
+ *  `body` is a standard OpenAI-style payload (model is set per provider).
+ *  Returns the provider's parsed JSON. Throws when all providers fail. */
+export async function chatCompleteRaw(
+  body: Record<string, unknown>,
+): Promise<Record<string, any>> {
+  const attempt = async (
+    name: string,
+    url: string,
+    payload: Record<string, unknown>,
+    headers: Record<string, string>,
+  ): Promise<Record<string, any> | null> => {
+    try {
+      const { ok, status, text } = await postJson(url, payload, headers);
+      if (!ok) {
+        console.warn(`ai(${name}) ${status}: ${text.slice(0, 160)}`);
+        lastOutcome.set(name, String(status));
+        return null;
+      }
+      try {
+        const parsed = JSON.parse(text);
+        if (parsed && typeof parsed === "object") return parsed;
+      } catch { /* fall through */ }
+      lastOutcome.set(name, "unparseable");
+      return null;
+    } catch (e) {
+      console.warn(`ai(${name}) threw:`, e);
+      lastOutcome.set(name, "threw");
+      return null;
+    }
+  };
+
+  const payloadBase: Record<string, unknown> = { ...body };
+  delete payloadBase.model;
+  const outcomes: string[] = [];
+
+  const steps: Array<{ name: string; run: () => Promise<Record<string, any> | null> }> = [
+    {
+      name: "openai",
+      run: () =>
+        attempt(
+          "openai",
+          `https://text.pollinations.ai/openai?referrer=${POLLINATIONS_REFERRER}`,
+          { ...payloadBase, model: "openai", stream: false },
+          {},
+        ),
+    },
+    {
+      name: "openai-fast",
+      run: () =>
+        attempt(
+          "openai-fast",
+          `https://text.pollinations.ai/openai?referrer=${POLLINATIONS_REFERRER}`,
+          { ...payloadBase, model: "openai-fast", stream: false },
+          {},
+        ),
+    },
+  ];
+
+  const hfKey = Deno.env.get("HUGGINGFACE_API_KEY");
+  if (hfKey) {
+    steps.push({
+      name: "huggingface",
+      run: () =>
+        attempt(
+          "huggingface",
+          "https://router.huggingface.co/v1/chat/completions",
+          { ...payloadBase, model: HUGGING_FACE_MODEL, stream: false },
+          { Authorization: `Bearer ${hfKey}` },
+        ),
+    });
+  } else {
+    lastOutcome.set("huggingface", "no-key");
+  }
+
+  for (const { name, run } of steps) {
+    const parsed = await run();
+    if (parsed) return parsed;
+    outcomes.push(`${name}:${lastOutcome.get(name) ?? "err"}`);
+  }
+  throw new Error(`all AI providers failed [${outcomes.join(", ")}]`);
+}

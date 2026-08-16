@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 
 import { corsHeadersFor } from "../_shared/cors.ts";
 import { checkRate, getIp } from "../_shared/rate-limit.ts";
+import { chatCompleteRaw } from "../_shared/ai.ts";
 
 async function verifyAdminToken(supabase: any, token: string): Promise<boolean> {
   if (!token) return false;
@@ -126,17 +127,11 @@ serve(async (req) => {
     // Truncate HTML to avoid token limits
     const truncatedHtml = html.substring(0, 30000);
 
-    const aiResp = await fetch("https://text.pollinations.ai/openai", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "openai",
-        messages: [
-          {
-            role: "system",
-            content: `You are a product data extractor. Extract product information from the HTML provided. Return ONLY a JSON object with these fields:
+    const aiData = await chatCompleteRaw({
+      messages: [
+        {
+          role: "system",
+          content: `You are a product data extractor. Extract product information from the HTML provided. Return ONLY a JSON object with these fields:
 - name: product name (string)
 - description: product description (string, max 500 chars)
 - price: price in EGP as number (if in USD multiply by 50, if in SAR multiply by 13)
@@ -149,46 +144,38 @@ serve(async (req) => {
 - category: product category suggestion (string)
 
 Return valid JSON only, no markdown.`
-          },
-          {
-            role: "user",
-            content: `Extract product data from this page (URL: ${url}):\n\n${truncatedHtml}`
+        },
+        {
+          role: "user",
+          content: `Extract product data from this page (URL: ${url}):\n\n${truncatedHtml}`
+        }
+      ],
+      tools: [{
+        type: "function",
+        function: {
+          name: "extract_product",
+          description: "Extract product data from webpage",
+          parameters: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              description: { type: "string" },
+              price: { type: "number" },
+              original_price: { type: "number" },
+              brand: { type: "string" },
+              image_url: { type: "string" },
+              images: { type: "array", items: { type: "string" } },
+              specifications: { type: "object" },
+              protocol: { type: "string" },
+              category: { type: "string" },
+            },
+            required: ["name", "price"],
           }
-        ],
-        tools: [{
-          type: "function",
-          function: {
-            name: "extract_product",
-            description: "Extract product data from webpage",
-            parameters: {
-              type: "object",
-              properties: {
-                name: { type: "string" },
-                description: { type: "string" },
-                price: { type: "number" },
-                original_price: { type: "number" },
-                brand: { type: "string" },
-                image_url: { type: "string" },
-                images: { type: "array", items: { type: "string" } },
-                specifications: { type: "object" },
-                protocol: { type: "string" },
-                category: { type: "string" },
-              },
-              required: ["name", "price"],
-            }
-          }
-        }],
-        tool_choice: { type: "function", function: { name: "extract_product" } },
-      }),
+        }
+      }],
+      tool_choice: { type: "function", function: { name: "extract_product" } },
     });
 
-    if (!aiResp.ok) {
-      const errText = await aiResp.text();
-      console.error("AI error:", errText);
-      throw new Error("AI extraction failed");
-    }
-
-    const aiData = await aiResp.json();
     const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
     
     if (!toolCall) {

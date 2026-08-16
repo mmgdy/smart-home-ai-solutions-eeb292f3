@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeadersFor } from "../_shared/cors.ts";
 import { checkRate, getIp } from "../_shared/rate-limit.ts";
+import { chatComplete } from "../_shared/ai.ts";
 
 async function verifyAdminToken(supabase: any, token: string): Promise<boolean> {
   if (!token) return false;
@@ -19,26 +20,10 @@ async function verifyAdminToken(supabase: any, token: string): Promise<boolean> 
 }
 
 const callAI = async (systemPrompt: string, userPrompt: string): Promise<string> => {
-  const res = await fetch('https://text.pollinations.ai/openai', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'openai',
-      stream: false,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-    }),
-  });
-
-  const raw = await res.text();
-  if (!res.ok) {
-    throw new Error(`AI error (${res.status}): ${raw.slice(0, 300)}`);
-  }
-
-  const parsed = JSON.parse(raw);
-  return (parsed?.choices?.[0]?.message?.content ?? '').trim();
+  return chatComplete([
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: userPrompt },
+  ], { maxTokens: 600 });
 };
 
 const SYSTEM = 'You are a product research assistant for the Egyptian smart home market. Always return valid JSON arrays. Prices must be in Egyptian Pounds (EGP) and reflect realistic current market prices from Amazon.eg, Noon.com, or Jumia.com.eg. Use your knowledge of brand pricing tiers to estimate when exact prices are unknown, but never inflate beyond reasonable market range.';
