@@ -98,6 +98,53 @@ const searchDuckDuckGo = async (query: string): Promise<RawHit[]> => {
   }
 };
 
+// lite.duckduckgo.com — far simpler markup, often served when the html
+// endpoint is challenged. Results are anchors with uddg= redirect links;
+// snippets live in <td class="result-snippet">.
+const searchDuckDuckGoLite = async (query: string): Promise<RawHit[]> => {
+  try {
+    const html = await fetchText(`https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(query)}`);
+    const snippets = Array.from(
+      html.matchAll(/<td[^>]*class=["']result-snippet["'][^>]*>([\s\S]*?)<\/td>/gi)
+    ).map((m) => stripHtml(m[1]));
+    const hits: RawHit[] = [];
+    for (const match of html.matchAll(
+      /<a[^>]*href=["']([^"']*uddg=[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi
+    )) {
+      const url = decodeDuckDuckGoUrl(match[1]);
+      if (!/^https?:\/\//i.test(url)) continue;
+      const title = stripHtml(match[2]);
+      if (!title) continue;
+      hits.push({ url, title, snippet: snippets[hits.length] ?? "" });
+      if (hits.length >= 15) break;
+    }
+    return hits;
+  } catch (e) {
+    console.warn("DuckDuckGo lite search failed:", e);
+    return [];
+  }
+};
+
+// Bing wraps result URLs in https://www.bing.com/ck/a?...&u=a1<base64url>.
+// Unwrap to the real destination before host filtering, or every result
+// looks like bing.com and gets dropped.
+const unwrapBingUrl = (raw: string): string => {
+  if (!/bing\.com\/ck\//i.test(raw)) return raw;
+  try {
+    const u = new URL(raw).searchParams.get("u");
+    if (!u) return raw;
+    const b64 = (u.startsWith("a1") ? u.slice(2) : u)
+      .replace(/-/g, "+")
+      .replace(/_/g, "/");
+    const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
+    const bytes = Uint8Array.from(atob(padded), (c) => c.charCodeAt(0));
+    const decoded = new TextDecoder().decode(bytes);
+    return /^https?:\/\//i.test(decoded) ? decoded : raw;
+  } catch {
+    return raw;
+  }
+};
+
 const searchBing = async (query: string): Promise<RawHit[]> => {
   try {
     const html = await fetchText(`https://www.bing.com/search?q=${encodeURIComponent(query)}&count=15`);
@@ -106,7 +153,8 @@ const searchBing = async (query: string): Promise<RawHit[]> => {
       const block = match[1];
       const linkMatch = block.match(/<a[^>]+href=["'](https?:\/\/[^"']+)["'][^>]*>([\s\S]*?)<\/a>/i);
       if (!linkMatch) continue;
-      const url = linkMatch[1];
+      const url = unwrapBingUrl(linkMatch[1]);
+      if (!/^https?:\/\//i.test(url)) continue;
       const title = stripHtml(linkMatch[2]);
       const snippetMatch = block.match(/<p[^>]*>([\s\S]*?)<\/p>/i);
       hits.push({ url, title, snippet: snippetMatch ? stripHtml(snippetMatch[1]) : "" });
@@ -115,6 +163,34 @@ const searchBing = async (query: string): Promise<RawHit[]> => {
     return hits;
   } catch (e) {
     console.warn("Bing search failed:", e);
+    return [];
+  }
+};
+
+// Firecrawl search — keyed fallback used only when every keyless engine
+// comes back empty (datacenter IPs sometimes get challenged by DDG/Bing).
+// Uses the FIRECRAWL_API_KEY secret already configured for crawl-catalog.
+const searchFirecrawl = async (query: string): Promise<RawHit[]> => {
+  const key = Deno.env.get("FIRECRAWL_API_KEY");
+  if (!key) return [];
+  try {
+    const resp = await fetch("https://api.firecrawl.dev/v2/search", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${key}`,
+      },
+      body: JSON.stringify({ query, limit: 10 }),
+    });
+    if (!resp.ok) throw new Error(`Firecrawl ${resp.status}`);
+    const payload = await resp.json();
+    return (payload?.data ?? []).map((r: any) => ({
+      url: String(r?.url ?? ""),
+      title: String(r?.title ?? ""),
+      snippet: String(r?.description ?? ""),
+    })).filter((r: RawHit) => /^https?:\/\//i.test(r.url));
+  } catch (e) {
+    console.warn("Firecrawl search failed:", e);
     return [];
   }
 };
@@ -191,12 +267,36 @@ Deno.serve(async (req) => {
     const suffix = locale === "ar" ? "شراء مواصفات" : "buy specs review";
     const query = `${base} ${suffix}`.trim();
 
-    const [ddgHits, bingHits] = await Promise.all([searchDuckDuckGo(query), searchBing(query)]);
-    const sources = rankSources([...ddgHits, ...bingHits]);
+    const [ddgHits, liteHits, bingHits] = await Promise.all([
+      searchDuckDuckGo(query),
+      searchDuckDuckGoLite(query),
+      searchBing(query),
+    ]);
 
-    return new Response(JSON.stringify({ success: true, query, sources }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    let hits = [...ddgHits, ...liteHits, ...bingHits];
+    let firecrawlCount = 0;
+    if (hits.length === 0) {
+      const fcHits = await searchFirecrawl(query);
+      firecrawlCount = fcHits.length;
+      hits = fcHits;
+    }
+
+    const sources = rankSources(hits);
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        query,
+        sources,
+        engines: {
+          ddg: ddgHits.length,
+          ddgLite: liteHits.length,
+          bing: bingHits.length,
+          firecrawl: firecrawlCount,
+        },
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   } catch (e) {
     console.error("find-web-sources error:", e);
     return new Response(JSON.stringify({ success: false, error: "Search unavailable. Please try again later." }), {
