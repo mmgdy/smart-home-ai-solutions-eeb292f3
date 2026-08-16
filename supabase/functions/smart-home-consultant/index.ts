@@ -1,33 +1,16 @@
-// Smart Home Consultant — powered by Pollinations AI (free, keyless gateway).
+// Smart Home Consultant — AI via the shared fallback gateway.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 import { corsHeadersFor } from "../_shared/cors.ts";
 import { checkRate, getIp } from "../_shared/rate-limit.ts";
-import { clamp, cleanString } from "../_shared/validate.ts";
-
-const POLLINATIONS_URL = "https://text.pollinations.ai/openai";
+import { cleanString } from "../_shared/validate.ts";
+import { chatComplete } from "../_shared/ai.ts";
 
 async function callAI(messages: any[], systemPrompt: string): Promise<string> {
-  const response = await fetch(POLLINATIONS_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "openai",
-      messages: [{ role: "system", content: systemPrompt }, ...messages],
-      stream: false,
-    }),
-  });
-
-  if (!response.ok) {
-    const t = await response.text();
-    console.error("Pollinations AI error:", response.status, t.slice(0, 300));
-    throw new Error(`AI request failed (${response.status})`);
-  }
-
-  const data = await response.json();
-  const content = data?.choices?.[0]?.message?.content;
-  if (!content) throw new Error("Empty AI response");
-  return content;
+  return chatComplete([
+    { role: "system", content: systemPrompt },
+    ...messages.map((m) => ({ role: m.role as "user" | "assistant", content: String(m.content) })),
+  ], { maxTokens: 400 });
 }
 
 function productCategory(p: any): string {

@@ -1,11 +1,10 @@
 // Site assistant — bilingual AI search & site guide.
-// Switched from dead Lovable gateway to Pollinations (free, keyless).
+// AI via the shared fallback gateway (_shared/ai.ts).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 import { corsHeadersFor } from "../_shared/cors.ts";
 import { checkRate, getIp } from "../_shared/rate-limit.ts";
 import { cleanString } from "../_shared/validate.ts";
-
-const POLLINATIONS_URL = "https://text.pollinations.ai/openai";
+import { chatComplete, type ChatMessage } from "../_shared/ai.ts";
 
 function streamText(text: string, encoder: TextEncoder): ReadableStream {
   return new ReadableStream({
@@ -111,20 +110,14 @@ Useful pages: /bundles /ai-consultant /calculator /brands /services`;
       { role: "user", content: cleanQuery },
     ];
 
-    const resp = await fetch(POLLINATIONS_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "openai", messages: msgs, stream: false }),
-    });
-
-    if (!resp.ok) {
+    let fullText: string;
+    try {
+      fullText = await chatComplete(msgs as ChatMessage[], { maxTokens: 400 });
+    } catch {
       return new Response(JSON.stringify({ error: "AI service temporarily unavailable. Try again later." }), {
         status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    const j = await resp.json();
-    const fullText = j?.choices?.[0]?.message?.content ?? "";
 
     const encoder = new TextEncoder();
     return new Response(streamText(fullText, encoder), {
