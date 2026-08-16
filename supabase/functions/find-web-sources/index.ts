@@ -169,6 +169,48 @@ const searchBing = async (query: string): Promise<RawHit[]> => {
   }
 };
 
+// Perplexity sonar — keyed engine with live web search. With
+// return_citations the API reports the actual pages it consulted in
+// `search_results`, so the URLs are real (not generated). Uses the
+// PERPLEXITY_API_KEY secret already configured for update-prices-amazon.
+const searchPerplexity = async (query: string): Promise<RawHit[]> => {
+  const key = Deno.env.get("PERPLEXITY_API_KEY");
+  if (!key) return [];
+  try {
+    const resp = await fetch("https://api.perplexity.ai/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${key}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "sonar",
+        messages: [
+          {
+            role: "user",
+            content: `Find web pages about this product (retailers, reviews, official pages): ${query}. List the most relevant pages.`,
+          },
+        ],
+        return_citations: true,
+        temperature: 0.1,
+      }),
+    });
+    if (!resp.ok) throw new Error(`Perplexity ${resp.status}`);
+    const payload = await resp.json();
+    const results = payload?.search_results ?? [];
+    return results
+      .map((r: any) => ({
+        url: String(r?.url ?? ""),
+        title: String(r?.title ?? ""),
+        snippet: "",
+      }))
+      .filter((r: RawHit) => /^https?:\/\//i.test(r.url));
+  } catch (e) {
+    console.warn("Perplexity search failed:", e);
+    return [];
+  }
+};
+
 // Firecrawl search — keyed fallback used only when every keyless engine
 // comes back empty (datacenter IPs sometimes get challenged by DDG/Bing).
 // Uses the FIRECRAWL_API_KEY secret already configured for crawl-catalog.
@@ -303,6 +345,12 @@ Deno.serve(async (req) => {
 
     let hits = [...ddgHits, ...liteHits, ...bingHits].filter((h) => isRelevant(h, tokens));
     let firecrawlCount = 0;
+    let perplexityCount = 0;
+    if (hits.length < 3) {
+      const pplxHits = (await searchPerplexity(query)).filter((h) => isRelevant(h, tokens));
+      perplexityCount = pplxHits.length;
+      hits = [...hits, ...pplxHits];
+    }
     if (hits.length < 3) {
       const fcHits = (await searchFirecrawl(query)).filter((h) => isRelevant(h, tokens));
       firecrawlCount = fcHits.length;
@@ -320,6 +368,7 @@ Deno.serve(async (req) => {
           ddg: ddgHits.length,
           ddgLite: liteHits.length,
           bing: bingHits.length,
+          perplexity: perplexityCount,
           firecrawl: firecrawlCount,
           kept: hits.length,
         },
