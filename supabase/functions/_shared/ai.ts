@@ -55,11 +55,15 @@ async function tryPollinations(
     );
     if (!ok) {
       console.warn(`ai: pollinations(${model}) ${status}: ${text.slice(0, 160)}`);
+      lastOutcome.set(model, String(status));
       return null;
     }
-    return extractContent(text);
+    const content = extractContent(text);
+    if (!content) lastOutcome.set(model, "empty");
+    return content;
   } catch (e) {
     console.warn(`ai: pollinations(${model}) threw:`, e);
+    lastOutcome.set(model, "threw");
     return null;
   }
 }
@@ -69,7 +73,10 @@ async function tryHuggingFace(
   maxTokens?: number,
 ): Promise<string | null> {
   const key = Deno.env.get("HUGGINGFACE_API_KEY");
-  if (!key) return null;
+  if (!key) {
+    lastOutcome.set("huggingface", "no-key");
+    return null;
+  }
   try {
     const { ok, status, text } = await postJson(
       "https://router.huggingface.co/v1/chat/completions",
@@ -84,28 +91,37 @@ async function tryHuggingFace(
     );
     if (!ok) {
       console.warn(`ai: huggingface ${status}: ${text.slice(0, 160)}`);
+      lastOutcome.set("huggingface", String(status));
       return null;
     }
-    return extractContent(text);
+    const content = extractContent(text);
+    if (!content) lastOutcome.set("huggingface", "empty");
+    return content;
   } catch (e) {
     console.warn("ai: huggingface threw:", e);
+    lastOutcome.set("huggingface", "threw");
     return null;
   }
 }
 
-/** Chat completion with automatic provider fallback. Throws when all fail. */
+/** Chat completion with automatic provider fallback. Throws when all fail;
+ *  the error message carries per-provider status codes for diagnosis. */
 export async function chatComplete(
   messages: ChatMessage[],
   opts: { maxTokens?: number } = {},
 ): Promise<string> {
-  const chain: Array<() => Promise<string | null>> = [
-    () => tryPollinations("openai", messages, opts.maxTokens),
-    () => tryPollinations("openai-fast", messages, opts.maxTokens),
-    () => tryHuggingFace(messages, opts.maxTokens),
+  const outcomes: string[] = [];
+  const chain: Array<{ name: string; run: () => Promise<string | null> }> = [
+    { name: "openai", run: () => tryPollinations("openai", messages, opts.maxTokens) },
+    { name: "openai-fast", run: () => tryPollinations("openai-fast", messages, opts.maxTokens) },
+    { name: "huggingface", run: () => tryHuggingFace(messages, opts.maxTokens) },
   ];
-  for (const attempt of chain) {
-    const text = await attempt();
+  for (const { name, run } of chain) {
+    const text = await run();
     if (text) return text;
+    outcomes.push(`${name}:${lastOutcome.get(name) ?? "err"}`);
   }
-  throw new Error("all AI providers failed");
+  throw new Error(`all AI providers failed [${outcomes.join(", ")}]`);
 }
+
+const lastOutcome = new Map<string, string>();
