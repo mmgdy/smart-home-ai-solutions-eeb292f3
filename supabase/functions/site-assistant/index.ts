@@ -115,7 +115,7 @@ Useful pages: /bundles /ai-consultant /calculator /brands /services`;
       fullText = await chatComplete(msgs as ChatMessage[], { maxTokens: 400 });
     } catch (aiErr) {
       console.error("site-assistant AI error:", aiErr);
-      return new Response(JSON.stringify({ error: "AI service temporarily unavailable. Try again later.", providers: (aiErr as Error).message }), {
+      return new Response(JSON.stringify({ error: "AI service temporarily unavailable. Try again later." }), {
         status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
