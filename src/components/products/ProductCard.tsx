@@ -7,7 +7,8 @@ import { useCart } from '@/hooks/useCart';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
-import { productPlaceholder } from '@/lib/productImage';
+import { getProductImage, productPlaceholder } from '@/lib/productImage';
+import { parseProtocols } from '@/lib/protocolIcon';
 
 interface ProductCardProps {
   product: Product;
@@ -40,6 +41,8 @@ export function ProductCard({ product, className }: ProductCardProps) {
     ? Math.round(((product.original_price - product.price) / product.original_price) * 100)
     : null;
 
+  const protocolTokens = parseProtocols(product.protocol);
+
   return (
     <Link to={`/products/${product.slug}`}>
       <article
@@ -51,7 +54,7 @@ export function ProductCard({ product, className }: ProductCardProps) {
         {/* Image */}
         <div className="relative aspect-[4/3] overflow-hidden bg-muted">
           <img
-            src={product.image_url || productPlaceholder}
+            src={getProductImage(product)}
             alt={product.name}
             loading="lazy"
             onError={(e) => { (e.currentTarget as HTMLImageElement).src = productPlaceholder; }}
@@ -74,6 +77,32 @@ export function ProductCard({ product, className }: ProductCardProps) {
               </span>
             )}
           </div>
+
+          {/* Protocol badges */}
+          {protocolTokens.length > 0 && (
+            <div
+              className={cn(
+                "absolute bottom-3 flex flex-wrap items-center gap-1.5",
+                isRTL ? "right-3 left-3 flex-row-reverse" : "left-3 right-3"
+              )}
+            >
+              {protocolTokens.map(({ name, icon: Icon, bg, fg, description }) => (
+                <span
+                  key={name}
+                  title={description}
+                  aria-label={description}
+                  className={cn(
+                    'inline-flex h-7 items-center gap-1 rounded-full px-2 text-[11px] font-medium shadow-sm backdrop-blur-sm',
+                    bg,
+                    fg
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5" strokeWidth={2.25} />
+                  <span className="leading-none">{name}</span>
+                </span>
+              ))}
+            </div>
+          )}
 
         </div>
 

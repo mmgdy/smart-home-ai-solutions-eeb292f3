@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable/index";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
+import { GoogleIcon } from "@/components/auth/GoogleIcon";
 
 function safeNext(raw: string | null): string {
   if (!raw) return "/";
@@ -27,10 +27,25 @@ export default function Login() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    // Supabase redirects back with ?error_description=... when the OAuth
+    // flow fails or was denied — surface it instead of silently ignoring it.
+    const oauthError = params.get("error_description") || params.get("error");
+    if (oauthError) {
+      toast({ variant: "destructive", title: "Sign in failed", description: oauthError });
+    }
+
+    // Picks up the session created by the Google OAuth redirect (the client
+    // exchanges the code on init), then sends the user on their way.
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) navigate(next, { replace: true });
     });
-  }, [navigate, next]);
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && session) {
+        navigate(next, { replace: true });
+      }
+    });
+    return () => sub.subscription.unsubscribe();
+  }, [navigate, next, params, toast]);
 
   const onSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,16 +74,17 @@ export default function Login() {
 
   const onGoogle = async () => {
     setBusy(true);
-    const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: `${window.location.origin}/login?next=${encodeURIComponent(next)}`,
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/login?next=${encodeURIComponent(next)}`,
+      },
     });
-    if (result.error) {
+    if (error) {
       setBusy(false);
-      toast({ variant: "destructive", title: "Google sign in failed", description: result.error.message });
-      return;
+      toast({ variant: "destructive", title: "Google sign in failed", description: error.message });
     }
-    if (result.redirected) return;
-    navigate(next, { replace: true });
+    // On success the browser redirects to Google — nothing more to do here.
   };
 
   return (
@@ -79,7 +95,8 @@ export default function Login() {
           Sign in to continue{next !== "/" ? " and return to what you were doing." : "."}
         </p>
 
-        <Button variant="outline" className="w-full mb-4" onClick={onGoogle} disabled={busy}>
+        <Button variant="outline" className="w-full mb-4 gap-2" onClick={onGoogle} disabled={busy}>
+          <GoogleIcon />
           Continue with Google
         </Button>
 

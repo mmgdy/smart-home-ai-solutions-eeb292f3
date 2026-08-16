@@ -62,6 +62,13 @@ export const translations = {
     specifications: 'Specifications',
     productNotFound: 'Product Not Found',
     productNotFoundDesc: "The product you're looking for doesn't exist.",
+    webSourcesTitle: 'Find sources on the web',
+    webSourcesDesc: 'Read reviews and shop this product from trusted retailers.',
+    webSourcesLoading: 'Searching the web for sources…',
+    webSourcesEmpty: 'No external sources found yet.',
+    webSourcesError: 'Could not load web sources. Please try again.',
+    webSourcesVisit: 'Visit site',
+    webSourcesPoweredBy: 'Powered by AI search',
     
     // Product Card
     addedToCart: 'Added to cart',
@@ -173,6 +180,13 @@ export const translations = {
     specifications: 'المواصفات',
     productNotFound: 'المنتج غير موجود',
     productNotFoundDesc: 'المنتج الذي تبحث عنه غير موجود.',
+    webSourcesTitle: 'ابحث عن مصادر على الإنترنت',
+    webSourcesDesc: 'اقرأ المراجعات وتسوّق هذا المنتج من متاجر موثوقة.',
+    webSourcesLoading: 'يبحث في الإنترنت عن مصادر…',
+    webSourcesEmpty: 'لم يتم العثور على مصادر خارجية بعد.',
+    webSourcesError: 'تعذّر تحميل مصادر الويب. حاول مرة أخرى.',
+    webSourcesVisit: 'زيارة الموقع',
+    webSourcesPoweredBy: 'مدعوم بالبحث الذكي',
     
     // Product Card
     addedToCart: 'تمت الإضافة للسلة',

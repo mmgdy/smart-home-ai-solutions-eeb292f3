@@ -30,10 +30,14 @@ async function callAI(messages: any[], systemPrompt: string): Promise<string> {
   return content;
 }
 
+function productCategory(p: any): string {
+  return p?.categories?.name ?? "";
+}
+
 function scoreProducts(message: string, products: any[]): any[] {
   const terms = message.toLowerCase().split(/\W+/).filter((t) => t.length > 2);
   const scored = products.map((p) => {
-    const hay = `${p.name ?? ""} ${p.brand ?? ""} ${p.category ?? ""} ${p.description ?? ""}`.toLowerCase();
+    const hay = `${p.name ?? ""} ${p.brand ?? ""} ${productCategory(p)} ${p.description ?? ""}`.toLowerCase();
     const score = terms.reduce((acc, term) => acc + (hay.includes(term) ? 1 : 0), 0);
     return { product: p, score };
   });
@@ -43,14 +47,14 @@ function scoreProducts(message: string, products: any[]): any[] {
 
 function makeProductContext(products: any[]): string {
   return products.slice(0, 25).map((p) =>
-    `- ${p.name}${p.brand ? ` (${p.brand})` : ""}${p.price ? ` — ${p.price} EGP` : ""}${p.category ? ` [${p.category}]` : ""}`
+    `- ${p.name}${p.brand ? ` (${p.brand})` : ""}${p.price ? ` — ${p.price} EGP` : ""}${productCategory(p) ? ` [${productCategory(p)}]` : ""}`
   ).join("\n");
 }
 
 function makeCategorySummary(products: any[]): string {
   const cats: Record<string, number> = {};
   for (const p of products) {
-    const c = p.category || "Other";
+    const c = productCategory(p) || "Other";
     cats[c] = (cats[c] || 0) + 1;
   }
   return Object.entries(cats).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([n, c]) => `- ${n}: ${c}`).join("\n");
@@ -111,7 +115,7 @@ serve(async (req) => {
 
     const { data: products, error: productError } = await supabase
       .from("products")
-      .select("id, name, brand, price, category, description")
+      .select("id, name, brand, price, description, category_id, categories(name)")
       .eq("is_published", true)
       .limit(250);
 

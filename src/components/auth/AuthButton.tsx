@@ -10,6 +10,7 @@ import { useLanguage } from '@/lib/i18n';
 import { useToast } from '@/hooks/use-toast';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { GoogleIcon } from './GoogleIcon';
 
 interface AuthButtonProps {
   variant?: 'default' | 'outline' | 'ghost';
@@ -79,6 +80,23 @@ export const AuthButton = ({ variant = 'outline', size = 'default', showProfile 
     }
   };
 
+  const handleGoogle = async () => {
+    setBusy(true);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin },
+    });
+    if (error) {
+      setBusy(false);
+      toast({
+        variant: 'destructive',
+        title: isAr ? 'فشل تسجيل الدخول بجوجل' : 'Google sign in failed',
+        description: error.message,
+      });
+    }
+    // On success the browser leaves for Google's consent screen.
+  };
+
   if (loading) {
     return (
       <Button variant={variant} size={size} disabled>
@@ -126,7 +144,23 @@ export const AuthButton = ({ variant = 'outline', size = 'default', showProfile 
             </DialogDescription>
           </DialogHeader>
 
-          <Tabs defaultValue="signin" className="mt-2">
+          <Button variant="outline" className="w-full gap-2" onClick={handleGoogle} disabled={busy}>
+            <GoogleIcon />
+            {isAr ? 'المتابعة باستخدام جوجل' : 'Continue with Google'}
+          </Button>
+
+          <div className="relative my-4">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-border" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-background px-2 text-muted-foreground">
+                {isAr ? 'أو بالبريد الإلكتروني' : 'or with email'}
+              </span>
+            </div>
+          </div>
+
+          <Tabs defaultValue="signin">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="signin">{isAr ? 'تسجيل الدخول' : 'Sign In'}</TabsTrigger>
               <TabsTrigger value="signup">{isAr ? 'إنشاء حساب' : 'Sign Up'}</TabsTrigger>

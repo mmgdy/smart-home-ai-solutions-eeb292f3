@@ -3,7 +3,7 @@ import { Helmet } from 'react-helmet-async';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Upload, Loader2, CheckCircle, AlertCircle, Image, FileText, Sparkles, Download, Filter, DollarSign, CreditCard, Package, Settings, Globe, RefreshCw, Link2, Users, Tag, Zap, Merge, Bell } from 'lucide-react';
+import { Upload, Loader2, CheckCircle, AlertCircle, Image, FileText, Sparkles, Download, Filter, DollarSign, CreditCard, Package, Settings, Globe, RefreshCw, Link2, Users, Tag, Zap, Merge, Bell, Search } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PushBroadcaster } from '@/components/admin/PushBroadcaster';
@@ -58,6 +58,8 @@ export default function Admin() {
   const [isMarketSyncing, setIsMarketSyncing] = useState(false);
   const [marketSyncResults, setMarketSyncResults] = useState<any[]>([]);
   const [marketSyncProgress, setMarketSyncProgress] = useState(0);
+  const [isPurging, setIsPurging] = useState(false);
+  const [purgeResults, setPurgeResults] = useState<any>(null);
   const { toast } = useToast();
 
   // Show loading state
@@ -352,6 +354,30 @@ export default function Admin() {
     }
   };
 
+  const handlePurgeCorrupt = async (commit: boolean) => {
+    setIsPurging(true);
+    setPurgeResults(null);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('purge-corrupt-products', {
+        body: { token, commit, batchSize: 300 }
+      });
+      if (error) throw error;
+      setPurgeResults(data);
+
+      toast({
+        title: commit ? 'Cleanup Complete' : 'Dry Run Complete',
+        description: commit
+          ? `Removed ${data?.removed ?? 0} products with missing or broken images.`
+          : `Found ${data?.removeCount ?? 0} products with missing or broken images (nothing deleted).`
+      });
+    } catch (error: any) {
+      toast({ title: 'Image Cleanup Failed', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsPurging(false);
+    }
+  };
+
   return (
     <Layout>
       <Helmet>
@@ -602,7 +628,7 @@ export default function Admin() {
                 Find Missing Product Images
               </h2>
               <p className="text-muted-foreground mb-6">Uses AI to find official product images from manufacturers.</p>
-              
+
               <Button onClick={handleFindImages} disabled={isEnhancing} size="lg" className="w-full">
                 {isEnhancing ? (
                   <><Loader2 className="w-5 h-5 mr-2 animate-spin" />Searching for Images...</>
@@ -615,6 +641,60 @@ export default function Admin() {
                 <div className="mt-4">
                   <Progress value={enhanceProgress} className="h-2" />
                   <p className="text-sm text-muted-foreground mt-2">Processing... {Math.round(enhanceProgress)}%</p>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-6 bg-card border border-border rounded-xl p-6">
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <AlertCircle className="w-5 h-5 text-primary" />
+                Remove Products with Broken Images
+              </h2>
+              <p className="text-muted-foreground mb-6">
+                Verifies every product image over HTTP and removes products with no image at all, or
+                whose images are all broken (404 / not an image). Run the dry run first to preview —
+                nothing is deleted until you press Remove.
+              </p>
+
+              <div className="grid gap-3 sm:grid-cols-2 mb-4">
+                <Button onClick={() => handlePurgeCorrupt(false)} disabled={isPurging} variant="outline" size="lg">
+                  {isPurging ? (
+                    <><Loader2 className="w-5 h-5 mr-2 animate-spin" />Checking Images...</>
+                  ) : (
+                    <><Search className="w-5 h-5 mr-2" />Dry Run (Preview)</>
+                  )}
+                </Button>
+                <Button onClick={() => handlePurgeCorrupt(true)} disabled={isPurging} variant="destructive" size="lg">
+                  {isPurging ? (
+                    <><Loader2 className="w-5 h-5 mr-2 animate-spin" />Removing...</>
+                  ) : (
+                    <><AlertCircle className="w-5 h-5 mr-2" />Remove Broken Products</>
+                  )}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Scans 300 products per run in creation order — re-run to continue where it stopped.
+              </p>
+
+              {purgeResults && (
+                <div className="mt-4 p-4 bg-muted/50 rounded-lg text-sm space-y-1">
+                  <p>Scanned: <span className="font-medium">{purgeResults.scanned}</span> products ({purgeResults.urlsChecked} image URLs checked)</p>
+                  <p>Found broken: <span className="font-medium text-destructive">{purgeResults.removeCount}</span></p>
+                  {purgeResults.removed > 0 && (
+                    <p className="text-green-600">Removed: <span className="font-medium">{purgeResults.removed}</span></p>
+                  )}
+                  {Array.isArray(purgeResults.toRemove) && purgeResults.toRemove.length > 0 && (
+                    <div className="mt-2 space-y-1 max-h-72 overflow-y-auto">
+                      {purgeResults.toRemove.map((item: any) => (
+                        <div key={item.id} className={`flex items-center justify-between gap-2 p-2 rounded ${
+                          item.reason === 'no_image' ? 'bg-red-500/10 text-red-600' : 'bg-yellow-500/10 text-yellow-600'
+                        }`}>
+                          <span className="truncate flex-1">{item.name}</span>
+                          <span className="text-xs capitalize shrink-0">{item.reason.replace('_', ' ')}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

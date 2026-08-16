@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Helmet } from 'react-helmet-async';
-import { ArrowLeft, ArrowRight, ShoppingCart, Loader2, Zap, Check, Shield, Truck, Award, Wifi, CreditCard } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ShoppingCart, Loader2, Zap, Check, Shield, Truck, Award, Wifi, CreditCard, Globe, ExternalLink } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
@@ -10,6 +10,8 @@ import { Product } from '@/types/store';
 import { useCart } from '@/hooks/useCart';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/lib/i18n';
+import { parseProtocols } from '@/lib/protocolIcon';
+import { getProductImage, productPlaceholder } from '@/lib/productImage';
 import { cn } from '@/lib/utils';
 
 function getYouTubeEmbedUrl(url: string): string | null {
@@ -19,6 +21,14 @@ function getYouTubeEmbedUrl(url: string): string | null {
 
 function isDirectVideo(url: string): boolean {
   return /\.(mp4|webm|ogg|mov)(\?|$)/i.test(url);
+}
+
+interface WebSource {
+  title: string;
+  url: string;
+  snippet: string;
+  source: string;
+  score: number;
 }
 
 const ProductDetail = () => {
@@ -67,6 +77,30 @@ const ProductDetail = () => {
     }
     return master;
   }, [master, variants, selectedVariantId]);
+
+  const protocolTokens = useMemo(() => parseProtocols(activeProduct?.protocol), [activeProduct?.protocol]);
+
+  // Find web sources for this product
+  const { data: webSources, isLoading: sourcesLoading, isError: sourcesError } = useQuery<WebSource[]>({
+    queryKey: ['web-sources', activeProduct?.id, isRTL ? 'ar' : 'en'],
+    queryFn: async () => {
+      if (!activeProduct) return [];
+      const { data, error } = await supabase.functions.invoke('find-web-sources', {
+        body: {
+          brand: activeProduct.brand ?? undefined,
+          name: activeProduct.name,
+          protocol: activeProduct.protocol ?? undefined,
+          locale: isRTL ? 'ar' : 'en',
+        },
+      });
+      if (error) throw error;
+      const payload = data as { success?: boolean; sources?: WebSource[] };
+      return payload?.sources ?? [];
+    },
+    enabled: !!activeProduct?.id,
+    staleTime: 1000 * 60 * 30, // 30 min cache
+    retry: 1,
+  });
 
   const handleAddToCart = () => {
     if (activeProduct) {
@@ -145,6 +179,9 @@ const ProductDetail = () => {
           image: product.image_url || undefined,
           brand: product.brand ? { "@type": "Brand", name: product.brand } : undefined,
           sku: (product as any).sku || product.id,
+          ...(webSources && webSources.length > 0
+            ? { sameAs: webSources.slice(0, 5).map((s) => s.url) }
+            : {}),
           offers: {
             "@type": "Offer",
             priceCurrency: "EGP",
@@ -166,13 +203,13 @@ const ProductDetail = () => {
             {/* Image & Video */}
             <div className="space-y-4">
               <div className="relative aspect-square overflow-hidden rounded-2xl border border-border bg-card">
-                {product.image_url ? (
-                  <img src={product.image_url} alt={product.name} className="h-full w-full object-cover" />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center">
-                    <Zap className="h-24 w-24 text-muted-foreground" />
-                  </div>
-                )}
+                <img
+                  src={getProductImage(product)}
+                  alt={product.name}
+                  loading="lazy"
+                  onError={(e) => { (e.currentTarget as HTMLImageElement).src = productPlaceholder; }}
+                  className="h-full w-full object-cover"
+                />
                 <div className={cn("absolute top-4 flex flex-col gap-2", isRTL ? "right-4" : "left-4")}>
                   {discount && (
                     <span className="rounded-full bg-destructive px-3 py-1 text-sm font-medium text-destructive-foreground">
@@ -185,6 +222,32 @@ const ProductDetail = () => {
                     </span>
                   )}
                 </div>
+
+                {/* Protocol badges overlay */}
+                {protocolTokens.length > 0 && (
+                  <div
+                    className={cn(
+                      "absolute bottom-4 flex flex-wrap items-center gap-1.5",
+                      isRTL ? "right-4 left-4 flex-row-reverse" : "left-4 right-4"
+                    )}
+                  >
+                    {protocolTokens.map(({ name, icon: Icon, bg, fg, description }) => (
+                      <span
+                        key={name}
+                        title={description}
+                        aria-label={description}
+                        className={cn(
+                          'inline-flex h-8 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium shadow-md backdrop-blur-sm',
+                          bg,
+                          fg
+                        )}
+                      >
+                        <Icon className="h-4 w-4" strokeWidth={2.25} />
+                        <span className="leading-none">{name}</span>
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Installation Video */}
@@ -219,14 +282,24 @@ const ProductDetail = () => {
 
             {/* Details */}
             <div className="flex flex-col">
-              <div className="mb-3 flex items-center gap-3">
+              <div className="mb-3 flex flex-wrap items-center gap-2">
                 {product.brand && <span className="text-sm text-muted-foreground">{product.brand}</span>}
-                {product.protocol && (
-                  <>
-                    <span className="text-muted-foreground">•</span>
-                    <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">{product.protocol}</span>
-                  </>
-                )}
+                {product.brand && protocolTokens.length > 0 && <span className="text-muted-foreground">•</span>}
+                {protocolTokens.map(({ name, icon: Icon, bg, fg, description }) => (
+                  <span
+                    key={name}
+                    title={description}
+                    aria-label={description}
+                    className={cn(
+                      'inline-flex h-7 items-center gap-1 rounded-full px-2.5 text-[11px] font-medium',
+                      bg,
+                      fg
+                    )}
+                  >
+                    <Icon className="h-3.5 w-3.5" strokeWidth={2.25} />
+                    <span className="leading-none">{name}</span>
+                  </span>
+                ))}
               </div>
 
               <h1 className="mb-3 font-display text-2xl font-bold text-foreground md:text-3xl">{product.name}</h1>
@@ -345,6 +418,83 @@ const ProductDetail = () => {
                   </dl>
                 </div>
               )}
+
+              {/* Find sources on the web */}
+              <div className="mt-4 rounded-xl border border-border bg-card p-5">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Globe className="h-4 w-4 text-primary" />
+                    <h3 className="font-display text-base font-semibold text-foreground">
+                      {t('webSourcesTitle')}
+                    </h3>
+                  </div>
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                    {t('webSourcesPoweredBy')}
+                  </span>
+                </div>
+                <p className="mb-3 text-xs text-muted-foreground">{t('webSourcesDesc')}</p>
+
+                {sourcesLoading && (
+                  <div className="flex items-center gap-2 py-3 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                    {t('webSourcesLoading')}
+                  </div>
+                )}
+
+                {!sourcesLoading && sourcesError && (
+                  <p className="py-3 text-sm text-muted-foreground">{t('webSourcesError')}</p>
+                )}
+
+                {!sourcesLoading && !sourcesError && webSources && webSources.length === 0 && (
+                  <p className="py-3 text-sm text-muted-foreground">{t('webSourcesEmpty')}</p>
+                )}
+
+                {!sourcesLoading && !sourcesError && webSources && webSources.length > 0 && (
+                  <ul className="space-y-2">
+                    {webSources.map((src) => {
+                      let host = '';
+                      try {
+                        host = new URL(src.url).hostname.replace(/^www\./, '');
+                      } catch {
+                        host = src.source;
+                      }
+                      const favicon = `https://www.google.com/s2/favicons?domain=${host}&sz=32`;
+                      return (
+                        <li key={src.url}>
+                          <a
+                            href={src.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="group flex items-start gap-3 rounded-lg border border-border/60 bg-background/50 p-3 transition hover:border-primary/40 hover:bg-background"
+                          >
+                            <img
+                              src={favicon}
+                              alt=""
+                              loading="lazy"
+                              width={20}
+                              height={20}
+                              className="mt-0.5 h-5 w-5 shrink-0 rounded"
+                              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="truncate text-sm font-medium text-foreground group-hover:text-primary">
+                                  {src.title}
+                                </p>
+                                <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted-foreground group-hover:text-primary" />
+                              </div>
+                              <p className="text-[11px] text-muted-foreground">{host}</p>
+                              {src.snippet && (
+                                <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{src.snippet}</p>
+                              )}
+                            </div>
+                          </a>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
 
               {/* Bundle suggestion */}
               <div className="mt-4 p-4 rounded-xl bg-primary/5 border border-primary/20">

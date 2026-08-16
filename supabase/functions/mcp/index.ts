@@ -176,7 +176,11 @@ var get_my_loyalty_default = defineTool5({
 });
 
 // src/lib/mcp/index.ts
-var projectRef = "vgwptcvjhmphqhoepbri";
+var projectRef = (() => {
+  const url = Deno.env.get("SUPABASE_URL") ?? "";
+  const match = url.match(/^https:\/\/([^.]+)\.supabase\.co/);
+  return match?.[1] ?? "djsibxhkfvwtjzvnjmhp";
+})();
 var mcp_default = defineMcp({
   name: "baytzaki-mcp",
   title: "Baytzaki",
