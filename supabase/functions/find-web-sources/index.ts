@@ -153,7 +153,9 @@ const searchBing = async (query: string): Promise<RawHit[]> => {
       const block = match[1];
       const linkMatch = block.match(/<a[^>]+href=["'](https?:\/\/[^"']+)["'][^>]*>([\s\S]*?)<\/a>/i);
       if (!linkMatch) continue;
-      const url = unwrapBingUrl(linkMatch[1]);
+      // The raw href carries &amp; entities — decode them or the u= param
+      // of the ck/a redirect never parses and the URL stays bing.com.
+      const url = unwrapBingUrl(decodeEntities(linkMatch[1]));
       if (!/^https?:\/\//i.test(url)) continue;
       const title = stripHtml(linkMatch[2]);
       const snippetMatch = block.match(/<p[^>]*>([\s\S]*?)<\/p>/i);
