@@ -1,14 +1,15 @@
-// Owned copy of the @lovable.dev/mcp-js bundle — patched to deploy on Deno
-// (pinned npm versions, Deno.env instead of process.env).
+// Owned copy of the @lovable.dev/mcp-js bundle, patched to deploy:
+// https://esm.sh imports (npm: specifiers resolve against the repo's
+// node_modules and fail), pinned versions, Deno.env instead of process.env.
 // supabase function: mcp
 // Bundled from src/lib/mcp/index.ts by @lovable.dev/mcp-js.
 // src/lib/mcp/index.ts
-import { auth, defineMcp } from "npm:@lovable.dev/mcp-js@0.22.2";
+import { auth, defineMcp } from "https://esm.sh/@lovable.dev/mcp-js@0.22.2";
 
 // src/lib/mcp/tools/search-products.ts
-import { defineTool } from "npm:@lovable.dev/mcp-js@0.22.2";
-import { z } from "npm:zod@3.25.76";
-import { createClient } from "npm:@supabase/supabase-js@2.89.0";
+import { defineTool } from "https://esm.sh/@lovable.dev/mcp-js@0.22.2";
+import { z } from "https://esm.sh/zod@4.4.3";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 var search_products_default = defineTool({
   name: "search_products",
   title: "Search products",
@@ -19,7 +20,7 @@ var search_products_default = defineTool({
     in_stock: z.boolean().default(true).describe("Only return products currently in stock.")
   },
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
-  handler: async ({ query, limit, in_stock }) => {
+  handler: async ({ query, limit, in_stock }: any) => {
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
@@ -59,9 +60,9 @@ var search_products_default = defineTool({
 });
 
 // src/lib/mcp/tools/get-product.ts
-import { defineTool as defineTool2 } from "npm:@lovable.dev/mcp-js@0.22.2";
-import { z as z2 } from "npm:zod@3.25.76";
-import { createClient as createClient2 } from "npm:@supabase/supabase-js@2.89.0";
+import { defineTool as defineTool2 } from "https://esm.sh/@lovable.dev/mcp-js@0.22.2";
+import { z as z2 } from "https://esm.sh/zod@4.4.3";
+import { createClient as createClient2 } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 var get_product_default = defineTool2({
   name: "get_product",
   title: "Get product details",
@@ -70,7 +71,7 @@ var get_product_default = defineTool2({
     slug: z2.string().min(1).describe("Product slug (e.g. 'aqara-hub-m2').")
   },
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
-  handler: async ({ slug }) => {
+  handler: async ({ slug }: any) => {
     const supabase = createClient2(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
@@ -87,8 +88,8 @@ var get_product_default = defineTool2({
 });
 
 // src/lib/mcp/tools/list-categories.ts
-import { defineTool as defineTool3 } from "npm:@lovable.dev/mcp-js@0.22.2";
-import { createClient as createClient3 } from "npm:@supabase/supabase-js@2.89.0";
+import { defineTool as defineTool3 } from "https://esm.sh/@lovable.dev/mcp-js@0.22.2";
+import { createClient as createClient3 } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 var list_categories_default = defineTool3({
   name: "list_categories",
   title: "List categories",
@@ -112,10 +113,10 @@ var list_categories_default = defineTool3({
 });
 
 // src/lib/mcp/tools/list-my-orders.ts
-import { defineTool as defineTool4 } from "npm:@lovable.dev/mcp-js@0.22.2";
-import { z as z3 } from "npm:zod@3.25.76";
-import { createClient as createClient4 } from "npm:@supabase/supabase-js@2.89.0";
-function userClient(ctx) {
+import { defineTool as defineTool4 } from "https://esm.sh/@lovable.dev/mcp-js@0.22.2";
+import { z as z3 } from "https://esm.sh/zod@4.4.3";
+import { createClient as createClient4 } from "https://esm.sh/@supabase/supabase-js@2.89.0";
+function userClient(ctx: any) {
   return createClient4(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
     global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
     auth: { persistSession: false, autoRefreshToken: false }
@@ -129,7 +130,7 @@ var list_my_orders_default = defineTool4({
     limit: z3.number().int().min(1).max(50).default(10)
   },
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
-  handler: async ({ limit }, ctx) => {
+  handler: async ({ limit }: any, ctx: any) => {
     if (!ctx.isAuthenticated()) {
       return { content: [{ type: "text", text: "Sign in required." }], isError: true };
     }
@@ -143,9 +144,9 @@ var list_my_orders_default = defineTool4({
 });
 
 // src/lib/mcp/tools/get-my-loyalty.ts
-import { defineTool as defineTool5 } from "npm:@lovable.dev/mcp-js@0.22.2";
-import { createClient as createClient5 } from "npm:@supabase/supabase-js@2.89.0";
-function userClient2(ctx) {
+import { defineTool as defineTool5 } from "https://esm.sh/@lovable.dev/mcp-js@0.22.2";
+import { createClient as createClient5 } from "https://esm.sh/@supabase/supabase-js@2.89.0";
+function userClient2(ctx: any) {
   return createClient5(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
     global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
     auth: { persistSession: false, autoRefreshToken: false }
@@ -157,7 +158,7 @@ var get_my_loyalty_default = defineTool5({
   description: "Return the signed-in Baytzaki customer's loyalty points balance, lifetime points, and tier (bronze/silver/gold/platinum).",
   inputSchema: {},
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
-  handler: async (_input, ctx) => {
+  handler: async (_input: any, ctx: any) => {
     if (!ctx.isAuthenticated()) {
       return { content: [{ type: "text", text: "Sign in required." }], isError: true };
     }
@@ -194,5 +195,5 @@ var mcp_default = defineMcp({
 });
 
 // lovable-mcp-supabase-entry.ts
-import { createSupabaseHandler } from "npm:@lovable.dev/mcp-js@0.22.2/stacks/supabase";
+import { createSupabaseHandler } from "https://esm.sh/@lovable.dev/mcp-js@0.22.2/stacks/supabase";
 Deno.serve(createSupabaseHandler(mcp_default, { functionName: "mcp" }));
