@@ -1,5 +1,11 @@
 {
   "compilerOptions": {
     "noImplicitAny": false
+  },
+  "imports": {
+    "https://esm.sh/zod@%5E3.25%20%7C%7C%20%5E4.0/v4?target=denonext": "https://esm.sh/zod@4.4.3",
+    "https://esm.sh/zod@^3.25%20||%20^4.0/v4?target=denonext": "https://esm.sh/zod@4.4.3",
+    "https://esm.sh/zod@%5E3.25%20%7C%7C%20%5E4.0?target=denonext": "https://esm.sh/zod@4.4.3",
+    "https://esm.sh/zod@^3.25%20||%20^4.0?target=denonext": "https://esm.sh/zod@4.4.3"
   }
 }
