@@ -205,6 +205,31 @@ const hostOf = (url: string): string => {
   }
 };
 
+// Query-decorating stopwords never count as relevance signal.
+const STOPWORDS = new Set([
+  "buy", "review", "reviews", "specs", "spec", "price", "prices", "shop",
+  "for", "with", "the", "and", "smart", "home",
+  "شراء", "مواصفات", "سعر", "منتج", "تسوق",
+]);
+
+/** Distinctive tokens from the product name + brand. */
+const relevanceTokens = (name: string, brand: string | null): string[] => {
+  const joined = `${brand ?? ""} ${name}`.toLowerCase();
+  const tokens = joined
+    .split(/[^a-z0-9\u0600-\u06FF]+/)
+    .filter((t) => t.length >= 2 && !STOPWORDS.has(t));
+  return Array.from(new Set(tokens)).slice(0, 8);
+};
+
+/** Engines sometimes serve degraded/regional SERPs to datacenter IPs —
+ *  only keep hits whose text actually mentions the product. */
+const isRelevant = (hit: RawHit, tokens: string[]): boolean => {
+  if (tokens.length === 0) return true;
+  const hay = `${hit.title} ${hit.snippet} ${hit.url}`.toLowerCase();
+  const matches = tokens.filter((t) => hay.includes(t)).length;
+  return matches >= Math.min(2, tokens.length);
+};
+
 const scoreHost = (host: string): number => {
   if (BLOCKED_HOSTS.test(host)) return -100;
   if (RETAILER_HOSTS.test(host)) return 6;
@@ -269,18 +294,19 @@ Deno.serve(async (req) => {
     const suffix = locale === "ar" ? "شراء مواصفات" : "buy specs review";
     const query = `${base} ${suffix}`.trim();
 
+    const tokens = relevanceTokens(cleanName, cleanBrand);
     const [ddgHits, liteHits, bingHits] = await Promise.all([
       searchDuckDuckGo(query),
       searchDuckDuckGoLite(query),
       searchBing(query),
     ]);
 
-    let hits = [...ddgHits, ...liteHits, ...bingHits];
+    let hits = [...ddgHits, ...liteHits, ...bingHits].filter((h) => isRelevant(h, tokens));
     let firecrawlCount = 0;
-    if (hits.length === 0) {
-      const fcHits = await searchFirecrawl(query);
+    if (hits.length < 3) {
+      const fcHits = (await searchFirecrawl(query)).filter((h) => isRelevant(h, tokens));
       firecrawlCount = fcHits.length;
-      hits = fcHits;
+      hits = [...hits, ...fcHits];
     }
 
     const sources = rankSources(hits);
@@ -295,6 +321,7 @@ Deno.serve(async (req) => {
           ddgLite: liteHits.length,
           bing: bingHits.length,
           firecrawl: firecrawlCount,
+          kept: hits.length,
         },
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
