@@ -71,3 +71,6 @@ verify_jwt = false
 
 [functions.cart-compatibility-check]
 verify_jwt = false
+
+[functions.mcp]
+verify_jwt = false

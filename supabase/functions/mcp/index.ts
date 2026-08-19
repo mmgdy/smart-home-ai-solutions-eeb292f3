@@ -8,7 +8,7 @@ import { auth, defineMcp } from "https://esm.sh/@lovable.dev/mcp-js@0.22.2";
 
 // src/lib/mcp/tools/search-products.ts
 import { defineTool } from "https://esm.sh/@lovable.dev/mcp-js@0.22.2";
-import { z } from "https://esm.sh/zod@4.4.3";
+import { z } from "https://esm.sh/zod@3.25.76";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 var search_products_default = defineTool({
   name: "search_products",
@@ -61,7 +61,7 @@ var search_products_default = defineTool({
 
 // src/lib/mcp/tools/get-product.ts
 import { defineTool as defineTool2 } from "https://esm.sh/@lovable.dev/mcp-js@0.22.2";
-import { z as z2 } from "https://esm.sh/zod@4.4.3";
+import { z as z2 } from "https://esm.sh/zod@3.25.76";
 import { createClient as createClient2 } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 var get_product_default = defineTool2({
   name: "get_product",
@@ -114,7 +114,7 @@ var list_categories_default = defineTool3({
 
 // src/lib/mcp/tools/list-my-orders.ts
 import { defineTool as defineTool4 } from "https://esm.sh/@lovable.dev/mcp-js@0.22.2";
-import { z as z3 } from "https://esm.sh/zod@4.4.3";
+import { z as z3 } from "https://esm.sh/zod@3.25.76";
 import { createClient as createClient4 } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 function userClient(ctx: any) {
   return createClient4(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
