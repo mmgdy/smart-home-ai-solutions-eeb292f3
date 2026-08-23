@@ -41,7 +41,7 @@ interface ProductExport {
 }
 
 export default function Admin() {
-  const { isLoading: authLoading, isAuthenticated, token, login, logout } = useAdminAuth();
+  const { isLoading: authLoading, isAuthenticated, token, admin, login, logout } = useAdminAuth();
   const [isImporting, setIsImporting] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [isEnhancing, setIsEnhancing] = useState(false);
