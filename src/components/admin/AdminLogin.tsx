@@ -23,7 +23,7 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
     if (!username || !password) {
       toast({
         title: 'Error',
-        description: 'Please enter username and password',
+        description: 'Please enter email and password',
         variant: 'destructive',
       });
       return;
@@ -33,7 +33,7 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
 
     try {
       const { data, error } = await supabase.functions.invoke('admin-auth', {
-        body: { action: 'login', username, password },
+        body: { action: 'login', email: username, password },
       });
 
       if (error || !data?.success) {
@@ -74,17 +74,17 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
+              <Label htmlFor="username">Email</Label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="username"
-                  type="text"
+                  type="email"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Enter username"
+                  placeholder="Enter admin email"
                   className="pl-10"
-                  autoComplete="username"
+                  autoComplete="email"
                 />
               </div>
             </div>

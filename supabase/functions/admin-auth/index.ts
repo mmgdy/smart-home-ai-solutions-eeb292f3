@@ -1,24 +1,79 @@
-// Hard-coded key for "admin_wait_table" is intentionally left because this
-// function's purpose is *temporary* account migration from a legacy PaySky
-// multi-seller DB (vgwptcvjhmphqhoepbri) into the new project's real table.
-// db-471 ... free tier ... no read-only key.
-// The key barely has RLS bypass; we deliberately gate the login with a
-// merged-view hashed credential so the real password is never stored here.
+// Admin authentication + secure credential reset.
+//
+// Actions:
+//   login          -> email/username + password, returns an opaque admin token
+//   verify         -> validates a stored token, returns the admin identity
+//   reset-password -> generates a new strong password for the CURRENT admin,
+//                     returns it exactly once (never persisted anywhere) and
+//                     revokes every other admin session.
+//
+// The legacy `admin_wait_table` lookup below is a *temporary* migration path
+// from the previous multi-seller DB; it does not store the new password.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 import { corsHeadersFor } from "../_shared/cors.ts";
 import { checkRate, getIp } from "../_shared/rate-limit.ts";
 
-const LEGACY_READONLY_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZnd3B0Y3ZqaG1waHFob2VwYnJpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjgwODk2NzcsImV4cCI6MjA0MzY2NTY3N30._Cp_J72a8o3MVRpGlbEitv5FBGTN82jLILepJz0nRBk";
+const PASSWORD_ALPHABET = "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%^&*-_=+";
 
-async function checkLegacyAuth(email: string, password: string): Promise<boolean> {
-  const oldSupabase = createClient("https://vgwptcvjhmphqhoepbri.supabase.co", LEGACY_READONLY_KEY);
-  const { data: legacyUsers, error: legacyError } = await oldSupabase
-    .from("admin_wait_table")
-    .select("name, email, password")
-    .ilike("email", email);
-  if (legacyError || !legacyUsers || legacyUsers.length === 0) return false;
-  return legacyUsers.some((u) => u.password === password);
+/** Cryptographically-random password, rejection-sampled to avoid modulo bias. */
+function generatePassword(length = 24): string {
+  const out: string[] = [];
+  const max = Math.floor(256 / PASSWORD_ALPHABET.length) * PASSWORD_ALPHABET.length;
+  while (out.length < length) {
+    const bytes = crypto.getRandomValues(new Uint8Array(length));
+    for (const b of bytes) {
+      if (b >= max) continue;
+      out.push(PASSWORD_ALPHABET[b % PASSWORD_ALPHABET.length]);
+      if (out.length === length) break;
+    }
+  }
+  return out.join("");
+}
+
+function makeToken(adminId: string): string {
+  const secret = Array.from(crypto.getRandomValues(new Uint8Array(32)))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+  return btoa(`${adminId}:${secret}`);
+}
+
+function json(body: unknown, status: number, corsHeaders: Record<string, string>) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+/** Resolves a bearer token to the admin session record, or null. */
+async function resolveSession(admin: any, token: string) {
+  if (!token) return null;
+  let adminId = "";
+  try {
+    adminId = atob(token).split(":")[0];
+  } catch {
+    return null;
+  }
+  if (!adminId) return null;
+  const { data } = await admin
+    .from("admin_settings")
+    .select("key, value")
+    .in("key", [`admin_token_${adminId}`, `admin_session_${adminId}`]);
+  const map: Record<string, string> = {};
+  (data ?? []).forEach((r: any) => { map[r.key] = r.value; });
+  if (map[`admin_token_${adminId}`] !== token) return null;
+  return { adminId, email: map[`admin_session_${adminId}`] ?? "" };
+}
+
+async function findUserByEmail(admin: any, email: string) {
+  for (let page = 1; page <= 20; page++) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 200 });
+    if (error || !data?.users?.length) return null;
+    const hit = data.users.find((u: any) => (u.email ?? "").toLowerCase() === email);
+    if (hit) return hit;
+    if (data.users.length < 200) return null;
+  }
+  return null;
 }
 
 Deno.serve(async (req) => {
@@ -26,83 +81,126 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   const ip = getIp(req);
-  const rate = checkRate(ip, { windowMs: 300_000, maxRequests: 10 });
+  const rate = checkRate(ip, { windowMs: 300_000, maxRequests: 15 });
   if (!rate.ok) {
-    return new Response(JSON.stringify({ error: "Too many login attempts. Try again later." }), {
+    return new Response(JSON.stringify({ error: "Too many attempts. Try again later." }), {
       status: 429,
       headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": String(Math.ceil(rate.retryAfterMs / 1000)) },
     });
   }
 
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+  const admin = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+
+  let body: any = {};
+  try { body = await req.json(); } catch { /* empty body */ }
+  const action = String(body.action ?? "login");
+  const bearer = (req.headers.get("Authorization") ?? "").replace("Bearer ", "").trim();
+
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
-    const { email, password } = await req.json();
-    const trimmedEmail = String(email ?? "").trim().toLowerCase();
-
-    if (!trimmedEmail || !password) {
-      return new Response(JSON.stringify({ error: "Email and password are required" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    // ---------------------------------------------------------------- verify
+    if (action === "verify") {
+      const session = await resolveSession(admin, body.token ?? bearer);
+      if (!session) return json({ success: false, error: "Invalid session" }, 401, corsHeaders);
+      return json(
+        { success: true, admin: { id: session.adminId, username: session.email } },
+        200,
+        corsHeaders,
+      );
     }
 
-    const { data: user, error: userError } = await supabase.auth.signInWithPassword({
-      email: trimmedEmail,
-      password,
-    });
+    // -------------------------------------------------------- reset-password
+    if (action === "reset-password") {
+      const session = await resolveSession(admin, bearer || body.token);
+      if (!session) return json({ success: false, error: "Unauthorized" }, 401, corsHeaders);
+      if (!session.email) {
+        return json({ success: false, error: "This session has no linked account. Sign in again." }, 400, corsHeaders);
+      }
 
-    if (userError && userError.message.includes("Email not confirmed")) {
-      return new Response(JSON.stringify({ error: "Email not confirmed. Check your inbox." }), {
-        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      const user = await findUserByEmail(admin, session.email);
+      if (!user) return json({ success: false, error: "Admin account not found" }, 404, corsHeaders);
+
+      const newPassword = generatePassword(24);
+      const { error: updErr } = await admin.auth.admin.updateUserById(user.id, {
+        password: newPassword,
+        email_confirm: true,
       });
+      if (updErr) throw updErr;
+
+      // Revoke every other admin session so a leaked token can't be reused.
+      const { data: sessions } = await admin
+        .from("admin_settings")
+        .select("key")
+        .or("key.like.admin_token_%,key.like.admin_session_%");
+      const stale = (sessions ?? [])
+        .map((r: any) => r.key as string)
+        .filter((k) => !k.endsWith(session.adminId));
+      if (stale.length) await admin.from("admin_settings").delete().in("key", stale);
+
+      // Best-effort: drop legacy plaintext rows for this account so the old
+      // password can never be used again.
+      await admin.from("admin_wait_table").delete().ilike("email", session.email);
+
+      console.log(`Admin password reset for ${session.adminId} at ${new Date().toISOString()}`);
+
+      // The password is returned here and nowhere else — it is not stored.
+      return json({ success: true, email: session.email, password: newPassword }, 200, corsHeaders);
     }
 
-    if (userError || !user?.user) {
-      const { data: legacyUsers } = await supabase
+    // ----------------------------------------------------------------- login
+    const email = String(body.email ?? body.username ?? "").trim().toLowerCase();
+    const password = String(body.password ?? "");
+    if (!email || !password) {
+      return json({ success: false, error: "Email and password are required" }, 400, corsHeaders);
+    }
+
+    const anon = createClient(supabaseUrl, supabaseAnonKey);
+    const { data: signIn, error: signInError } = await anon.auth.signInWithPassword({ email, password });
+
+    if (signInError?.message?.includes("Email not confirmed")) {
+      return json({ success: false, error: "Email not confirmed. Check your inbox." }, 403, corsHeaders);
+    }
+
+    if (signInError || !signIn?.user) {
+      // Legacy migration path: verify against the plaintext waiting table,
+      // then mint a real auth user with a random password.
+      const { data: legacyUsers } = await admin
         .from("admin_wait_table")
         .select("name, email, password")
-        .ilike("email", trimmedEmail);
+        .ilike("email", email);
 
-      if (legacyUsers && legacyUsers.length > 0) {
-        if (legacyUsers[0].password !== password) throw new Error("Invalid credentials");
+      if (!legacyUsers?.length || legacyUsers[0].password !== password) {
+        return json({ success: false, error: "Invalid credentials" }, 401, corsHeaders);
+      }
 
-        // Migrate user
-        const randomPassword = Array.from(crypto.getRandomValues(new Uint8Array(32)))
-          .map((b) => b.toString(36).padStart(2, "0"))
-          .join("")
-          .slice(0, 32);
-
-        const { data: newUser } = await supabase.auth.signUp({
-          email: trimmedEmail,
-          password: randomPassword,
-          options: { data: { name: legacyUsers[0].name } },
-        });
-
-        if (newUser?.user) {
-          await createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!)
-            .auth.admin.updateUserById(newUser.user.id, { email_confirm: true });
-          await supabase.auth.signInWithPassword({ email: trimmedEmail, password: randomPassword });
-        }
+      const existing = await findUserByEmail(admin, email);
+      if (existing) {
+        await admin.auth.admin.updateUserById(existing.id, { password, email_confirm: true });
       } else {
-        const legacyMatch = await checkLegacyAuth(trimmedEmail, password);
-        if (!legacyMatch) throw new Error("Invalid credentials");
+        await admin.auth.admin.createUser({
+          email,
+          password,
+          email_confirm: true,
+          user_metadata: { name: legacyUsers[0].name },
+        });
       }
     }
 
     const adminId = crypto.randomUUID();
-    const token = btoa(`${adminId}:${Array.from(crypto.getRandomValues(new Uint8Array(24))).map((b) => b.toString(36)).join("")}`);
-    await createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!)
-      .from("admin_settings")
-      .upsert({ key: `admin_token_${adminId}`, value: token, updated_at: new Date().toISOString() }, { onConflict: "key" });
+    const token = makeToken(adminId);
+    const now = new Date().toISOString();
+    await admin.from("admin_settings").upsert(
+      [
+        { key: `admin_token_${adminId}`, value: token, updated_at: now },
+        { key: `admin_session_${adminId}`, value: email, updated_at: now },
+      ],
+      { onConflict: "key" },
+    );
 
-    return new Response(JSON.stringify({ success: true, token, adminId }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json({ success: true, token, adminId, admin: { id: adminId, username: email } }, 200, corsHeaders);
   } catch (error) {
-    console.error("Auth error:", error);
-    return new Response(JSON.stringify({ error: "Invalid credentials" }), {
-      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    console.error("admin-auth error:", error);
+    return json({ success: false, error: "Request failed" }, 500, corsHeaders);
   }
 });

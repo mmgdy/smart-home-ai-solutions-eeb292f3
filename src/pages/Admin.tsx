@@ -3,7 +3,7 @@ import { Helmet } from 'react-helmet-async';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Upload, Loader2, CheckCircle, AlertCircle, Image, FileText, Sparkles, Download, Filter, DollarSign, CreditCard, Package, Settings, Globe, RefreshCw, Link2, Users, Tag, Zap, Merge, Bell, Search } from 'lucide-react';
+import { Upload, Loader2, CheckCircle, AlertCircle, Image, FileText, Sparkles, Download, Filter, DollarSign, CreditCard, Package, Settings, Globe, RefreshCw, Link2, Users, Tag, Zap, Merge, Bell, Search, ShieldCheck } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PushBroadcaster } from '@/components/admin/PushBroadcaster';
@@ -24,6 +24,7 @@ import { BundlesEditor } from '@/components/admin/BundlesEditor';
 import { CouponEditor } from '@/components/admin/CouponEditor';
 import { FlashSaleEditor } from '@/components/admin/FlashSaleEditor';
 import { VariantsManager } from '@/components/admin/VariantsManager';
+import { AdminSecurity } from '@/components/admin/AdminSecurity';
 
 interface ProductExport {
   id: string;
@@ -41,7 +42,7 @@ interface ProductExport {
 }
 
 export default function Admin() {
-  const { isLoading: authLoading, isAuthenticated, token, login, logout } = useAdminAuth();
+  const { isLoading: authLoading, isAuthenticated, token, admin, login, logout } = useAdminAuth();
   const [isImporting, setIsImporting] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [isEnhancing, setIsEnhancing] = useState(false);
@@ -407,6 +408,7 @@ export default function Admin() {
             <TabsTrigger value="coupons"><Tag className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Coupons</span></TabsTrigger>
             <TabsTrigger value="flash-sale"><Zap className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Discounts</span></TabsTrigger>
             <TabsTrigger value="push"><Bell className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Push</span></TabsTrigger>
+            <TabsTrigger value="security"><ShieldCheck className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Security</span></TabsTrigger>
           </TabsList>
 
           <TabsContent value="users" className="mt-6"><UsersManagement adminToken={token} /></TabsContent>
@@ -872,6 +874,12 @@ export default function Admin() {
           <TabsContent value="push" className="mt-6">
             <div className="bg-card border border-border rounded-xl p-6">
               <PushBroadcaster adminToken={token} />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="security" className="mt-6">
+            <div className="bg-card border border-border rounded-xl p-6">
+              <AdminSecurity adminToken={token} adminEmail={admin?.username} onLogout={logout} />
             </div>
           </TabsContent>
         </Tabs>
