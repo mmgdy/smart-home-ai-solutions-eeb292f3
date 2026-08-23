@@ -24,6 +24,7 @@ import { BundlesEditor } from '@/components/admin/BundlesEditor';
 import { CouponEditor } from '@/components/admin/CouponEditor';
 import { FlashSaleEditor } from '@/components/admin/FlashSaleEditor';
 import { VariantsManager } from '@/components/admin/VariantsManager';
+import { AdminSecurity } from '@/components/admin/AdminSecurity';
 
 interface ProductExport {
   id: string;
