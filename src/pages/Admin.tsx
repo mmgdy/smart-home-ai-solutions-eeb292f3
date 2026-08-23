@@ -407,6 +407,7 @@ export default function Admin() {
             <TabsTrigger value="coupons"><Tag className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Coupons</span></TabsTrigger>
             <TabsTrigger value="flash-sale"><Zap className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Discounts</span></TabsTrigger>
             <TabsTrigger value="push"><Bell className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Push</span></TabsTrigger>
+            <TabsTrigger value="security"><ShieldCheck className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Security</span></TabsTrigger>
           </TabsList>
 
           <TabsContent value="users" className="mt-6"><UsersManagement adminToken={token} /></TabsContent>
