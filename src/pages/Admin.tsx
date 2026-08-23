@@ -875,6 +875,12 @@ export default function Admin() {
               <PushBroadcaster adminToken={token} />
             </div>
           </TabsContent>
+
+          <TabsContent value="security" className="mt-6">
+            <div className="bg-card border border-border rounded-xl p-6">
+              <AdminSecurity adminToken={token} adminEmail={admin?.username} onLogout={logout} />
+            </div>
+          </TabsContent>
         </Tabs>
       </div>
     </Layout>
