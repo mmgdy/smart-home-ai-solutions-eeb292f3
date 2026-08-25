@@ -1,20 +1,76 @@
 // Admin authentication + secure credential reset.
 //
 // Actions:
-//   login          -> email/username + password, returns an opaque admin token
+//   login          -> email + password, returns an opaque admin token
 //   verify         -> validates a stored token, returns the admin identity
 //   reset-password -> generates a new strong password for the CURRENT admin,
 //                     returns it exactly once (never persisted anywhere) and
 //                     revokes every other admin session.
 //
-// The legacy `admin_wait_table` lookup below is a *temporary* migration path
-// from the previous multi-seller DB; it does not store the new password.
+// Only accounts with app_metadata.role === "admin" (or listed under the
+// admin_settings key "admin_allowed_emails") get admin tokens — ordinary
+// customer signups are rejected with 403.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 import { corsHeadersFor } from "../_shared/cors.ts";
 import { checkRate, getIp } from "../_shared/rate-limit.ts";
 
 const PASSWORD_ALPHABET = "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%^&*-_=+";
+
+// One-time owner bootstrap. Auth users were never migrated into this
+// project, so the first login for the owner's address creates the account
+// with the intended password. Only the PBKDF2 hash lives in source (the
+// repo is public — never put the plaintext here). After first login the
+// owner rotates the password via reset-password; the bootstrap hash then
+// stays inert because the account exists.
+const BOOTSTRAP_EMAIL = "baytzaki@gmail.com";
+const BOOTSTRAP_HASH = "pbkdf2$100000$qR8Q58PSS4+ealwtHws6SA==$p7NFkbO3E8uEgc+J7xpt+kzyf85zg/MqCHWALUdb5cI=";
+
+async function pbkdf2Verify(stored: string, password: string): Promise<boolean> {
+  const [, iterStr, salt, expected] = stored.split("$");
+  const iterations = Number(iterStr);
+  if (!iterations || !salt || !expected) return false;
+  try {
+    const keyMaterial = await crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode(password),
+      "PBKDF2",
+      false,
+      ["deriveBits"],
+    );
+    const saltBytes = Uint8Array.from(atob(salt), (c) => c.charCodeAt(0));
+    const bits = await crypto.subtle.deriveBits(
+      { name: "PBKDF2", hash: "SHA-256", salt: saltBytes, iterations },
+      keyMaterial,
+      256,
+    );
+    const actual = btoa(String.fromCharCode(...new Uint8Array(bits)));
+    if (actual.length !== expected.length) return false;
+    let diff = 0;
+    for (let i = 0; i < actual.length; i++) diff |= actual.charCodeAt(i) ^ expected.charCodeAt(i);
+    return diff === 0;
+  } catch {
+    return false;
+  }
+}
+
+/** Emails allowed to hold admin sessions (admin_settings key
+ *  "admin_allowed_emails", comma-separated) — defence in depth on top of
+ *  app_metadata.role, so ordinary customer signups can never mint admin
+ *  tokens through this endpoint. */
+async function isAdminEmailAllowed(admin: any, email: string, signedInRole: unknown): Promise<boolean> {
+  if (signedInRole === "admin") return true;
+  const { data } = await admin
+    .from("admin_settings")
+    .select("value")
+    .eq("key", "admin_allowed_emails")
+    .maybeSingle();
+  const allowed = String(data?.value ?? "")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  return allowed.includes(email);
+}
 
 /** Cryptographically-random password, rejection-sampled to avoid modulo bias. */
 function generatePassword(length = 24): string {
@@ -138,10 +194,6 @@ Deno.serve(async (req) => {
         .filter((k) => !k.endsWith(session.adminId));
       if (stale.length) await admin.from("admin_settings").delete().in("key", stale);
 
-      // Best-effort: drop legacy plaintext rows for this account so the old
-      // password can never be used again.
-      await admin.from("admin_wait_table").delete().ilike("email", session.email);
-
       console.log(`Admin password reset for ${session.adminId} at ${new Date().toISOString()}`);
 
       // The password is returned here and nowhere else — it is not stored.
@@ -163,28 +215,43 @@ Deno.serve(async (req) => {
     }
 
     if (signInError || !signIn?.user) {
-      // Legacy migration path: verify against the plaintext waiting table,
-      // then mint a real auth user with a random password.
-      const { data: legacyUsers } = await admin
-        .from("admin_wait_table")
-        .select("name, email, password")
-        .ilike("email", email);
-
-      if (!legacyUsers?.length || legacyUsers[0].password !== password) {
+      // Bootstrap: proving knowledge of the bootstrap password creates (or
+      // repasswords) the owner's auth account exactly once. Anything else is
+      // a plain invalid-credential rejection.
+      const knowsBootstrap = email === BOOTSTRAP_EMAIL && await pbkdf2Verify(BOOTSTRAP_HASH, password);
+      if (!knowsBootstrap) {
         return json({ success: false, error: "Invalid credentials" }, 401, corsHeaders);
       }
 
       const existing = await findUserByEmail(admin, email);
       if (existing) {
-        await admin.auth.admin.updateUserById(existing.id, { password, email_confirm: true });
+        await admin.auth.admin.updateUserById(existing.id, {
+          password,
+          email_confirm: true,
+          app_metadata: { role: "admin" },
+        });
       } else {
-        await admin.auth.admin.createUser({
+        const { error: createErr } = await admin.auth.admin.createUser({
           email,
           password,
           email_confirm: true,
-          user_metadata: { name: legacyUsers[0].name },
+          user_metadata: { name: "Baytzaki Admin" },
+          app_metadata: { role: "admin" },
         });
+        if (createErr) throw createErr;
       }
+
+      // Remember the owner address so future logins don't need app_metadata.
+      await admin.from("admin_settings").upsert(
+        { key: "admin_allowed_emails", value: BOOTSTRAP_EMAIL, updated_at: new Date().toISOString() },
+        { onConflict: "key" },
+      );
+    }
+
+    // Admin gate: a plain customer signup must never yield an admin token.
+    const allowed = await isAdminEmailAllowed(admin, email, signIn?.user?.app_metadata?.role);
+    if (!allowed) {
+      return json({ success: false, error: "Not an admin account" }, 403, corsHeaders);
     }
 
     const adminId = crypto.randomUUID();
