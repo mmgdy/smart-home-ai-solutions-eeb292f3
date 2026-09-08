@@ -23,19 +23,29 @@ const Cart = () => {
         <Layout>
           <div className="container py-20 text-center">
             <div className="mx-auto max-w-md">
-              <ShoppingBag className="mx-auto mb-6 h-16 w-16 text-muted-foreground" />
-              <h1 className="mb-4 font-display text-2xl font-bold text-foreground">
+              <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-muted/50">
+                <ShoppingBag className="h-10 w-10 text-muted-foreground/60" />
+              </div>
+              <h1 className="mb-3 font-display text-2xl font-bold text-foreground">
                 {t('yourCartEmpty')}
               </h1>
-              <p className="mb-8 text-muted-foreground">
+              <p className="mb-8 text-sm text-muted-foreground">
                 {t('cartEmptyDesc')}
               </p>
-              <Link to="/products">
-                <Button className="gap-2">
-                  {t('browseProducts')}
-                  <NextArrow className="h-4 w-4" />
-                </Button>
-              </Link>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                <Link to="/products">
+                  <Button className="gap-2">
+                    {t('browseProducts')}
+                    <NextArrow className="h-4 w-4" />
+                  </Button>
+                </Link>
+                <Link to="/bundles">
+                  <Button variant="outline" className="gap-2">
+                    {isRTL ? 'الباقات المميزة' : 'Featured Bundles'}
+                    <NextArrow className="h-4 w-4" />
+                  </Button>
+                </Link>
+              </div>
             </div>
           </div>
         </Layout>

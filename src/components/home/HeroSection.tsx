@@ -159,7 +159,7 @@ export function HeroSection() {
         />
       </div>
 
-      <div className="container relative z-10 px-4 md:px-12 pt-24 md:pt-28 pb-24">
+      <div className="container relative z-10 px-4 md:px-12 pt-28 md:pt-32 pb-28 md:pb-32">
         <div className="max-w-5xl mx-auto text-center">
           {/* Badge */}
           <motion.div

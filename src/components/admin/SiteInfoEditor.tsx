@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Loader2, Save, Phone, Share2, Sparkles, Info, Wrench, Package } from "lucide-react";
+import { Loader2, Save, Upload, Image, Layout, Globe, Sparkles, ShieldCheck, UploadCloud, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,12 +10,7 @@ import { refreshSiteInfo } from "@/hooks/useSiteInfo";
 
 interface Props { adminToken: string; }
 
-const SECTIONS: Array<{
-  key: string;
-  title: string;
-  icon: any;
-  fields: Array<{ key: string; label: string; type?: "text" | "textarea" }>;
-}> = [
+const SECTIONS = [
   { key: "contact", title: "Contact info", icon: Phone, fields: [
     { key: "phone", label: "Phone (display)" },
     { key: "whatsapp", label: "WhatsApp number (digits only, e.g. 201234567890)" },

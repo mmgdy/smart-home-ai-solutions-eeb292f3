@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ShoppingCart, Menu, X, MessageCircle } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -19,12 +19,24 @@ export function Header() {
   const [logoSize, setLogoSize] = useState(100);
   const itemCount = useCart((state) => state.getItemCount());
   const { t, isRTL } = useLanguage();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50);
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const preventScroll = () => window.scrollTo(0, 0);
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('scroll', preventScroll, { passive: true });
+    return () => {
+      document.body.style.overflow = '';
+      window.removeEventListener('scroll', preventScroll);
+    };
+  }, [mobileMenuOpen]);
 
   useEffect(() => {
     const loadLogoSettings = async () => {
@@ -57,8 +69,8 @@ export function Header() {
     <header className={cn(
       "fixed top-0 left-0 right-0 z-50 transition-all duration-500",
       scrolled
-        ? "bg-background/90 backdrop-blur-xl border-b border-border/50"
-        : "bg-transparent"
+        ? "bg-background/90 backdrop-blur-xl border-b border-border/50 shadow-soft"
+        : "bg-background/70 backdrop-blur-md border-b border-border/30"
     )}>
       <div className="container flex h-16 md:h-20 items-center justify-between px-4 md:px-12">
         {/* Logo */}
@@ -120,33 +132,41 @@ export function Header() {
 
       {/* Mobile Navigation */}
       {mobileMenuOpen && (
-        <div className="fixed inset-0 top-16 bg-background/98 backdrop-blur-xl z-40 lg:hidden">
-          <nav className="flex flex-col items-center justify-center h-full gap-5 p-8 overflow-y-auto">
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                to={link.href}
-                onClick={() => setMobileMenuOpen(false)}
-                className="text-xl font-display font-bold text-foreground hover:text-primary transition-colors flex items-center gap-3"
-              >
-                <span>{link.icon}</span>
-                {link.label}
-              </Link>
-            ))}
-            <div className="mt-4 pt-4 border-t border-border w-full max-w-xs">
-              <Link to="/products" onClick={() => setMobileMenuOpen(false)} className="block text-center text-muted-foreground hover:text-foreground py-2">
-                {isRTL ? 'جميع المنتجات' : 'All Products'}
-              </Link>
-              <Link to="/calculator" onClick={() => setMobileMenuOpen(false)} className="block text-center text-muted-foreground hover:text-foreground py-2">
-                {isRTL ? 'حاسبة التكلفة' : 'Cost Calculator'}
-              </Link>
-              <div className="mt-3 flex flex-col items-center gap-2">
-                <AuthButton variant="outline" size="sm" />
-                <InstallAppButton />
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden"
+            onClick={() => setMobileMenuOpen(false)}
+            aria-hidden="true"
+          />
+          <div className="fixed inset-0 top-16 bg-background/98 backdrop-blur-xl z-50 lg:hidden">
+            <nav className="flex flex-col items-center justify-center h-full gap-5 p-8 overflow-y-auto">
+              {navLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  to={link.href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="text-xl font-display font-bold text-foreground hover:text-primary transition-colors flex items-center gap-3"
+                >
+                  <span>{link.icon}</span>
+                  {link.label}
+                </Link>
+              ))}
+              <div className="mt-4 pt-4 border-t border-border w-full max-w-xs">
+                <Link to="/products" onClick={() => setMobileMenuOpen(false)} className="block text-center text-muted-foreground hover:text-foreground py-2">
+                  {isRTL ? 'جميع المنتجات' : 'All Products'}
+                </Link>
+                <Link to="/calculator" onClick={() => setMobileMenuOpen(false)} className="block text-center text-muted-foreground hover:text-foreground py-2">
+                  {isRTL ? 'حاسبة التكلفة' : 'Cost Calculator'}
+                </Link>
+                <div className="mt-3 flex flex-col items-center gap-2">
+                  <AuthButton variant="outline" size="sm" />
+                  <InstallAppButton />
+                </div>
               </div>
-            </div>
-          </nav>
-        </div>
+            </nav>
+          </div>
+        </>
       )}
     </header>
   );

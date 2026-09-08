@@ -59,19 +59,19 @@ export function BrandShowcase() {
               >
                 {brand.logo_url ? (
                   <img
-                    src={brand.logo_url}
-                    alt={brand.name}
-                    className="max-h-10 max-w-[120px] object-contain grayscale group-hover:grayscale-0 opacity-60 group-hover:opacity-100 transition-all"
-                    onError={(e) => {
-                      const el = e.currentTarget as HTMLImageElement;
-                      el.style.display = 'none';
-                      el.nextElementSibling?.classList.remove('hidden');
-                    }}
-                  />
-                ) : null}
-                <span className={`font-display text-sm md:text-base font-bold tracking-tight text-muted-foreground/60 group-hover:text-foreground transition-colors ${brand.logo_url ? 'hidden' : ''}`}>
-                  {brand.name}
-                </span>
+                        src={brand.logo_url}
+                        alt={brand.name}
+                        className="max-h-10 max-w-[120px] object-contain grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-300 ease-out"
+                        onError={(e) => {
+                          const el = e.currentTarget as HTMLImageElement;
+                          el.style.display = 'none';
+                          el.nextElementSibling?.classList.remove('hidden');
+                        }}
+                      />
+                    ) : null}
+                    <span className={`font-display text-sm md:text-base font-bold tracking-tight text-muted-foreground/60 group-hover:text-foreground transition-colors duration-200 ${brand.logo_url ? 'hidden' : ''}`}>
+                      {brand.name}
+                    </span>
               </Link>
             </motion.div>
           ))}

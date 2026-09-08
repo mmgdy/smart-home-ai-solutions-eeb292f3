@@ -36,33 +36,49 @@ const queryClient = new QueryClient();
 
 // Reads favicon_url / app_icon_url from admin_settings and applies them to the
 // document head + dynamic web app manifest.
-function FaviconUpdater() {
+export function FaviconUpdater() {
   useEffect(() => {
     (async () => {
       const { data } = await supabase
         .from('admin_settings')
         .select('key, value')
-        .in('key', ['favicon_url', 'app_icon_url']);
+        .in('key', ['favicon_url', 'app_icon_url', 'logo_url']);
       const map: Record<string, string> = {};
       (data ?? []).forEach((r: any) => { if (r.value) map[r.key] = r.value; });
 
+      // Favicon
       if (map.favicon_url) {
         let link = document.querySelector("link[rel='icon']") as HTMLLinkElement | null;
         if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link); }
         link.href = map.favicon_url;
       }
 
+      // Apple touch icon (iOS home screen)
       if (map.app_icon_url) {
-        // Apple touch icon
         let apple = document.querySelector("link[rel='apple-touch-icon']") as HTMLLinkElement | null;
         if (!apple) { apple = document.createElement('link'); apple.rel = 'apple-touch-icon'; document.head.appendChild(apple); }
         apple.href = map.app_icon_url;
-        // NOTE: We intentionally do NOT swap the <link rel="manifest"> at runtime.
-        // Chrome requires a stable, same-origin manifest with reachable icons to fire
-        // `beforeinstallprompt`. Swapping to a blob: URL whose icons live on a
-        // cross-origin storage host suppresses the install prompt entirely.
-        // The admin-uploaded icon is still used as the apple-touch-icon (iOS home screen)
-        // above; for the Android install icon, replace /public/icons/icon-512.png in code.
+      }
+
+      // PWA manifest icons (update manifest.json at runtime)
+      if (map.logo_url || map.app_icon_url) {
+        try {
+          const manifestLink = document.querySelector("link[rel='manifest']") as HTMLLinkElement | null;
+          if (manifestLink) {
+            const resp = await fetch(manifestLink.href);
+            const manifest = await resp.json();
+            if (map.logo_url) manifest.short_name = "AzkaSmart";
+            if (map.app_icon_url) {
+              manifest.icons = [
+                { src: map.app_icon_url, sizes: "512x512", type: "image/png", purpose: "any" },
+                { src: map.app_icon_url, sizes: "512x512", type: "image/png", purpose: "maskable" },
+              ];
+            }
+            const blob = new Blob([JSON.stringify(manifest)], { type: "application/manifest+json" });
+            const blobUrl = URL.createObjectURL(blob);
+            manifestLink.href = blobUrl;
+          }
+        } catch { /* best-effort manifest update */ }
       }
     })();
   }, []);

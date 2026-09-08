@@ -227,7 +227,10 @@ const Products = () => {
                     <Filter className="h-4 w-4" />
                     {isRTL ? 'فلاتر' : 'Filters'}
                     {activeFilterCount > 0 && (
-                      <span className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
+                      <span className={cn(
+                        "absolute -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground",
+                        isRTL ? "-left-2" : "-right-2",
+                      )}>
                         {activeFilterCount}
                       </span>
                     )}

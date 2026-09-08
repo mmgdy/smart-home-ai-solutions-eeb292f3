@@ -265,8 +265,14 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('language', lang);
   };
 
-  const t = (key: keyof Translations): string => {
-    return translations[language][key] || translations.en[key] || key;
+  // Guard against keys missing from a given language pack.
+  const t = (key: keyof Translations, fallback?: string): string => {
+    const value = translations[language][key];
+    if (value !== undefined && value !== key) return value;
+    if (fallback !== undefined) return fallback;
+    const en = translations.en[key];
+    if (en !== undefined && en !== key) return en;
+    return key;
   };
 
   const formatPrice = (price: number): string => {

@@ -40,7 +40,10 @@ Deno.serve(async (req) => {
     );
 
     const authHeader = req.headers.get("Authorization") || "";
-    const token = authHeader.replace("Bearer ", "");
+    const bodyJson = await req.json().catch(() => ({}));
+    const bodyToken = typeof bodyJson.token === "string" ? bodyJson.token : undefined;
+    const headerToken = authHeader.replace("Bearer ", "");
+    const token = bodyToken || headerToken;
     if (!(await verifyAdminToken(supabase, token))) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },

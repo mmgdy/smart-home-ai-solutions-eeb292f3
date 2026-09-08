@@ -198,6 +198,17 @@
     animation: shimmer-gold 4s ease-in-out infinite;
   }
 
+  /* Smooth scroll + scroll-margin for fixed header offset */
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+  }
+  .scroll-margin-top-16 { scroll-margin-top: 4rem; }
+  .scroll-margin-top-20 { scroll-margin-top: 5rem; }
+
+  /* WhatsApp button sits above header but below modals */
+  .z-whatsapp { z-index: 45; }
+
   ::-webkit-scrollbar { width: 6px; }
   ::-webkit-scrollbar-track { background: hsl(var(--background)); }
   ::-webkit-scrollbar-thumb { background: hsl(var(--muted)); border-radius: 3px; }

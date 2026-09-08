@@ -37,7 +37,7 @@ export function UsersManagement({ adminToken }: { adminToken: string }) {
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("admin-users", {
-        body: { token: adminToken },
+        headers: { Authorization: "Bearer " + adminToken },
       });
       if (error || data?.error) throw new Error(data?.error || error?.message);
       setUsers(data.users || []);

@@ -17,8 +17,8 @@ export function WhatsAppButton() {
       target="_blank"
       rel="noopener noreferrer"
       className={cn(
-        "fixed bottom-6 z-50 flex items-center gap-2 px-5 py-3 rounded-full bg-[hsl(142,70%,45%)] text-[hsl(0,0%,100%)] shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 group",
-        isRTL ? "left-6" : "right-6"
+        "fixed bottom-6 z-whatsapp flex items-center gap-2 px-5 py-3 rounded-full bg-[hsl(142,70%,45%)] text-[hsl(0,0%,100%)] shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 group",
+        isRTL ? "left-6" : "right-6",
       )}
     >
       <MessageCircle className="h-5 w-5" />

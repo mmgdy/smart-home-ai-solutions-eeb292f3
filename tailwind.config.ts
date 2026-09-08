@@ -77,6 +77,10 @@ export default {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      scrollMargin: {
+        'top-16': '4rem',
+        'top-20': '5rem',
+      },
       keyframes: {
         "accordion-down": {
           from: { height: "0" },

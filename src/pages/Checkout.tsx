@@ -506,12 +506,18 @@ const Checkout = () => {
 
       {/* PaySky Payment Modal */}
       {paySkyCheckoutUrl && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.75)' }}>
-          <div className="relative bg-white rounded-xl overflow-hidden shadow-2xl p-6 text-center" style={{ width: '440px', maxWidth: '96vw' }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className={cn(
+            "relative bg-white rounded-xl overflow-hidden shadow-2xl p-6 text-center",
+            isRTL ? "border-l-4 border-primary" : "border-r-4 border-primary",
+          )} style={{ width: '100%', maxWidth: '440px' }}>
             <button
               type="button"
               onClick={() => { try { paySkyWindowRef.current?.close(); } catch {} setPaySkyCheckoutUrl(null); setIsProcessing(false); }}
-              className="absolute top-3 right-3 z-10 flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600"
+              className={cn(
+                "absolute top-3 z-10 flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600",
+                isRTL ? "right-3" : "left-3",
+              )}
               aria-label="Close payment"
             >
               <XIcon className="w-4 h-4" />
@@ -829,6 +835,7 @@ const Checkout = () => {
                       >
                         {couponLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                         {language === 'ar' ? 'تطبيق' : 'Apply'}
+                        <ArrowRight className={cn("ml-1 h-3 w-3 transition-transform hover:scale-110", language === 'ar' && "rotate-180 mr-1 ml-0")} />
                       </button>
                     </div>
                   )}

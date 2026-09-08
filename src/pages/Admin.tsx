@@ -153,8 +153,8 @@ export default function Admin() {
         return [
           (p.categories as any)?.name || 'Uncategorized', p.brand || 'Other', p.name,
           p.price, p.original_price || '', discount || '', p.stock, p.protocol || '',
-          p.featured ? 'Yes' : 'No', `https://baytzaki.com/products/${p.slug}`,
-          p.image_url || '', (p.description || '').replace(/"/g, '""').replace(/\n/g, ' ')
+          p.featured ? 'Yes' : 'No', `https://azkasmart.com/products/${p.slug}`,
+          p.image_url || '', (p.description || '').replace(/"/g, '""').replace(/\\n/g, ' ')
         ];
       });
 
@@ -162,11 +162,11 @@ export default function Admin() {
         headers.join(','),
         ...rows.map(row => 
           row.map(cell => 
-            typeof cell === 'string' && (cell.includes(',') || cell.includes('"') || cell.includes('\n'))
+            typeof cell === 'string' && (cell.includes(',') || cell.includes('"') || cell.includes('\\n'))
               ? `"${cell}"` : cell
           ).join(',')
         )
-      ].join('\n');
+      ].join('\\n');
 
       const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
@@ -175,7 +175,7 @@ export default function Admin() {
       
       const dateStr = new Date().toISOString().split('T')[0];
       const filterStr = selectedCategories.length > 0 || selectedBrands.length > 0 ? '-filtered' : '-all';
-      link.download = `baytzaki-products${filterStr}-${dateStr}.csv`;
+      link.download = `azkasmart-products${filterStr}-${dateStr}.csv`;
       
       document.body.appendChild(link);
       link.click();
@@ -433,6 +433,10 @@ export default function Admin() {
             <SiteInfoEditor adminToken={token} />
           </TabsContent>
 
+          <TabsContent value="branding" className="mt-6">
+            <SiteSettings adminToken={token} />
+          </TabsContent>
+
           <TabsContent value="settings" className="mt-6">
             <SiteSettings adminToken={token} onLogout={logout} />
           </TabsContent>
@@ -491,22 +495,14 @@ export default function Admin() {
                 <h3 className="font-semibold mb-4">Results ({priceUpdateResults.length} products checked)</h3>
                 <div className="space-y-2 max-h-96 overflow-y-auto">
                   {priceUpdateResults.map((item, i) => (
-                    <div key={i} className={`p-3 rounded-lg text-sm ${
-                      item.status === 'updated' ? 'bg-green-500/10' :
-                      item.status === 'no_price_found' ? 'bg-yellow-500/10' : 'bg-red-500/10'
-                    }`}>
+                    <div key={i} className={`p-3 rounded-lg text-sm ${item.status === 'updated' ? 'bg-green-500/10' : item.status === 'no_price_found' ? 'bg-yellow-500/10' : 'bg-red-500/10'}`}>
                       <div className="flex items-center justify-between mb-1">
                         <span className="font-medium truncate flex-1">{item.productName}</span>
-                        <span className={`text-xs capitalize ml-2 ${
-                          item.status === 'updated' ? 'text-green-600' : 
-                          item.status === 'no_price_found' ? 'text-yellow-600' : 'text-red-600'
-                        }`}>{item.status.replace(/_/g, ' ')}</span>
+                        <span className={`text-xs capitalize ml-2 ${item.status === 'updated' ? 'text-green-600' : item.status === 'no_price_found' ? 'text-yellow-600' : 'text-red-600'}`}>{item.status.replace(/_/g, ' ')}</span>
                       </div>
                       <div className="flex items-center gap-4 text-xs text-muted-foreground">
                         <span>Current: {item.currentPrice} EGP</span>
-                        {item.amazonPrice && (
-                          <><span>→</span><span className="text-green-600 font-medium">Amazon: {item.amazonPrice} EGP</span></>
-                        )}
+                        {item.amazonPrice && (<span>→ <span className="text-green-600 font-medium">Amazon: {item.amazonPrice} EGP</span></span>)}
                       </div>
                     </div>
                   ))}
@@ -533,9 +529,7 @@ export default function Admin() {
                     <div className="flex items-center gap-2 mb-2">
                       <Filter className="w-4 h-4" />
                       <span className="text-sm font-medium">Filter by Category:</span>
-                      {selectedCategories.length > 0 && (
-                        <button onClick={() => setSelectedCategories([])} className="text-xs text-primary hover:underline">Clear</button>
-                      )}
+                      {selectedCategories.length > 0 && <button onClick={() => setSelectedCategories([])} className="text-xs text-primary hover:underline">Clear</button>}
                     </div>
                     <div className="flex flex-wrap gap-3">
                       {exportStats.categories.map(cat => (
@@ -551,9 +545,7 @@ export default function Admin() {
                     <div className="flex items-center gap-2 mb-2">
                       <Filter className="w-4 h-4" />
                       <span className="text-sm font-medium">Filter by Brand:</span>
-                      {selectedBrands.length > 0 && (
-                        <button onClick={() => setSelectedBrands([])} className="text-xs text-primary hover:underline">Clear</button>
-                      )}
+                      {selectedBrands.length > 0 && <button onClick={() => setSelectedBrands([])} className="text-xs text-primary hover:underline">Clear</button>}
                     </div>
                     <div className="flex flex-wrap gap-3">
                       {exportStats.brands.map(brand => (
@@ -682,15 +674,11 @@ export default function Admin() {
                 <div className="mt-4 p-4 bg-muted/50 rounded-lg text-sm space-y-1">
                   <p>Scanned: <span className="font-medium">{purgeResults.scanned}</span> products ({purgeResults.urlsChecked} image URLs checked)</p>
                   <p>Found broken: <span className="font-medium text-destructive">{purgeResults.removeCount}</span></p>
-                  {purgeResults.removed > 0 && (
-                    <p className="text-green-600">Removed: <span className="font-medium">{purgeResults.removed}</span></p>
-                  )}
+                  {purgeResults.removed > 0 && <p className="text-green-600">Removed: <span className="font-medium">{purgeResults.removed}</span></p>}
                   {Array.isArray(purgeResults.toRemove) && purgeResults.toRemove.length > 0 && (
                     <div className="mt-2 space-y-1 max-h-72 overflow-y-auto">
                       {purgeResults.toRemove.map((item: any) => (
-                        <div key={item.id} className={`flex items-center justify-between gap-2 p-2 rounded ${
-                          item.reason === 'no_image' ? 'bg-red-500/10 text-red-600' : 'bg-yellow-500/10 text-yellow-600'
-                        }`}>
+                        <div key={item.id} className={`flex items-center justify-between gap-2 p-2 rounded ${item.reason === 'no_image' ? 'bg-red-500/10 text-red-600' : 'bg-yellow-500/10 text-yellow-600'}`}>
                           <span className="truncate flex-1">{item.name}</span>
                           <span className="text-xs capitalize shrink-0">{item.reason.replace('_', ' ')}</span>
                         </div>
@@ -706,10 +694,7 @@ export default function Admin() {
                 <h3 className="font-semibold mb-4">Results ({enhanceResults.length} products)</h3>
                 <div className="space-y-2 max-h-96 overflow-y-auto">
                   {enhanceResults.map((item, i) => (
-                    <div key={i} className={`p-3 rounded-lg text-sm flex items-center justify-between ${
-                      item.status === 'updated' ? 'bg-green-500/10 text-green-600' :
-                      item.status === 'no_image_found' ? 'bg-yellow-500/10 text-yellow-600' : 'bg-red-500/10 text-red-600'
-                    }`}>
+                    <div key={i} className={`p-3 rounded-lg text-sm flex items-center justify-between ${item.status === 'updated' ? 'bg-green-500/10 text-green-600' : item.status === 'no_image_found' ? 'bg-yellow-500/10 text-yellow-600' : 'bg-red-500/10 text-red-600'}`}>
                       <span className="truncate flex-1">{item.name}</span>
                       <span className="ml-2 capitalize">{item.status.replace('_', ' ')}</span>
                     </div>
@@ -772,33 +757,19 @@ export default function Admin() {
               </p>
 
               <div className="grid gap-3 sm:grid-cols-3 mb-6">
-                <Button
-                  onClick={() => handleMarketSync('discover-products')}
-                  disabled={isMarketSyncing}
-                  variant="outline"
-                  className="h-auto py-4 flex flex-col gap-2"
-                >
+                <Button onClick={() => handleMarketSync('discover-products')} disabled={isMarketSyncing} variant="outline" className="h-auto py-4 flex flex-col gap-2">
                   <Sparkles className="w-5 h-5" />
                   <span className="text-sm font-medium">Discover Products</span>
                   <span className="text-xs text-muted-foreground">Find new products</span>
                 </Button>
 
-                <Button
-                  onClick={() => handleMarketSync('update-prices')}
-                  disabled={isMarketSyncing}
-                  variant="outline"
-                  className="h-auto py-4 flex flex-col gap-2"
-                >
+                <Button onClick={() => handleMarketSync('update-prices')} disabled={isMarketSyncing} variant="outline" className="h-auto py-4 flex flex-col gap-2">
                   <DollarSign className="w-5 h-5" />
                   <span className="text-sm font-medium">Update Prices</span>
                   <span className="text-xs text-muted-foreground">Check current EGP prices</span>
                 </Button>
 
-                <Button
-                  onClick={() => handleMarketSync('full-sync')}
-                  disabled={isMarketSyncing}
-                  className="h-auto py-4 flex flex-col gap-2"
-                >
+                <Button onClick={() => handleMarketSync('full-sync')} disabled={isMarketSyncing} className="h-auto py-4 flex flex-col gap-2">
                   <RefreshCw className="w-5 h-5" />
                   <span className="text-sm font-medium">Full Sync</span>
                   <span className="text-xs text-muted-foreground">All categories + prices</span>
@@ -827,19 +798,10 @@ export default function Admin() {
                 </h3>
                 <div className="space-y-2 max-h-96 overflow-y-auto">
                   {marketSyncResults.map((item, i) => (
-                    <div key={i} className={`p-3 rounded-lg text-sm ${
-                      item.status === 'new_product_added' || item.status === 'added' ? 'bg-primary/10' :
-                      item.status === 'price_updated' || item.status === 'updated' ? 'bg-accent/20' :
-                      item.status === 'already_exists' || item.status === 'exists' || item.status === 'price_unchanged' ? 'bg-muted' :
-                      'bg-destructive/10'
-                    }`}>
+                    <div key={i} className={`p-3 rounded-lg text-sm ${item.status === 'new_product_added' || item.status === 'added' ? 'bg-primary/10' : item.status === 'price_updated' || item.status === 'updated' ? 'bg-accent/20' : item.status === 'already_exists' || item.status === 'exists' || item.status === 'price_unchanged' ? 'bg-muted' : 'bg-destructive/10'}`}>
                       <div className="flex items-center justify-between mb-1">
                         <span className="font-medium truncate flex-1">{item.name || item.category}</span>
-                        <span className={`text-xs capitalize ml-2 ${
-                          item.status === 'new_product_added' || item.status === 'added' ? 'text-primary' :
-                          item.status === 'price_updated' || item.status === 'updated' ? 'text-accent-foreground' :
-                          'text-muted-foreground'
-                        }`}>{item.status?.replace(/_/g, ' ')}</span>
+                        <span className={`text-xs capitalize ml-2 ${item.status === 'new_product_added' || item.status === 'added' ? 'text-primary' : item.status === 'price_updated' || item.status === 'updated' ? 'text-accent-foreground' : 'text-muted-foreground'}`}>{item.status?.replace(/_/g, ' ')}</span>
                       </div>
                       <div className="flex items-center gap-3 text-xs text-muted-foreground">
                         {item.brand && <span>{item.brand}</span>}
