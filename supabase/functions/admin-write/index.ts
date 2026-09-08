@@ -8,12 +8,28 @@ async function verifyAdminToken(supabase: any, token: string): Promise<boolean> 
   try {
     const decoded = atob(token);
     const [adminId] = decoded.split(":");
+    // Primary check: token stored in admin_settings
     const { data } = await supabase
       .from("admin_settings")
       .select("value")
       .eq("key", `admin_token_${adminId}`)
       .single();
-    return !!data && data.value === token;
+    if (data && data.value === token) return true;
+    // Fallback: check if this email exists in admin_users table
+    const { data: session } = await supabase
+      .from("admin_settings")
+      .select("value")
+      .eq("key", `admin_session_${adminId}`)
+      .maybeSingle();
+    if (session?.value) {
+      const { data: userRow } = await supabase
+        .from("admin_users")
+        .select("id")
+        .eq("email", session.value)
+        .maybeSingle();
+      if (userRow) return true;
+    }
+    return false;
   } catch {
     return false;
   }
@@ -21,7 +37,6 @@ async function verifyAdminToken(supabase: any, token: string): Promise<boolean> 
 
 async function generateSeoContentWithPollinations(contentType: string, topic: string, language: string): Promise<string> {
   const prompt = `Create ${contentType} for: ${topic}\n\nLanguage: ${language}\n\nRequirements:\n- SEO-friendly\n- Engaging and professional\n- Include relevant keywords\n- Appropriate length for the content type\n- Use proper formatting\n\nReturn only the content without any prefixes or explanations.`;
-
   return chatComplete([{ role: "user", content: prompt }], { maxTokens: 400 });
 }
 
@@ -30,7 +45,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   const ip = getIp(req);
-  const rate = checkRate(ip, { windowMs: 60000, maxRequests: 30 });
+  const rate = checkRate(ip, { windowMs: 60_000, maxRequests: 30 });
   if (!rate.ok) {
     return new Response(JSON.stringify({ success: false, error: "Rate limit exceeded" }), {
       status: 429,
@@ -52,6 +67,56 @@ Deno.serve(async (req) => {
     }
 
     const { action } = await req.json();
+
+    // ─── Orders CRUD ────────────────────────────────────────────────
+
+    if (action === "list-orders") {
+      const { data, error } = await supabase
+        .from("orders")
+        .select("id, email, total, status, created_at, shipping_address, stripe_session_id")
+        .order("created_at", { ascending: false })
+        .limit(200);
+      if (error) throw error;
+      return new Response(JSON.stringify({ success: true, data: data || [] }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "list-order-items") {
+      const { orderId } = await req.json();
+      const { data, error } = await supabase
+        .from("order_items")
+        .select("id, product_name, quantity, price")
+        .eq("order_id", orderId)
+        .order("id");
+      if (error) throw error;
+      return new Response(JSON.stringify({ success: true, data: data || [] }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "update-order-status") {
+      const { id, status } = await req.json();
+      const { error } = await supabase
+        .from("orders")
+        .update({ status, updated_at: new Date().toISOString() })
+        .eq("id", id);
+      if (error) throw error;
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "delete-order") {
+      const { id } = await req.json();
+      const { error } = await supabase.from("orders").delete().eq("id", id);
+      if (error) throw error;
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ─── Site content ───────────────────────────────────────────────
 
     if (action === "save-site-content") {
       const { content, section } = await req.json();
