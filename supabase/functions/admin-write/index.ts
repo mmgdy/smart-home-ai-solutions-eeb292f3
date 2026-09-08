@@ -66,7 +66,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { action } = await req.json();
+    const body = await req.json();
+    const { action } = body;
 
     // ─── Orders CRUD ────────────────────────────────────────────────
 
@@ -83,7 +84,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === "list-order-items") {
-      const { orderId } = await req.json();
+      const { orderId } = body;
       const { data, error } = await supabase
         .from("order_items")
         .select("id, product_name, quantity, price")
@@ -96,7 +97,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === "update-order-status") {
-      const { id, status } = await req.json();
+      const { id, status } = body;
       const { error } = await supabase
         .from("orders")
         .update({ status, updated_at: new Date().toISOString() })
@@ -108,7 +109,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === "delete-order") {
-      const { id } = await req.json();
+      const { id } = body;
       const { error } = await supabase.from("orders").delete().eq("id", id);
       if (error) throw error;
       return new Response(JSON.stringify({ success: true }), {
@@ -119,7 +120,7 @@ Deno.serve(async (req) => {
     // ─── Site content ───────────────────────────────────────────────
 
     if (action === "save-site-content") {
-      const { content, section } = await req.json();
+      const { content, section } = body;
       if (!content || !section) {
         return new Response(JSON.stringify({ success: false, error: "content and section required" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -138,7 +139,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === "generate-seo") {
-      const { topic, language = "en" } = await req.json();
+      const { topic, language = "en" } = body;
       if (!topic) {
         return new Response(JSON.stringify({ success: false, error: "topic required" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
