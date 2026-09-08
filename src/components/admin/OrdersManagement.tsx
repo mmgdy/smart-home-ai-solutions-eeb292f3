@@ -67,7 +67,8 @@ export const OrdersManagement = ({ adminToken }: Props) => {
   const fetchOrders = async () => {
     setLoading(true);
     const { data, error } = await supabase.functions.invoke('admin-write', {
-      body: { action: 'list-orders', token: adminToken },
+      headers: { Authorization: `Bearer ${adminToken}` },
+      body: { action: 'list-orders' },
     });
     if (error || !data?.success) {
       toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch orders' });
@@ -82,7 +83,8 @@ export const OrdersManagement = ({ adminToken }: Props) => {
   const fetchOrderItems = async (orderId: string) => {
     setLoadingItems(true);
     const { data, error } = await supabase.functions.invoke('admin-write', {
-      body: { action: 'list-order-items', token: adminToken, orderId },
+      headers: { Authorization: `Bearer ${adminToken}` },
+      body: { action: 'list-order-items', orderId },
     });
     if (error || !data?.success) {
       toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch order items' });
@@ -95,7 +97,8 @@ export const OrdersManagement = ({ adminToken }: Props) => {
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
     setUpdatingStatus(orderId);
     const { data, error } = await supabase.functions.invoke('admin-write', {
-      body: { action: 'update-order-status', token: adminToken, id: orderId, status: newStatus },
+      headers: { Authorization: `Bearer ${adminToken}` },
+      body: { action: 'update-order-status', id: orderId, status: newStatus },
     });
     if (error || !data?.success) {
       toast({ variant: 'destructive', title: 'Error', description: data?.error || error?.message || 'Failed to update order status' });
@@ -110,7 +113,8 @@ export const OrdersManagement = ({ adminToken }: Props) => {
     if (!confirm(`Delete order #${order.id.slice(0, 8)} from ${order.email}? This cannot be undone.`)) return;
     setDeletingId(order.id);
     const { data, error } = await supabase.functions.invoke('admin-write', {
-      body: { action: 'delete-order', token: adminToken, id: order.id },
+      headers: { Authorization: `Bearer ${adminToken}` },
+      body: { action: 'delete-order', id: order.id },
     });
     if (error || !data?.success) {
       toast({ variant: 'destructive', title: 'Delete failed', description: data?.error || error?.message });

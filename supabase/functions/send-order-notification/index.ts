@@ -1,6 +1,5 @@
 // Order confirmation / notification — sends Resend emails to admin + customer,
-// plus a best-effort push notification.  Merged from remote email features with
-// our security hardening (CORS allowlist, rate limiting, safe errors).
+// plus a best-effort push notification. Uses info@azkasmart.com for all emails.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { Resend } from "https://esm.sh/resend@2.0.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -9,6 +8,8 @@ import { checkRate, getIp } from "../_shared/rate-limit.ts";
 import { sendSingleNotification } from "../_shared/fcm.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+const ADMIN_EMAIL = "info@azkasmart.com";
+const FROM_EMAIL = "info@azkasmart.com";
 
 function escapeHtml(value: unknown): string {
   return String(value ?? "")
@@ -27,7 +28,8 @@ const handler = async (req: Request): Promise<Response> => {
   const rate = checkRate(ip, { windowMs: 60_000, maxRequests: 10 });
   if (!rate.ok) {
     return new Response(JSON.stringify({ error: "Too many requests" }), {
-      status: 429, headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": String(Math.ceil(rate.retryAfterMs / 1000)) },
+      status: 429,
+      headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": String(Math.ceil(rate.retryAfterMs / 1000)) },
     });
   }
 
@@ -35,20 +37,22 @@ const handler = async (req: Request): Promise<Response> => {
     const { orderId, paymentMethod } = await req.json();
     if (!orderId || typeof orderId !== "string") {
       return new Response(JSON.stringify({ error: "orderId required" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
     const { data: order, error: orderErr } = await supabase
       .from("orders").select("id, email, total, shipping_address, created_at")
       .eq("id", orderId).single();
     if (orderErr || !order) {
       return new Response(JSON.stringify({ error: "Order not found" }), {
-        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
     const { data: rawItems } = await supabase
@@ -84,9 +88,10 @@ const handler = async (req: Request): Promise<Response> => {
 
     const paymentLabel = (paymentMethod === "cod" || paymentMethod === "cash") ? "Cash on Delivery" : "Online Payment (PaySky)";
 
+    // Admin notification — sent to info@azkasmart.com
     const adminEmailHtml = `
       <!DOCTYPE html>
-      <html><head><meta charset="utf-8"><title>New Order - Baytzaki</title></head>
+      <html><head><meta charset="utf-8"><title>New Order - Azkasmart</title></head>
       <body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;background:#f5f5f5">
         <div style="background:#0f172a;padding:20px;border-radius:12px 12px 0 0;text-align:center">
           <h1 style="color:#00bfa5;margin:0">🛒 New Order Received!</h1>
@@ -118,15 +123,16 @@ const handler = async (req: Request): Promise<Response> => {
     `;
 
     const adminEmailResponse = await resend.emails.send({
-      from: "Baytzaki Orders <orders@baytzaki.com>",
-      to: ["info@baytzaki.com", "mmgdy20xx@gmail.com"],
+      from: `Azkasmart Orders <${FROM_EMAIL}>`,
+      to: [ADMIN_EMAIL],
       subject: `🛒 New Order #${orderId.slice(0, 8)} - ${total.toLocaleString()} EGP (${paymentLabel})`,
       html: adminEmailHtml,
     });
 
+    // Customer confirmation — sent to customer's email
     const customerEmailHtml = `
       <!DOCTYPE html>
-      <html><head><meta charset="utf-8"><title>Order Confirmation - Baytzaki</title></head>
+      <html><head><meta charset="utf-8"><title>Order Confirmation - Azkasmart</title></head>
       <body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;background:#f5f5f5">
         <div style="background:#0f172a;padding:20px;border-radius:12px 12px 0 0;text-align:center">
           <h1 style="color:#00bfa5;margin:0">✓ Order Confirmed!</h1>
@@ -155,15 +161,15 @@ const handler = async (req: Request): Promise<Response> => {
             Phone: ${escapeHtml(shippingAddress.phone)}
           </p>
           <div style="text-align:center;margin-top:30px">
-            <p style="color:#666">Questions? Contact us at <a href="mailto:info@baytzaki.com" style="color:#00bfa5">info@baytzaki.com</a></p>
+            <p style="color:#666">Questions? Contact us at <a href="mailto:${ADMIN_EMAIL}" style="color:#00bfa5">${ADMIN_EMAIL}</a></p>
           </div>
         </div>
-        <p style="text-align:center;color:#999;font-size:12px;margin-top:20px">© ${new Date().getFullYear()} Baytzaki. All rights reserved.</p>
+        <p style="text-align:center;color:#999;font-size:12px;margin-top:20px">© ${new Date().getFullYear()} Azkasmart. All rights reserved.</p>
       </body></html>
     `;
 
     const customerEmailResponse = await resend.emails.send({
-      from: "Baytzaki <orders@baytzaki.com>",
+      from: `Azkasmart <${FROM_EMAIL}>`,
       to: [email],
       subject: `Order Confirmed! #${orderId.slice(0, 8)}`,
       html: customerEmailHtml,

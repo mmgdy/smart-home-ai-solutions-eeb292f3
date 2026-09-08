@@ -1,4 +1,5 @@
 // Sends a one-time welcome email to a newly-registered user.
+// Uses info@azkasmart.com for all emails.
 import { Resend } from "https://esm.sh/resend@2.0.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeadersFor } from "../_shared/cors.ts";
@@ -17,6 +18,9 @@ function escapeHtml(v: unknown): string {
 const emailBuckets = new Map<string, { count: number; resetAt: number }>();
 const EMAIL_WINDOW_MS = 60_000;
 const EMAIL_MAX_PER_WINDOW = 5;
+
+const FROM_EMAIL = "info@azkasmart.com";
+const ADMIN_EMAIL = "info@azkasmart.com";
 
 Deno.serve(async (req) => {
   const corsHeaders = corsHeadersFor(req);
@@ -40,7 +44,8 @@ Deno.serve(async (req) => {
     const { email, name, language = "en" } = await req.json();
     if (!email) {
       return new Response(JSON.stringify({ error: "email required" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -71,11 +76,11 @@ Deno.serve(async (req) => {
     const html = isAr ? `
       <div style="font-family:'Tahoma',Arial,sans-serif;direction:rtl;max-width:600px;margin:0 auto;padding:20px;background:#f5f5f5;">
         <div style="background:#0f172a;padding:30px;border-radius:12px 12px 0 0;text-align:center;">
-          <h1 style="color:#00bfa5;margin:0;">أهلاً بك في بيت زكي 🏡</h1>
+          <h1 style="color:#00bfa5;margin:0;">أهلاً بك في أزكاسمارتي 🏡</h1>
         </div>
         <div style="background:#fff;padding:30px;border-radius:0 0 12px 12px;">
           <p style="font-size:16px;">مرحباً ${displayName}،</p>
-          <p>سعداء بانضمامك إلى عائلة بيت زكي - أول منصة بالذكاء الاصطناعي للمنازل الذكية في مصر.</p>
+          <p>سعداء بانضمامك إلى عائلة أزكاسمارتي - منصة المنازل الذكية في مصر.</p>
           <ul style="line-height:1.8;color:#555;">
             <li>🤖 استشارة مجانية مع المستشار الذكي</li>
             <li>🛒 أكثر من 580 منتج ذكي معتمد</li>
@@ -83,18 +88,18 @@ Deno.serve(async (req) => {
             <li>🔧 تركيب احترافي + ضمان رسمي سنتين</li>
           </ul>
           <div style="text-align:center;margin:30px 0;">
-            <a href="https://baytzaki.com/ai-consultant" style="background:#00bfa5;color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:bold;">ابدأ الاستشارة الذكية</a>
+            <a href="https://azkasmart.com/ai-consultant" style="background:#00bfa5;color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:bold;">ابدأ الاستشارة الذكية</a>
           </div>
-          <p style="color:#888;font-size:12px;text-align:center;">للمساعدة: <a href="mailto:info@baytzaki.com" style="color:#00bfa5;">info@baytzaki.com</a></p>
+          <p style="color:#888;font-size:12px;text-align:center;">للمساعدة: <a href="mailto:${ADMIN_EMAIL}" style="color:#00bfa5;">${ADMIN_EMAIL}</a></p>
         </div>
       </div>` : `
       <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;background:#f5f5f5;">
         <div style="background:#0f172a;padding:30px;border-radius:12px 12px 0 0;text-align:center;">
-          <h1 style="color:#00bfa5;margin:0;">Welcome to Baytzaki 🏡</h1>
+          <h1 style="color:#00bfa5;margin:0;">Welcome to Azkasmart 🏡</h1>
         </div>
         <div style="background:#fff;padding:30px;border-radius:0 0 12px 12px;">
           <p style="font-size:16px;">Hi ${displayName},</p>
-          <p>Welcome to Baytzaki — Egypt's first AI-powered Smart Home platform.</p>
+          <p>Welcome to Azkasmart — Egypt's smart home platform.</p>
           <ul style="line-height:1.8;color:#555;">
             <li>🤖 Free AI Smart Home Consultation</li>
             <li>🛒 580+ verified smart home products</li>
@@ -102,16 +107,16 @@ Deno.serve(async (req) => {
             <li>🔧 Pro installation + 2-year official warranty</li>
           </ul>
           <div style="text-align:center;margin:30px 0;">
-            <a href="https://baytzaki.com/ai-consultant" style="background:#00bfa5;color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:bold;">Start AI Consultation</a>
+            <a href="https://azkasmart.com/ai-consultant" style="background:#00bfa5;color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:bold;">Start AI Consultation</a>
           </div>
-          <p style="color:#888;font-size:12px;text-align:center;">Need help? <a href="mailto:info@baytzaki.com" style="color:#00bfa5;">info@baytzaki.com</a></p>
+          <p style="color:#888;font-size:12px;text-align:center;">Need help? <a href="mailto:${ADMIN_EMAIL}" style="color:#00bfa5;">${ADMIN_EMAIL}</a></p>
         </div>
       </div>`;
 
     const result = await resend.emails.send({
-      from: "Baytzaki <welcome@baytzaki.com>",
+      from: `Azkasmart <${FROM_EMAIL}>`,
       to: [email],
-      subject: isAr ? "أهلاً بك في بيت زكي 🏡" : "Welcome to Baytzaki 🏡",
+      subject: isAr ? "أهلاً بك في أزكاسمارتي 🏡" : "Welcome to Azkasmart 🏡",
       html,
     });
 
@@ -123,7 +128,8 @@ Deno.serve(async (req) => {
   } catch (e) {
     console.error("send-welcome-email error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
