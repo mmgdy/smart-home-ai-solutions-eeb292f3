@@ -51,16 +51,16 @@ export function BulkImporter({ adminToken }: { adminToken: string }) {
     let done = 0;
     for (const url of urls) {
       try {
-        // 1) Scrape the product
+        // 1) Scrape the product (uses publishable key — valid for client-side calls)
         const scrapeResp = await fetch(
           `${SUPABASE_URL}/functions/v1/scrape-product`,
           {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              Authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
+              Authorization: "Bearer " + SUPABASE_PUBLISHABLE_KEY,
             },
-            body: JSON.stringify({ url, adminToken }),
+            body: JSON.stringify({ url }),
           }
         );
         const scraped = await scrapeResp.json();
