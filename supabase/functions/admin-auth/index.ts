@@ -200,7 +200,83 @@ Deno.serve(async (req) => {
       return json({ success: true, email: session.email, password: newPassword }, 200, corsHeaders);
     }
 
-    // ----------------------------------------------------------------- login
+    // ----------------------------------------------------------------- setup
+    if (action === "setup") {
+      // Allow setup on first run (no admins yet) or with a valid setup token
+      const { data: allowed } = await admin
+        .from("admin_settings")
+        .select("value")
+        .eq("key", "admin_allowed_emails")
+        .maybeSingle();
+      const emails = allowed
+        ? String(allowed.value).split(",").map((s) => s.trim()).filter(Boolean)
+        : [];
+      const isFirstRun = emails.length === 0;
+
+      if (!isFirstRun) {
+        const setupToken = Deno.env.get("SETUP_TOKEN");
+        if (!setupToken || body.setupToken !== setupToken) {
+          return json(
+            { success: false, error: "Setup requires a valid setup token" },
+            403,
+            corsHeaders,
+          );
+        }
+      }
+
+      const email = String(body.email ?? "").trim().toLowerCase();
+      const password = String(body.password ?? "");
+      if (!email || !password) {
+        return json({ success: false, error: "Email and password are required" }, 400, corsHeaders);
+      }
+
+      // Create or update the auth user
+      const existing = await findUserByEmail(admin, email);
+      if (existing) {
+        await admin.auth.admin.updateUserById(existing.id, {
+          password,
+          email_confirm: true,
+          app_metadata: { role: "admin" },
+        });
+      } else {
+        const { error: createErr } = await admin.auth.admin.createUser({
+          email,
+          password,
+          email_confirm: true,
+          user_metadata: { name: "Baytzaki Admin" },
+          app_metadata: { role: "admin" },
+        });
+        if (createErr) throw createErr;
+      }
+
+      // Register as admin
+      await admin.from("admin_settings").upsert(
+        {
+          key: "admin_allowed_emails",
+          value: email,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "key" },
+      );
+
+      // Create admin session token
+      const adminId = crypto.randomUUID();
+      const token = makeToken(adminId);
+      const now = new Date().toISOString();
+      await admin.from("admin_settings").upsert(
+        [
+          { key: `admin_token_${adminId}`, value: token, updated_at: now },
+          { key: `admin_session_${adminId}`, value: email, updated_at: now },
+        ],
+        { onConflict: "key" },
+      );
+
+      return json(
+        { success: true, token, adminId, admin: { id: adminId, username: email } },
+        200,
+        corsHeaders,
+      );
+    }
     const email = String(body.email ?? body.username ?? "").trim().toLowerCase();
     const password = String(body.password ?? "");
     if (!email || !password) {
@@ -246,6 +322,40 @@ Deno.serve(async (req) => {
         { key: "admin_allowed_emails", value: BOOTSTRAP_EMAIL, updated_at: new Date().toISOString() },
         { onConflict: "key" },
       );
+    }
+
+    // Send login confirmation email
+    try {
+      const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+      if (RESEND_API_KEY) {
+        const Resend = (await import("https://esm.sh/resend@2.0.0")).default;
+        const resend = new Resend(RESEND_API_KEY);
+        const adminEmailHtml = `
+          <!DOCTYPE html>
+          <html><head><meta charset="utf-8"><title>Admin Login - Baytzaki</title></head>
+          <body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;background:#f5f5f5">
+            <div style="background:#0f172a;padding:20px;border-radius:12px 12px 0 0;text-align:center">
+              <h1 style="color:#00bfa5;margin:0">🔐 Admin Login</h1>
+            </div>
+            <div style="background:#fff;padding:30px;border-radius:0 0 12px 12px;box-shadow:0 4px 6px rgba(0,0,0,0.1)">
+              <p style="color:#666">An admin login was performed on your Baytzaki account.</p>
+              <div style="background:#0f172a;color:#fff;padding:15px;border-radius:8px;margin:20px 0">
+                <p style="margin:0;font-size:16px"><strong>Email:</strong> ${escapeHtml(email)}</p>
+                <p style="margin:5px 0 0;font-size:14px;opacity:.9">Time: ${new Date().toLocaleString("en-EG")}</p>
+              </div>
+              <p style="color:#666;font-size:12px;text-align:center;margin-top:20px">If this was not you, immediately reset your password from the Security tab in the admin panel.</p>
+            </div>
+          </body></html>
+        `;
+        await resend.emails.send({
+          from: "Baytzaki Admin <admin@azkasmart.com>",
+          to: ["info@azkasmart.com"],
+          subject: `🔐 Admin Login - ${email}`,
+          html: adminEmailHtml,
+        });
+      }
+    } catch (e) {
+      console.warn("Admin login email failed (non-fatal):", e);
     }
 
     // Admin gate: a plain customer signup must never yield an admin token.
