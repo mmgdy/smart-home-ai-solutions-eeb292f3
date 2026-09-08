@@ -1,7 +1,7 @@
 // find-web-sources — public, rate-limited product web-source finder.
 // Takes { brand?, name, protocol?, locale? } and returns ranked external
 // pages (retailers, reviews, manuals) about the same product, scraped from
-// DuckDuckGo + Bing HTML using the same keyless pattern as enhance-products.
+// DuckDuckGo HTML only (keyless).
 
 import { corsHeadersFor } from "../_shared/cors.ts";
 import { checkRate, getIp } from "../_shared/rate-limit.ts";
@@ -18,7 +18,7 @@ const RETAILER_HOSTS = /(?:^|\.)(?:amazon\.[a-z.]+|noon\.com|jumia\.com\.eg|souq
 // Review / forum / manual sites (medium boost).
 const REVIEW_HOSTS = /(?:^|\.)(?:reddit\.com|quora\.com|cnet\.com|theverge\.com|tomsguide\.com|wirecutter\.com|nytimes\.com|manuals\.plus|manualsonline\.com|youtube\.com|rtings\.com|techradar\.com)$/i;
 // Never surface these.
-const BLOCKED_HOSTS = /(?:^|\.)(?:baytzaki\.com|duckduckgo\.com|bing\.com|microsoft\.com|live\.com|msn\.com|google\.[a-z.]+|facebook\.com|instagram\.com|tiktok\.com|pinterest\.[a-z.]+|x\.com|twitter\.com)$/i;
+const BLOCKED_HOSTS = /(?:^|\.)(?:baytzaki\.com|duckduckgo\.com|bing\.com|microsoft\.com|live\.com|msn\.com|google\.[a-z.]+|facebook\.com|instagram\.com|tiktok\.com|pinterest\.[a-z]+|x\.com|twitter\.com)$/i;
 
 interface Source {
   title: string;
@@ -153,8 +153,6 @@ const searchBing = async (query: string): Promise<RawHit[]> => {
       const block = match[1];
       const linkMatch = block.match(/<a[^>]+href=["'](https?:\/\/[^"']+)["'][^>]*>([\s\S]*?)<\/a>/i);
       if (!linkMatch) continue;
-      // The raw href carries &amp; entities — decode them or the u= param
-      // of the ck/a redirect never parses and the URL stays bing.com.
       const url = unwrapBingUrl(decodeEntities(linkMatch[1]));
       if (!/^https?:\/\//i.test(url)) continue;
       const title = stripHtml(linkMatch[2]);
@@ -165,76 +163,6 @@ const searchBing = async (query: string): Promise<RawHit[]> => {
     return hits;
   } catch (e) {
     console.warn("Bing search failed:", e);
-    return [];
-  }
-};
-
-// Perplexity sonar — keyed engine with live web search. With
-// return_citations the API reports the actual pages it consulted in
-// `search_results`, so the URLs are real (not generated). Uses the
-// PERPLEXITY_API_KEY secret already configured for update-prices-amazon.
-const searchPerplexity = async (query: string): Promise<RawHit[]> => {
-  const key = Deno.env.get("PERPLEXITY_API_KEY");
-  if (!key) return [];
-  try {
-    const resp = await fetch("https://api.perplexity.ai/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${key}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "sonar",
-        messages: [
-          {
-            role: "user",
-            content: `Find web pages about this product (retailers, reviews, official pages): ${query}. List the most relevant pages.`,
-          },
-        ],
-        return_citations: true,
-        temperature: 0.1,
-      }),
-    });
-    if (!resp.ok) throw new Error(`Perplexity ${resp.status}`);
-    const payload = await resp.json();
-    const results = payload?.search_results ?? [];
-    return results
-      .map((r: any) => ({
-        url: String(r?.url ?? ""),
-        title: String(r?.title ?? ""),
-        snippet: "",
-      }))
-      .filter((r: RawHit) => /^https?:\/\//i.test(r.url));
-  } catch (e) {
-    console.warn("Perplexity search failed:", e);
-    return [];
-  }
-};
-
-// Firecrawl search — keyed fallback used only when every keyless engine
-// comes back empty (datacenter IPs sometimes get challenged by DDG/Bing).
-// Uses the FIRECRAWL_API_KEY secret already configured for crawl-catalog.
-const searchFirecrawl = async (query: string): Promise<RawHit[]> => {
-  const key = Deno.env.get("FIRECRAWL_API_KEY");
-  if (!key) return [];
-  try {
-    const resp = await fetch("https://api.firecrawl.dev/v2/search", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${key}`,
-      },
-      body: JSON.stringify({ query, limit: 10 }),
-    });
-    if (!resp.ok) throw new Error(`Firecrawl ${resp.status}`);
-    const payload = await resp.json();
-    return (payload?.data ?? []).map((r: any) => ({
-      url: String(r?.url ?? ""),
-      title: String(r?.title ?? ""),
-      snippet: String(r?.description ?? ""),
-    })).filter((r: RawHit) => /^https?:\/\//i.test(r.url));
-  } catch (e) {
-    console.warn("Firecrawl search failed:", e);
     return [];
   }
 };
@@ -291,7 +219,7 @@ const rankSources = (hits: RawHit[]): Source[] => {
     const snippet = truncate(hit.snippet || "", SNIPPET_MAX);
     const existing = byUrl.get(hit.url);
     if (existing) {
-      existing.score += 1; // found by both engines — small boost
+      existing.score += 1;
       if (!existing.snippet && snippet) existing.snippet = snippet;
       return;
     }
@@ -300,7 +228,6 @@ const rankSources = (hits: RawHit[]): Source[] => {
       title,
       snippet,
       source: host.replace(/^www\./, ""),
-      // Earlier results rank slightly higher.
       score: score + Math.max(0, 3 - Math.floor(index / 3)),
     });
   });
@@ -344,19 +271,6 @@ Deno.serve(async (req) => {
     ]);
 
     let hits = [...ddgHits, ...liteHits, ...bingHits].filter((h) => isRelevant(h, tokens));
-    let firecrawlCount = 0;
-    let perplexityCount = 0;
-    if (hits.length < 3) {
-      const pplxHits = (await searchPerplexity(query)).filter((h) => isRelevant(h, tokens));
-      perplexityCount = pplxHits.length;
-      hits = [...hits, ...pplxHits];
-    }
-    if (hits.length < 3) {
-      const fcHits = (await searchFirecrawl(query)).filter((h) => isRelevant(h, tokens));
-      firecrawlCount = fcHits.length;
-      hits = [...hits, ...fcHits];
-    }
-
     const sources = rankSources(hits);
 
     return new Response(
@@ -368,8 +282,6 @@ Deno.serve(async (req) => {
           ddg: ddgHits.length,
           ddgLite: liteHits.length,
           bing: bingHits.length,
-          perplexity: perplexityCount,
-          firecrawl: firecrawlCount,
           kept: hits.length,
         },
       }),

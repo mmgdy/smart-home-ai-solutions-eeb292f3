@@ -21,7 +21,9 @@ dist-ssr
 .tools/
 supabase/.temp/
 
-# Editor directories and files
+# Helper scripts
+fix_ai_headers.py
+scripts/
 .vscode/*
 !.vscode/extensions.json
 .idea

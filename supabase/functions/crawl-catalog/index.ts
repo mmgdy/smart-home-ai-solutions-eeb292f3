@@ -4,8 +4,6 @@ import { corsHeadersFor } from "../_shared/cors.ts";
 import { checkRate, getIp } from "../_shared/rate-limit.ts";
 import { chatCompleteRaw } from "../_shared/ai.ts";
 
-const FIRECRAWL = "https://api.firecrawl.dev/v2";
-
 async function verifyAdminToken(supabase: any, token: string): Promise<boolean> {
   if (!token) return false;
   try {
@@ -29,14 +27,8 @@ const normalizeArray = (value: any): any[] => Array.isArray(value) ? value : [];
 
 function normalizeSearchHits(payload: any): any[] {
   const candidates = [
-    payload?.data,
-    payload?.data?.web,
-    payload?.data?.results,
-    payload?.data?.data,
-    payload?.web,
-    payload?.web?.results,
-    payload?.results,
-    payload?.organic,
+    payload?.data, payload?.data?.web, payload?.data?.results, payload?.data?.data,
+    payload?.web, payload?.web?.results, payload?.results, payload?.organic,
   ];
   for (const candidate of candidates) {
     if (Array.isArray(candidate)) return candidate;
@@ -50,31 +42,75 @@ function normalizeSearchHits(payload: any): any[] {
 
 const hitUrl = (hit: any) => hit?.url || hit?.link || hit?.sourceURL || hit?.metadata?.sourceURL || "";
 const hitText = (hit: any) => hit?.markdown || hit?.description || hit?.snippet || hit?.title || "";
-const cleanImages = (...values: any[]) => Array.from(new Set(values.flatMap((value) => {
-  if (!value) return [];
-  if (Array.isArray(value)) return value;
-  return [value];
-}).filter((url) => typeof url === "string" && /^https?:\/\//i.test(url))));
 
-const imageUrlsFromHtml = (html: string) => cleanImages(
-  ...Array.from(html.matchAll(/<meta[^>]+(?:property|name)=["'](?:og:image|twitter:image)["'][^>]+content=["']([^"']+)["']/gi)).map((m) => m[1]),
-  ...Array.from(html.matchAll(/<img[^>]+src=["']([^"']+)["']/gi)).map((m) => m[1])
-).slice(0, 8);
+const cleanImages = (...values: any[]): string[] => {
+  const all = values.flatMap((value) => {
+    if (!value) return [];
+    if (Array.isArray(value)) return value;
+    return [value];
+  });
+  return Array.from(new Set(all.filter((url) => typeof url === "string" && /^https?:\/\//i.test(url))));
+};
+
+const imageUrlsFromHtml = (html: string): string[] =>
+  cleanImages(
+    ...Array.from(html.matchAll(/<meta[^>]+(?:property|name)=["'](?:og:image|twitter:image)["'][^>]+content=["']([^"']+)["']/gi)).map((m) => m[1]),
+    ...Array.from(html.matchAll(/<img[^>]+src=["']([^"']+)["']/gi)).map((m) => m[1])
+  ).slice(0, 8);
 
 async function responseSnippet(resp: Response) {
   const text = await resp.text().catch(() => "");
   return text.substring(0, 240) || resp.statusText;
 }
 
-function isFirecrawlLimit(status: number) {
-  return status === 402 || status === 429 || status === 408;
-}
+// Keyless DuckDuckGo HTML search
+const BROWSER_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
-function firecrawlLimitMessage(status: number) {
-  if (status === 402) return "Firecrawl credits are exhausted, so product search cannot continue.";
-  if (status === 429) return "Firecrawl rate limit reached. Please wait and try again.";
-  return "Firecrawl request timed out. Please retry with a smaller batch.";
-}
+const decodeDuckDuckGoUrl = (rawUrl: string): string => {
+  try {
+    const parsed = new URL(rawUrl, "https://duckduckgo.com");
+    const uddg = parsed.searchParams.get("uddg");
+    return uddg ? decodeURIComponent(uddg) : parsed.toString();
+  } catch {
+    const match = rawUrl.match(/uddg=([^&]+)/);
+    return match ? decodeURIComponent(match[1]) : rawUrl;
+  }
+};
+
+const decodeEntities = (value: string): string => {
+  return value
+    .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, " ")
+    .replace(/&#x27;/g, "'").replace(/&#x2F;/g, "/");
+};
+
+const stripHtml = (value: string): string =>
+  decodeEntities(value.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ")).trim();
+
+const searchDuckDuckGo = async (query: string): Promise<{ url: string; title: string; snippet: string }[]> => {
+  try {
+    const html = await fetch(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`, {
+      headers: { "User-Agent": BROWSER_UA, "Accept-Language": "en-US,en;q=0.9" },
+    });
+    if (!html.ok) return [];
+    const text = await html.text();
+    const results: { url: string; title: string; snippet: string }[] = [];
+    const blocks = text.split(/class=["'][^"']*result__body/i).slice(1);
+    for (const block of blocks) {
+      const linkMatch = block.match(/<a[^>]+class=["'][^"']*result__a[^"']*["'][^>]+href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/i);
+      if (!linkMatch) continue;
+      const url = decodeDuckDuckGoUrl(linkMatch[1]);
+      if (!/^https?:\/\//i.test(url)) continue;
+      const title = stripHtml(linkMatch[2]);
+      const snippetMatch = block.match(/class=["'][^"']*result__snippet[^"']*["'][^>]*>([\s\S]*?)<\/a>/i);
+      results.push({ url, title, snippet: snippetMatch ? stripHtml(snippetMatch[1]) : "" });
+      if (results.length >= 5) break;
+    }
+    return results;
+  } catch {
+    return [];
+  }
+};
 
 async function mirrorImage(supabase: any, imageUrl: string, productId: string) {
   try {
@@ -92,7 +128,7 @@ async function mirrorImage(supabase: any, imageUrl: string, productId: string) {
   }
 }
 
-async function extractProductWithAI(markdown: string, sourceUrl: string, apiKey: string) {
+async function extractProductWithAI(markdown: string, sourceUrl: string): Promise<any> {
   const truncated = markdown.substring(0, 18000);
   const data = await chatCompleteRaw({
     messages: [
@@ -146,17 +182,11 @@ Deno.serve(async (req) => {
 
     if (!(await verifyAdminToken(supabase, token))) {
       return new Response(JSON.stringify({ success: false, error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
     }
 
-    const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!FIRECRAWL_API_KEY) throw new Error("FIRECRAWL_API_KEY not configured");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
-
     // ============= MODE: fix-existing =============
-    // Re-process existing products: search the web for each, fetch real image + realistic EGP price.
     if (mode === "fix-existing") {
       const { data: products } = await supabase
         .from("products")
@@ -166,7 +196,7 @@ Deno.serve(async (req) => {
 
       if (!products || products.length === 0) {
         return new Response(JSON.stringify({ success: true, results: [], processed: 0 }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
       }
 
@@ -177,63 +207,32 @@ Deno.serve(async (req) => {
         const batchResults = await Promise.all(slice.map(async (p) => {
           try {
             const query = `${p.brand || ""} ${p.name}`.trim();
-            // 1) Web search via Firecrawl to find a product page with real images
-            const searchResp = await fetch(`${FIRECRAWL}/search`, {
-              method: "POST",
-              headers: { Authorization: `Bearer ${FIRECRAWL_API_KEY}`, "Content-Type": "application/json" },
-              body: JSON.stringify({
-                query: `${query} smart home product price image official store OR amazon OR aliexpress OR ebay OR noon OR jumia`,
-                limit: 8,
-                scrapeOptions: { formats: ["markdown", "html"] },
-              }),
-            });
-            if (!searchResp.ok) {
-              const detail = await responseSnippet(searchResp);
-              return {
-                id: p.id,
-                name: p.name,
-                success: false,
-                fatal: isFirecrawlLimit(searchResp.status),
-                error: isFirecrawlLimit(searchResp.status)
-                  ? firecrawlLimitMessage(searchResp.status)
-                  : `Firecrawl search failed (${searchResp.status}): ${detail}`,
-              };
-            }
-            const searchData = await searchResp.json();
-            const hits = normalizeSearchHits(searchData);
-            if (hits.length === 0) return { id: p.id, name: p.name, success: false, error: "no results" };
+            // 1) Keyless web search to find product pages
+            const ddgHits = await searchDuckDuckGo(`${query} smart home product price image official store`);
+            if (ddgHits.length === 0) return { id: p.id, name: p.name, success: false, error: "no search results" };
 
-            // Concatenate top hits' content so pricing can come from any global store.
-            const combined = hits.slice(0, 5).map((h) => `URL: ${hitUrl(h)}\n\n${hitText(h)}`).join("\n\n---\n\n");
-            const sourceUrl = hitUrl(hits[0]);
+            const sourceUrl = ddgHits[0].url;
 
-            // 2) Get metadata (image) from the top hit via scrape if no image yet
-            let bestImage: string | null = null;
+            // 2) Fetch the product page HTML
+            let pageHtml = "";
             try {
-              const scrapeResp = await fetch(`${FIRECRAWL}/scrape`, {
-                method: "POST",
-                headers: { Authorization: `Bearer ${FIRECRAWL_API_KEY}`, "Content-Type": "application/json" },
-                body: JSON.stringify({ url: sourceUrl, formats: ["markdown", "html"], onlyMainContent: false, waitFor: 1000 }),
+              const pageResp = await fetch(sourceUrl, {
+                headers: { "User-Agent": BROWSER_UA, "Accept": "text/html,application/xhtml+xml" },
               });
-              if (!scrapeResp.ok && isFirecrawlLimit(scrapeResp.status)) {
-                return {
-                  id: p.id,
-                  name: p.name,
-                  success: false,
-                  fatal: true,
-                  error: firecrawlLimitMessage(scrapeResp.status),
-                };
-              }
-              if (scrapeResp.ok) {
-                const sd = await scrapeResp.json();
-                const meta = sd.data?.metadata || sd.metadata || {};
-                const html = sd.data?.html || sd.html || "";
-                bestImage = cleanImages(meta.ogImage, meta["og:image"], meta.twitterImage, meta.image, imageUrlsFromHtml(html))?.[0] || null;
-              }
+              if (pageResp.ok) pageHtml = await pageResp.text();
             } catch { /* ignore */ }
 
-            // 3) AI extracts realistic EGP price + best image URL from the markdown
-            const product = await extractProductWithAI(combined, sourceUrl, LOVABLE_API_KEY);
+            // 3) Extract best image from page HTML metadata
+            let bestImage: string | null = null;
+            if (pageHtml) {
+              const ogMatch = pageHtml.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i);
+              if (ogMatch) bestImage = ogMatch[1];
+              const twMatch = pageHtml.match(/<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i);
+              if (twMatch && !bestImage) bestImage = twMatch[1];
+            }
+
+            // 4) AI extracts realistic EGP price + best image URL from the markdown
+            const product = await extractProductWithAI(pageHtml || ddgHits[0].snippet || "", sourceUrl);
             if (!product) return { id: p.id, name: p.name, success: false, error: "AI no extract" };
 
             const newImages = cleanImages(bestImage, product.image_url, product.images, p.image_url);
@@ -264,47 +263,27 @@ Deno.serve(async (req) => {
           }
         }));
         results.push(...batchResults);
-        if (batchResults.some((r) => r.fatal)) break;
       }
 
-      const fatalResult = results.find((r) => r.fatal);
-
       return new Response(JSON.stringify({
-        success: !fatalResult,
-        error: fatalResult?.error,
-        mode: "fix-existing",
-        processed: results.length,
-        updated: results.filter((r) => r.success).length,
-        results,
+        success: true, mode: "fix-existing", processed: results.length,
+        updated: results.filter((r) => r.success).length, results,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Step 1: Map the site to discover URLs
-    console.log(`Mapping ${rootUrl}...`);
-    const mapResp = await fetch(`${FIRECRAWL}/map`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${FIRECRAWL_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        url: rootUrl,
-        search: urlFilter || "product",
-        limit: 200,
-        includeSubdomains: false,
-      }),
-    });
+    // Step 1: Keyless web search to discover product URLs
+    const searchQuery = `${urlFilter || "product"} ${rootUrl}`.trim();
+    const ddgHits = await searchDuckDuckGo(searchQuery);
 
-    if (!mapResp.ok) {
-      const t = await mapResp.text();
-      throw new Error(`Firecrawl map failed (${mapResp.status}): ${t.substring(0, 300)}`);
+    if (ddgHits.length === 0) {
+      return new Response(JSON.stringify({
+        success: false, error: "No product URLs found via keyless search. Try a more specific URL or different filter.",
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const mapData = await mapResp.json();
-    const allLinks: string[] = (mapData.links || mapData.data?.links || []).map((l: any) =>
-      typeof l === "string" ? l : l.url
-    );
-
     // Filter to likely product pages
-    const productLinks = allLinks
-      .filter((u) => u && /product|item|p\/|dp\/|shop/i.test(u))
+    const productLinks = ddgHits
+      .filter((h) => /product|item|p\/|dp\/|shop/i.test(h.url))
       .slice(0, maxProducts);
 
     console.log(`Found ${productLinks.length} candidate product URLs`);
@@ -313,7 +292,7 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({
         success: false,
         error: "No product URLs found. Try a more specific URL or different filter.",
-        discoveredLinks: allLinks.slice(0, 20),
+        discoveredLinks: ddgHits.slice(0, 20).map((h) => h.url),
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -324,41 +303,24 @@ Deno.serve(async (req) => {
       const batch = productLinks.slice(i, i + BATCH);
       const batchResults = await Promise.all(batch.map(async (purl) => {
         try {
-          const scrapeResp = await fetch(`${FIRECRAWL}/scrape`, {
-            method: "POST",
-            headers: { Authorization: `Bearer ${FIRECRAWL_API_KEY}`, "Content-Type": "application/json" },
-            body: JSON.stringify({
-              url: purl,
-              formats: ["markdown"],
-              onlyMainContent: true,
-            }),
+          const scrapeResp = await fetch(purl.url, {
+            headers: { "User-Agent": BROWSER_UA, "Accept": "text/html,application/xhtml+xml" },
           });
-          if (!scrapeResp.ok) {
-            return { url: purl, success: false, error: `scrape ${scrapeResp.status}` };
-          }
-          const scrapeData = await scrapeResp.json();
-          const markdown = scrapeData.data?.markdown || scrapeData.markdown || "";
-          const meta = scrapeData.data?.metadata || scrapeData.metadata || {};
-          if (!markdown) return { url: purl, success: false, error: "no content" };
+          if (!scrapeResp.ok) return { url: purl.url, success: false, error: `fetch ${scrapeResp.status}` };
+          const markdown = await scrapeResp.text();
+          if (!markdown) return { url: purl.url, success: false, error: "no content" };
 
-          const product = await extractProductWithAI(markdown, purl, LOVABLE_API_KEY);
-          if (!product || !product.name) {
-            return { url: purl, success: false, error: "no product detected" };
-          }
+          const product = await extractProductWithAI(markdown, purl.url);
+          if (!product || !product.name) return { url: purl.url, success: false, error: "no product detected" };
 
-          // Prefer og:image from metadata when AI didn't find one
-          const imageUrl = product.image_url || meta.ogImage || meta["og:image"] || null;
-
+          const imageUrl = product.image_url || null;
           const slug = slugify(product.name);
           const { data: existing } = await supabase
             .from("products").select("id").eq("slug", slug).maybeSingle();
-          if (existing) {
-            return { url: purl, success: false, error: "duplicate", name: product.name };
-          }
+          if (existing) return { url: purl.url, success: false, error: "duplicate", name: product.name };
 
           const { error } = await supabase.from("products").insert({
-            name: product.name,
-            slug,
+            name: product.name, slug,
             description: (product.description || "").substring(0, 1500),
             price: Number(product.price) || 0,
             original_price: product.original_price ? Number(product.original_price) : null,
@@ -367,14 +329,13 @@ Deno.serve(async (req) => {
             image_url: imageUrl,
             images: product.images || [],
             specifications: product.specifications || {},
-            stock: 10,
-            featured: false,
+            stock: 10, featured: false,
           });
 
-          if (error) return { url: purl, success: false, error: error.message };
-          return { url: purl, success: true, name: product.name, price: product.price };
+          if (error) return { url: purl.url, success: false, error: error.message };
+          return { url: purl.url, success: true, name: product.name, price: product.price };
         } catch (e) {
-          return { url: purl, success: false, error: e instanceof Error ? e.message : String(e) };
+          return { url: purl.url, success: false, error: e instanceof Error ? e.message : String(e) };
         }
       }));
       results.push(...batchResults);
@@ -382,16 +343,12 @@ Deno.serve(async (req) => {
 
     const successCount = results.filter((r) => r.success).length;
     return new Response(JSON.stringify({
-      success: true,
-      discovered: productLinks.length,
-      imported: successCount,
-      results,
+      success: true, discovered: productLinks.length, imported: successCount, results,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     console.error("crawl-catalog error:", e);
     return new Response(JSON.stringify({
-      success: false,
-      error: e instanceof Error ? e.message : String(e),
+      success: false, error: e instanceof Error ? e.message : String(e),
     }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });

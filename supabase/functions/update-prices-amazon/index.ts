@@ -1,5 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeadersFor } from "../_shared/cors.ts";
+import { checkRate, getIp } from "../_shared/rate-limit.ts";
+import { chatComplete } from "../_shared/ai.ts";
 
 async function verifyAdminToken(supabase: any, token: string): Promise<boolean> {
   if (!token) return false;
@@ -27,6 +29,49 @@ interface PriceResult {
   message?: string;
 }
 
+// Keyless web search via DuckDuckGo HTML
+const BROWSER_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+
+const decodeDuckDuckGoUrl = (rawUrl: string): string => {
+  try {
+    const parsed = new URL(rawUrl, "https://duckduckgo.com");
+    const uddg = parsed.searchParams.get("uddg");
+    return uddg ? decodeURIComponent(uddg) : parsed.toString();
+  } catch {
+    const match = rawUrl.match(/uddg=([^&]+)/);
+    return match ? decodeURIComponent(match[1]) : rawUrl;
+  }
+};
+
+const stripHtml = (value: string): string =>
+  value.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+
+const searchDuckDuckGo = async (query: string): Promise<{ url: string; title: string; snippet: string }[]> => {
+  try {
+    const html = await fetch(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`, {
+      headers: { "User-Agent": BROWSER_UA, "Accept-Language": "en-US,en;q=0.9" },
+    });
+    if (!html.ok) return [];
+    const text = await html.text();
+    const results: { url: string; title: string; snippet: string }[] = [];
+    const blocks = text.split(/class=["'][^"']*result__body/i).slice(1);
+    for (const block of blocks) {
+      const linkMatch = block.match(/<a[^>]+class=["'][^"']*result__a[^"']*["'][^>]+href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/i);
+      if (!linkMatch) continue;
+      const url = decodeDuckDuckGoUrl(linkMatch[1]);
+      if (!/^https?:\/\//i.test(url)) continue;
+      const title = stripHtml(linkMatch[2]);
+      const snippetMatch = block.match(/class=["'][^"']*result__snippet[^"']*["'][^>]*>([\s\S]*?)<\/a>/i);
+      results.push({ url, title, snippet: snippetMatch ? stripHtml(snippetMatch[1]) : "" });
+      if (results.length >= 5) break;
+    }
+    return results;
+  } catch {
+    return [];
+  }
+};
+
 Deno.serve(async (req) => {
   const corsHeaders = corsHeadersFor(req);
   if (req.method === 'OPTIONS') {
@@ -42,16 +87,8 @@ Deno.serve(async (req) => {
 
     if (!(await verifyAdminToken(supabase, token))) {
       return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
-    }
-
-    const perplexityApiKey = Deno.env.get('PERPLEXITY_API_KEY');
-    if (!perplexityApiKey) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Perplexity API key not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
     }
 
     // Fetch products to update
@@ -61,7 +98,6 @@ Deno.serve(async (req) => {
       .order('updated_at', { ascending: true })
       .limit(batchSize);
 
-    // Filter by brands if specified
     if (brands.length > 0) {
       query = query.in('brand', brands);
     }
@@ -85,7 +121,6 @@ Deno.serve(async (req) => {
 
     for (const product of products) {
       try {
-        // Clean product name for search
         const searchName = product.name
           .replace(/[-–|]/g, ' ')
           .replace(/Egypt|Mastery IT|TechNex Store|Baytzaki/gi, '')
@@ -95,138 +130,80 @@ Deno.serve(async (req) => {
 
         console.log(`Searching Amazon Egypt price for: ${searchName}`);
 
-        // Use Perplexity to search for Amazon Egypt price
-        const response = await fetch('https://api.perplexity.ai/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${perplexityApiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: 'sonar',
-            messages: [
-              {
-                role: 'system',
-                content: `You are a price research assistant. Search for product prices on Amazon Egypt (amazon.eg) or other Egyptian retailers. 
-                
-                Return ONLY a JSON object with this exact format:
-                {
-                  "price": <number in EGP or null if not found>,
-                  "source": "<website URL where price was found or null>",
-                  "confidence": "<high|medium|low>"
-                }
-                
-                If you cannot find the exact product, return null for price.
-                Do NOT include any other text, only the JSON.`
+        // Step 1: Keyless DuckDuckGo search for product pages
+        const searchQuery = `${searchName} ${product.brand || ''} amazon.eg price EGP`.trim();
+        const searchResults = await searchDuckDuckGo(searchQuery);
+
+        // Step 2: Fetch top result pages and extract content
+        let bestPrice: number | null = null;
+        let bestSource: string | null = null;
+
+        for (const result of searchResults) {
+          try {
+            const pageResp = await fetch(result.url, {
+              headers: {
+                'User-Agent': BROWSER_UA,
+                'Accept': 'text/html,application/xhtml+xml',
+                'Accept-Language': 'en-US,en;q=0.9,ar;q=0.8',
               },
-              {
-                role: 'user',
-                content: `Find the current price in Egyptian Pounds (EGP) for this product on Amazon Egypt or Egyptian retailers:
-                
-                Product: ${searchName}
-                Brand: ${product.brand || 'Unknown'}
-                
-                Search specifically on amazon.eg, noon.com/egypt, or jumia.com.eg`
-              }
-            ],
-            search_domain_filter: ['amazon.eg', 'noon.com', 'jumia.com.eg', 'egypt.souq.com'],
-            temperature: 0.1,
-          }),
-        });
+            });
+            if (!pageResp.ok) continue;
+            const pageHtml = await pageResp.text();
 
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error('Perplexity API error:', response.status, errorText);
-          results.push({
-            productId: product.id,
-            productName: product.name,
-            currentPrice: product.price,
-            amazonPrice: null,
-            source: null,
-            status: 'error',
-            message: `API error: ${response.status}`,
-          });
-          continue;
+            // Use AI to extract price from the page content
+            const truncatedHtml = pageHtml.substring(0, 15000);
+            const priceResponse = await chatComplete([
+              { role: 'system', content: `Extract the price in Egyptian Pounds (EGP) from this HTML page. Return ONLY a JSON object: {"price": <number in EGP or null>, "currency": "<currency code or null>"}. If no price found, use null. Do NOT include any other text.` },
+              { role: 'user', content: `URL: ${result.url}\n\n${truncatedHtml}` },
+            ], { maxTokens: 200 });
+
+            let priceData: any = null;
+            try { priceData = JSON.parse(priceResponse); } catch { /* skip */ }
+
+            const price = priceData?.price;
+            if (price && typeof price === 'number' && price > 0) {
+              bestPrice = Math.round(price);
+              bestSource = result.url;
+              break; // Found a price, stop searching
+            }
+          } catch { /* try next result */ }
         }
 
-        const data = await response.json();
-        const content = data.choices?.[0]?.message?.content || '';
-
-        console.log('Perplexity response:', content);
-
-        // Parse the JSON response
-        let priceData: { price: number | null; source: string | null; confidence: string } | null = null;
-        try {
-          // Extract JSON from response
-          const jsonMatch = content.match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
-            priceData = JSON.parse(jsonMatch[0]);
-          }
-        } catch (parseError) {
-          console.error('JSON parse error:', parseError);
-        }
-
-        if (priceData?.price && priceData.price > 0) {
-          // Update the product price
+        if (bestPrice) {
           const { error: updateError } = await supabase
             .from('products')
-            .update({ 
-              price: priceData.price,
-              updated_at: new Date().toISOString(),
-            })
+            .update({ price: bestPrice, updated_at: new Date().toISOString() })
             .eq('id', product.id);
 
           if (updateError) {
-            console.error('Update error:', updateError);
             results.push({
-              productId: product.id,
-              productName: product.name,
-              currentPrice: product.price,
-              amazonPrice: priceData.price,
-              source: priceData.source,
-              status: 'error',
-              message: `Update failed: ${updateError.message}`,
+              productId: product.id, productName: product.name,
+              currentPrice: product.price, amazonPrice: null, source: null,
+              status: 'error', message: `Update failed: ${updateError.message}`,
             });
           } else {
             results.push({
-              productId: product.id,
-              productName: product.name,
-              currentPrice: product.price,
-              amazonPrice: priceData.price,
-              source: priceData.source,
+              productId: product.id, productName: product.name,
+              currentPrice: product.price, amazonPrice: bestPrice, source: bestSource,
               status: 'updated',
             });
           }
         } else {
-          // Mark as checked but no price found
-          await supabase
-            .from('products')
-            .update({ updated_at: new Date().toISOString() })
-            .eq('id', product.id);
-
+          await supabase.from('products').update({ updated_at: new Date().toISOString() }).eq('id', product.id);
           results.push({
-            productId: product.id,
-            productName: product.name,
-            currentPrice: product.price,
-            amazonPrice: null,
-            source: null,
+            productId: product.id, productName: product.name,
+            currentPrice: product.price, amazonPrice: null, source: null,
             status: 'no_price_found',
           });
         }
 
-        // Small delay to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 500));
-
+        await new Promise(resolve => setTimeout(resolve, 600));
       } catch (productError) {
         console.error(`Error processing ${product.name}:`, productError);
         results.push({
-          productId: product.id,
-          productName: product.name,
-          currentPrice: product.price,
-          amazonPrice: null,
-          source: null,
-          status: 'error',
-          message: String(productError),
+          productId: product.id, productName: product.name,
+          currentPrice: product.price, amazonPrice: null, source: null,
+          status: 'error', message: String(productError),
         });
       }
     }
@@ -235,7 +212,6 @@ Deno.serve(async (req) => {
       JSON.stringify({ success: true, results }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-
   } catch (error) {
     console.error('Error:', error);
     return new Response(

@@ -32,7 +32,6 @@ function isUrlAllowed(rawUrl: string): boolean {
       host.endsWith(".local") ||
       host.endsWith(".internal")
     ) return false;
-    // Block IP literals in private/loopback/link-local ranges
     if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) {
       const parts = host.split(".").map(Number);
       const [a, b] = parts;
@@ -113,16 +112,13 @@ serve(async (req) => {
         for (const it of items) {
           const img = it.image;
           if (typeof img === "string") realImages.push(img);
-          else if (Array.isArray(img)) realImages.push(...img.filter((x) => typeof x === "string"));
+          else if (Array.isArray(img)) realImages.push(...img.filter((x: any) => typeof x === "string"));
           else if (img?.url) realImages.push(img.url);
         }
       } catch {}
     }
     const dedupedImages = [...new Set(realImages.filter((u) => u && u.startsWith("http")))];
     const primaryImage = dedupedImages[0] || null;
-
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("AI not configured");
 
     // Truncate HTML to avoid token limits
     const truncatedHtml = html.substring(0, 30000);
@@ -143,7 +139,7 @@ serve(async (req) => {
 - protocol: smart home protocol like WiFi, Zigbee, Z-Wave, Bluetooth (string or null)
 - category: product category suggestion (string)
 
-Return valid JSON only, no markdown.`
+Return valid JSON only, no markdown.`,
         },
         {
           role: "user",
@@ -177,7 +173,7 @@ Return valid JSON only, no markdown.`
     });
 
     const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-    
+
     if (!toolCall) {
       throw new Error("AI did not return structured data");
     }
@@ -204,7 +200,6 @@ Return valid JSON only, no markdown.`
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-
   } catch (error) {
     console.error("Scrape error:", error);
     return new Response(JSON.stringify({ 

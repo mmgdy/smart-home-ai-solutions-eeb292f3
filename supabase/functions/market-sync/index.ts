@@ -248,7 +248,7 @@ Return a JSON array with: name, brand, price (EGP integer), category ("${cat}"),
       success: false, fallback: true,
       error: msg.includes('RATE_LIMITED') ? 'RATE_LIMITED' :
              msg.includes('PAYMENT_REQUIRED') ? 'PAYMENT_REQUIRED' :
-             msg.includes('LOVABLE_API_KEY not configured') ? 'API_KEY_MISSING' : 'SERVICE_UNAVAILABLE',
+             msg.includes('all AI providers failed') ? 'AI_UNAVAILABLE' : 'SERVICE_UNAVAILABLE',
       message: msg.slice(0, 300), results: [],
     }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
