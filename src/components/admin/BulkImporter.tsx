@@ -69,10 +69,8 @@ export function BulkImporter({ adminToken }: { adminToken: string }) {
 
         // 2) Save via admin-write (service role bypasses RLS)
         const { data: saveData, error: saveErr } = await supabase.functions.invoke('admin-write', {
-          body: {
-            action: 'create-product',
-            token: adminToken,
-            product: {
+          headers: { Authorization: "Bearer " + adminToken },
+          body: { action: 'create-product', product: {
               name: p.name,
               slug: p.slug,
               price: Number(p.price) || 0,

@@ -167,7 +167,7 @@ export function ProductEditor({ adminToken }: Props) {
   const bulkInvoke = async (body: any, successMsg: string) => {
     setBulkBusy(true);
     try {
-      const { data, error } = await supabase.functions.invoke("admin-write", { body: { ...body, token: adminToken } });
+      const { data, error } = await supabase.functions.invoke("admin-write", { headers: { Authorization: "Bearer " + adminToken }, body });
       if (error || !data?.success) throw new Error(data?.error || error?.message || "Failed");
       toast({ title: successMsg });
       clearSelection();
@@ -215,7 +215,8 @@ export function ProductEditor({ adminToken }: Props) {
     setAiBusy(true);
     try {
       const { data, error } = await supabase.functions.invoke("admin-write", {
-        body: { action: "ai-generate-seo", token: adminToken, id: editing.id },
+        headers: { Authorization: "Bearer " + adminToken },
+        body: { action: "ai-generate-seo", id: editing.id },
       });
       if (error || !data?.success) throw new Error(data?.error || error?.message || "Failed");
       setEditing((prev) => ({
@@ -243,7 +244,8 @@ export function ProductEditor({ adminToken }: Props) {
       const path = `manual/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
       const base64 = await fileToBase64(file);
       const { data, error } = await supabase.functions.invoke("admin-write", {
-        body: { action: "upload-file", token: adminToken, bucket: "product-images", filename: path, base64, mimeType: file.type },
+        headers: { Authorization: "Bearer " + adminToken },
+        body: { action: "upload-file", bucket: "product-images", filename: path, base64, mimeType: file.type },
       });
       if (error || !data?.success) throw new Error(data?.error || error?.message || "Upload failed");
       setEditing((prev) => ({ ...prev, image_url: data.publicUrl }));
@@ -262,7 +264,8 @@ export function ProductEditor({ adminToken }: Props) {
       const path = `manual/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
       const base64 = await fileToBase64(file);
       const { data, error } = await supabase.functions.invoke("admin-write", {
-        body: { action: "upload-file", token: adminToken, bucket: "product-videos", filename: path, base64, mimeType: file.type },
+        headers: { Authorization: "Bearer " + adminToken },
+        body: { action: "upload-file", bucket: "product-videos", filename: path, base64, mimeType: file.type },
       });
       if (error || !data?.success) throw new Error(data?.error || error?.message || "Upload failed");
       setEditing((prev) => ({ ...prev, video_url: data.publicUrl }));
@@ -284,9 +287,14 @@ export function ProductEditor({ adminToken }: Props) {
       const isNew = !editing.id;
       const action = isNew ? "create-product" : "update-product";
       const body = isNew
-        ? { action, token: adminToken, product: editing }
-        : { action, token: adminToken, id: editing.id, updates: editing };
-      const { data, error } = await supabase.functions.invoke("admin-write", { body });
+        ? { action, product: editing }
+        : { action, id: editing.id, updates: editing };
+      const { data, error } = await supabase.functions.invoke("admin-write", {
+        headers: { Authorization: "Bearer " + adminToken },
+        body: isNew
+          ? { action, product: editing }
+          : { action, id: editing.id, updates: editing },
+      });
       if (error || !data?.success) throw new Error(data?.error || error?.message || "Failed");
       toast({ title: isNew ? "Product created" : "Product saved" });
       setOpen(false);
@@ -302,7 +310,8 @@ export function ProductEditor({ adminToken }: Props) {
     if (!confirm(`Delete "${p.name}"? This cannot be undone.`)) return;
     try {
       const { data, error } = await supabase.functions.invoke("admin-write", {
-        body: { action: "delete-product", token: adminToken, id: p.id },
+        headers: { Authorization: "Bearer " + adminToken },
+        body: { action: "delete-product", id: p.id },
       });
       if (error || !data?.success) throw new Error(data?.error || error?.message || "Failed");
       toast({ title: "Deleted" });
@@ -320,7 +329,8 @@ export function ProductEditor({ adminToken }: Props) {
       : [...hiddenIds, p.id];
     try {
       const { data, error } = await supabase.functions.invoke("admin-write", {
-        body: { action: "update-site-info", token: adminToken, entries: [{ section: "products", key: "hidden_ids", value: JSON.stringify(newHiddenIds) }] },
+        headers: { Authorization: "Bearer " + adminToken },
+        body: { action: "update-site-info", entries: [{ section: "products", key: "hidden_ids", value: JSON.stringify(newHiddenIds) }] },
       });
       if (error || !data?.success) throw new Error(data?.error || error?.message || "Failed");
       setHiddenIds(newHiddenIds);
