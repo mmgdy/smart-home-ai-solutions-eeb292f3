@@ -12,6 +12,7 @@ import { useCart } from '@/hooks/useCart';
 import { useLanguage } from '@/lib/i18n';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { cn } from '@/lib/utils';
 import { PointsRedemption } from '@/components/loyalty/PointsRedemption';
 import { useAuth } from '@/hooks/useAuth';
 import { AuthButton } from '@/components/auth/AuthButton';

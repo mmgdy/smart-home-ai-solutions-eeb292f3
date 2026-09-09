@@ -436,7 +436,7 @@ export default function Admin() {
           </TabsContent>
 
           <TabsContent value="branding" className="mt-6">
-            <SiteSettings adminToken={token} />
+            <SiteSettings adminToken={token} onLogout={logout} />
           </TabsContent>
 
           <TabsContent value="settings" className="mt-6">

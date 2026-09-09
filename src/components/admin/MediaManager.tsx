@@ -160,8 +160,10 @@ export default function MediaManager({ adminToken }: { adminToken: string }) {
     let filtered = files;
     if (category !== 'all') {
       const cat = MIME_CATEGORIES.find(c => c.id === category);
-      if (cat) { filtered = filtered.filter(f => cat.mimes.includes(f.mime) || f.type === cat.id === 'documents' ? 'document' : f.type); }
-      // Simpler: match type
+      if (cat) {
+        if (category === 'documents') filtered = filtered.filter(f => f.type === 'document');
+        else filtered = filtered.filter(f => cat.mimes.includes(f.mime));
+      }
       if (category === 'images') filtered = filtered.filter(f => f.type === 'image');
       else if (category === 'videos') filtered = filtered.filter(f => f.type === 'video');
       else if (category === 'documents') filtered = filtered.filter(f => f.type === 'document');
