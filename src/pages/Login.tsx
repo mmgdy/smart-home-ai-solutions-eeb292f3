@@ -90,7 +90,7 @@ export default function Login() {
   return (
     <main className="min-h-screen flex items-center justify-center p-6 bg-background">
       <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-sm">
-        <h1 className="font-display text-2xl mb-1">Welcome to Baytzaki</h1>
+        <h1 className="font-display text-2xl mb-1">Welcome to AzkaSmart</h1>
         <p className="text-sm text-muted-foreground mb-4">
           Sign in to continue{next !== "/" ? " and return to what you were doing." : "."}
         </p>

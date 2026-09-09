@@ -86,7 +86,7 @@ const Loyalty = () => {
   return (
     <>
       <Helmet>
-        <title>{`${labels.pageTitle} | Baytzaki`}</title>
+        <title>{labels.pageTitle} | AzkaSmart</title>
         <meta name="description" content={labels.pageDesc} />
       </Helmet>
       <Layout>

@@ -6,19 +6,19 @@ import { useLanguage } from '@/lib/i18n';
 type PolicyKey = 'terms' | 'privacy' | 'refund' | 'shipping' | 'warranty';
 
 const policies: Record<PolicyKey, { titleEn: string; titleAr: string; contentEn: string; contentAr: string }> = {
-  terms: {
-    titleEn: 'Terms & Conditions',
-    titleAr: 'الشروط والأحكام',
-    contentEn: `
+terms: {
+  titleEn: 'Terms & Conditions',
+  titleAr: 'الشروط والأحكام',
+  contentEn: `
 # Terms & Conditions
 
 **Last Updated: February 2026**
 
 ## 1. General
-These Terms and Conditions govern your use of the Baytzaki website (baytzaki.com) and the purchase of products and services from our platform. By accessing this website or placing an order, you agree to these terms.
+These Terms and Conditions govern your use of the AzkaSmart website (azkasmart.com) and the purchase of products and services from our platform. By accessing this website or placing an order, you agree to these terms.
 
 ## 2. Company Information
-Baytzaki is a smart home products and solutions provider operating in Egypt. All transactions are conducted in Egyptian Pounds (EGP).
+AzkaSmart is a smart home products and solutions provider operating in Egypt. All transactions are conducted in Egyptian Pounds (EGP).
 
 ## 3. Products & Pricing
 - All prices are listed in Egyptian Pounds (EGP) and include applicable taxes unless otherwise stated.
@@ -37,27 +37,27 @@ Baytzaki is a smart home products and solutions provider operating in Egypt. All
 - You are responsible for all activities under your account.
 
 ## 6. Intellectual Property
-All content on this website, including logos, product images, text, and design, is owned by Baytzaki and is protected by intellectual property laws.
+All content on this website, including logos, product images, text, and design, is owned by AzkaSmart and is protected by intellectual property laws.
 
 ## 7. Limitation of Liability
-Baytzaki shall not be liable for indirect, incidental, or consequential damages arising from the use of our products or services, to the maximum extent permitted by Egyptian law.
+AzkaSmart shall not be liable for indirect, incidental, or consequential damages arising from the use of our products or services, to the maximum extent permitted by Egyptian law.
 
 ## 8. Governing Law
 These terms are governed by the laws of the Arab Republic of Egypt.
 
 ## 9. Contact
-For any questions regarding these terms, please contact us at info@baytzaki.com.
-    `,
-    contentAr: `
+For any questions regarding these terms, please contact us at info@azkasmart.com.
+  `,
+  contentAr: `
 # الشروط والأحكام
 
 **آخر تحديث: فبراير 2026**
 
 ## 1. عام
-تحكم هذه الشروط والأحكام استخدامك لموقع بايتزاكي (baytzaki.com) وشراء المنتجات والخدمات من منصتنا. بالدخول إلى هذا الموقع أو تقديم طلب، فإنك توافق على هذه الشروط.
+تحكم هذه الشروط والأحكام استخدامك لموقع أزكاسمارت (azkasmart.com) وشراء المنتجات والخدمات من منصتنا. بالدخول إلى هذا الموقع أو تقديم طلب، فإنك توافق على هذه الشروط.
 
 ## 2. معلومات الشركة
-بايتزاكي هي مزود منتجات وحلول المنزل الذكي وتعمل في مصر. تتم جميع المعاملات بالجنيه المصري.
+أزكاسمارت هي مزود منتجات وحلول المنزل الذكي وتعمل في مصر. تتم جميع المعاملات بالجنيه المصري.
 
 ## 3. المنتجات والأسعار
 - جميع الأسعار مدرجة بالجنيه المصري وتشمل الضرائب المطبقة ما لم يُذكر خلاف ذلك.
@@ -79,9 +79,9 @@ For any questions regarding these terms, please contact us at info@baytzaki.com.
 ## 7. القانون الحاكم
 تخضع هذه الشروط لقوانين جمهورية مصر العربية.
 
-## 8. التواصل
-لأي أسئلة تتعلق بهذه الشروط، يرجى التواصل معنا على info@baytzaki.com.
-    `,
+## 5. التواصل
+لأي أسئلة تتعلق بهذه الشروط، يرجى التواصل معنا على info@azkasmart.com.
+  `,
   },
   privacy: {
     titleEn: 'Privacy Policy',
@@ -128,7 +128,7 @@ You have the right to:
 We retain your data for as long as your account is active or as needed for legal and business purposes.
 
 ## 8. Contact
-For privacy concerns, contact us at info@baytzaki.com.
+For privacy concerns, contact us at info@azkasmart.com.
     `,
     contentAr: `
 # سياسة الخصوصية
@@ -158,7 +158,7 @@ For privacy concerns, contact us at info@baytzaki.com.
 لديك الحق في الوصول إلى بياناتك الشخصية وتصحيحها وطلب حذفها.
 
 ## 5. التواصل
-لأي مخاوف تتعلق بالخصوصية، تواصل معنا على info@baytzaki.com.
+لأي مخاوف تتعلق بالخصوصية، تواصل معنا على info@azkasmart.com.
     `,
   },
   refund: {
@@ -185,7 +185,7 @@ You may return products within **14 days** of delivery, provided the items are i
 - Custom or special-order items
 
 ## 4. Return Process
-1. Contact us at info@baytzaki.com with your order number
+1. Contact us at info@azkasmart.com with your order number
 2. We will provide return instructions
 3. Ship the product back in its original packaging
 4. Refund will be processed within 7-14 business days after we receive and inspect the item
@@ -221,7 +221,7 @@ For products under warranty, please refer to our Warranty Policy for details on 
 - المنتجات بدون تغليف أصلي
 
 ## 4. عملية الإرجاع
-1. تواصل معنا على info@baytzaki.com مع رقم طلبك
+1. تواصل معنا على info@azkasmart.com مع رقم طلبك
 2. سنقدم تعليمات الإرجاع
 3. سيتم معالجة الاسترداد خلال 7-14 يوم عمل
 
@@ -275,7 +275,7 @@ For products with installation service:
 You will receive tracking information via email and/or WhatsApp once your order is shipped.
 
 ## 8. Contact
-For shipping inquiries, contact us at info@baytzaki.com.
+For shipping inquiries, contact us at info@azkasmart.com.
     `,
     contentAr: `
 # سياسة الشحن
@@ -339,7 +339,7 @@ All products sold by Baytzaki come with the manufacturer's warranty. Warranty pe
 - Damage from using non-compatible accessories
 
 ## 4. Warranty Claim Process
-1. Contact us at info@baytzaki.com with:
+1. Contact us at info@azkasmart.com with:
    - Order number
    - Product name and serial number
    - Description of the issue
@@ -358,7 +358,7 @@ Products installed by Baytzaki technicians include an additional **6-month insta
 Extended warranty plans may be available for select products. Ask our team for details.
 
 ## 7. Contact
-For warranty claims, contact info@baytzaki.com or WhatsApp us.
+For warranty claims, contact info@azkasmart.com or WhatsApp us.
     `,
     contentAr: `
 # سياسة الضمان
@@ -385,7 +385,7 @@ For warranty claims, contact info@baytzaki.com or WhatsApp us.
 - التعديل أو العبث
 
 ## 4. عملية المطالبة بالضمان
-1. تواصل معنا على info@baytzaki.com مع رقم الطلب ووصف المشكلة
+1. تواصل معنا على info@azkasmart.com مع رقم الطلب ووصف المشكلة
 2. سيقيم فريق الدعم مطالبتك خلال 48 ساعة
 3. سيتم الاستبدال أو الإصلاح خلال 7-14 يوم عمل
 
@@ -393,7 +393,7 @@ For warranty claims, contact info@baytzaki.com or WhatsApp us.
 المنتجات المركبة بواسطة فنيي بايتزاكي تشمل ضمان تركيب إضافي لمدة **6 أشهر**.
 
 ## 6. التواصل
-لمطالبات الضمان، تواصل معنا على info@baytzaki.com.
+لمطالبات الضمان، تواصل معنا على info@azkasmart.com.
     `,
   },
 };
@@ -423,8 +423,8 @@ const Legal = () => {
   return (
     <>
       <Helmet>
-        <title>{title} | Baytzaki</title>
-        <meta name="description" content={`${title} for Baytzaki smart home products store.`} />
+        <title>{title} | AzkaSmart</title>
+        <meta name="description" content={`${title} for AzkaSmart smart home products store.`} />
       </Helmet>
       <Layout>
         <div className="container max-w-4xl py-24 md:py-28">

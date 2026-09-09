@@ -12,7 +12,7 @@ function userClient(ctx: ToolContext) {
 export default defineTool({
   name: "list_my_orders",
   title: "List my orders",
-  description: "List the signed-in Baytzaki customer's orders (id, total EGP, status, date).",
+  description: "List the signed-in AzkaSmart customer's orders (id, total EGP, status, date).",
   inputSchema: {
     limit: z.number().int().min(1).max(50).default(10),
   },

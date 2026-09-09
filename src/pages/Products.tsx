@@ -190,7 +190,7 @@ const Products = () => {
   return (
     <>
       <Helmet>
-        <title>{t('smartHomeProducts')} | Baytzaki</title>
+        <title>{t('smartHomeProducts')} | AzkaSmart</title>
         <meta
           name="description"
           content="Browse our collection of premium smart home products. Find smart lighting, security cameras, thermostats, and more from top brands like SONOFF, MOES, TP-Link."

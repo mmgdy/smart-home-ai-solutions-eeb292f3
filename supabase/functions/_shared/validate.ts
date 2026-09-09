@@ -1,4 +1,4 @@
-// Input-validation utilities for Baytzaki edge functions.
+// Input-validation utilities for AzkaSmart edge functions.
 
 export function clamp(n: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, n));

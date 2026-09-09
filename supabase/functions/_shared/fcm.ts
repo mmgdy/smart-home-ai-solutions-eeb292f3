@@ -24,7 +24,7 @@ function pemToBinaryDer(pem: string): Uint8Array {
 }
 
 let cachedToken: { token: string; exp: number } | null = null;
-const SITE_URL = Deno.env.get("SITE_URL") || "https://baytzaki.com";
+const SITE_URL = Deno.env.get("SITE_URL") || "https://azkasmart.com";
 
 function toAbsoluteHttpsUrl(value: string | undefined, fallbackPath = "/"): string {
   try {
@@ -101,7 +101,7 @@ function buildMessage(token: string, payload: PushPayload) {
       android: {
         priority: "high",
         notification: {
-          channel_id: "baytzaki_deals",
+          channel_id: "azkasmart_deals",
           sound: "default",
           click_action: clickUrl,
         },
@@ -128,7 +128,7 @@ function buildMessage(token: string, payload: PushPayload) {
         notification: {
           icon: toAbsoluteHttpsUrl("/icons/icon-192.png"),
           badge: toAbsoluteHttpsUrl("/icons/icon-192.png"),
-          tag: payload.tag || "baytzaki",
+          tag: payload.tag || "azkasmart",
           requireInteraction: false,
         },
       },

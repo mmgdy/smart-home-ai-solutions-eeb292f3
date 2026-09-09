@@ -1,4 +1,4 @@
-// Shared LLM gateway with provider fallbacks for Baytzaki edge functions.
+// Shared LLM gateway with provider fallbacks for AzkaSmart edge functions.
 //
 // Pollinations (keyless) throttles datacenter egress IPs from time to time,
 // so calls go through a fallback chain:
@@ -12,7 +12,7 @@ export interface ChatMessage {
   content: string;
 }
 
-const POLLINATIONS_REFERRER = "baytzaki.com";
+const POLLINATIONS_REFERRER = "azkasmart.com";
 const HUGGING_FACE_MODEL = "meta-llama/Llama-3.1-8B-Instruct";
 
 async function postJson(

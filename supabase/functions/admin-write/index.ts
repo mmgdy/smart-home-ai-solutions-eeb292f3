@@ -59,8 +59,15 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Accept token from Authorization header OR body.token
     const authHeader = req.headers.get("Authorization") || "";
-    const token = authHeader.replace("Bearer ", "");
+    const headerToken = authHeader.replace("Bearer ", "");
+    let body: Record<string, unknown>;
+    try { body = await req.json(); } catch { body = {}; }
+
+    const bodyToken = typeof body.token === "string" ? body.token : undefined;
+    const token = bodyToken || headerToken;
 
     if (!(await verifyAdminToken(supabase, token))) {
       return new Response(JSON.stringify({ success: false, error: "Unauthorized" }), {
@@ -68,7 +75,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    const body = await req.json();
     const { action } = body;
 
     // ─── Products CRUD ───────────────────────────────────────────────
@@ -278,6 +284,78 @@ JSON: {"seo_title":"<=60 chars","seo_description":"<=155 chars","seo_keywords":[
       });
     }
 
+    // ─── Admin settings (writes to admin_settings — token from body) ──
+
+    if (action === "update-admin-settings") {
+      const entries = body.entries as Array<{ key: string; value: string }>;
+      if (!Array.isArray(entries) || !entries.length) {
+        return new Response(JSON.stringify({ success: false, error: "entries required" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      for (const entry of entries) {
+        if (!entry.key) {
+          return new Response(JSON.stringify({ success: false, error: "key required" }), {
+            status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const { data: existing } = await supabase
+          .from("admin_settings")
+          .select("id")
+          .eq("key", entry.key)
+          .maybeSingle();
+        if (existing) {
+          const { error } = await supabase
+            .from("admin_settings")
+            .update({ value: entry.value })
+            .eq("id", existing.id);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase.from("admin_settings").insert({ key: entry.key, value: entry.value });
+          if (error) throw error;
+        }
+      }
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "save-site-content") {
+      const { content, section } = body;
+      if (!content || !section) {
+        return new Response(JSON.stringify({ success: false, error: "content and section required" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const { error } = await supabase.from("site_info").upsert({
+        section, key: "content", value: JSON.stringify(content),
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "section,key" });
+      if (error) throw error;
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "generate-seo") {
+      const { topic, language = "en" } = body;
+      if (!topic) {
+        return new Response(JSON.stringify({ success: false, error: "topic required" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      try {
+        const seoContent = await chatComplete([{ role: "user", content: `Create SEO content for: ${topic}\n\nLanguage: ${language}\n\nRequirements:\n- SEO-friendly\n- Engaging and professional\n- Include relevant keywords\n- Appropriate length for the content type\n- Use proper formatting\n\nReturn only the content without any prefixes or explanations.` }], { maxTokens: 400 });
+        return new Response(JSON.stringify({ success: true, content: seoContent }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } catch (e) {
+        return new Response(JSON.stringify({ success: false, error: String(e) }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     // ─── Orders CRUD ────────────────────────────────────────────────
 
     if (action === "list-orders") {
@@ -324,44 +402,6 @@ JSON: {"seo_title":"<=60 chars","seo_description":"<=155 chars","seo_keywords":[
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
-    }
-
-    // ─── Site content ───────────────────────────────────────────────
-
-    if (action === "save-site-content") {
-      const { content, section } = body;
-      if (!content || !section) {
-        return new Response(JSON.stringify({ success: false, error: "content and section required" }), {
-          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const { error } = await supabase.from("site_info").upsert({
-        section, key: "content", value: JSON.stringify(content),
-        updated_at: new Date().toISOString(),
-      }, { onConflict: "section,key" });
-      if (error) throw error;
-      return new Response(JSON.stringify({ success: true }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    if (action === "generate-seo") {
-      const { topic, language = "en" } = body;
-      if (!topic) {
-        return new Response(JSON.stringify({ success: false, error: "topic required" }), {
-          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      try {
-        const seoContent = await chatComplete([{ role: "user", content: `Create SEO content for: ${topic}\n\nLanguage: ${language}\n\nRequirements:\n- SEO-friendly\n- Engaging and professional\n- Include relevant keywords\n- Appropriate length for the content type\n- Use proper formatting\n\nReturn only the content without any prefixes or explanations.` }], { maxTokens: 400 });
-        return new Response(JSON.stringify({ success: true, content: seoContent }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      } catch (e) {
-        return new Response(JSON.stringify({ success: false, error: String(e) }), {
-          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
     }
 
     return new Response(JSON.stringify({ success: false, error: "Unknown action" }), {

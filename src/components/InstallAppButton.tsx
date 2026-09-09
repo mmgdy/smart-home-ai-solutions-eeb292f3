@@ -74,7 +74,7 @@ export function InstallAppButton({ className }: { className?: string }) {
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="mb-3 font-display text-lg font-semibold">
-              {language === 'ar' ? 'ثبّت Baytzaki على شاشتك الرئيسية' : 'Install Baytzaki on your Home Screen'}
+              {language === 'ar' ? 'ثبّت AzkaSmart على شاشتك الرئيسية' : 'Install AzkaSmart on your Home Screen'}
             </h3>
             {isIos ? (
             <ol className="space-y-3 text-sm text-muted-foreground">

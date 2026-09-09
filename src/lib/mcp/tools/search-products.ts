@@ -6,7 +6,7 @@ export default defineTool({
   name: "search_products",
   title: "Search products",
   description:
-    "Search the Baytzaki smart-home and art-furniture catalog. Returns matching products with name, price (EGP), brand, slug, and stock.",
+    "Search the AzkaSmart smart-home and art-furniture catalog. Returns matching products with name, price (EGP), brand, slug, and stock.",
   inputSchema: {
     query: z
       .string()

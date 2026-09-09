@@ -332,9 +332,9 @@ export function QuoteSummaryWithCart() {
       doc.setFontSize(9);
       doc.setTextColor(120, 120, 120);
       const ph = doc.internal.pageSize.getHeight();
-      doc.text('Baytzaki — Egypt\'s premier smart home provider | baytzaki.com | +20 105 062 7310', pageWidth / 2, ph - 24, { align: 'center' });
+      doc.text("AzkaSmart — Egypt's premier smart home provider | azkasmart.com | +20 105 062 7310", pageWidth / 2, ph - 24, { align: "center" });
 
-      doc.save(`baytzaki-quote-${Date.now()}.pdf`);
+      doc.save(`azkasmart-quote-${Date.now()}.pdf`);
 
       toast({
         title: isRTL ? 'تم تحميل العرض' : 'Quote Downloaded',

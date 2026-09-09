@@ -48,7 +48,7 @@ export const WhyChooseUs = () => {
             viewport={{ once: true }}
             className="text-primary font-medium text-sm uppercase tracking-wider"
           >
-            Why Baytzaki
+            Why AzkaSmart
           </motion.span>
           <motion.h2
             initial={{ opacity: 0, y: 20 }}

@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 export default defineTool({
   name: "list_categories",
   title: "List categories",
-  description: "List the Baytzaki product categories (lighting, security, climate, etc.) with their store URLs.",
+  description: "List the AzkaSmart product categories (lighting, security, climate, etc.) with their store URLs.",
   inputSchema: {},
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
   handler: async () => {

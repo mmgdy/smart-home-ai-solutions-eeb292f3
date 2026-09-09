@@ -205,7 +205,7 @@ const AIConsultant = () => {
   return (
     <>
       <Helmet>
-        <title>{isRTL ? 'مستشار المنزل الذكي' : 'Smart Home Consultant'} | Baytzaki</title>
+        <title>{isRTL ? 'مستشار المنزل الذكي' : 'Smart Home Consultant'} | AzkaSmart</title>
         <meta name="description" content="Get personalized smart home recommendations from our AI consultant." />
       </Helmet>
       <Layout>

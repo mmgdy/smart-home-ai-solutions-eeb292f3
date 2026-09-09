@@ -72,7 +72,7 @@ export const useCart = create<CartStore>()(
       },
     }),
     {
-      name: 'baytzaki-cart',
+      name: 'azkasmart-cart',
     }
   )
 );

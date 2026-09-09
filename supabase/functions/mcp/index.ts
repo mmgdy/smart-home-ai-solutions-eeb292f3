@@ -13,7 +13,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 var search_products_default = defineTool({
   name: "search_products",
   title: "Search products",
-  description: "Search the Baytzaki smart-home and art-furniture catalog. Returns matching products with name, price (EGP), brand, slug, and stock.",
+  description: "Search the AzkaSmart smart-home and art-furniture catalog. Returns matching products with name, price (EGP), brand, slug, and stock.",
   inputSchema: {
     query: z.string().describe("Free-text query matched against product name, brand, and description. Use an empty string to list featured items.").default(""),
     limit: z.number().int().min(1).max(30).default(10).describe("Max results (1-30)."),
@@ -66,7 +66,7 @@ import { createClient as createClient2 } from "https://esm.sh/@supabase/supabase
 var get_product_default = defineTool2({
   name: "get_product",
   title: "Get product details",
-  description: "Look up one Baytzaki product by its slug. Returns full details, price in EGP, stock, and specifications.",
+  description: "Look up one AzkaSmart product by its slug. Returns full details, price in EGP, stock, and specifications.",
   inputSchema: {
     slug: z2.string().min(1).describe("Product slug (e.g. 'aqara-hub-m2').")
   },
@@ -93,7 +93,7 @@ import { createClient as createClient3 } from "https://esm.sh/@supabase/supabase
 var list_categories_default = defineTool3({
   name: "list_categories",
   title: "List categories",
-  description: "List the Baytzaki product categories (lighting, security, climate, etc.) with their store URLs.",
+  description: "List the AzkaSmart product categories (lighting, security, climate, etc.) with their store URLs.",
   inputSchema: {},
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
   handler: async () => {
@@ -125,7 +125,7 @@ function userClient(ctx: any) {
 var list_my_orders_default = defineTool4({
   name: "list_my_orders",
   title: "List my orders",
-  description: "List the signed-in Baytzaki customer's orders (id, total EGP, status, date).",
+  description: "List the signed-in AzkaSmart customer's orders (id, total EGP, status, date).",
   inputSchema: {
     limit: z3.number().int().min(1).max(50).default(10)
   },
@@ -155,7 +155,7 @@ function userClient2(ctx: any) {
 var get_my_loyalty_default = defineTool5({
   name: "get_my_loyalty",
   title: "Get my loyalty balance",
-  description: "Return the signed-in Baytzaki customer's loyalty points balance, lifetime points, and tier (bronze/silver/gold/platinum).",
+  description: "Return the signed-in AzkaSmart customer's loyalty points balance, lifetime points, and tier (bronze/silver/gold/platinum).",
   inputSchema: {},
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
   handler: async (_input: any, ctx: any) => {

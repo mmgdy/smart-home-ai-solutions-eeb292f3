@@ -104,9 +104,9 @@ export default function OAuthConsent() {
   return (
     <main className="min-h-screen flex items-center justify-center p-6 bg-background">
       <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-sm">
-        <h1 className="font-display text-2xl mb-2">Connect {clientName} to Baytzaki</h1>
+        <h1 className="font-display text-2xl mb-2">Connect {clientName} to AzkaSmart</h1>
         <p className="text-sm text-muted-foreground mb-4">
-          This lets {clientName} use Baytzaki as you. It will be able to call this app's enabled tools
+          This lets {clientName} use AzkaSmart as you. It will be able to call this app's enabled tools
           (browse the catalog, see your orders, check your loyalty balance) while you are signed in.
         </p>
         {redirect && (
@@ -124,7 +124,7 @@ export default function OAuthConsent() {
           </ul>
         )}
         <p className="text-xs text-muted-foreground mb-6">
-          This does not bypass Baytzaki's permissions — the tools still run under your account.
+          This does not bypass AzkaSmart's permissions — the tools still run under your account.
         </p>
         <div className="flex gap-2">
           <Button className="flex-1" onClick={() => decide(true)} disabled={busy}>

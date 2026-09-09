@@ -15,7 +15,7 @@ type FbConfig = {
 
 let cached: { app: FirebaseApp; messaging: Messaging; vapidKey: string } | null = null;
 
-const STORAGE_KEY = 'baytzaki_push_enabled';
+const STORAGE_KEY = 'azkasmart_push_enabled';
 
 // Check if running inside a preview iframe (Lovable/StackBlitz editors)
 const isPreview = () => {

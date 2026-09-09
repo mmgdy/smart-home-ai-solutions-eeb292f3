@@ -109,7 +109,7 @@ serve(async (req) => {
     const categorySummary = makeCategorySummary(products || []);
     const productContext = makeProductContext(topProducts);
 
-    const systemPrompt = `You are Baytzaki Smart Home Consultant — an expert AI assistant for a smart home store in Egypt.
+    const systemPrompt = `You are AzkaSmart Smart Home Consultant — an expert AI assistant for a smart home store in Egypt.
 
 Available product categories:
 ${categorySummary}

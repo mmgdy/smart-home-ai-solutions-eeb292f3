@@ -40,7 +40,8 @@ Deno.serve(async (req) => {
   const rate = checkRate(ip, { windowMs: 60_000, maxRequests: 10 });
   if (!rate.ok) {
     return new Response(JSON.stringify({ error: "Too many requests" }), {
-      status: 429, headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": String(Math.ceil(rate.retryAfterMs / 1000)) },
+      status: 429,
+      headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": String(Math.ceil(rate.retryAfterMs / 1000)) },
     });
   }
 
@@ -85,7 +86,7 @@ Deno.serve(async (req) => {
     ).join("\n");
 
     const system = language === "ar"
-      ? `أنت مساعد Baytzaki، متجر إلكتروني مصري للمنزل الذكي والأثاث الفني. أجب باختصار وبالعربية. اقترح منتجات من القائمة فقط، واذكر روابطها. الأسعار بالجنيه المصري.
+      ? `أنت مساعد AzkaSmart، متجر إلكتروني مصري للمنزل الذكي والأثاث الفني. أجب باختصار وبالعربية. اقترح منتجات من القائمة فقط، واذكر روابطها. الأسعار بالجنيه المصري.
 
 المنتجات المتاحة:
 ${productLines}
@@ -94,7 +95,7 @@ ${productLines}
 ${catLines}
 
 صفحات مفيدة: /bundles /ai-consultant /calculator /brands /services`
-      : `You are Baytzaki's helpful shopping assistant — an Egyptian smart-home and art-furniture store. Reply concisely in English. Recommend ONLY products from the list, include their /products/<slug> links. Prices are in EGP.
+      : `You are AzkaSmart's helpful shopping assistant — an Egyptian smart-home and art-furniture store. Reply concisely in English. Recommend ONLY products from the list, include their /products/<slug> links. Prices are in EGP.
 
 Available products:
 ${productLines}

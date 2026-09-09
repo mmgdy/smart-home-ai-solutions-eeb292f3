@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Search, Sparkles, Loader2, X, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/lib/i18n';
-import { SUPABASE_URL } from '@/integrations/supabase/config';
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from '@/integrations/supabase/config';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 
@@ -47,13 +47,13 @@ export function AISearchDialog() {
 
     try {
       const { data: sess } = await supabase.auth.getSession();
-      const anonKey = (supabase as any).supabaseKey as string;
+      const accessToken = sess.session?.access_token ?? SUPABASE_PUBLISHABLE_KEY;
       const resp = await fetch(`${SUPABASE_URL}/functions/v1/site-assistant`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          apikey: anonKey,
-          Authorization: `Bearer ${sess.session?.access_token ?? anonKey}`,
+          'apikey': SUPABASE_PUBLISHABLE_KEY,
+          'Authorization': `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
           query: text,
@@ -205,7 +205,7 @@ export function AISearchDialog() {
 function MessageBubble({ msg, isRTL }: { msg: Msg; isRTL: boolean }) {
   const isUser = msg.role === 'user';
   // Linkify /products/slug and /paths
-  const parts = msg.content.split(/(\/(?:products|bundles|brands|services|ai-consultant|calculator|profile)[a-zA-Z0-9/\-_?=&]*)/g);
+  const parts = msg.content.split(/(\/(?:products|bundles|brands|services|ai-consultant|calculator|profile)[a-zA-Z0-9\/\-\_?=&]*)/g);
   return (
     <div className={cn('flex', isUser ? 'justify-end' : 'justify-start')}>
       <div className={cn(

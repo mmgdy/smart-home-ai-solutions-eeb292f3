@@ -1,9 +1,9 @@
-// Shared CORS helpers for Baytzaki edge functions.
+// Shared CORS helpers for AzkaSmart edge functions.
 // Enforces origin-allowlist on every request to prevent cross-site abuse.
 
 const DEFAULT_ALLOWED_ORIGINS = [
-  "https://baytzaki.com",
-  "https://www.baytzaki.com",
+  "https://azkasmart.com",
+  "https://www.azkasmart.com",
   "http://localhost:3000",
   "http://localhost:5173",
 ];

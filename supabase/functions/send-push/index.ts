@@ -127,7 +127,7 @@ function safeNotificationUrl(url: unknown, siteUrl: string): string | null {
   try {
     const parsed = new URL(trimmed, siteUrl);
     if (parsed.protocol !== "https:") return null;
-    const allowed = [new URL(siteUrl).hostname, "baytzaki.com", "www.baytzaki.com"];
+    const allowed = [new URL(siteUrl).hostname, "azkasmart.com", "www.azkasmart.com"];
     if (!allowed.includes(parsed.hostname)) return null;
     return parsed.toString();
   } catch {

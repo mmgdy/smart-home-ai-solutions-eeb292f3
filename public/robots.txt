@@ -1,4 +1,4 @@
-# Baytzaki — smart home store & installation (Egypt)
+# AzkaSmart — smart home store & installation (Egypt)
 # Public shopping pages are fully crawlable.
 
 User-agent: *

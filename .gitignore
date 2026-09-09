@@ -33,3 +33,4 @@ scripts/
 *.njsproj
 *.sln
 *.sw?
+.vercel

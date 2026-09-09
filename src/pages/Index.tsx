@@ -15,7 +15,7 @@ const Index = () => {
   return (
     <>
       <Helmet>
-        <title>Baytzaki - Build Your Smart Home in Minutes with AI | Egypt</title>
+        <title>AzkaSmart - Build Your Smart Home in Minutes with AI | Egypt</title>
         <meta
           name="description"
           content="Egypt's 1st AI Smart Home Platform. Get personalized smart home plans, buy devices, and book professional installation. Cash on delivery. Official warranty."

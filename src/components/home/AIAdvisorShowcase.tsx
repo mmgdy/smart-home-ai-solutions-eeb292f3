@@ -122,7 +122,7 @@ export function AIAdvisorShowcase() {
                 <Bot className="h-4 w-4 text-primary-foreground" />
               </motion.div>
               <div>
-                <span className="text-sm font-semibold text-foreground">Baytzaki AI</span>
+            <span className="text-sm font-semibold text-foreground">AzkaSmart AI</span>
                 <span className="text-xs text-success ml-2">● Online</span>
               </div>
             </div>

@@ -238,7 +238,7 @@ const Bundles = () => {
   return (
     <>
       <Helmet>
-        <title>{isRTL ? 'باقات المنزل الذكي | بيت زكي' : 'Smart Home Bundles | Baytzaki'}</title>
+        <title>{isRTL ? 'باقات المنزل الذكي | أزكاسمارت' : 'Smart Home Bundles | AzkaSmart'}</title>
         <meta name="description" content="Ready-made smart home bundles for Egyptian homes. Studio, apartment, and villa kits with free installation and official warranty." />
       </Helmet>
       <Layout>

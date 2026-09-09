@@ -5,7 +5,7 @@ import { HomePhotoDesigner } from '@/components/home/HomePhotoDesigner';
 const HomeDesignerPage = () => (
   <>
     <Helmet>
-      <title>AI Home Designer | Baytzaki</title>
+      <title>AI Home Designer | AzkaSmart</title>
       <meta name="description" content="Upload a photo of any room and AI will show exactly where to place every smart device. Instant smart home planning." />
     </Helmet>
     <Layout>

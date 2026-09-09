@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
 
     const authHeader = req.headers.get("Authorization") || "";
     const bodyJson = await req.json().catch(() => ({}));
-    const bodyToken = typeof bodyJson.token === "string" ? bodyJson.token : undefined;
+    const bodyToken = typeof (bodyJson as any).token === "string" ? (bodyJson as any).token : undefined;
     const headerToken = authHeader.replace("Bearer ", "");
     const token = bodyToken || headerToken;
     if (!(await verifyAdminToken(supabase, token))) {

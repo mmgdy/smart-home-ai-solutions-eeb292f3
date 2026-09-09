@@ -594,7 +594,7 @@ export function ProductEditor({ adminToken }: Props) {
                     maxLength={70}
                     value={editing.seo_title ?? ""}
                     onChange={(e) => setEditing({ ...editing, seo_title: e.target.value })}
-                    placeholder="Brand + Product + Benefit | Baytzaki"
+                    placeholder="Brand + Product + Benefit | AzkaSmart"
                   />
                   <p className="text-xs text-muted-foreground">{(editing.seo_title ?? "").length}/60</p>
                 </div>

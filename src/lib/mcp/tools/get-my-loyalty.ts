@@ -11,7 +11,7 @@ function userClient(ctx: ToolContext) {
 export default defineTool({
   name: "get_my_loyalty",
   title: "Get my loyalty balance",
-  description: "Return the signed-in Baytzaki customer's loyalty points balance, lifetime points, and tier (bronze/silver/gold/platinum).",
+  description: "Return the signed-in AzkaSmart customer's loyalty points balance, lifetime points, and tier (bronze/silver/gold/platinum).",
   inputSchema: {},
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
   handler: async (_input, ctx) => {

@@ -177,7 +177,7 @@ export function QuoteSummary() {
   <div class="page">
     <div class="header">
       <div class="logo">
-        ${logoUrl ? `<img src="${logoUrl}" alt="Logo" />` : '<div class="logo-text">Baytzaki</div>'}
+        ${logoUrl ? `<img src="${logoUrl}" alt="Logo" />` : '<div class="logo_text">AzkaSmart</div>'}
       </div>
       <div class="header-right">
         <div class="quote-title">${isRTL ? 'عرض سعر المنزل الذكي' : 'Smart Home Quotation'}</div>
@@ -212,7 +212,7 @@ export function QuoteSummary() {
     </div>` : ''}
 
     <div class="footer">
-      baytzaki.com &nbsp;·&nbsp; ${isRTL ? 'عرض السعر صالح لمدة ٣٠ يوماً' : 'Quotation valid for 30 days'} &nbsp;·&nbsp; ${dateStr}
+    ${isRTL ? 'عرض السعر صالح لمدة ٣٠ يوماً' : 'Quotation valid for 30 days'} &nbsp;·&nbsp; ${dateStr}
     </div>
   </div>
   <script>window.onload = () => { window.print(); };<\/script>

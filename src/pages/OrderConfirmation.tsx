@@ -158,7 +158,7 @@ const OrderConfirmation = () => {
       return (
         <>
           <Helmet>
-            <title>{`${labels.orderNotFound} | Baytzaki`}</title>
+            <title>{labels.orderNotFound} | AzkaSmart</title>
           </Helmet>
           <Layout>
             <div className="container py-20 text-center">
@@ -187,7 +187,7 @@ const OrderConfirmation = () => {
     return (
       <>
         <Helmet>
-          <title>{`${labels.orderConfirmed} | Baytzaki`}</title>
+          <title>{labels.orderConfirmed} | AzkaSmart</title>
         </Helmet>
         <Layout>
           <div className="container py-12 text-center">
@@ -229,7 +229,7 @@ const OrderConfirmation = () => {
   return (
     <>
       <Helmet>
-        <title>{`${labels.orderConfirmed} | Baytzaki`}</title>
+        <title>{labels.orderConfirmed} | AzkaSmart</title>
       </Helmet>
       <Layout>
         <div className="container py-8 md:py-12">

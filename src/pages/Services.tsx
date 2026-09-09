@@ -12,7 +12,7 @@ const Services = () => {
 
   const phone = get('contact', 'phone', '+20 123 456 7890');
   const whatsapp = get('contact', 'whatsapp', '201234567890').replace(/\D/g, '');
-  const email = get('contact', 'email', 'info@baytzaki.com');
+  const email = get('contact', 'email', 'info@azkasmart.com');
 
   // Editable prices (Site Info → service_prices)
   const installPrice = parseInt(get('service_prices', 'installation', '500'));
@@ -50,7 +50,7 @@ const Services = () => {
   return (
     <>
       <Helmet>
-        <title>{t('services')} | Baytzaki</title>
+        <title>{t('services')} | AzkaSmart</title>
         <meta name="description" content="Professional smart home installation and consultation services." />
       </Helmet>
       <Layout>

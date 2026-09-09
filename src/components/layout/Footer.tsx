@@ -28,7 +28,7 @@ export function Footer() {
 
   const phone = get('contact', 'phone', '+20 123 456 7890');
   const whatsapp = get('contact', 'whatsapp', '201234567890').replace(/\D/g, '');
-  const email = get('contact', 'email', 'info@baytzaki.com');
+  const email = get('contact', 'email', 'info@azkasmart.com');
   const address = isRTL ? get('contact', 'address_ar', 'القاهرة، مصر') : get('contact', 'address_en', 'Cairo, Egypt');
 
   const fb = get('social', 'facebook', '');
@@ -50,7 +50,7 @@ export function Footer() {
     { label: isRTL ? 'حاسبة التكلفة' : 'Cost Calculator', href: '/calculator' },
     { label: isRTL ? 'خدمات التركيب' : 'Installation Services', href: '/services' },
     { label: isRTL ? 'الماركات' : 'Brands', href: '/brands' },
-    { label: isRTL ? 'عن بيت زكي' : 'About Baytzaki', href: '/about' },
+    { label: isRTL ? 'عن أزكاسمارت' : 'About AzkaSmart', href: '/about' },
   ];
 
   const legalLinks = [
@@ -67,7 +67,7 @@ export function Footer() {
         <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-4">
           <div className="lg:col-span-1">
             <Link to="/" className="inline-flex items-center mb-4">
-              <img src={logoUrl} alt="Baytzaki" style={{ height: `${logoSize}px` }} className="object-contain" />
+              <img src={logoUrl} alt="AzkaSmart" style={{ height: `${logoSize}px` }} className="object-contain" />
             </Link>
             <p className="text-sm text-muted-foreground leading-relaxed mb-6">
               {isRTL
@@ -150,7 +150,7 @@ export function Footer() {
             ))}
           </div>
           <p className="text-center text-xs text-muted-foreground">
-            © {new Date().getFullYear()} Baytzaki. {t('allRightsReserved')}
+            © {new Date().getFullYear()} AzkaSmart. {t('allRightsReserved')}
           </p>
         </div>
       </div>

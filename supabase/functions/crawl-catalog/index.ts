@@ -114,7 +114,7 @@ const searchDuckDuckGo = async (query: string): Promise<{ url: string; title: st
 
 async function mirrorImage(supabase: any, imageUrl: string, productId: string) {
   try {
-    const resp = await fetch(imageUrl, { headers: { "User-Agent": "Mozilla/5.0 BaytzakiCatalogBot/1.0" } });
+const resp = await fetch(imageUrl, { headers: { "User-Agent": "Mozilla/5.0 AzkaSmartCatalogBot/1.0" } });
     if (!resp.ok) return imageUrl;
     const contentType = resp.headers.get("content-type") || "image/jpeg";
     if (!contentType.startsWith("image/")) return imageUrl;

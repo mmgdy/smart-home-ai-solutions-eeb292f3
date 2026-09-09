@@ -106,21 +106,30 @@ export function SiteSettings({ adminToken, onLogout }: SiteSettingsProps) {
       const newLogoUrl = uploadData.publicUrl as string;
       setLogoUrl(newLogoUrl);
 
-      // Save to settings via privileged edge function
+      // Save to admin_settings
       const { data: writeData, error: writeError } = await supabase.functions.invoke('admin-write', {
         body: {
           action: 'update-admin-settings',
           token: adminToken,
-          entries: [{ key: 'logo_url', value: newLogoUrl }],
+          entries: [
+            { key: 'logo_url', value: newLogoUrl },
+            { key: 'favicon_url', value: newLogoUrl },
+            { key: 'app_icon_url', value: newLogoUrl },
+          ],
         },
       });
       if (writeError || !writeData?.success) {
-        throw new Error(writeData?.error || writeError?.message || 'Failed to save logo');
+        throw new Error(writeData?.error || writeError?.message || 'Failed to save settings');
       }
+
+      // Apply favicon immediately
+      let link = document.querySelector("link[rel='icon']") as HTMLLinkElement | null;
+      if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link); }
+      link.href = newLogoUrl;
 
       toast({
         title: 'Logo uploaded successfully',
-        description: 'The new logo will be visible on the website',
+        description: 'Logo, favicon, and app icon updated across the site',
       });
     } catch (error: any) {
       console.error('Logo upload error:', error);

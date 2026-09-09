@@ -20,7 +20,7 @@ import { corsHeadersFor } from "../_shared/cors.ts";
 import { checkRate, getIp } from "../_shared/rate-limit.ts";
 import { clamp } from "../_shared/validate.ts";
 
-const CHECK_UA = "Mozilla/5.0 (compatible; BaytzakiImageBot/1.0; +https://baytzaki.com)";
+const CHECK_UA = "Mozilla/5.0 (compatible; AzkaSmartImageBot/1.0; +https://azkasmart.com)";
 const FETCH_TIMEOUT_MS = 6000;
 const CONCURRENCY = 12;
 const VALID_URL = /^(https?:\/\/|\/|data:)/i;
@@ -58,7 +58,7 @@ async function imageUrlHealthy(url: string): Promise<boolean> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    const absolute = url.startsWith("/") ? `https://baytzaki.com${url}` : url;
+const absolute = url.startsWith("/") ? `https://azkasmart.com${url}` : url;
     const resp = await fetch(absolute, {
       redirect: "follow",
       signal: controller.signal,

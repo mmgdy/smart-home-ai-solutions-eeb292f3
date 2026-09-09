@@ -33,7 +33,7 @@ const HUGGING_FACE_URL = 'https://router.huggingface.co/v1/chat/completions';
 const HUGGING_FACE_API_KEY = Deno.env.get('HUGGINGFACE_API_KEY') ?? '';
 const PRODUCT_IMAGES_BUCKET = 'product-images';
 const INTERNAL_IMAGE_MARKER = `/storage/v1/object/public/${PRODUCT_IMAGES_BUCKET}/`;
-const SEARCH_USER_AGENT = 'Mozilla/5.0 (compatible; BaytzakiImageBot/1.0; +https://baytzaki.com)';
+const SEARCH_USER_AGENT = 'Mozilla/5.0 (compatible; AzkaSmartImageBot/1.0; +https://azkasmart.com)';
 const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -388,7 +388,7 @@ const getProductsForImageRefresh = async (supabase: ReturnType<typeof createClie
   const { data: missingProducts, error: missingError } = await supabase
     .from('products')
     .select('id, name, brand, image_url, images, description, protocol')
-    .or('image_url.is.null,image_url.eq.,image_url.like.%baytzaki.com/wp-content%')
+    .like('image_url', '%azkasmart.com/wp-content%')
     .order('updated_at', { ascending: true })
     .limit(batchSize);
 
@@ -523,7 +523,7 @@ Deno.serve(async (req) => {
       const { data: brokenProducts, error } = await supabase
         .from('products')
         .select('id, name, image_url')
-        .like('image_url', '%baytzaki.com/wp-content%')
+        .like('image_url', '%azkasmart.com/wp-content%')
         .limit(batchSize);
 
       if (error) throw error;

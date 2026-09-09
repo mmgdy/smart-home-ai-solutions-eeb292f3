@@ -70,7 +70,7 @@ const Profile = () => {
   return (
     <>
       <Helmet>
-        <title>{`${labels.profile} | Baytzaki`}</title>
+        <title>{`${labels.profile} | AzkaSmart`}</title>
       </Helmet>
       <Layout>
         <div className="container py-8 md:py-12 max-w-4xl">

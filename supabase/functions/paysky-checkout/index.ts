@@ -72,7 +72,7 @@ serve(async (req) => {
       orderId,
       customerEmail,
       customerName,
-      description = "Baytzaki Smart Home Purchase",
+      description = "AzkaSmart Smart Home Purchase",
       callbackUrl,
       returnUrl,
       successUrl,

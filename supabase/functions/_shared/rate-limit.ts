@@ -1,4 +1,4 @@
-// Shared rate-limiting helper for Baytzaki edge functions.
+// Shared rate-limiting helper for AzkaSmart edge functions.
 // Uses a per-instance in-memory map (per cold-start). Good enough for
 // limiting casual abuse; for heavy attacks, add a WAF or distributed rate
 // limiter in front of the functions.

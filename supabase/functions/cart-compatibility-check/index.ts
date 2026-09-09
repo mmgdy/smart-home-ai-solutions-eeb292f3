@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
       `${p.id} | ${p.name} | EGP ${p.price} | ${p.brand ?? "-"} | ${p.protocol ?? "-"}`
     ).join("\n");
 
-    const system = `You are Baytzaki's smart-home compatibility checker.
+    const system = `You are AzkaSmart's smart-home compatibility checker.
 Review the customer's cart and identify:
 1) Compatibility problems (mismatched protocols like Zigbee vs Z-Wave, missing hubs/bridges, mixed ecosystems).
 2) Missing essential accessories (e.g. smart bulbs without a bridge, cameras without SD card/hub, door lock without gateway, curtain motor without power supply).

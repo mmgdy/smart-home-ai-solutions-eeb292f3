@@ -154,19 +154,19 @@ const ProductDetail = () => {
   return (
     <>
       <Helmet>
-        <title>{product.seo_title || `${product.name} | Baytzaki`}</title>
+        <title>{product.seo_title || `${product.name} | AzkaSmart`}</title>
         <meta
           name="description"
-          content={product.seo_description || product.description || `Buy ${product.name} at Baytzaki — Smart Home Egypt. Fast nationwide delivery.`}
+          content={product.seo_description || product.description || `Buy ${product.name} at AzkaSmart — Smart Home Egypt. Fast nationwide delivery.`}
         />
         {product.seo_keywords && product.seo_keywords.length > 0 && (
           <meta name="keywords" content={product.seo_keywords.join(", ")} />
         )}
-        <link rel="canonical" href={`https://baytzaki.com/product/${product.slug}`} />
+        <link rel="canonical" href={`https://azkasmart.com/product/${product.slug}`} />
         {/* Open Graph */}
         <meta property="og:type" content="product" />
         <meta property="og:title" content={product.seo_title || product.name} />
-        <meta property="og:description" content={product.seo_description || product.description || `Buy ${product.name} at Baytzaki`} />
+        <meta property="og:description" content={product.seo_description || product.description || `Buy ${product.name} at AzkaSmart`} />
         {product.image_url && <meta property="og:image" content={product.image_url} />}
         {/* Twitter */}
         <meta name="twitter:card" content="summary_large_image" />

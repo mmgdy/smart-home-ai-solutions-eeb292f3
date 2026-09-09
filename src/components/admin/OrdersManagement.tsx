@@ -67,7 +67,7 @@ export const OrdersManagement = ({ adminToken }: Props) => {
   const fetchOrders = async () => {
     setLoading(true);
     const { data, error } = await supabase.functions.invoke('admin-write', {
-      headers: { Authorization: `Bearer ${adminToken}` },
+      headers: { Authorization: "Bearer " + adminToken },
       body: { action: 'list-orders' },
     });
     if (error || !data?.success) {
@@ -83,7 +83,7 @@ export const OrdersManagement = ({ adminToken }: Props) => {
   const fetchOrderItems = async (orderId: string) => {
     setLoadingItems(true);
     const { data, error } = await supabase.functions.invoke('admin-write', {
-      headers: { Authorization: `Bearer ${adminToken}` },
+      headers: { Authorization: "Bearer " + adminToken },
       body: { action: 'list-order-items', orderId },
     });
     if (error || !data?.success) {
@@ -97,7 +97,7 @@ export const OrdersManagement = ({ adminToken }: Props) => {
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
     setUpdatingStatus(orderId);
     const { data, error } = await supabase.functions.invoke('admin-write', {
-      headers: { Authorization: `Bearer ${adminToken}` },
+      headers: { Authorization: "Bearer " + adminToken },
       body: { action: 'update-order-status', id: orderId, status: newStatus },
     });
     if (error || !data?.success) {
@@ -113,7 +113,7 @@ export const OrdersManagement = ({ adminToken }: Props) => {
     if (!confirm(`Delete order #${order.id.slice(0, 8)} from ${order.email}? This cannot be undone.`)) return;
     setDeletingId(order.id);
     const { data, error } = await supabase.functions.invoke('admin-write', {
-      headers: { Authorization: `Bearer ${adminToken}` },
+      headers: { Authorization: "Bearer " + adminToken },
       body: { action: 'delete-order', id: order.id },
     });
     if (error || !data?.success) {

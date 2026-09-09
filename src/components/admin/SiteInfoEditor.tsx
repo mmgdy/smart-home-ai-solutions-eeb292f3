@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Loader2, Save, Upload, Image, Layout, Globe, Sparkles, ShieldCheck, UploadCloud, Star } from "lucide-react";
+import { Loader2, Save, Upload, Image, Layout, Globe, Sparkles, ShieldCheck, UploadCloud, Star, Phone, Share2, Info, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

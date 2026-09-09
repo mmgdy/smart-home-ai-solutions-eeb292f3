@@ -30,17 +30,38 @@ const tierColors: Record<string, string> = {
 export function UsersManagement({ adminToken }: { adminToken: string }) {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState('');
+  const [stats, setStats] = useState({ total: 0, verified: 0, totalOrders: 0, totalSpent: 0 });
   const { toast } = useToast();
+
+  // ── Auth + token refresh ─────────────────────────────────────────
+  const loadAuth = async () => {
+    try {
+      const { data, error } = await supabase.auth.getSession();
+      if (error) throw error;
+      if (data.session?.expires_at && data.session.expires_at < Date.now() / 1000) {
+        const { data: ref, error: refErr } = await supabase.auth.refreshSession();
+        if (refErr) throw refErr;
+      }
+    } catch {}
+  };
 
   const load = async () => {
     setLoading(true);
     try {
+      await loadAuth();
       const { data, error } = await supabase.functions.invoke("admin-users", {
         headers: { Authorization: "Bearer " + adminToken },
       });
       if (error || data?.error) throw new Error(data?.error || error?.message);
-      setUsers(data.users || []);
+      const arr = data.users || [];
+      setUsers(arr);
+      setStats({
+        total: arr.length,
+        verified: arr.filter((u: any) => u.email_confirmed_at).length,
+        totalOrders: arr.reduce((s, u: any) => s + u.order_count, 0),
+        totalSpent: arr.reduce((s, u: any) => s + u.total_spent, 0),
+      });
     } catch (e: any) {
       toast({ title: "Failed to load users", description: e.message, variant: "destructive" });
     } finally {

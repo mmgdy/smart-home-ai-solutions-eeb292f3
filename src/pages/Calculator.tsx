@@ -37,7 +37,7 @@ const Calculator = () => {
   return (
     <>
       <Helmet>
-        <title>{isRTL ? 'حاسبة المنزل الذكي | Baytzaki' : 'Smart Home Calculator | Baytzaki'}</title>
+        <title>{isRTL ? 'حاسبة المنزل الذكي | AzkaSmart' : 'Smart Home Calculator | AzkaSmart'}</title>
         <meta
           name="description"
           content={isRTL 

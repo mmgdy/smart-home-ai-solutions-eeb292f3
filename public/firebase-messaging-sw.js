@@ -1,4 +1,4 @@
-/* Baytzaki — Firebase Cloud Messaging service worker.
+/* AzkaSmart — Firebase Cloud Messaging service worker.
  * Reads Firebase config from URL query params at registration time so we
  * can keep config server-side. Receives background pushes and shows them.
  *
@@ -21,14 +21,14 @@ if (cfg && cfg.apiKey) {
   messaging.onBackgroundMessage((payload) => {
     const n = payload.notification || {};
     const data = payload.data || {};
-    const title = n.title || data.title || 'Baytzaki';
+    const title = n.title || data.title || 'AzkaSmart';
     const options = {
       body: n.body || data.body || '',
       icon: n.icon || data.icon || '/icons/icon-192.png',
       badge: '/icons/icon-192.png',
       image: data.image || undefined,
       data: { url: data.url || n.click_action || '/' },
-      tag: data.tag || 'baytzaki',
+      tag: data.tag || 'azkasmart',
       requireInteraction: false,
       // iOS Safari requires these for rich notifications
       ...(self.Notification && self.Notification.maxActions ? { actions: [] } : {}),

@@ -18,7 +18,7 @@ const Cart = () => {
     return (
       <>
         <Helmet>
-          <title>{`${t('cart') || 'Cart'} | Baytzaki`}</title>
+          <title>{`${t('cart') || 'Cart'} | AzkaSmart`}</title>
         </Helmet>
         <Layout>
           <div className="container py-20 text-center">
@@ -56,7 +56,7 @@ const Cart = () => {
   return (
     <>
       <Helmet>
-        <title>{`${t('cart') || 'Cart'} (${items.length}) | Baytzaki`}</title>
+        <title>{`${t('cart') || 'Cart'} (${items.length}) | AzkaSmart`}</title>
       </Helmet>
       <Layout>
         <div className="container py-8 md:py-12">

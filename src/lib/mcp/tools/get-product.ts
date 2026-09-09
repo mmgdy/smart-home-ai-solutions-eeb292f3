@@ -5,7 +5,7 @@ import { createClient } from "@supabase/supabase-js";
 export default defineTool({
   name: "get_product",
   title: "Get product details",
-  description: "Look up one Baytzaki product by its slug. Returns full details, price in EGP, stock, and specifications.",
+  description: "Look up one AzkaSmart product by its slug. Returns full details, price in EGP, stock, and specifications.",
   inputSchema: {
     slug: z.string().min(1).describe("Product slug (e.g. 'aqara-hub-m2')."),
   },

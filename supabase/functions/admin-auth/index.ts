@@ -6,6 +6,7 @@
 //   reset-password -> generates a new strong password for the CURRENT admin,
 //                     returns it exactly once (never persisted anywhere) and
 //                     revokes every other admin session.
+//   reset-admin    -> re-create/re-configure the admin user (requires SETUP_TOKEN secret)
 //
 // Only accounts with app_metadata.role === "admin" (or listed under the
 // admin_settings key "admin_allowed_emails") get admin tokens — ordinary
@@ -17,62 +18,7 @@ import { checkRate, getIp } from "../_shared/rate-limit.ts";
 
 const PASSWORD_ALPHABET = "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%^&*-_=+";
 
-// One-time owner bootstrap. Auth users were never migrated into this
-// project, so the first login for the owner's address creates the account
-// with the intended password. Only the PBKDF2 hash lives in source (the
-// repo is public — never put the plaintext here). After first login the
-// owner rotates the password via reset-password; the bootstrap hash then
-// stays inert because the account exists.
-const BOOTSTRAP_EMAIL = "baytzaki@gmail.com";
-const BOOTSTRAP_HASH = "pbkdf2$100000$qR8Q58PSS4+ealwtHws6SA==$p7NFkbO3E8uEgc+J7xpt+kzyf85zg/MqCHWALUdb5cI=";
 
-async function pbkdf2Verify(stored: string, password: string): Promise<boolean> {
-  const [, iterStr, salt, expected] = stored.split("$");
-  const iterations = Number(iterStr);
-  if (!iterations || !salt || !expected) return false;
-  try {
-    const keyMaterial = await crypto.subtle.importKey(
-      "raw",
-      new TextEncoder().encode(password),
-      "PBKDF2",
-      false,
-      ["deriveBits"],
-    );
-    const saltBytes = Uint8Array.from(atob(salt), (c) => c.charCodeAt(0));
-    const bits = await crypto.subtle.deriveBits(
-      { name: "PBKDF2", hash: "SHA-256", salt: saltBytes, iterations },
-      keyMaterial,
-      256,
-    );
-    const actual = btoa(String.fromCharCode(...new Uint8Array(bits)));
-    if (actual.length !== expected.length) return false;
-    let diff = 0;
-    for (let i = 0; i < actual.length; i++) diff |= actual.charCodeAt(i) ^ expected.charCodeAt(i);
-    return diff === 0;
-  } catch {
-    return false;
-  }
-}
-
-/** Emails allowed to hold admin sessions (admin_settings key
- *  "admin_allowed_emails", comma-separated) — defence in depth on top of
- *  app_metadata.role, so ordinary customer signups can never mint admin
- *  tokens through this endpoint. */
-async function isAdminEmailAllowed(admin: any, email: string, signedInRole: unknown): Promise<boolean> {
-  if (signedInRole === "admin") return true;
-  const { data } = await admin
-    .from("admin_settings")
-    .select("value")
-    .eq("key", "admin_allowed_emails")
-    .maybeSingle();
-  const allowed = String(data?.value ?? "")
-    .split(",")
-    .map((s) => s.trim().toLowerCase())
-    .filter(Boolean);
-  return allowed.includes(email);
-}
-
-/** Cryptographically-random password, rejection-sampled to avoid modulo bias. */
 function generatePassword(length = 24): string {
   const out: string[] = [];
   const max = Math.floor(256 / PASSWORD_ALPHABET.length) * PASSWORD_ALPHABET.length;
@@ -101,15 +47,10 @@ function json(body: unknown, status: number, corsHeaders: Record<string, string>
   });
 }
 
-/** Resolves a bearer token to the admin session record, or null. */
 async function resolveSession(admin: any, token: string) {
   if (!token) return null;
   let adminId = "";
-  try {
-    adminId = atob(token).split(":")[0];
-  } catch {
-    return null;
-  }
+  try { adminId = atob(token).split(":")[0]; } catch { return null; }
   if (!adminId) return null;
   const { data } = await admin
     .from("admin_settings")
@@ -130,6 +71,15 @@ async function findUserByEmail(admin: any, email: string) {
     if (data.users.length < 200) return null;
   }
   return null;
+}
+
+function escapeHtml(value: unknown): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 Deno.serve(async (req) => {
@@ -155,7 +105,6 @@ Deno.serve(async (req) => {
   const bearer = (req.headers.get("Authorization") ?? "").replace("Bearer ", "").trim();
 
   try {
-    // ---------------------------------------------------------------- verify
     if (action === "verify") {
       const session = await resolveSession(admin, body.token ?? bearer);
       if (!session) return json({ success: false, error: "Invalid session" }, 401, corsHeaders);
@@ -166,25 +115,20 @@ Deno.serve(async (req) => {
       );
     }
 
-    // -------------------------------------------------------- reset-password
     if (action === "reset-password") {
       const session = await resolveSession(admin, bearer || body.token);
       if (!session) return json({ success: false, error: "Unauthorized" }, 401, corsHeaders);
       if (!session.email) {
         return json({ success: false, error: "This session has no linked account. Sign in again." }, 400, corsHeaders);
       }
-
       const user = await findUserByEmail(admin, session.email);
       if (!user) return json({ success: false, error: "Admin account not found" }, 404, corsHeaders);
-
       const newPassword = generatePassword(24);
       const { error: updErr } = await admin.auth.admin.updateUserById(user.id, {
         password: newPassword,
         email_confirm: true,
       });
       if (updErr) throw updErr;
-
-      // Revoke every other admin session so a leaked token can't be reused.
       const { data: sessions } = await admin
         .from("admin_settings")
         .select("key")
@@ -193,44 +137,28 @@ Deno.serve(async (req) => {
         .map((r: any) => r.key as string)
         .filter((k) => !k.endsWith(session.adminId));
       if (stale.length) await admin.from("admin_settings").delete().in("key", stale);
-
       console.log(`Admin password reset for ${session.adminId} at ${new Date().toISOString()}`);
-
-      // The password is returned here and nowhere else — it is not stored.
       return json({ success: true, email: session.email, password: newPassword }, 200, corsHeaders);
     }
 
-    // ----------------------------------------------------------------- setup
-    if (action === "setup") {
-      // Allow setup on first run (no admins yet) or with a valid setup token
-      const { data: allowed } = await admin
-        .from("admin_settings")
-        .select("value")
-        .eq("key", "admin_allowed_emails")
-        .maybeSingle();
-      const emails = allowed
-        ? String(allowed.value).split(",").map((s) => s.trim()).filter(Boolean)
-        : [];
-      const isFirstRun = emails.length === 0;
-
-      if (!isFirstRun) {
-        const setupToken = Deno.env.get("SETUP_TOKEN");
-        if (!setupToken || body.setupToken !== setupToken) {
-          return json(
-            { success: false, error: "Setup requires a valid setup token" },
-            403,
-            corsHeaders,
-          );
-        }
+    if (action === "reset-admin") {
+      const setupToken = Deno.env.get("SETUP_TOKEN");
+      if (!setupToken || body.setupToken !== setupToken) {
+        return json({ success: false, error: "Setup token required" }, 403, corsHeaders);
       }
-
       const email = String(body.email ?? "").trim().toLowerCase();
       const password = String(body.password ?? "");
       if (!email || !password) {
         return json({ success: false, error: "Email and password are required" }, 400, corsHeaders);
       }
-
-      // Create or update the auth user
+      const { data: sessions } = await admin
+        .from("admin_settings")
+        .select("key")
+        .or("key.like.admin_token_%,key.like.admin_session_%");
+      const stale = (sessions ?? [])
+        .map((r: any) => r.key as string)
+        .filter((k) => !k.includes(email));
+      if (stale.length) await admin.from("admin_settings").delete().in("key", stale);
       const existing = await findUserByEmail(admin, email);
       if (existing) {
         await admin.auth.admin.updateUserById(existing.id, {
@@ -243,23 +171,15 @@ Deno.serve(async (req) => {
           email,
           password,
           email_confirm: true,
-          user_metadata: { name: "Baytzaki Admin" },
+          user_metadata: { name: "AzkaSmart Admin" },
           app_metadata: { role: "admin" },
         });
         if (createErr) throw createErr;
       }
-
-      // Register as admin
       await admin.from("admin_settings").upsert(
-        {
-          key: "admin_allowed_emails",
-          value: email,
-          updated_at: new Date().toISOString(),
-        },
+        { key: "admin_allowed_emails", value: email, updated_at: new Date().toISOString() },
         { onConflict: "key" },
       );
-
-      // Create admin session token
       const adminId = crypto.randomUUID();
       const token = makeToken(adminId);
       const now = new Date().toISOString();
@@ -270,13 +190,14 @@ Deno.serve(async (req) => {
         ],
         { onConflict: "key" },
       );
-
       return json(
         { success: true, token, adminId, admin: { id: adminId, username: email } },
         200,
         corsHeaders,
       );
     }
+
+    // Normal login
     const email = String(body.email ?? body.username ?? "").trim().toLowerCase();
     const password = String(body.password ?? "");
     if (!email || !password) {
@@ -291,76 +212,20 @@ Deno.serve(async (req) => {
     }
 
     if (signInError || !signIn?.user) {
-      // Bootstrap: proving knowledge of the bootstrap password creates (or
-      // repasswords) the owner's auth account exactly once. Anything else is
-      // a plain invalid-credential rejection.
-      const knowsBootstrap = email === BOOTSTRAP_EMAIL && await pbkdf2Verify(BOOTSTRAP_HASH, password);
-      if (!knowsBootstrap) {
-        return json({ success: false, error: "Invalid credentials" }, 401, corsHeaders);
-      }
-
-      const existing = await findUserByEmail(admin, email);
-      if (existing) {
-        await admin.auth.admin.updateUserById(existing.id, {
-          password,
-          email_confirm: true,
-          app_metadata: { role: "admin" },
-        });
-      } else {
-        const { error: createErr } = await admin.auth.admin.createUser({
-          email,
-          password,
-          email_confirm: true,
-          user_metadata: { name: "Baytzaki Admin" },
-          app_metadata: { role: "admin" },
-        });
-        if (createErr) throw createErr;
-      }
-
-      // Remember the owner address so future logins don't need app_metadata.
-      await admin.from("admin_settings").upsert(
-        { key: "admin_allowed_emails", value: BOOTSTRAP_EMAIL, updated_at: new Date().toISOString() },
-        { onConflict: "key" },
-      );
+      return json({ success: false, error: "Invalid credentials" }, 401, corsHeaders);
     }
 
-    // Send login confirmation email
-    try {
-      const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
-      if (RESEND_API_KEY) {
-        const Resend = (await import("https://esm.sh/resend@2.0.0")).default;
-        const resend = new Resend(RESEND_API_KEY);
-        const adminEmailHtml = `
-          <!DOCTYPE html>
-          <html><head><meta charset="utf-8"><title>Admin Login - Baytzaki</title></head>
-          <body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;background:#f5f5f5">
-            <div style="background:#0f172a;padding:20px;border-radius:12px 12px 0 0;text-align:center">
-              <h1 style="color:#00bfa5;margin:0">🔐 Admin Login</h1>
-            </div>
-            <div style="background:#fff;padding:30px;border-radius:0 0 12px 12px;box-shadow:0 4px 6px rgba(0,0,0,0.1)">
-              <p style="color:#666">An admin login was performed on your Baytzaki account.</p>
-              <div style="background:#0f172a;color:#fff;padding:15px;border-radius:8px;margin:20px 0">
-                <p style="margin:0;font-size:16px"><strong>Email:</strong> ${escapeHtml(email)}</p>
-                <p style="margin:5px 0 0;font-size:14px;opacity:.9">Time: ${new Date().toLocaleString("en-EG")}</p>
-              </div>
-              <p style="color:#666;font-size:12px;text-align:center;margin-top:20px">If this was not you, immediately reset your password from the Security tab in the admin panel.</p>
-            </div>
-          </body></html>
-        `;
-        await resend.emails.send({
-          from: "Baytzaki Admin <admin@azkasmart.com>",
-          to: ["info@azkasmart.com"],
-          subject: `🔐 Admin Login - ${email}`,
-          html: adminEmailHtml,
-        });
-      }
-    } catch (e) {
-      console.warn("Admin login email failed (non-fatal):", e);
-    }
-
-    // Admin gate: a plain customer signup must never yield an admin token.
-    const allowed = await isAdminEmailAllowed(admin, email, signIn?.user?.app_metadata?.role);
-    if (!allowed) {
+    // Admin gate
+    const { data: allowedRows } = await admin
+      .from("admin_settings")
+      .select("value")
+      .eq("key", "admin_allowed_emails")
+      .maybeSingle();
+    const allowedEmails = allowedRows
+      ? String(allowedRows.value).split(",").map((s) => s.trim().toLowerCase()).filter(Boolean)
+      : [];
+    const isAdmin = signIn.user.app_metadata?.role === "admin" || allowedEmails.includes(email);
+    if (!isAdmin) {
       return json({ success: false, error: "Not an admin account" }, 403, corsHeaders);
     }
 
@@ -374,6 +239,40 @@ Deno.serve(async (req) => {
       ],
       { onConflict: "key" },
     );
+
+    // Send login confirmation email
+    try {
+      const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+      if (RESEND_API_KEY) {
+        const Resend = (await import("https://esm.sh/resend@2.0.0")).default;
+        const resend = new Resend(RESEND_API_KEY);
+        const adminEmailHtml = `
+          <!DOCTYPE html>
+          <html><head><meta charset="utf-8"><title>Admin Login - AzkaSmart</title></head>
+          <body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;background:#f5f5f5">
+            <div style="background:#0f172a;padding:20px;border-radius:12px 12px 0 0;text-align:center">
+              <h1 style="color:#00bfa5;margin:0">🔐 Admin Login</h1>
+            </div>
+            <div style="background:#fff;padding:30px;border-radius:0 0 12px 12px;box-shadow:0 4px 6px rgba(0,0,0,0.1)">
+          <p style="color:#666">An admin login was performed on your AzkaSmart account.</p>
+              <div style="background:#0f172a;color:#fff;padding:15px;border-radius:8px;margin:20px 0">
+                <p style="margin:0;font-size:16px"><strong>Email:</strong> ${escapeHtml(email)}</p>
+                <p style="margin:5px 0 0;font-size:14px;opacity:.9">Time: ${new Date().toLocaleString("en-EG")}</p>
+              </div>
+              <p style="color:#666;font-size:12px;text-align:center;margin-top:20px">If this was not you, immediately reset your password from the Security tab in the admin panel.</p>
+            </div>
+          </body></html>
+        `;
+        await resend.emails.send({
+          from: "AzkaSmart Admin <admin@azkasmart.com>",
+          to: ["info@azkasmart.com"],
+          subject: `🔐 Admin Login - ${email}`,
+          html: adminEmailHtml,
+        });
+      }
+    } catch (e) {
+      console.warn("Admin login email failed (non-fatal):", e);
+    }
 
     return json({ success: true, token, adminId, admin: { id: adminId, username: email } }, 200, corsHeaders);
   } catch (error) {
