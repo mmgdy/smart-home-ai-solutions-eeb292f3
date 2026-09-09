@@ -1,9 +1,10 @@
-import { useState } from 'react';
-import { FileImage, FileVideo, FileText, ChevronDown, Trash2, Upload, ExternalLink, X, Search, Filter, Loader2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { FileImage, FileVideo, FileText, Trash2, Upload, ExternalLink, Search, Filter, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 const BUCKETS = [
   { id: 'product-images', label: 'Product Images', icon: FileImage, color: 'text-purple-600' },
@@ -43,18 +44,12 @@ function getPublicUrl(bucket: string, path: string): string {
 
 interface FileItem {
   name: string;
-  id: string;
+  id?: string;
   size: number;
   createdAt: string;
   publicUrl: string;
   mime: string;
   type: 'image' | 'video' | 'document' | 'other';
-}
-
-interface BucketFile {
-  name: string;
-  id?: string;
-  metadata?: { mimetype?: string; size?: number; created_at?: string };
 }
 
 export default function MediaManager({ adminToken }: { adminToken: string }) {
@@ -66,36 +61,29 @@ export default function MediaManager({ adminToken }: { adminToken: string }) {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('all');
   const [updatingBuckets, setUpdatingBuckets] = useState(false);
+  const [bucketCount, setBucketCount] = useState(BUCKETS.length);
 
   const bucket = BUCKETS[bucketIdx];
 
+  // Use Supabase client storage API instead of raw fetch with adminToken
   const fetchFiles = async () => {
     setLoading(true);
     try {
-      const res = await fetch(
-        `https://api.supabase.com/v1/storage/v1/object/list/bucket/${bucket.id}?pg=1&per_page=200&sort_by=created_at.asc`,
-        {
-          headers: {
-            Authorization: `Bearer ${adminToken}`,
-          },
-        }
-      );
-      if (!res.ok) throw new Error(`Failed to list files (${res.status})`);
-      const data: BucketFile[] = await res.json();
-      const items: FileItem[] = data.map((f) => {
+      const { data, error } = await supabase.storage.from(bucket.id).list();
+      if (error) throw new Error(error.message);
+      const items: FileItem[] = data.map((f: any) => {
         const name = f.name.replace(/^\/+/, '');
         const mime = (f.metadata?.mimetype || 'application/octet-stream');
         return {
           name,
           id: f.id || name,
           size: f.metadata?.size ?? 0,
-          createdAt: f.metadata?.created_at ?? new Date().toISOString(),
+          createdAt: f.metadata?.created_at ?? f.created_at ?? new Date().toISOString(),
           publicUrl: getPublicUrl(bucket.id, name),
           mime,
           type: classifyFile(name, { mimetype: mime }),
         };
       });
-      // Filter: folders are items ending with / or items that are prefixes
       const fileItems = items.filter((f) => !f.name.endsWith('/') && f.size > 0);
       setFiles(fileItems);
     } catch (err: any) {
@@ -108,26 +96,22 @@ export default function MediaManager({ adminToken }: { adminToken: string }) {
   const refreshBuckets = async () => {
     setUpdatingBuckets(true);
     try {
-      const res = await fetch('https://api.supabase.com/v1/storage/buckets', {
-        headers: { Authorization: `Bearer ${adminToken}`, apikey: adminToken },
-      });
-      if (res.ok) {
-        const buckets = await res.json();
-        // Check for buckets not in our list
-        const knownIds = new Set(BUCKETS.map(b => b.id));
-        const newBuckets = buckets.filter((b: any) => b.name && !knownIds.has(b.name));
-        for (const b of newBuckets) {
-          if (b.name && !b.name.endsWith('/')) {
-            BUCKETS.push({
-              id: b.name,
-              label: b.name.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
-              icon: FileImage,
-              color: 'text-slate-600',
-            });
-          }
+      const { data, error } = await supabase.storage.listBuckets();
+      if (error) throw error;
+      const knownIds = new Set(BUCKETS.slice(0, bucketCount).map(b => b.id));
+      const newBuckets = data.filter((b: any) => b.name && !knownIds.has(b.name));
+      for (const b of newBuckets) {
+        if (b.name && !b.name.endsWith('/')) {
+          BUCKETS.push({
+            id: b.name,
+            label: b.name.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+            icon: FileImage,
+            color: 'text-slate-600',
+          });
         }
-        if (bucketIdx >= BUCKETS.length) setBucketIdx(0);
       }
+      setBucketCount(BUCKETS.length);
+      if (bucketIdx >= BUCKETS.length) setBucketIdx(0);
     } catch { /* ignore */ }
     finally { setUpdatingBuckets(false); }
   };
@@ -139,14 +123,8 @@ export default function MediaManager({ adminToken }: { adminToken: string }) {
     try {
       const file = files.find(f => f.id === fileId);
       if (!file) return;
-      const res = await fetch(`https://api.supabase.com/v1/storage/v1/object/bucket/${bucket.id}${file.name.startsWith('/') ? '' : '/'}${encodeURIComponent(file.name)}`, {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${adminToken}`,
-          apikey: adminToken,
-        },
-      });
-      if (!res.ok) throw new Error(`Delete failed (${res.status})`);
+      const { error } = await supabase.storage.from(bucket.id).remove([file.name]);
+      if (error) throw new Error(error.message);
       setFiles(prev => prev.filter(f => f.id !== fileId));
       toast({ title: 'File deleted', description: file.name });
     } catch (err: any) {
@@ -189,7 +167,7 @@ export default function MediaManager({ adminToken }: { adminToken: string }) {
           {updatingBuckets && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
           <Upload className="w-3.5 h-3.5" /> Sync Buckets
         </Button>
-        {BUCKETS.map((b, i) => (
+        {BUCKETS.slice(0, bucketCount).map((b, i) => (
           <Button
             key={b.id}
             variant={bucketIdx === i ? 'default' : 'outline'}

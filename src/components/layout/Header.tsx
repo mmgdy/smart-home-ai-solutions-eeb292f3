@@ -16,7 +16,7 @@ export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [logoUrl, setLogoUrl] = useState<string>(defaultLogoImage);
-  const [logoSize, setLogoSize] = useState(100);
+  const [logoSize, setLogoSize] = useState(120);
   const itemCount = useCart((state) => state.getItemCount());
   const { t, isRTL } = useLanguage();
   const navigate = useNavigate();

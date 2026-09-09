@@ -11,7 +11,7 @@ export function Footer() {
   const { get } = useSiteInfo();
   const isRTL = language === 'ar';
   const [logoUrl, setLogoUrl] = useState<string>(defaultLogoImage);
-  const [logoSize, setLogoSize] = useState(60);
+  const [logoSize, setLogoSize] = useState(80);
 
   useEffect(() => {
     (async () => {

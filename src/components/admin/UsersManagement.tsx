@@ -47,6 +47,11 @@ export function UsersManagement({ adminToken }: { adminToken: string }) {
   };
 
   const load = async () => {
+    if (!adminToken) {
+      toast({ title: 'Not authenticated', description: 'Please log in to view users', variant: 'destructive' });
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       await loadAuth();

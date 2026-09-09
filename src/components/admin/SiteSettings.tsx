@@ -18,7 +18,7 @@ export function SiteSettings({ adminToken, onLogout }: SiteSettingsProps) {
   
   // Logo settings
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
-  const [logoSize, setLogoSize] = useState(100);
+  const [logoSize, setLogoSize] = useState(120);
   const [isUploading, setIsUploading] = useState(false);
 
   // Favicon settings
@@ -106,15 +106,13 @@ export function SiteSettings({ adminToken, onLogout }: SiteSettingsProps) {
       const newLogoUrl = uploadData.publicUrl as string;
       setLogoUrl(newLogoUrl);
 
-      // Save to admin_settings
+      // Save to admin_settings — logo_url only (not favicon or app icon)
       const { data: writeData, error: writeError } = await supabase.functions.invoke('admin-write', {
         body: {
           action: 'update-admin-settings',
           token: adminToken,
           entries: [
             { key: 'logo_url', value: newLogoUrl },
-            { key: 'favicon_url', value: newLogoUrl },
-            { key: 'app_icon_url', value: newLogoUrl },
           ],
         },
       });
@@ -122,10 +120,10 @@ export function SiteSettings({ adminToken, onLogout }: SiteSettingsProps) {
         throw new Error(writeData?.error || writeError?.message || 'Failed to save settings');
       }
 
-      // Apply favicon immediately
-      let link = document.querySelector("link[rel='icon']") as HTMLLinkElement | null;
-      if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link); }
-      link.href = newLogoUrl;
+      // Apply logo immediately in header and footer
+      let headerLink = document.querySelector("link[rel='icon']") as HTMLLinkElement | null;
+      if (!headerLink) { headerLink = document.createElement('link'); headerLink.rel = 'icon'; document.head.appendChild(headerLink); }
+      headerLink.href = newLogoUrl;
 
       toast({
         title: 'Logo uploaded successfully',
@@ -356,13 +354,13 @@ export function SiteSettings({ adminToken, onLogout }: SiteSettingsProps) {
               <Slider
                 value={[logoSize]}
                 onValueChange={handleSizeChange}
-                min={40}
+                min={80}
                 max={200}
                 step={10}
                 className="w-full"
               />
               <div className="flex justify-between text-xs text-muted-foreground">
-                <span>Small (40px)</span>
+                <span>Small (80px)</span>
                 <span>Large (200px)</span>
               </div>
             </div>
