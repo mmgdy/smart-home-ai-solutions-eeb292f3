@@ -137,7 +137,7 @@ export const AuthButton = ({ variant = 'outline', size = 'default', showProfile 
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="font-display text-2xl">
-              {isAr ? 'مرحباً ببيت زكي' : 'Welcome to Baytzaki'}
+              {isAr ? 'مرحباً بأزكاسمارت' : 'Welcome to AzkaSmart'}
             </DialogTitle>
             <DialogDescription>
               {isAr ? 'سجل دخول أو أنشئ حساب جديد' : 'Sign in or create a new account'}
