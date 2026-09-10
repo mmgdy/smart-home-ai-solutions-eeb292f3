@@ -3,7 +3,7 @@ import { Helmet } from 'react-helmet-async';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Upload, Loader2, CheckCircle, AlertCircle, Image, FileText, Sparkles, Download, Filter, DollarSign, CreditCard, Package, Settings, Globe, RefreshCw, Link2, Users, Tag, Zap, Merge, Bell, Search, ShieldCheck, FolderOpen } from 'lucide-react';
+import { Upload, Loader2, CheckCircle, AlertCircle, Image, FileText, Sparkles, Download, Filter, DollarSign, CreditCard, Package, Settings, Globe, RefreshCw, Link2, Users, Tag, Zap, Merge, Bell, Search, ShieldCheck, FolderOpen, HardDrive } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PushBroadcaster } from '@/components/admin/PushBroadcaster';
@@ -26,6 +26,7 @@ import { FlashSaleEditor } from '@/components/admin/FlashSaleEditor';
 import { VariantsManager } from '@/components/admin/VariantsManager';
 import { AdminSecurity } from '@/components/admin/AdminSecurity';
 import MediaManager from '@/components/admin/MediaManager';
+import { BackupManager } from '@/components/admin/BackupManager';
 
 interface ProductExport {
   id: string;
@@ -411,6 +412,7 @@ export default function Admin() {
             <TabsTrigger value="push"><Bell className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Push</span></TabsTrigger>
             <TabsTrigger value="security"><ShieldCheck className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Security</span></TabsTrigger>
             <TabsTrigger value="media"><FolderOpen className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Media</span></TabsTrigger>
+            <TabsTrigger value="backup"><HardDrive className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Backup</span></TabsTrigger>
           </TabsList>
 
           <TabsContent value="users" className="mt-6"><UsersManagement adminToken={token} /></TabsContent>
@@ -850,6 +852,12 @@ export default function Admin() {
           <TabsContent value="media" className="mt-6">
             <div className="bg-card border border-border rounded-xl p-6">
               <MediaManager adminToken={token} />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="backup" className="mt-6">
+            <div className="bg-card border border-border rounded-xl p-6">
+              <BackupManager adminToken={token} />
             </div>
           </TabsContent>
         </Tabs>
