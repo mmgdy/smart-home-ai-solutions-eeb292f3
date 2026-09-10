@@ -12,11 +12,11 @@
       img-src 'self' data: blob: https:;
       style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
       font-src 'self' https://fonts.gstatic.com data:;
-      frame-src 'self' https://omni.paysky.secure.ipg-online.com https://cube.paysky.io:6006 https://cube.paysky.io https://*.paysky.io;
+      frame-src 'self' https://omni.paysky.secure.ipg-online.com https://cube.paysky.io:6006 https://cube.paysky.io https://*.paysky.io https://accounts.google.com;
       manifest-src 'self';
       worker-src 'self';
       base-uri 'self';
-      form-action 'self';
+      form-action 'self' https://accounts.google.com;
     " />
 
     <!-- PWA -->
