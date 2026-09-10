@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { Loader2, RefreshCcw, Users, Mail, Calendar, Award, ShoppingBag } from "lucide-react";
+import { Loader2, RefreshCcw, Users, Mail, Calendar, Award, ShoppingBag, ShieldCheck, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { Badge } from "@/components/ui/badge";
 
 interface UserRow {
   id: string;
@@ -21,140 +22,235 @@ interface UserRow {
 }
 
 const tierColors: Record<string, string> = {
-  bronze: "bg-amber-700/10 text-amber-700",
-  silver: "bg-slate-400/10 text-slate-500",
-  gold: "bg-yellow-500/10 text-yellow-600",
-  platinum: "bg-purple-500/10 text-purple-600",
+  bronze: "bg-amber-700/10 text-amber-700 border-amber-700/20",
+  silver: "bg-slate-400/10 text-slate-500 border-slate-400/20",
+  gold: "bg-yellow-500/10 text-yellow-600 border-yellow-500/20",
+  platinum: "bg-purple-500/10 text-purple-600 border-purple-500/20",
 };
 
 export function UsersManagement({ adminToken }: { adminToken: string }) {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState("");
   const [stats, setStats] = useState({ total: 0, verified: 0, totalOrders: 0, totalSpent: 0 });
   const { toast } = useToast();
 
-  // ── Auth + token refresh ─────────────────────────────────────────
-  const loadAuth = async () => {
-    try {
-      const { data, error } = await supabase.auth.getSession();
-      if (error) throw error;
-      if (data.session?.expires_at && data.session.expires_at < Date.now() / 1000) {
-        const { data: ref, error: refErr } = await supabase.auth.refreshSession();
-        if (refErr) throw refErr;
-      }
-    } catch {}
-  };
-
   const load = async () => {
     if (!adminToken) {
-      toast({ title: 'Not authenticated', description: 'Please log in to view users', variant: 'destructive' });
+      toast({
+        title: "Not authenticated",
+        description: "Please log in to view users",
+        variant: "destructive",
+      });
       setLoading(false);
       return;
     }
+
     setLoading(true);
     try {
-      await loadAuth();
       const { data, error } = await supabase.functions.invoke("admin-users", {
         headers: { Authorization: "Bearer " + adminToken },
+        body: { token: adminToken },
       });
-      if (error || data?.error) throw new Error(data?.error || error?.message);
-      const arr = data.users || [];
+
+      if (error || data?.error) {
+        throw new Error(data?.error || error?.message || "Failed to fetch users");
+      }
+
+      const arr: UserRow[] = (data?.users || []).map((u: any) => ({
+        id: u.id,
+        email: u.email || "",
+        full_name: u.full_name || null,
+        avatar_url: u.avatar_url || null,
+        provider: u.provider || "email",
+        created_at: u.created_at,
+        last_sign_in_at: u.last_sign_in_at || null,
+        email_confirmed_at: u.email_confirmed_at || null,
+        order_count: Number(u.order_count) || 0,
+        total_spent: Number(u.total_spent) || 0,
+        loyalty_points: Number(u.loyalty_points) || 0,
+        tier: u.tier || "bronze",
+      }));
+
       setUsers(arr);
       setStats({
         total: arr.length,
-        verified: arr.filter((u: any) => u.email_confirmed_at).length,
-        totalOrders: arr.reduce((s, u: any) => s + u.order_count, 0),
-        totalSpent: arr.reduce((s, u: any) => s + u.total_spent, 0),
+        verified: arr.filter((u) => u.email_confirmed_at).length,
+        totalOrders: arr.reduce((s, u) => s + (u.order_count || 0), 0),
+        totalSpent: arr.reduce((s, u) => s + (u.total_spent || 0), 0),
       });
     } catch (e: any) {
-      toast({ title: "Failed to load users", description: e.message, variant: "destructive" });
+      console.error("UsersManagement load error:", e);
+      toast({
+        title: "Failed to load users",
+        description: e.message || "An error occurred while loading registered users.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, [adminToken]);
 
-  const filtered = users.filter(u =>
-    !search || u.email?.toLowerCase().includes(search.toLowerCase()) ||
-    u.full_name?.toLowerCase().includes(search.toLowerCase())
+  const filtered = users.filter(
+    (u) =>
+      !search ||
+      u.email?.toLowerCase().includes(search.toLowerCase()) ||
+      u.full_name?.toLowerCase().includes(search.toLowerCase()) ||
+      u.provider?.toLowerCase().includes(search.toLowerCase())
   );
 
-  const totalSpent = filtered.reduce((s, u) => s + u.total_spent, 0);
-  const totalOrders = filtered.reduce((s, u) => s + u.order_count, 0);
+  const totalSpent = filtered.reduce((s, u) => s + (u.total_spent || 0), 0);
+  const totalOrders = filtered.reduce((s, u) => s + (u.order_count || 0), 0);
 
-  if (loading) return <div className="flex justify-center py-12"><Loader2 className="animate-spin" /></div>;
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <p className="text-sm">Loading users list...</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="bg-card border rounded-xl p-4">
-          <div className="text-xs text-muted-foreground">Total users</div>
-          <div className="text-2xl font-bold">{users.length}</div>
+    <div className="space-y-6">
+      {/* Metric Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-card border border-border rounded-xl p-4 flex items-center justify-between">
+          <div>
+            <div className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Total Users</div>
+            <div className="text-2xl font-bold mt-1">{users.length}</div>
+          </div>
+          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+            <Users className="w-5 h-5" />
+          </div>
         </div>
-        <div className="bg-card border rounded-xl p-4">
-          <div className="text-xs text-muted-foreground">Verified</div>
-          <div className="text-2xl font-bold">{users.filter(u => u.email_confirmed_at).length}</div>
+
+        <div className="bg-card border border-border rounded-xl p-4 flex items-center justify-between">
+          <div>
+            <div className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Verified Accounts</div>
+            <div className="text-2xl font-bold mt-1">{users.filter((u) => u.email_confirmed_at).length}</div>
+          </div>
+          <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center text-green-600">
+            <CheckCircle2 className="w-5 h-5" />
+          </div>
         </div>
-        <div className="bg-card border rounded-xl p-4">
-          <div className="text-xs text-muted-foreground">Total orders</div>
-          <div className="text-2xl font-bold">{totalOrders}</div>
+
+        <div className="bg-card border border-border rounded-xl p-4 flex items-center justify-between">
+          <div>
+            <div className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Total Customer Orders</div>
+            <div className="text-2xl font-bold mt-1">{totalOrders}</div>
+          </div>
+          <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-600">
+            <ShoppingBag className="w-5 h-5" />
+          </div>
         </div>
-        <div className="bg-card border rounded-xl p-4">
-          <div className="text-xs text-muted-foreground">Total spent</div>
-          <div className="text-2xl font-bold text-primary">{totalSpent.toLocaleString()} EGP</div>
+
+        <div className="bg-card border border-border rounded-xl p-4 flex items-center justify-between">
+          <div>
+            <div className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Total Revenue</div>
+            <div className="text-2xl font-bold mt-1 text-primary">
+              {(totalSpent || 0).toLocaleString()} <span className="text-xs font-normal">EGP</span>
+            </div>
+          </div>
+          <div className="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-600">
+            <Award className="w-5 h-5" />
+          </div>
         </div>
       </div>
 
-      <div className="flex gap-2 items-center">
-        <Users className="h-5 w-5 text-primary" />
-        <h3 className="font-semibold flex-1">Registered Users</h3>
-        <Input placeholder="Search by name/email" value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-xs" />
-        <Button variant="outline" size="sm" onClick={load}><RefreshCcw className="h-4 w-4 mr-1" />Refresh</Button>
+      {/* Control Header */}
+      <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Users className="h-5 w-5 text-primary" />
+          <h3 className="font-semibold text-base">Registered Users & Customers ({filtered.length})</h3>
+        </div>
+        <div className="flex items-center gap-2">
+          <Input
+            placeholder="Search by name, email, or provider..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="max-w-xs"
+          />
+          <Button variant="outline" size="sm" onClick={load} className="gap-1.5 shrink-0">
+            <RefreshCcw className="h-4 w-4" />
+            Refresh
+          </Button>
+        </div>
       </div>
 
-      <div className="bg-card border rounded-xl overflow-hidden">
+      {/* Users Table */}
+      <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-muted/40">
+            <thead className="bg-muted/40 border-b border-border text-xs text-muted-foreground uppercase">
               <tr>
-                <th className="text-left p-3">User</th>
-                <th className="text-left p-3">Provider</th>
-                <th className="text-left p-3">Joined</th>
-                <th className="text-left p-3">Last sign-in</th>
-                <th className="text-right p-3">Orders</th>
-                <th className="text-right p-3">Spent</th>
-                <th className="text-right p-3">Loyalty</th>
+                <th className="text-left py-3 px-4">User / Customer</th>
+                <th className="text-left py-3 px-4">Sign-in Method</th>
+                <th className="text-left py-3 px-4">Joined</th>
+                <th className="text-left py-3 px-4">Last Active</th>
+                <th className="text-right py-3 px-4">Orders</th>
+                <th className="text-right py-3 px-4">Total Spent</th>
+                <th className="text-right py-3 px-4">Loyalty Tier</th>
               </tr>
             </thead>
-            <tbody>
-              {filtered.map(u => (
-                <tr key={u.id} className="border-t hover:bg-muted/20">
-                  <td className="p-3">
-                    <div className="flex items-center gap-2">
-                      {u.avatar_url ? <img src={u.avatar_url} className="w-8 h-8 rounded-full" /> :
-                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs">{u.email?.[0]?.toUpperCase()}</div>}
-                      <div>
-                        <div className="font-medium">{u.full_name || u.email?.split("@")[0]}</div>
-                        <div className="text-xs text-muted-foreground">{u.email}</div>
+            <tbody className="divide-y divide-border">
+              {filtered.map((u) => (
+                <tr key={u.id} className="hover:bg-muted/20 transition-colors">
+                  <td className="py-3 px-4">
+                    <div className="flex items-center gap-3">
+                      {u.avatar_url ? (
+                        <img src={u.avatar_url} alt="Avatar" className="w-9 h-9 rounded-full object-cover shrink-0" />
+                      ) : (
+                        <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary shrink-0">
+                          {u.email ? u.email[0].toUpperCase() : "U"}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <div className="font-medium text-foreground truncate">
+                          {u.full_name || u.email.split("@")[0]}
+                        </div>
+                        <div className="text-xs text-muted-foreground truncate">{u.email}</div>
                       </div>
                     </div>
                   </td>
-                  <td className="p-3 capitalize">{u.provider}</td>
-                  <td className="p-3 text-xs">{new Date(u.created_at).toLocaleDateString()}</td>
-                  <td className="p-3 text-xs">{u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleDateString() : "—"}</td>
-                  <td className="p-3 text-right">{u.order_count}</td>
-                  <td className="p-3 text-right font-medium">{u.total_spent.toLocaleString()}</td>
-                  <td className="p-3 text-right">
-                    <span className={`px-2 py-0.5 rounded-full text-xs capitalize ${tierColors[u.tier] || tierColors.bronze}`}>
-                      {u.tier} • {u.loyalty_points}
+                  <td className="py-3 px-4">
+                    <Badge variant="outline" className="capitalize text-xs font-normal">
+                      {u.provider || "email"}
+                    </Badge>
+                  </td>
+                  <td className="py-3 px-4 text-xs text-muted-foreground whitespace-nowrap">
+                    {u.created_at ? new Date(u.created_at).toLocaleDateString("ar-EG") : "—"}
+                  </td>
+                  <td className="py-3 px-4 text-xs text-muted-foreground whitespace-nowrap">
+                    {u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleDateString("ar-EG") : "—"}
+                  </td>
+                  <td className="py-3 px-4 text-right font-medium">{u.order_count || 0}</td>
+                  <td className="py-3 px-4 text-right font-medium text-foreground whitespace-nowrap">
+                    {(u.total_spent || 0).toLocaleString()} EGP
+                  </td>
+                  <td className="py-3 px-4 text-right whitespace-nowrap">
+                    <span
+                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border capitalize ${
+                        tierColors[u.tier] || tierColors.bronze
+                      }`}
+                    >
+                      <Award className="w-3 h-3" />
+                      {u.tier || "bronze"} • {u.loyalty_points || 0} pts
                     </span>
                   </td>
                 </tr>
               ))}
               {filtered.length === 0 && (
-                <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">No users found</td></tr>
+                <tr>
+                  <td colSpan={7} className="py-12 text-center text-muted-foreground">
+                    <Users className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                    <p className="text-sm">No registered users match your search.</p>
+                  </td>
+                </tr>
               )}
             </tbody>
           </table>
@@ -163,3 +259,5 @@ export function UsersManagement({ adminToken }: { adminToken: string }) {
     </div>
   );
 }
+
+export default UsersManagement;

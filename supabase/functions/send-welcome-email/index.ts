@@ -54,7 +54,17 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Idempotency: only send once per email
+    // Ensure loyalty points profile exists for collecting points
+    try {
+      await supabase.from("loyalty_points").upsert(
+        { email, points_balance: 0, lifetime_points: 0, tier: "bronze" },
+        { onConflict: "email", ignoreDuplicates: true }
+      );
+    } catch (e) {
+      console.warn("Could not ensure loyalty record:", e);
+    }
+
+    // Idempotency: only send welcome email once per email
     const { data: existing } = await supabase
       .from("welcome_emails_sent")
       .select("id")
