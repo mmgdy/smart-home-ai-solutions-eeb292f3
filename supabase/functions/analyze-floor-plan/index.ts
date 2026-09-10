@@ -8,7 +8,7 @@ import { checkRate, getIp } from "../_shared/rate-limit.ts";
 import { checkBodySize } from "../_shared/validate.ts";
 
 const GEMINI_ENDPOINT =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent";
 
 interface FloorPlanAnalysis {
   roomsDetected: Array<{ type: string; name: string; count: number }>;

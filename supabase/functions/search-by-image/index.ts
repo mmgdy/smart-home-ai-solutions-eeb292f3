@@ -9,7 +9,7 @@ import { checkRate, getIp } from "../_shared/rate-limit.ts";
 import { clamp, checkBodySize } from "../_shared/validate.ts";
 
 const GEMINI_ENDPOINT =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent";
 
 Deno.serve(async (req) => {
   const corsHeaders = corsHeadersFor(req);

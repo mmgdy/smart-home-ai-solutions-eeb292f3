@@ -115,10 +115,17 @@ Useful pages: /bundles /ai-consultant /calculator /brands /services`;
     try {
       fullText = await chatComplete(msgs as ChatMessage[], { maxTokens: 400 });
     } catch (aiErr) {
-      console.error("site-assistant AI error:", aiErr);
-      return new Response(JSON.stringify({ error: "AI service temporarily unavailable. Try again later." }), {
-        status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      console.warn("site-assistant AI provider unavailable, using catalog fallback:", aiErr);
+      const isArabic = language === "ar" || /[\u0600-\u06FF]/.test(cleanQuery);
+      const recList = top.slice(0, 4).map((p: any) =>
+        `- **[${p.name}](/products/${p.slug})** — ${p.price} EGP`
+      ).join("\n");
+
+      if (isArabic) {
+        fullText = `أهلاً بك في AzkaSmart! لمساعدتك في "${cleanQuery}"، إليك أفضل المنتجات المتوفرة بضمان معتمد:\n\n${recList}\n\nيمكنك استكشاف المزيد عبر [جميع المنتجات](/products) أو التحدث مع [مستشار الذكاء الاصطناعي](/ai-consultant).`;
+      } else {
+        fullText = `Welcome to AzkaSmart! For "${cleanQuery}", here are our top matching smart home products in Egypt:\n\n${recList}\n\nExplore more under [All Products](/products) or chat with our [AI Consultant](/ai-consultant).`;
+      }
     }
 
     const encoder = new TextEncoder();

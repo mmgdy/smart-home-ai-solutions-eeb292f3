@@ -1,4 +1,4 @@
-﻿import { Helmet } from 'react-helmet-async';
+import { Helmet } from 'react-helmet-async';
 import { Layout } from '@/components/layout/Layout';
 import { Bot, Send, User, Sparkles, Loader2, Volume2, VolumeX, ExternalLink } from 'lucide-react';
 import { useLanguage } from '@/lib/i18n';
@@ -107,13 +107,18 @@ const AIConsultant = () => {
   }, []);
 
   const streamChat = useCallback(async (userMessages: Message[]) => {
+    const lastUser = [...userMessages].reverse().find((m) => m.role === "user");
     const resp = await fetch(CHAT_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
+        "apikey": SUPABASE_PUBLISHABLE_KEY,
+        "Authorization": `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
       },
-      body: JSON.stringify({ messages: userMessages }),
+      body: JSON.stringify({
+        message: lastUser?.content ?? "",
+        messages: userMessages,
+      }),
     });
 
     if (!resp.ok) {

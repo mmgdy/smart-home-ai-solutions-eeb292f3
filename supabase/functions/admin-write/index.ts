@@ -8,26 +8,13 @@ async function verifyAdminToken(supabase: any, token: string): Promise<boolean> 
   try {
     const decoded = atob(token);
     const [adminId] = decoded.split(":");
+    if (!adminId) return false;
     const { data } = await supabase
       .from("admin_settings")
       .select("value")
       .eq("key", `admin_token_${adminId}`)
       .single();
-    if (data && data.value === token) return true;
-    const { data: session } = await supabase
-      .from("admin_settings")
-      .select("value")
-      .eq("key", `admin_session_${adminId}`)
-      .maybeSingle();
-    if (session?.value) {
-      const { data: userRow } = await supabase
-        .from("admin_users")
-        .select("id")
-        .eq("email", session.value)
-        .maybeSingle();
-      if (userRow) return true;
-    }
-    return false;
+    return !!data && data.value === token;
   } catch {
     return false;
   }

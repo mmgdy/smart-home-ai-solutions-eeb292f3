@@ -83,8 +83,29 @@ serve(async (req) => {
   }
 
   try {
-    const { message, stream = true } = await req.json();
-    const cleaned = cleanString(message, 2000);
+    let body: any = {};
+    try { body = await req.json(); } catch { body = {}; }
+    const stream = body.stream !== false;
+
+    // Support both { message: "..." } and { messages: [{ role, content }, ...] }
+    let userQuery = "";
+    let chatHistory: Array<{ role: "user" | "assistant"; content: string }> = [];
+
+    if (typeof body.message === "string" && body.message.trim()) {
+      userQuery = body.message.trim();
+      chatHistory = [{ role: "user", content: userQuery }];
+    } else if (Array.isArray(body.messages) && body.messages.length > 0) {
+      chatHistory = body.messages
+        .map((m: any) => ({
+          role: m.role === "assistant" ? ("assistant" as const) : ("user" as const),
+          content: String(m.content ?? "").trim(),
+        }))
+        .filter((m: any) => m.content.length > 0);
+      const lastUser = [...chatHistory].reverse().find((m) => m.role === "user");
+      userQuery = lastUser?.content ?? "";
+    }
+
+    const cleaned = cleanString(userQuery, 2000);
     if (!cleaned) {
       return new Response(JSON.stringify({ error: "message required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -98,7 +119,7 @@ serve(async (req) => {
 
     const { data: products, error: productError } = await supabase
       .from("products")
-      .select("id, name, brand, price, description, category_id, categories(name)")
+      .select("id, name, brand, price, slug, description, category_id, categories(name)")
       .eq("is_published", true)
       .limit(250);
 
@@ -109,20 +130,34 @@ serve(async (req) => {
     const categorySummary = makeCategorySummary(products || []);
     const productContext = makeProductContext(topProducts);
 
-    const systemPrompt = `You are AzkaSmart Smart Home Consultant — an expert AI assistant for a smart home store in Egypt.
-
+    const systemPrompt = `You are AzkaSmart Smart Home Consultant — an expert AI assistant for an Egyptian smart home and automation store.
 Available product categories:
 ${categorySummary}
 
 Relevant products for this query:
 ${productContext}
 
-Answer in the same language as the user. Be helpful, specific, and natural.
-Recommend specific products from the list above when possible.
-If asked about compatibility, protocols, or installation, give practical advice.
-Keep answers concise (under 250 words).`;
+Answer in the same language as the user (Arabic or English). Be friendly, helpful, practical, and concise (under 250 words).
+When recommending products, include markdown links in the format [Product Name](/products/slug).
+Mention prices in EGP and official warranty in Egypt.`;
 
-    const aiText = await callAI([{ role: "user", content: cleaned }], systemPrompt);
+    let aiText: string;
+    try {
+      const historyToPass = chatHistory.length > 0 ? chatHistory.slice(-6) : [{ role: "user", content: cleaned }];
+      aiText = await callAI(historyToPass, systemPrompt);
+    } catch (aiErr) {
+      console.warn("smart-home-consultant: AI provider unavailable, using catalog fallback:", aiErr);
+      const isArabic = /[\u0600-\u06FF]/.test(cleaned);
+      const recList = topProducts.slice(0, 4).map((p: any) =>
+        `- **[${p.name}](/products/${p.slug || p.id})**${p.brand ? ` (${p.brand})` : ""}: ${p.price} EGP`
+      ).join("\n");
+
+      if (isArabic) {
+        aiText = `أهلاً بك في **AzkaSmart**! لمساعدتك بخصوص "${cleaned}"، إليك أفضل الأجهزة الذكية المتوافقة والمتاحة لدينا في مصر بضمان رسمي:\n\n${recList}\n\nنوفر أيضاً خدمات المعاينة والتركيب المعتمد في جميع محافظات مصر. يمكنك استكشاف [باقات التوفير الذكية](/bundles) أو حساب التكلفة فوراً عبر [حاسبة التكلفة](/calculator).\n\nهل تود معرفة تفاصيل أو طريقة تشغيل أي منتج منها؟`;
+      } else {
+        aiText = `Welcome to **AzkaSmart**! Regarding your request for "${cleaned}", here are our top recommended smart home devices available in Egypt with official warranty:\n\n${recList}\n\nWe also provide professional installation across Egypt. You can explore [Smart Bundles](/bundles) or calculate full costs on our [Calculator](/calculator).\n\nWould you like more details on any of these devices?`;
+      }
+    }
 
     if (!stream) {
       return new Response(JSON.stringify({ response: aiText }), {
@@ -139,10 +174,10 @@ Keep answers concise (under 250 words).`;
         Connection: "keep-alive",
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Consultant error:", error);
     return new Response(
-      JSON.stringify({ error: "Consultation failed. Try again later." }),
+      JSON.stringify({ error: error?.message || "Consultation failed. Try again later." }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

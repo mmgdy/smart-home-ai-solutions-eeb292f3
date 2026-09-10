@@ -29,12 +29,9 @@ export function Header() {
 
   useEffect(() => {
     if (!mobileMenuOpen) return;
-    const preventScroll = () => window.scrollTo(0, 0);
     document.body.style.overflow = 'hidden';
-    window.addEventListener('scroll', preventScroll, { passive: true });
     return () => {
       document.body.style.overflow = '';
-      window.removeEventListener('scroll', preventScroll);
     };
   }, [mobileMenuOpen]);
 
@@ -77,7 +74,7 @@ export function Header() {
         <Link to="/" className="flex items-center">
           <img
             src={logoUrl}
-            alt="Baytzaki"
+            alt="AzkaSmart"
             style={{ height: `${Math.min(logoSize, 60)}px` }}
             className="object-contain"
           />

@@ -61,14 +61,14 @@ npx supabase functions deploy internalize-product-images
 In the new Supabase project, add any secrets used by the edge functions. The project automatically provides `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`, but third-party integrations still need their own values:
 
 ```sh
-LOVABLE_API_KEY
+GEMINI_API_KEY
+GROQ_API_KEY
 HUGGINGFACE_API_KEY
-PERPLEXITY_API_KEY
+OPENROUTER_API_KEY
+RESEND_API_KEY
 PAYSKY_MERCHANT_ID
 PAYSKY_TERMINAL_ID
 PAYSKY_SECRET_KEY
-RESEND_API_KEY
-GROQ_API_KEY
 ```
 
 ## 6. Update deployed app env vars
