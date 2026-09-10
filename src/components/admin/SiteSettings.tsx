@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Upload, Loader2, Image, Lock, Eye, EyeOff, Save, LogOut, CheckCircle, Globe, Smartphone } from 'lucide-react';
+import { Upload, Loader2, Image, Lock, Eye, EyeOff, Save, LogOut, CheckCircle, Globe, Smartphone, Sun, Moon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,12 +14,16 @@ interface SiteSettingsProps {
 
 export function SiteSettings({ adminToken, onLogout }: SiteSettingsProps) {
   const { toast } = useToast();
-  const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // Logo settings
+  // Dual theme logo settings
+  const lightFileInputRef = useRef<HTMLInputElement>(null);
+  const darkFileInputRef = useRef<HTMLInputElement>(null);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [logoLightUrl, setLogoLightUrl] = useState<string | null>(null);
+  const [logoDarkUrl, setLogoDarkUrl] = useState<string | null>(null);
   const [logoSize, setLogoSize] = useState(120);
-  const [isUploading, setIsUploading] = useState(false);
+  const [isUploadingLight, setIsUploadingLight] = useState(false);
+  const [isUploadingDark, setIsUploadingDark] = useState(false);
 
   // Favicon settings
   const faviconInputRef = useRef<HTMLInputElement>(null);
@@ -47,11 +51,13 @@ export function SiteSettings({ adminToken, onLogout }: SiteSettingsProps) {
       const { data: settings } = await supabase
         .from('admin_settings')
         .select('key, value')
-        .in('key', ['logo_url', 'logo_size', 'favicon_url', 'app_icon_url']);
+        .in('key', ['logo_url', 'logo_light_url', 'logo_dark_url', 'logo_size', 'favicon_url', 'app_icon_url']);
 
       if (settings) {
         settings.forEach(s => {
           if (s.key === 'logo_url') setLogoUrl(s.value);
+          if (s.key === 'logo_light_url') setLogoLightUrl(s.value);
+          if (s.key === 'logo_dark_url') setLogoDarkUrl(s.value);
           if (s.key === 'logo_size') setLogoSize(parseInt(s.value || '100'));
           if (s.key === 'favicon_url') setFaviconUrl(s.value);
           if (s.key === 'app_icon_url') setAppIconUrl(s.value);
@@ -62,11 +68,10 @@ export function SiteSettings({ adminToken, onLogout }: SiteSettingsProps) {
     }
   };
 
-  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLightLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
     if (!file.type.startsWith('image/')) {
       toast({
         title: 'Invalid file type',
@@ -76,7 +81,6 @@ export function SiteSettings({ adminToken, onLogout }: SiteSettingsProps) {
       return;
     }
 
-    // Validate file size (max 2MB)
     if (file.size > 2 * 1024 * 1024) {
       toast({
         title: 'File too large',
@@ -86,8 +90,7 @@ export function SiteSettings({ adminToken, onLogout }: SiteSettingsProps) {
       return;
     }
 
-    setIsUploading(true);
-
+    setIsUploadingLight(true);
     try {
       const base64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
@@ -96,7 +99,7 @@ export function SiteSettings({ adminToken, onLogout }: SiteSettingsProps) {
         reader.readAsDataURL(file);
       });
       const ext = file.name.split('.').pop()?.toLowerCase() || 'png';
-      const filename = `logo-${Date.now()}.${ext}`;
+      const filename = `logo-light-${Date.now()}.${ext}`;
 
       const { data: uploadData, error: uploadError } = await supabase.functions.invoke('admin-write', {
         body: { action: 'upload-file', token: adminToken, filename, base64, mimeType: file.type, bucket: 'site-assets' },
@@ -104,14 +107,15 @@ export function SiteSettings({ adminToken, onLogout }: SiteSettingsProps) {
       if (uploadError || !uploadData?.success) throw new Error(uploadData?.error || uploadError?.message || 'Upload failed');
 
       const newLogoUrl = uploadData.publicUrl as string;
-      setLogoUrl(newLogoUrl);
+      setLogoLightUrl(newLogoUrl);
+      if (!logoUrl) setLogoUrl(newLogoUrl);
 
-      // Save to admin_settings — logo_url only (not favicon or app icon)
       const { data: writeData, error: writeError } = await supabase.functions.invoke('admin-write', {
         body: {
           action: 'update-admin-settings',
           token: adminToken,
           entries: [
+            { key: 'logo_light_url', value: newLogoUrl },
             { key: 'logo_url', value: newLogoUrl },
           ],
         },
@@ -120,24 +124,93 @@ export function SiteSettings({ adminToken, onLogout }: SiteSettingsProps) {
         throw new Error(writeData?.error || writeError?.message || 'Failed to save settings');
       }
 
-      // Apply logo immediately in header and footer
-      let headerLink = document.querySelector("link[rel='icon']") as HTMLLinkElement | null;
-      if (!headerLink) { headerLink = document.createElement('link'); headerLink.rel = 'icon'; document.head.appendChild(headerLink); }
-      headerLink.href = newLogoUrl;
+      window.dispatchEvent(new CustomEvent('azka-settings-updated'));
 
       toast({
-        title: 'Logo uploaded successfully',
-        description: 'Logo, favicon, and app icon updated across the site',
+        title: 'Light Theme Logo Updated',
+        description: 'The light mode logo is now live across the website',
       });
     } catch (error: any) {
-      console.error('Logo upload error:', error);
+      console.error('Light logo upload error:', error);
       toast({
         title: 'Upload failed',
-        description: error.message || 'Failed to upload logo',
+        description: error.message || 'Failed to upload light logo',
         variant: 'destructive',
       });
     } finally {
-      setIsUploading(false);
+      setIsUploadingLight(false);
+    }
+  };
+
+  const handleDarkLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: 'Invalid file type',
+        description: 'Please upload an image file (PNG, JPG, SVG)',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast({
+        title: 'File too large',
+        description: 'Please upload an image smaller than 2MB',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsUploadingDark(true);
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve((reader.result as string).split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const ext = file.name.split('.').pop()?.toLowerCase() || 'png';
+      const filename = `logo-dark-${Date.now()}.${ext}`;
+
+      const { data: uploadData, error: uploadError } = await supabase.functions.invoke('admin-write', {
+        body: { action: 'upload-file', token: adminToken, filename, base64, mimeType: file.type, bucket: 'site-assets' },
+      });
+      if (uploadError || !uploadData?.success) throw new Error(uploadData?.error || uploadError?.message || 'Upload failed');
+
+      const newLogoUrl = uploadData.publicUrl as string;
+      setLogoDarkUrl(newLogoUrl);
+
+      const { data: writeData, error: writeError } = await supabase.functions.invoke('admin-write', {
+        body: {
+          action: 'update-admin-settings',
+          token: adminToken,
+          entries: [
+            { key: 'logo_dark_url', value: newLogoUrl },
+          ],
+        },
+      });
+      if (writeError || !writeData?.success) {
+        throw new Error(writeData?.error || writeError?.message || 'Failed to save settings');
+      }
+
+      window.dispatchEvent(new CustomEvent('azka-settings-updated'));
+
+      toast({
+        title: 'Dark Theme Logo Updated',
+        description: 'The dark mode logo is now live across the website',
+      });
+    } catch (error: any) {
+      console.error('Dark logo upload error:', error);
+      toast({
+        title: 'Upload failed',
+        description: error.message || 'Failed to upload dark logo',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsUploadingDark(false);
     }
   };
 
@@ -203,6 +276,7 @@ export function SiteSettings({ adminToken, onLogout }: SiteSettingsProps) {
           entries: [{ key: 'logo_size', value: newSize.toString() }],
         },
       });
+      window.dispatchEvent(new CustomEvent('azka-settings-updated'));
     } catch (error) {
       console.error('Failed to save logo size:', error);
     }
@@ -280,89 +354,166 @@ export function SiteSettings({ adminToken, onLogout }: SiteSettingsProps) {
 
   return (
     <div className="space-y-8">
-      {/* Logo Upload Section */}
+      {/* Dual Theme Logo Section */}
       <div className="bg-card border border-border rounded-xl p-6">
-        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-          <Image className="w-5 h-5 text-primary" />
-          Site Logo
-        </h2>
-        <p className="text-muted-foreground mb-6">
-          Upload a new logo for your website. Recommended formats: PNG, SVG with transparent background.
-        </p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
+          <div>
+            <h2 className="text-xl font-semibold flex items-center gap-2">
+              <Image className="w-5 h-5 text-primary" />
+              Site Logos (Light & Dark Themes)
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Upload distinct logos for each theme. The site automatically displays the matching logo when visitors switch between Light and Dark modes.
+            </p>
+          </div>
+        </div>
 
-        <div className="grid md:grid-cols-2 gap-6">
-          {/* Current Logo Preview */}
-          <div className="space-y-4">
-            <Label>Current Logo</Label>
-            <div className="border border-border rounded-lg p-6 bg-muted/30 flex items-center justify-center min-h-[150px]">
-              {logoUrl ? (
-                <img 
-                  src={logoUrl} 
-                  alt="Site Logo" 
-                  style={{ height: `${logoSize}px` }}
+        <div className="grid md:grid-cols-2 gap-6 my-6">
+          {/* Light Theme Logo Card */}
+          <div className="border border-border/80 rounded-xl p-5 bg-card/50 flex flex-col justify-between space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sun className="w-4 h-4 text-amber-500" />
+                <Label className="font-semibold text-base">Light Theme Logo</Label>
+              </div>
+              {logoLightUrl ? (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 font-medium">Custom</span>
+              ) : (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">Default</span>
+              )}
+            </div>
+
+            {/* Light canvas preview */}
+            <div className="rounded-lg p-6 bg-white border border-slate-200 shadow-sm flex items-center justify-center min-h-[140px]">
+              {(logoLightUrl || logoUrl) ? (
+                <img
+                  src={logoLightUrl || logoUrl || ''}
+                  alt="Light Theme Logo"
+                  style={{ height: `${Math.min(logoSize, 100)}px` }}
                   className="object-contain max-w-full"
                 />
               ) : (
-                <div className="text-center text-muted-foreground">
-                  <Image className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">No custom logo uploaded</p>
-                  <p className="text-xs">Using default logo</p>
+                <div className="text-center text-slate-400">
+                  <Sun className="w-8 h-8 mx-auto mb-1 opacity-40" />
+                  <p className="text-xs">No light logo uploaded</p>
                 </div>
               )}
             </div>
-          </div>
 
-          {/* Upload and Size Controls */}
-          <div className="space-y-6">
             <div className="space-y-2">
-              <Label>Upload New Logo</Label>
               <input
-                ref={fileInputRef}
+                ref={lightFileInputRef}
                 type="file"
                 accept="image/*"
-                onChange={handleLogoUpload}
+                onChange={handleLightLogoUpload}
                 className="hidden"
               />
-              <Button 
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isUploading}
+              <Button
+                onClick={() => lightFileInputRef.current?.click()}
+                disabled={isUploadingLight}
                 variant="outline"
                 className="w-full"
               >
-                {isUploading ? (
+                {isUploadingLight ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Uploading...
+                    Uploading Light Logo...
                   </>
                 ) : (
                   <>
                     <Upload className="w-4 h-4 mr-2" />
-                    Choose Logo File
+                    Choose Light Logo
                   </>
                 )}
               </Button>
-              <p className="text-xs text-muted-foreground">
-                Max file size: 2MB. Formats: PNG, JPG, SVG
+              <p className="text-xs text-muted-foreground text-center">
+                Best against light backgrounds (PNG or SVG)
               </p>
             </div>
+          </div>
 
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label>Logo Size</Label>
-                <span className="text-sm text-muted-foreground">{logoSize}px</span>
+          {/* Dark Theme Logo Card */}
+          <div className="border border-border/80 rounded-xl p-5 bg-card/50 flex flex-col justify-between space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Moon className="w-4 h-4 text-emerald-400" />
+                <Label className="font-semibold text-base">Dark Theme Logo</Label>
               </div>
-              <Slider
-                value={[logoSize]}
-                onValueChange={handleSizeChange}
-                min={80}
-                max={200}
-                step={10}
-                className="w-full"
+              {logoDarkUrl ? (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 font-medium">Custom</span>
+              ) : (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">Default</span>
+              )}
+            </div>
+
+            {/* Dark canvas preview */}
+            <div className="rounded-lg p-6 bg-[#07130e] border border-emerald-900/60 shadow-sm flex items-center justify-center min-h-[140px]">
+              {(logoDarkUrl || logoUrl) ? (
+                <img
+                  src={logoDarkUrl || logoUrl || ''}
+                  alt="Dark Theme Logo"
+                  style={{ height: `${Math.min(logoSize, 100)}px` }}
+                  className="object-contain max-w-full"
+                />
+              ) : (
+                <div className="text-center text-emerald-600/50">
+                  <Moon className="w-8 h-8 mx-auto mb-1 opacity-40" />
+                  <p className="text-xs">No dark logo uploaded</p>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <input
+                ref={darkFileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleDarkLogoUpload}
+                className="hidden"
               />
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>Small (80px)</span>
-                <span>Large (200px)</span>
-              </div>
+              <Button
+                onClick={() => darkFileInputRef.current?.click()}
+                disabled={isUploadingDark}
+                variant="outline"
+                className="w-full"
+              >
+                {isUploadingDark ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Uploading Dark Logo...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4 mr-2" />
+                    Choose Dark Logo
+                  </>
+                )}
+              </Button>
+              <p className="text-xs text-muted-foreground text-center">
+                Best against dark backgrounds (PNG or SVG)
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Shared Logo Size Slider */}
+        <div className="pt-4 border-t border-border/60 max-w-md">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label>Logo Display Height</Label>
+              <span className="text-sm font-medium text-primary">{logoSize}px</span>
+            </div>
+            <Slider
+              value={[logoSize]}
+              onValueChange={handleSizeChange}
+              min={60}
+              max={200}
+              step={10}
+              className="w-full"
+            />
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>Compact (60px)</span>
+              <span>Large (200px)</span>
             </div>
           </div>
         </div>

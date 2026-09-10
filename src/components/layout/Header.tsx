@@ -11,12 +11,17 @@ import defaultLogoImage from '@/assets/logo.png';
 import { AuthButton } from '@/components/auth/AuthButton';
 import { InstallAppButton } from '@/components/InstallAppButton';
 import { AISearchDialog } from '@/components/AISearchDialog';
+import { useTheme } from '@/lib/theme';
+import { ThemeSlider } from '@/components/theme/ThemeSlider';
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [logoUrl, setLogoUrl] = useState<string>(defaultLogoImage);
+  const [logoDefault, setLogoDefault] = useState<string>(defaultLogoImage);
+  const [logoLight, setLogoLight] = useState<string | null>(null);
+  const [logoDark, setLogoDark] = useState<string | null>(null);
   const [logoSize, setLogoSize] = useState(120);
+  const { theme } = useTheme();
   const itemCount = useCart((state) => state.getItemCount());
   const { t, isRTL } = useLanguage();
   const navigate = useNavigate();
@@ -41,17 +46,27 @@ export function Header() {
         const { data: settings } = await supabase
           .from('admin_settings')
           .select('key, value')
-          .in('key', ['logo_url', 'logo_size']);
+          .in('key', ['logo_url', 'logo_light_url', 'logo_dark_url', 'logo_size']);
         if (settings) {
           settings.forEach(s => {
-            if (s.key === 'logo_url' && s.value) setLogoUrl(s.value);
+            if (s.key === 'logo_url' && s.value) setLogoDefault(s.value);
+            if (s.key === 'logo_light_url' && s.value) setLogoLight(s.value);
+            if (s.key === 'logo_dark_url' && s.value) setLogoDark(s.value);
             if (s.key === 'logo_size' && s.value) setLogoSize(parseInt(s.value));
           });
         }
       } catch { console.log('Using default logo'); }
     };
     loadLogoSettings();
+
+    const handleSettingsUpdate = () => loadLogoSettings();
+    window.addEventListener('azka-settings-updated', handleSettingsUpdate);
+    return () => window.removeEventListener('azka-settings-updated', handleSettingsUpdate);
   }, []);
+
+  const currentLogo = theme === 'dark'
+    ? (logoDark || logoDefault)
+    : (logoLight || logoDefault);
 
   // Problem-based emotional navigation
   const navLinks = [
@@ -73,10 +88,10 @@ export function Header() {
         {/* Logo */}
         <Link to="/" className="flex items-center">
           <img
-            src={logoUrl}
+            src={currentLogo}
             alt="AzkaSmart"
             style={{ height: `${Math.min(logoSize, 60)}px` }}
-            className="object-contain"
+            className="object-contain transition-all duration-300"
           />
         </Link>
 
@@ -102,6 +117,7 @@ export function Header() {
           <div className="hidden md:flex items-center gap-2">
             <InstallAppButton />
           </div>
+          <ThemeSlider />
           <LanguageToggle />
           <Link to="/cart" className="relative group">
             <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full hover:bg-foreground/5">
@@ -156,6 +172,10 @@ export function Header() {
                 <Link to="/calculator" onClick={() => setMobileMenuOpen(false)} className="block text-center text-muted-foreground hover:text-foreground py-2">
                   {isRTL ? 'حاسبة التكلفة' : 'Cost Calculator'}
                 </Link>
+                <div className="mt-4 flex items-center justify-center gap-3">
+                  <ThemeSlider />
+                  <LanguageToggle />
+                </div>
                 <div className="mt-3 flex flex-col items-center gap-2">
                   <AuthButton variant="outline" size="sm" />
                   <InstallAppButton />

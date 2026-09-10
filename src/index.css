@@ -8,6 +8,70 @@
 
 @layer base {
   :root {
+    --background: 156 20% 98%;
+    --foreground: 156 45% 8%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 156 45% 8%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 156 45% 8%;
+
+    --primary: 156 75% 24%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 156 20% 93%;
+    --secondary-foreground: 156 60% 14%;
+
+    --muted: 156 15% 92%;
+    --muted-foreground: 156 15% 38%;
+
+    --accent: 44 68% 46%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 156 15% 86%;
+    --input: 156 15% 86%;
+    --ring: 156 75% 24%;
+
+    --radius: 0.75rem;
+
+    /* Brand tokens — Light Prestige */
+    --emerald-deep: 156 80% 18%;
+    --emerald-glow: 156 65% 32%;
+    --gold: 44 70% 45%;
+    --gold-soft: 44 55% 65%;
+    --cream: 44 20% 98%;
+    --teal-glow: 156 60% 40%;
+    --teal-deep: 156 70% 22%;
+    --cyan-accent: 175 70% 35%;
+    --success: 156 70% 32%;
+    --warning: 38 90% 45%;
+
+    --gradient-primary: linear-gradient(135deg, hsl(156 75% 22%) 0%, hsl(44 70% 45%) 100%);
+    --gradient-card: linear-gradient(180deg, #ffffff 0%, hsl(156 20% 98%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(156 65% 24% / 0.08) 0%, hsl(44 70% 45% / 0.06) 100%);
+    --gradient-warm: linear-gradient(135deg, hsl(44 70% 45% / 0.1) 0%, hsl(156 65% 24% / 0.06) 100%);
+    --gradient-trust: linear-gradient(135deg, hsl(156 65% 28% / 0.08) 0%, hsl(44 70% 45% / 0.04) 100%);
+
+    --shadow-glow: 0 0 35px hsl(44 70% 45% / 0.18);
+    --shadow-card: 0 4px 20px hsl(156 40% 10% / 0.06);
+    --shadow-elevated: 0 16px 40px hsl(156 40% 10% / 0.1);
+    --shadow-soft: 0 2px 10px hsl(156 40% 10% / 0.04);
+
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 156 45% 8%;
+    --sidebar-primary: 156 75% 24%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 156 20% 93%;
+    --sidebar-accent-foreground: 156 60% 14%;
+    --sidebar-border: 156 15% 86%;
+    --sidebar-ring: 156 75% 24%;
+  }
+
+  .dark {
     --background: 156 40% 5%;
     --foreground: 44 30% 94%;
 
@@ -36,9 +100,7 @@
     --input: 156 20% 14%;
     --ring: 44 55% 54%;
 
-    --radius: 0.75rem;
-
-    /* Brand tokens — Emerald Prestige */
+    /* Brand tokens — Emerald Prestige (Dark) */
     --emerald-deep: 156 80% 15%;
     --emerald-glow: 156 60% 35%;
     --gold: 44 55% 54%;
@@ -61,36 +123,6 @@
     --shadow-elevated: 0 20px 60px hsl(0 0% 0% / 0.5);
     --shadow-soft: 0 2px 12px hsl(0 0% 0% / 0.2);
 
-    --sidebar-background: 156 40% 5%;
-    --sidebar-foreground: 44 30% 94%;
-    --sidebar-primary: 156 65% 28%;
-    --sidebar-primary-foreground: 44 40% 96%;
-    --sidebar-accent: 156 25% 12%;
-    --sidebar-accent-foreground: 44 30% 94%;
-    --sidebar-border: 156 20% 14%;
-    --sidebar-ring: 44 55% 54%;
-  }
-
-  .dark {
-    --background: 156 40% 5%;
-    --foreground: 44 30% 94%;
-    --card: 156 35% 7%;
-    --card-foreground: 44 30% 94%;
-    --popover: 156 35% 7%;
-    --popover-foreground: 44 30% 94%;
-    --primary: 156 65% 28%;
-    --primary-foreground: 44 40% 96%;
-    --secondary: 156 25% 12%;
-    --secondary-foreground: 44 30% 94%;
-    --muted: 156 20% 13%;
-    --muted-foreground: 44 15% 65%;
-    --accent: 44 55% 54%;
-    --accent-foreground: 156 40% 8%;
-    --destructive: 0 62.8% 50.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 156 20% 14%;
-    --input: 156 20% 14%;
-    --ring: 44 55% 54%;
     --sidebar-background: 156 40% 5%;
     --sidebar-foreground: 44 30% 94%;
     --sidebar-primary: 156 65% 28%;

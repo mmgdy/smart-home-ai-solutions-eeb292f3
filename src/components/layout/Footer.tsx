@@ -5,26 +5,40 @@ import { useSiteInfo } from '@/hooks/useSiteInfo';
 import { Phone, MapPin, Mail, MessageCircle, Facebook, Instagram, Youtube } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import defaultLogoImage from '@/assets/logo.png';
+import { useTheme } from '@/lib/theme';
 
 export function Footer() {
   const { t, language } = useLanguage();
   const { get } = useSiteInfo();
+  const { theme } = useTheme();
   const isRTL = language === 'ar';
-  const [logoUrl, setLogoUrl] = useState<string>(defaultLogoImage);
+  const [logoDefault, setLogoDefault] = useState<string>(defaultLogoImage);
+  const [logoLight, setLogoLight] = useState<string | null>(null);
+  const [logoDark, setLogoDark] = useState<string | null>(null);
   const [logoSize, setLogoSize] = useState(80);
 
   useEffect(() => {
-    (async () => {
+    const loadLogo = async () => {
       const { data } = await supabase
         .from('admin_settings')
         .select('key, value')
-        .in('key', ['logo_url', 'logo_size']);
+        .in('key', ['logo_url', 'logo_light_url', 'logo_dark_url', 'logo_size']);
       data?.forEach((s) => {
-        if (s.key === 'logo_url' && s.value) setLogoUrl(s.value);
+        if (s.key === 'logo_url' && s.value) setLogoDefault(s.value);
+        if (s.key === 'logo_light_url' && s.value) setLogoLight(s.value);
+        if (s.key === 'logo_dark_url' && s.value) setLogoDark(s.value);
         if (s.key === 'logo_size' && s.value) setLogoSize(Math.min(parseInt(s.value), 80));
       });
-    })();
+    };
+    loadLogo();
+    const handleSettingsUpdate = () => loadLogo();
+    window.addEventListener('azka-settings-updated', handleSettingsUpdate);
+    return () => window.removeEventListener('azka-settings-updated', handleSettingsUpdate);
   }, []);
+
+  const currentLogo = theme === 'dark'
+    ? (logoDark || logoDefault)
+    : (logoLight || logoDefault);
 
   const phone = get('contact', 'phone', '+20 123 456 7890');
   const whatsapp = get('contact', 'whatsapp', '201234567890').replace(/\D/g, '');
@@ -67,7 +81,7 @@ export function Footer() {
         <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-4">
           <div className="lg:col-span-1">
             <Link to="/" className="inline-flex items-center mb-4">
-              <img src={logoUrl} alt="AzkaSmart" style={{ height: `${logoSize}px` }} className="object-contain" />
+              <img src={currentLogo} alt="AzkaSmart" style={{ height: `${logoSize}px` }} className="object-contain transition-all duration-300" />
             </Link>
             <p className="text-sm text-muted-foreground leading-relaxed mb-6">
               {isRTL

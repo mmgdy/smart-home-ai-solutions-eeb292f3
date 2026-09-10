@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 import { LanguageProvider } from "@/lib/i18n";
+import { ThemeProvider } from "@/lib/theme";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -89,40 +90,42 @@ const App = () => (
   <ErrorBoundary>
     <HelmetProvider>
       <QueryClientProvider client={queryClient}>
-        <LanguageProvider>
-          <TooltipProvider>
-            <FaviconUpdater />
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/products" element={<Products />} />
-                <Route path="/products/:slug" element={<ProductDetail />} />
-                <Route path="/cart" element={<Cart />} />
-                <Route path="/checkout" element={<Checkout />} />
-                <Route path="/order-confirmation" element={<OrderConfirmation />} />
-                <Route path="/ai-consultant" element={<AIConsultant />} />
-                <Route path="/calculator" element={<Calculator />} />
-                <Route path="/services" element={<Services />} />
-                <Route path="/loyalty" element={<Loyalty />} />
-                <Route path="/bundles" element={<Bundles />} />
-                <Route path="/about" element={<About />} />
-                <Route path="/brands" element={<Brands />} />
-                <Route path="/home-designer" element={<HomeDesigner />} />
-                <Route path="/app-simulator" element={<AppSimulator />} />
-                <Route path="/admin" element={<Admin />} />
-                <Route path="/profile" element={<Profile />} />
-                <Route path="/legal/:page" element={<Legal />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-              <Analytics />
-              <SpeedInsights />
-            </BrowserRouter>
-          </TooltipProvider>
-        </LanguageProvider>
+        <ThemeProvider>
+          <LanguageProvider>
+            <TooltipProvider>
+              <FaviconUpdater />
+              <Toaster />
+              <Sonner />
+              <BrowserRouter>
+                <Routes>
+                  <Route path="/" element={<Index />} />
+                  <Route path="/products" element={<Products />} />
+                  <Route path="/products/:slug" element={<ProductDetail />} />
+                  <Route path="/cart" element={<Cart />} />
+                  <Route path="/checkout" element={<Checkout />} />
+                  <Route path="/order-confirmation" element={<OrderConfirmation />} />
+                  <Route path="/ai-consultant" element={<AIConsultant />} />
+                  <Route path="/calculator" element={<Calculator />} />
+                  <Route path="/services" element={<Services />} />
+                  <Route path="/loyalty" element={<Loyalty />} />
+                  <Route path="/bundles" element={<Bundles />} />
+                  <Route path="/about" element={<About />} />
+                  <Route path="/brands" element={<Brands />} />
+                  <Route path="/home-designer" element={<HomeDesigner />} />
+                  <Route path="/app-simulator" element={<AppSimulator />} />
+                  <Route path="/admin" element={<Admin />} />
+                  <Route path="/profile" element={<Profile />} />
+                  <Route path="/legal/:page" element={<Legal />} />
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+                <Analytics />
+                <SpeedInsights />
+              </BrowserRouter>
+            </TooltipProvider>
+          </LanguageProvider>
+        </ThemeProvider>
       </QueryClientProvider>
     </HelmetProvider>
   </ErrorBoundary>
