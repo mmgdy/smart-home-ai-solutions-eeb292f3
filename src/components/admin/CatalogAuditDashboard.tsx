@@ -593,6 +593,16 @@ WHERE id IN (
     document.body.removeChild(link);
   };
 
+  const handleCopySql = () => {
+    navigator.clipboard.writeText(sqlScript);
+    setCopiedSql(true);
+    toast({
+      title: 'SQL Script Copied',
+      description: 'The migration script has been copied to your clipboard.'
+    });
+    setTimeout(() => setCopiedSql(false), 2000);
+  };
+
   return (
     <div className="space-y-6">
       {/* HEADER */}
