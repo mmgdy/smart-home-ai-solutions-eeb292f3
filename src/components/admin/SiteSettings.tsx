@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { applyFavicon } from '@/lib/favicon';
 
 interface SiteSettingsProps {
   adminToken: string;
@@ -251,10 +252,9 @@ export function SiteSettings({ adminToken, onLogout }: SiteSettingsProps) {
       });
       if (writeError || !writeData?.success) throw new Error(writeData?.error || writeError?.message || 'Failed to save favicon');
 
-      // Apply immediately in this tab
-      let link = document.querySelector("link[rel='icon']") as HTMLLinkElement | null;
-      if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link); }
-      link.href = newFaviconUrl;
+      // Apply immediately across tabs and browser
+      applyFavicon(newFaviconUrl);
+      window.dispatchEvent(new CustomEvent('azka-settings-updated'));
 
       toast({ title: 'Favicon updated', description: 'The new favicon is now live' });
     } catch (error: any) {

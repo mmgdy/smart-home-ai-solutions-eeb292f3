@@ -1,0 +1,19 @@
+{
+  "total_products_discovered": 808,
+  "total_products_inspected": 808,
+  "valid_products": 733,
+  "missing_images": 0,
+  "invalid_images": 74,
+  "healed_images": 1,
+  "missing_prices": 0,
+  "invalid_prices": 0,
+  "missing_descriptions": 7,
+  "needs_review_descriptions": 0,
+  "products_with_cairo_suppliers": 808,
+  "products_without_cairo_suppliers": 0,
+  "total_cairo_sources_found": 1509,
+  "delete_candidates": 74,
+  "products_deleted": 0,
+  "products_requiring_manual_review": 0,
+  "final_products_remaining": 734
+}

@@ -19,12 +19,29 @@
       form-action 'self' https://accounts.google.com;
     " />
 
-    <!-- PWA -->
+    <!-- Favicon & Icons -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png?v=3" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico?v=3" />
+    <link rel="shortcut icon" href="/favicon.png?v=3" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png?v=3" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png?v=3" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png?v=3" />
+    <script>
+      (function() {
+        try {
+          var f = localStorage.getItem('azka_favicon_url');
+          if (f) {
+            var v = f.indexOf('?') >= 0 ? f + '&v=' + Date.now() : f + '?v=' + Date.now();
+            var icon = document.querySelector("link[rel='icon']");
+            if (icon) icon.href = v;
+            var sc = document.querySelector("link[rel='shortcut icon']");
+            if (sc) sc.href = v;
+          }
+        } catch(e) {}
+      })();
+    </script>
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="theme-color" content="#0EA5A4" />
-    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
-    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
-    <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="AzkaSmart" />

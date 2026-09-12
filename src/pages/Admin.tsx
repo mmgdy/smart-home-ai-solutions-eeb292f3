@@ -27,6 +27,7 @@ import { VariantsManager } from '@/components/admin/VariantsManager';
 import { AdminSecurity } from '@/components/admin/AdminSecurity';
 import MediaManager from '@/components/admin/MediaManager';
 import { BackupManager } from '@/components/admin/BackupManager';
+import { CatalogAuditDashboard } from '@/components/admin/CatalogAuditDashboard';
 
 interface ProductExport {
   id: string;
@@ -393,6 +394,10 @@ export default function Admin() {
         <Tabs defaultValue="orders" className="max-w-6xl" onValueChange={(v) => v === 'export' && fetchExportStats()}>
           <TabsList className="flex flex-wrap h-auto">
             <TabsTrigger value="orders"><Package className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Orders</span></TabsTrigger>
+            <TabsTrigger value="audit" className="bg-primary/10 text-primary font-medium border border-primary/20">
+              <ShieldCheck className="w-4 h-4 mr-1 text-primary" />
+              <span>Catalog Audit</span>
+            </TabsTrigger>
             <TabsTrigger value="users"><Users className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Users</span></TabsTrigger>
             <TabsTrigger value="products"><Package className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Products</span></TabsTrigger>
             <TabsTrigger value="bundles"><Package className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Bundles</span></TabsTrigger>
@@ -415,6 +420,9 @@ export default function Admin() {
             <TabsTrigger value="backup"><HardDrive className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Backup</span></TabsTrigger>
           </TabsList>
 
+          <TabsContent value="audit" className="mt-6">
+            <CatalogAuditDashboard token={token} />
+          </TabsContent>
           <TabsContent value="users" className="mt-6"><UsersManagement adminToken={token} /></TabsContent>
           <TabsContent value="bundles" className="mt-6"><BundlesEditor adminToken={token} /></TabsContent>
           <TabsContent value="variants" className="mt-6"><VariantsManager adminToken={token} /></TabsContent>

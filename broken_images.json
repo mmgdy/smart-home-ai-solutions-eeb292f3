@@ -1,0 +1,1405 @@
+{
+ "scanned_at": "2026-08-18",
+ "products_total": 874,
+ "urls_checked": 1417,
+ "urls_healthy": 821,
+ "remove_count": 129,
+ "to_remove": [
+  {
+   "id": "8f4bf024-b186-4f72-988f-4eff59ec449d",
+   "name": "Augue adipiscing euismod",
+   "slug": "augue-adipiscing-euismod",
+   "brand": null,
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2021/10/retail-product-5-1.jpg",
+    "https://baytzaki.com/wp-content/uploads/2021/08/variable-product-example-2.jpg",
+    "https://baytzaki.com/wp-content/uploads/2021/08/variable-product-example-3.jpg"
+   ]
+  },
+  {
+   "id": "2351b772-6f5c-4e52-8209-45e7d622f36b",
+   "name": "SONOFF Zigbee/Thread USB Dongle | Dongle Plus MG24",
+   "slug": "sonoff-zigbeethread-usb-dongle-dongle-plus-mg24",
+   "brand": "SONOFF",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/09/Dongle-PMG24_ZigbeeThread_USB_Dongle.png",
+    "https://baytzaki.com/wp-content/uploads/2025/09/Dongle-PMG24_1600x1600_01_1.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/Dongle-PMG24_1600x1600_02_1.jpg"
+   ]
+  },
+  {
+   "id": "15b8aa1f-65a4-4424-8fb9-8048dc7e9019",
+   "name": "SONOFF Dongle Max Zigbee/Thread PoE Dongle | Dongle-M",
+   "slug": "sonoff-dongle-max-zigbeethread-poe-dongle-dongle-m",
+   "brand": "SONOFF",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/09/Dongle-Mmain.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/Dongle-M_1600_02.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/Dongle-M_1600_04.jpg"
+   ]
+  },
+  {
+   "id": "c2a440dc-077e-4d0a-b7f9-bcc7ef4058c6",
+   "name": "SONOFF Matter Over WiFi Smart Wall Switch | Orb-MW1",
+   "slug": "sonoff-matter-over-wifi-smart-wall-switch-orb-mw1",
+   "brand": "SONOFF",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/09/MINIR4M-E_2b4f083c-53f8-46e9-b195-1e9cda6673c2.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/MINIR4M-E-1600px_06.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/MINIR4M-E-1600px_03.jpg"
+   ]
+  },
+  {
+   "id": "03008126-c4b7-4c81-ab32-4ad9b2f3e8cd",
+   "name": "SONOFF Zigbee Smart Wall Switch (No Neutral Required) | Orb-ZBW1L",
+   "slug": "sonoff-zigbee-smart-wall-switch-no-neutral-required-orb-zbw1l",
+   "brand": "SONOFF",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/09/ZBMINIL2-E_eb14c8c2-42a7-4aec-a1eb-0ff421446cc7.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/ZBMINIL2-E-1600PX_03_022e1cac-8b54-45ad-82a3-df89ef92c632.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/ZBMINIL2-E-1600PX_02_32175dcf-f677-4621-89c5-59d4d6400cbf.jpg"
+   ]
+  },
+  {
+   "id": "8108216d-fccd-48ff-862d-6b26a0a345f0",
+   "name": "SONOFF Zigbee Smart Wall Switch (No Neutral Required) | Orb-ZBW1L",
+   "slug": "sonoff-zigbee-smart-wall-switch-no-neutral-required-orb-zbw1l-1",
+   "brand": "SONOFF",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/09/ZBMINIL2-E_eb14c8c2-42a7-4aec-a1eb-0ff421446cc7-1.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/ZBMINIL2-E-1600PX_03_022e1cac-8b54-45ad-82a3-df89ef92c632-1.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/ZBMINIL2-E-1600PX_02_32175dcf-f677-4621-89c5-59d4d6400cbf-1.jpg"
+   ]
+  },
+  {
+   "id": "431cac7c-5b56-4606-b9d0-5c2e8f34e5fe",
+   "name": "SONOFF Matter Over WiFi Smart Roller Shutter Wall Switch | Orb-RBS",
+   "slug": "sonoff-matter-over-wifi-smart-roller-shutter-wall-switch-orb-rbs",
+   "brand": "SONOFF",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/09/MINIRBS-E.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/MINI-RBS-E-1600px_03_48db07cb-4697-4365-b473-4cb6e665f091.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/Orb-RBS-1_f1c0d3a4-673d-4b3f-892e-17afa52d887b.jpg"
+   ]
+  },
+  {
+   "id": "32e17631-917d-41dc-932d-339f830314d0",
+   "name": "SONOFF CAM Slim Gen2 Smart Home Security Camera | CAM-S2",
+   "slug": "sonoff-cam-slim-gen2-smart-home-security-camera-cam-s2",
+   "brand": "SONOFF",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/09/CAM-S2.png",
+    "https://baytzaki.com/wp-content/uploads/2025/09/sonoff-cam-slim-gen2-smart-home-security-camera-2.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/sonoff-cam-slim-gen2-smart-home-security-camera-1.jpg"
+   ]
+  },
+  {
+   "id": "797859c0-1661-46df-8163-4f047dab26f5",
+   "name": "SONOFF Dongle Max Zigbee/Thread PoE Dongle | Dongle-M",
+   "slug": "sonoff-dongle-max-zigbeethread-poe-dongle-dongle-m-1",
+   "brand": "SONOFF",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/09/Dongle-Mmain-1.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/Dongle-M_1600_02-1.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/Dongle-M_1600_04-1.jpg"
+   ]
+  },
+  {
+   "id": "2d9b296a-8f86-4f0c-9031-e14e97d480f8",
+   "name": "SONOFF CAM Outdoor Smart  Security Camera | CAM-B1P",
+   "slug": "sonoff-cam-outdoor-smart-security-camera-cam-b1p-1",
+   "brand": "SONOFF",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/09/SONOFF_CAM-B1P_Outdoor_camera-1.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/SONOFFCAMOutdoorSmartSecurityCameraCAM-B1P-04-1.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/SONOFFCAMOutdoorSmartSecurityCameraCAM-B1P-02-1.jpg"
+   ]
+  },
+  {
+   "id": "c8dac2a3-b528-4db6-b182-d82e05ea8e4e",
+   "name": "SONOFF Zigbee/Thread USB Dongle | Dongle Plus MG24",
+   "slug": "sonoff-zigbeethread-usb-dongle-dongle-plus-mg24-1",
+   "brand": "SONOFF",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/09/Dongle-PMG24_ZigbeeThread_USB_Dongle-3.png",
+    "https://baytzaki.com/wp-content/uploads/2025/09/Dongle-PMG24_1600x1600_01_1-3.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/Dongle-PMG24_1600x1600_02_1-3.jpg"
+   ]
+  },
+  {
+   "id": "7f61b638-56ee-4366-9a38-8c272c175709",
+   "name": "SONOFF Matter Over WiFi Smart Wall Switch | Orb-MW1",
+   "slug": "sonoff-matter-over-wifi-smart-wall-switch-orb-mw1-1",
+   "brand": "SONOFF",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/09/MINIR4M-E_2b4f083c-53f8-46e9-b195-1e9cda6673c2-1.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/MINIR4M-E-1600px_06-1.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/MINIR4M-E-1600px_03-1.jpg"
+   ]
+  },
+  {
+   "id": "2b9f6fbe-c954-4ec1-ad50-7341fadaad6a",
+   "name": "SONOFF Zigbee Smart Wall Switch (No Neutral Required) | Orb-ZBW1L",
+   "slug": "sonoff-zigbee-smart-wall-switch-no-neutral-required-orb-zbw1l-2",
+   "brand": "SONOFF",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/09/ZBMINIL2-E_eb14c8c2-42a7-4aec-a1eb-0ff421446cc7-2.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/ZBMINIL2-E-1600PX_03_022e1cac-8b54-45ad-82a3-df89ef92c632-2.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/ZBMINIL2-E-1600PX_02_32175dcf-f677-4621-89c5-59d4d6400cbf-2.jpg"
+   ]
+  },
+  {
+   "id": "39019d02-950d-47fb-b687-08e0b57bcbd9",
+   "name": "SONOFF Matter Over WiFi Smart Roller Shutter Wall Switch | Orb-RBS",
+   "slug": "sonoff-matter-over-wifi-smart-roller-shutter-wall-switch-orb-rbs-1",
+   "brand": "SONOFF",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/09/MINIRBS-E-1.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/MINI-RBS-E-1600px_03_48db07cb-4697-4365-b473-4cb6e665f091-1.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/Orb-RBS-1_f1c0d3a4-673d-4b3f-892e-17afa52d887b-1.jpg"
+   ]
+  },
+  {
+   "id": "74097a38-00f6-4633-9882-f03611b23e8b",
+   "name": "SONOFF Waterproof Temp Sensor for TH Series | WTS01",
+   "slug": "sonoff-waterproof-temp-sensor-for-th-series-wts01",
+   "brand": "SONOFF",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/09/SONOFFWaterproofTempSensorforTHSeries.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/SONOFF_Waterproof_Temp_Sensor_for_TH_Series_01.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/SONOFF_Waterproof_Temp_Sensor_for_TH_Series_02.jpg"
+   ]
+  },
+  {
+   "id": "ba926f8c-9705-43f0-b747-5d678f705220",
+   "name": "SONOFF Roller Shutter Wall Switch Enclosure | ERBS",
+   "slug": "sonoff-roller-shutter-wall-switch-enclosure-erbs",
+   "brand": "SONOFF",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/09/ERBS.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/ERBS-1600px_02.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/ERBS-1600px_03.jpg"
+   ]
+  },
+  {
+   "id": "6d873a22-9886-4d32-88b0-d086ef4cc86f",
+   "name": "SONOFF RM433R2 BASE",
+   "slug": "sonoff-rm433r2-base",
+   "brand": "SONOFF",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/09/RM433R2Base.png",
+    "https://baytzaki.com/wp-content/uploads/2025/09/SONOFF-RM433R2-BASE.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/SONOFF-RM433R2-BASE-2_b9b0138e-836e-4aa7-b563-e4cb4a2edbbb.jpg"
+   ]
+  },
+  {
+   "id": "2a5597bf-6951-440f-ba3d-ce292d8163a3",
+   "name": "SONOFF RM433R2 Remote Controller",
+   "slug": "sonoff-rm433r2-remote-controller",
+   "brand": "SONOFF",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/09/RM433R2.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/SONOFF-RM433R2-Remote-Controller-2_2115c4b1-84df-42bc-999f-66924629cfc4.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/SONOFF-RM433R2-Remote-Controller-3_af626da2-6efd-404a-a1f3-24668f4e23e0.jpg"
+   ]
+  },
+  {
+   "id": "7e9e6cec-a8a8-4812-9716-932c47ca85d8",
+   "name": "SONOFF MS01- Smart Soil Moisture Sensor with RJ9 Adapter",
+   "slug": "sonoff-ms01-smart-soil-moisture-sensor-with-rj9-adapter",
+   "brand": "SONOFF",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/09/SONOFF-MS01-Smart-Soil-Moisture-Sensor-with-RJ9-Adapter.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/SONOFF-MS01-Smart-Soil-Moisture-Sensor-with-RJ9-Adapter-2.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/SONOFF-MS01-Smart-Soil-Moisture-Sensor-with-RJ9-Adapter-4.jpg"
+   ]
+  },
+  {
+   "id": "8b1aee1b-a1b6-44b2-964c-3623b52fbf20",
+   "name": "1.5M USB Male to Female Extension Cable",
+   "slug": "15m-usb-male-to-female-extension-cable",
+   "brand": null,
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/09/MaletoFemaleExtensionCable.png",
+    "https://baytzaki.com/wp-content/uploads/2025/09/1.5M-USB-Male-to-Female-Extension-Cable-1_1-1.png",
+    "https://baytzaki.com/wp-content/uploads/2025/09/1.5M-USB-Male-to-Female-Extension-Cable-3-1.png"
+   ]
+  },
+  {
+   "id": "be16cf36-11df-40dc-90a0-4b94f60e79b0",
+   "name": "SONOFF NFC Tag",
+   "slug": "sonoff-nfc-tag",
+   "brand": "SONOFF",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/09/SONOFF-NFC-Tag.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/SONOFF-NFC-Tag-2.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/SONOFF-NFC-Tag-4.jpg"
+   ]
+  },
+  {
+   "id": "a9fc63f4-0539-4cbf-b44e-84a2857b30df",
+   "name": "SONOFF THS01 Temp and Humi Sensor",
+   "slug": "sonoff-ths01-temp-and-humi-sensor",
+   "brand": "SONOFF",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/09/SONOFF-THS01-Temp-and-Humi-Sensor.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/SONOFF-THS01-Temp-and-Humi-Sensor-1.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/SONOFF-THS01-Temp-and-Humi-Sensor-2.jpg"
+   ]
+  },
+  {
+   "id": "29845750-ef1a-45d1-8ed9-4a13a92a7923",
+   "name": "SONOFF Zigbee 3.0 USB Dongle Plus | ZBDongle-E",
+   "slug": "sonoff-zigbee-30-usb-dongle-plus-zbdongle-e",
+   "brand": "SONOFF",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/09/ZBDongle-P.png",
+    "https://baytzaki.com/wp-content/uploads/2025/09/zigbee-3-0-usb-dongle-e-2.png",
+    "https://baytzaki.com/wp-content/uploads/2025/09/zigbee-3-0-usb-dongle-e-3.jpg"
+   ]
+  },
+  {
+   "id": "fe4e0112-5497-4ad7-8c99-49d105ed4cef",
+   "name": "SONOFF Zigbee Human Presence Sensor | SNZB-06P",
+   "slug": "sonoff-zigbee-human-presence-sensor-snzb-06p",
+   "brand": "SONOFF",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/09/SNZB-06P.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/sonoff-zigbee-human-presence-sensor-4_e9b821b0-bd88-4f12-ad47-f8eb1de32396.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/sonoff-zigbee-human-presence-sensor-1_dfd428c5-dd85-4715-b48d-833b35bc3fdc.jpg"
+   ]
+  },
+  {
+   "id": "83460a01-dea8-4eab-97d1-3efc381962ae",
+   "name": "SONOFF DW2-Wi-Fi – Wireless Door/Window Sensor",
+   "slug": "sonoff-dw2-wi-fi-wireless-doorwindow-sensor",
+   "brand": "SONOFF",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/09/DW2_a4a0867e-785a-446d-9001-841038d27f8e.png",
+    "https://baytzaki.com/wp-content/uploads/2025/09/SONOFF-DW2-Wi-Fi_Wireless-Door-Window-Sensor-6.png",
+    "https://baytzaki.com/wp-content/uploads/2025/09/SONOFF-DW2-Wi-Fi_Wireless-Door-Window-Sensor-8.png"
+   ]
+  },
+  {
+   "id": "4d1a0c16-cd61-414a-aa75-1d1be8db05c5",
+   "name": "SONOFF Zigbee Bridge Ultra | ZBBridge-U",
+   "slug": "sonoff-zigbee-bridge-ultra-zbbridge-u",
+   "brand": "SONOFF",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/09/Zigbee_Bridge_Ultra.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/SONOFF-ZBBridge-ultra.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/sonoff-zigbee-bridge-ultra-1.jpg"
+   ]
+  },
+  {
+   "id": "69532f0a-3140-4c63-a83a-84a08456a003",
+   "name": "SONOFF Zigbee Motion Sensor | SNZB-03P",
+   "slug": "sonoff-zigbee-motion-sensor-snzb-03p",
+   "brand": "SONOFF",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/09/SNZB-03P_Zigbee.png",
+    "https://baytzaki.com/wp-content/uploads/2025/09/sonoff-zigbee-motion-sensor-snzb-03p-1.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/sonoff-zigbee-motion-sensor-snzb-03p-6.jpg"
+   ]
+  },
+  {
+   "id": "3e21631d-d9fc-4ecf-931c-90e9bb394971",
+   "name": "SONOFF POW Ring Smart Power Meter | POWCT",
+   "slug": "sonoff-pow-ring-smart-power-meter-powct-2",
+   "brand": "SONOFF",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/09/POWCT-2.png",
+    "https://baytzaki.com/wp-content/uploads/2025/09/sonoff-pow-ring-smart-power-meter-switch-06-2.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/sonoff-pow-ring-smart-power-meter-switch-02-2.jpg"
+   ]
+  },
+  {
+   "id": "2c2eb2d5-aa67-4db2-bbbe-7dc11a5ea646",
+   "name": "SONOFF BBQ Meat Thermometer | BMT01",
+   "slug": "sonoff-bbq-meat-thermometer-bmt01",
+   "brand": "SONOFF",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/09/RMT01.png",
+    "https://baytzaki.com/wp-content/uploads/2025/09/sonoff-bbq-meat-thermometer-bmt01-02.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/sonoff-bbq-meat-thermometer-bmt01-03.jpg"
+   ]
+  },
+  {
+   "id": "f8e66a33-4c38-47ba-b0d2-ac8d5f4b4141",
+   "name": "SONOFF S31 Lite zb Smart Plug US Type Zigbee Version",
+   "slug": "sonoff-s31-lite-zb-smart-plug-us-type-zigbee-version",
+   "brand": "SONOFF",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/09/S31-Lite-zb.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/SONOFF-S31-Lite-zb-Smart-Plug-US-Type-Zigbee-Version-03.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/SONOFF-S31-Lite-zb-Smart-Plug-US-Type-Zigbee-Version-01.jpg"
+   ]
+  },
+  {
+   "id": "3ad4366d-fc41-44c2-a64f-8cc274109ff1",
+   "name": "SONOFF S31 Lite zb Smart Plug US Type Zigbee Version",
+   "slug": "sonoff-s31-lite-zb-smart-plug-us-type-zigbee-version-1",
+   "brand": "SONOFF",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/09/S31-Lite-zb-1.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/SONOFF-S31-Lite-zb-Smart-Plug-US-Type-Zigbee-Version-03-1.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/SONOFF-S31-Lite-zb-Smart-Plug-US-Type-Zigbee-Version-01-1.jpg"
+   ]
+  },
+  {
+   "id": "17e769be-445d-4be8-b737-0512379234fc",
+   "name": "SONOFF MINIR2 – Two Way Smart Switch",
+   "slug": "sonoff-minir2-two-way-smart-switch",
+   "brand": "SONOFF",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/09/MINIR2.png",
+    "https://baytzaki.com/wp-content/uploads/2025/09/SONOFF-MINIR2-Two-Way-Smart-Switch-12.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/SONOFF-MINIR2-Two-Way-Smart-Switch-10.jpg"
+   ]
+  },
+  {
+   "id": "7343ff57-d924-4389-a4f5-4253e8d28e49",
+   "name": "SONOFF POW Origin Smart Power Meter Switch",
+   "slug": "sonoff-pow-origin-smart-power-meter-switch",
+   "brand": "SONOFF",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/09/POW_Origin.png",
+    "https://baytzaki.com/wp-content/uploads/2025/09/SONOFF-POW-Origin-Smart-Power-Meter-Switch04_63c2f15d-962c-486b-9042-dbb16cd1f698.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/SONOFF-POW-Origin-Smart-Power-Meter-Switch01_16411e84-5e09-41cb-86ab-8243a89e956e.jpg"
+   ]
+  },
+  {
+   "id": "993853d7-b516-44ba-a12a-6fef12f0bad2",
+   "name": "SONOFF S-MATE Extreme Switch Mate | S-MATE2",
+   "slug": "sonoff-s-mate-extreme-switch-mate-s-mate2",
+   "brand": "SONOFF",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/09/S-MATE.png",
+    "https://baytzaki.com/wp-content/uploads/2025/09/SONOFF-S-MATE-Extreme-Switch-Mate-04.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/SONOFF-S-MATE-Extreme-Switch-Mate-03.jpg"
+   ]
+  },
+  {
+   "id": "92d203f6-09cc-4ccf-a625-b11bdafd65b2",
+   "name": "SONOFF MINI Extreme Wi-Fi Smart Switch MINIR4",
+   "slug": "sonoff-mini-extreme-wi-fi-smart-switch-minir4",
+   "brand": "SONOFF",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/09/MINIR4_394891d2-7925-48db-b1e7-171a1cae2594.png",
+    "https://baytzaki.com/wp-content/uploads/2025/09/SONOFF-MINI-Extreme-Wi-Fi-Smart-Switch-MINIR4-4.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/SONOFF-MINI-Extreme-Wi-Fi-Smart-Switch-MINIR4-1.jpg"
+   ]
+  },
+  {
+   "id": "5c4ec7ac-50fc-4415-92be-9a98b38ce348",
+   "name": "SONOFF MINI Extreme Wi-Fi Smart Switch (Matter-enabled) | MINIR4M",
+   "slug": "sonoff-mini-extreme-wi-fi-smart-switch-matter-enabled-minir4m",
+   "brand": "SONOFF",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/09/MINIR4M.png",
+    "https://baytzaki.com/wp-content/uploads/2025/09/sonoff-mini-extreme-wi-fi-smart-switch-matter-enabled-1.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/sonoff-mini-extreme-wi-fi-smart-switch-matter-enabled-2.jpg"
+   ]
+  },
+  {
+   "id": "00a81b7e-7ba2-4525-876e-fcf0bdc58066",
+   "name": "SONOFF POW Ring Smart Power Meter | POWCT",
+   "slug": "sonoff-pow-ring-smart-power-meter-powct-1",
+   "brand": "SONOFF",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/09/POWCT-1.png",
+    "https://baytzaki.com/wp-content/uploads/2025/09/sonoff-pow-ring-smart-power-meter-switch-06-1.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/sonoff-pow-ring-smart-power-meter-switch-02-1.jpg"
+   ]
+  },
+  {
+   "id": "b9d95ae1-a01f-468b-a3a1-94583b84f190",
+   "name": "SONOFF Micro Zigbee USB Smart Adaptor | ZBMicro",
+   "slug": "sonoff-micro-zigbee-usb-smart-adaptor-zbmicro",
+   "brand": "SONOFF",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/09/ZBMicro.png",
+    "https://baytzaki.com/wp-content/uploads/2025/09/SONOFF_ZIGBEE_MICRO.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/SONOFF-Micro-Zigbee-USB-Smart-Adaptor-10_bc289975-4ea6-47ea-81e4-7c210bca95f0.jpg"
+   ]
+  },
+  {
+   "id": "75f086e0-74a0-472c-869c-321f3cd0aed1",
+   "name": "1.5M USB Male to Female Extension Cable",
+   "slug": "15m-usb-male-to-female-extension-cable-1",
+   "brand": null,
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/09/MaletoFemaleExtensionCable-1.png",
+    "https://baytzaki.com/wp-content/uploads/2025/09/1.5M-USB-Male-to-Female-Extension-Cable-1_1-2.png",
+    "https://baytzaki.com/wp-content/uploads/2025/09/1.5M-USB-Male-to-Female-Extension-Cable-3-2.png"
+   ]
+  },
+  {
+   "id": "95dc7138-e0fa-44de-84a7-ccb7aa002a01",
+   "name": "SONOFF DW2-Wi-Fi – Wireless Door/Window Sensor",
+   "slug": "sonoff-dw2-wi-fi-wireless-doorwindow-sensor-1",
+   "brand": "SONOFF",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/09/DW2_a4a0867e-785a-446d-9001-841038d27f8e-1.png",
+    "https://baytzaki.com/wp-content/uploads/2025/09/SONOFF-DW2-Wi-Fi_Wireless-Door-Window-Sensor-6-1.png",
+    "https://baytzaki.com/wp-content/uploads/2025/09/SONOFF-DW2-Wi-Fi_Wireless-Door-Window-Sensor-8-1.png"
+   ]
+  },
+  {
+   "id": "25e486b1-37a0-4bdd-8f7b-d804b443cb43",
+   "name": "SONOFF Zigbee Human Presence Sensor | SNZB-06P",
+   "slug": "sonoff-zigbee-human-presence-sensor-snzb-06p-1",
+   "brand": "SONOFF",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/09/SNZB-06P-3.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/sonoff-zigbee-human-presence-sensor-4_e9b821b0-bd88-4f12-ad47-f8eb1de32396-2.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/sonoff-zigbee-human-presence-sensor-1_dfd428c5-dd85-4715-b48d-833b35bc3fdc-2.jpg"
+   ]
+  },
+  {
+   "id": "12a75ba7-ba85-4abb-a0d8-923eb894453f",
+   "name": "SONOFF SNZB-02D Zigbee LCD Smart Temperature Humidity Sensor",
+   "slug": "sonoff-snzb-02d-zigbee-lcd-smart-temperature-humidity-sensor",
+   "brand": "SONOFF",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/09/SNZB-02D.png",
+    "https://baytzaki.com/wp-content/uploads/2025/09/sonoff-snzb-02d-zigbee-lcd-smart-temperature-humidity-sensor-2.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/sonoff-snzb-02d-zigbee-lcd-smart-temperature-humidity-sensor-9.jpg"
+   ]
+  },
+  {
+   "id": "e7608b6e-5a98-46e4-9cd6-38314e186005",
+   "name": "SONOFF Zigbee Bridge Pro | ZBBridge-P",
+   "slug": "sonoff-zigbee-bridge-pro-zbbridge-p",
+   "brand": "SONOFF",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/09/Zigbee_Bridge_Pro.png",
+    "https://baytzaki.com/wp-content/uploads/2025/09/sonoff-zigbee-bridge-pro-9.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/sonoff-zigbee-bridge-pro-1.jpg"
+   ]
+  },
+  {
+   "id": "176f1864-ddd6-42a2-9030-38b01d5e5b5b",
+   "name": "SONOFF Zigbee 3.0 USB Dongle Plus | ZBDongle-P",
+   "slug": "sonoff-zigbee-30-usb-dongle-plus-zbdongle-p",
+   "brand": "SONOFF",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/09/ZBDongle-P-1.png",
+    "https://baytzaki.com/wp-content/uploads/2025/09/sonoff-zigbee-3-0-usb-dongle-plus-4.png",
+    "https://baytzaki.com/wp-content/uploads/2025/09/sonoff-zigbee-3-0-usb-dongle-plus-2.png"
+   ]
+  },
+  {
+   "id": "786a79b1-d3ba-4264-b687-05246daeefbc",
+   "name": "SONOFF CAM Slim Gen2 Smart Home Security Camera | CAM-S2",
+   "slug": "sonoff-cam-slim-gen2-smart-home-security-camera-cam-s2-1",
+   "brand": "SONOFF",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/09/CAM-S2-1.png",
+    "https://baytzaki.com/wp-content/uploads/2025/09/sonoff-cam-slim-gen2-smart-home-security-camera-2-1.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/sonoff-cam-slim-gen2-smart-home-security-camera-1-1.jpg"
+   ]
+  },
+  {
+   "id": "e3aaa3d3-6a14-4833-8576-4984ccec16ab",
+   "name": "SONOFF SNZB-02WD IP65 Zigbee LCD  Smart Temperature Humidity Sensor",
+   "slug": "sonoff-snzb-02wd-ip65-zigbee-lcd-smart-temperature-humidity-sensor",
+   "brand": "SONOFF",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/09/SNZB-02WD_74ea6cbb-0152-4725-a9d6-e86e92fd3047.png",
+    "https://baytzaki.com/wp-content/uploads/2025/09/sonoff-ip65-zigbee-lcd-smart-temperature-humidity-sensor-snzb-02wd-1.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/sonoff-ip65-zigbee-lcd-smart-temperature-humidity-sensor-snzb-02wd-6.jpg"
+   ]
+  },
+  {
+   "id": "102f0436-4941-4bcb-bb63-6f2eb4148b4e",
+   "name": "SONOFF Micro Zigbee USB Smart Adaptor | ZBMicro",
+   "slug": "sonoff-micro-zigbee-usb-smart-adaptor-zbmicro-1",
+   "brand": "SONOFF",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/09/ZBMicro-1.png",
+    "https://baytzaki.com/wp-content/uploads/2025/09/SONOFF_ZIGBEE_MICRO-1.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/SONOFF-Micro-Zigbee-USB-Smart-Adaptor-10_bc289975-4ea6-47ea-81e4-7c210bca95f0-1.jpg"
+   ]
+  },
+  {
+   "id": "08dac19d-1bda-445e-8b97-8f2384a0b19e",
+   "name": "SONOFF MINI Extreme Wi-Fi Smart Switch (Matter-enabled) | MINIR4M",
+   "slug": "sonoff-mini-extreme-wi-fi-smart-switch-matter-enabled-minir4m-1",
+   "brand": "SONOFF",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/09/MINIR4M-2.png",
+    "https://baytzaki.com/wp-content/uploads/2025/09/sonoff-mini-extreme-wi-fi-smart-switch-matter-enabled-1-1.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/sonoff-mini-extreme-wi-fi-smart-switch-matter-enabled-2-1.jpg"
+   ]
+  },
+  {
+   "id": "aa87aa73-b54c-4f00-9d06-f3bc856f59d4",
+   "name": "SONOFF MINI Extreme Wi-Fi Smart Switch MINIR4",
+   "slug": "sonoff-mini-extreme-wi-fi-smart-switch-minir4-1",
+   "brand": "SONOFF",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/09/MINIR4_394891d2-7925-48db-b1e7-171a1cae2594-1.png",
+    "https://baytzaki.com/wp-content/uploads/2025/09/SONOFF-MINI-Extreme-Wi-Fi-Smart-Switch-MINIR4-4-1.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/SONOFF-MINI-Extreme-Wi-Fi-Smart-Switch-MINIR4-1-1.jpg"
+   ]
+  },
+  {
+   "id": "f63d5ae0-ce64-42b4-ae39-c119b257b721",
+   "name": "SONOFF S-MATE Extreme Switch Mate | S-MATE2",
+   "slug": "sonoff-s-mate-extreme-switch-mate-s-mate2-1",
+   "brand": "SONOFF",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/09/S-MATE-1.png",
+    "https://baytzaki.com/wp-content/uploads/2025/09/SONOFF-S-MATE-Extreme-Switch-Mate-04-1.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/SONOFF-S-MATE-Extreme-Switch-Mate-03-1.jpg"
+   ]
+  },
+  {
+   "id": "79f92b46-bb6b-4e55-a36e-a82139dba946",
+   "name": "SONOFF POW Origin Smart Power Meter Switch",
+   "slug": "sonoff-pow-origin-smart-power-meter-switch-1",
+   "brand": "SONOFF",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/09/POW_Origin-1.png",
+    "https://baytzaki.com/wp-content/uploads/2025/09/SONOFF-POW-Origin-Smart-Power-Meter-Switch04_63c2f15d-962c-486b-9042-dbb16cd1f698-1.jpg",
+    "https://baytzaki.com/wp-content/uploads/2025/09/SONOFF-POW-Origin-Smart-Power-Meter-Switch01_16411e84-5e09-41cb-86ab-8243a89e956e-1.jpg"
+   ]
+  },
+  {
+   "id": "465c971b-230b-4eff-902e-610e3a472c55",
+   "name": "Smart Motion Sensor Led Bulb",
+   "slug": "smart-motion-sensor-led-bulb",
+   "brand": null,
+   "reason": "all_images_broken",
+   "checked": [
+    "https://images-na.ssl-images-amazon.com/images/I/71yH4Qs3mzL._AC_SL1500_.jpg"
+   ]
+  },
+  {
+   "id": "edd9bd8e-7034-459c-bb8f-b8fbafa4c33a",
+   "name": "7000 Series Palm Vein Recognition Smart Door Lock – Philips EasyKey Egypt - Mastery IT",
+   "slug": "7000-series-palm-vein-recognition-smart-door-lock-philips-easykey-egypt-mastery-it",
+   "brand": null,
+   "reason": "all_images_broken",
+   "checked": [
+    "https://images.samsung.com/is/image/samsung/kr/SMH-T7000SZE/SMH-T7000SZE-FR.jpg"
+   ]
+  },
+  {
+   "id": "58ffb431-fe3b-47aa-a9a7-3880381de999",
+   "name": "Alpha Series Smart Video Door Lock – Philips EasyKey Egypt - Mastery IT",
+   "slug": "alpha-series-smart-video-door-lock-philips-easykey-egypt-mastery-it",
+   "brand": null,
+   "reason": "all_images_broken",
+   "checked": [
+    "https://images-na.ssl-images-amazon.com/images/I/61J6%2B5Q7bSL._AC_SL1500_.jpg"
+   ]
+  },
+  {
+   "id": "8b460ff7-76ba-411e-a5a6-6393974b5f75",
+   "name": "7000 Series Facial Recognition Smart Door Lock – Philips EasyKey Egypt - Mastery IT",
+   "slug": "7000-series-facial-recognition-smart-door-lock-philips-easykey-egypt-mastery-it",
+   "brand": null,
+   "reason": "all_images_broken",
+   "checked": [
+    "https://i.nextcdn.co.uk/Common/Items/Default/Default/ItemImages/AltItemZoom/331306s.jpg"
+   ]
+  },
+  {
+   "id": "05711fb5-d718-4e43-9983-3d9bbf6114e1",
+   "name": "7000 Series 3D Face Recognition Smart Door Lock – Philips EasyKey Egypt (Copper &amp; Black) - Mastery IT",
+   "slug": "7000-series-3d-face-recognition-smart-door-lock-philips-easykey-egypt-copper-amp-black-mastery-it",
+   "brand": null,
+   "reason": "all_images_broken",
+   "checked": [
+    "https://ai.baytzaki.com/"
+   ]
+  },
+  {
+   "id": "bb0b8542-540a-4710-8c34-9409ddc00fb2",
+   "name": "MOES Smart Garage Door Opener – Wi-Fi Remote Gate Control – Egypt - Mastery IT",
+   "slug": "moes-smart-garage-door-opener-wi-fi-remote-gate-control-egypt-mastery-it",
+   "brand": "MOES",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://ae01.alicdn.com/kf/HTB1.mr3aEvrK1RjSZFpq6ysxpXa1.jpg"
+   ]
+  },
+  {
+   "id": "2124f3bc-5de9-4e76-abc6-71e93e50a5b7",
+   "name": "Smart Switch 4 Gang – Zigbee Smart Switch Egypt - Mastery IT",
+   "slug": "smart-switch-4-gang-zigbee-smart-switch-egypt-mastery-it",
+   "brand": null,
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/10/smart-switch-4-gang-zigbee-smart-switch-egypt-mastery-it.jpg"
+   ]
+  },
+  {
+   "id": "5a59b936-b953-4f95-ac0c-0944050e14c5",
+   "name": "Smart Switch 2 Gang – Zigbee Smart Switch Egypt - Mastery IT",
+   "slug": "smart-switch-2-gang-zigbee-smart-switch-egypt-mastery-it",
+   "brand": null,
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/10/smart-switch-2-gang-zigbee-smart-switch-egypt-mastery-it.jpeg"
+   ]
+  },
+  {
+   "id": "ed888061-48e7-4d10-ba32-ce7d3e71be3a",
+   "name": "Smart Switch 3 Gang – Zigbee Smart Switch Egypt - Mastery IT",
+   "slug": "smart-switch-3-gang-zigbee-smart-switch-egypt-mastery-it",
+   "brand": null,
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/10/smart-switch-3-gang-zigbee-smart-switch-egypt-mastery-it.jpeg"
+   ]
+  },
+  {
+   "id": "e4d2bff5-bdac-4cf4-9d4a-ee03f30fde54",
+   "name": "Structured Cabling Systems - TechNex Store",
+   "slug": "structured-cabling-systems-technex-store",
+   "brand": null,
+   "reason": "all_images_broken",
+   "checked": [
+    "https://images-na.ssl-images-amazon.com/images/I/71k%2B9Z7gjFL._AC_SL1500_.jpg"
+   ]
+  },
+  {
+   "id": "dad12edc-424b-4d28-8e11-69284b5302d4",
+   "name": "ACC-Laser Pen-A4Tech-LP15-Black - TechNex Store",
+   "slug": "acc-laser-pen-a4tech-lp15-black-technex-store",
+   "brand": null,
+   "reason": "all_images_broken",
+   "checked": [
+    "https://m.media-amazon.com/images/I/41O7nQpXgqL._AC_SL1000_.jpg"
+   ]
+  },
+  {
+   "id": "74000ce1-5a52-4ccd-8080-bd14be8052dd",
+   "name": "Aruba 6000 24G 4SFP Switch - R8N88A - TechNex Store",
+   "slug": "aruba-6000-24g-4sfp-switch-r8n88a-technex-store",
+   "brand": "Aruba",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://m.media-amazon.com/images/I/41KxX9dC7GL._AC_SX679_.jpg"
+   ]
+  },
+  {
+   "id": "193e777b-4ff3-41ff-b530-1a61924f77d7",
+   "name": "CAM-A4Tech-Web Cam-PK-910H - TechNex Store",
+   "slug": "cam-a4tech-web-cam-pk-910h-technex-store",
+   "brand": null,
+   "reason": "all_images_broken",
+   "checked": [
+    "https://m.media-amazon.com/images/I/61k2C-p8bJL.jpg"
+   ]
+  },
+  {
+   "id": "e6e93ffa-45e8-407c-8f85-79a8e1deee27",
+   "name": "SONOFF TX Ultimate Smart Touch Wall Switch Remote Control T5-2C-120 -White",
+   "slug": "sonoff-tx-ultimate-smart-touch-wall-switch-remote-control-t5-2c-120-white",
+   "brand": "SONOFF",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/10/sonoff-tx-ultimate-smart-touch-wall-switch-remote-control-t5-2c-120-white.jpg"
+   ]
+  },
+  {
+   "id": "542dad72-6ae1-4cdc-afa4-b002f25f67ad",
+   "name": "SONOFF TX Ultimate Smart Touch Wall Switch Remote Control T5-4C-120 -White",
+   "slug": "sonoff-tx-ultimate-smart-touch-wall-switch-remote-control-t5-4c-120-white",
+   "brand": "SONOFF",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://baytzaki.com/wp-content/uploads/2025/10/sonoff-tx-ultimate-smart-touch-wall-switch-remote-control-t5-4c-120-white.jpg"
+   ]
+  },
+  {
+   "id": "82bd56c2-1391-4f77-920b-5f60768493e8",
+   "name": "JBL Bar 500 : 5.1-Channel Dolby Atmos Soundbar with Wireless Subwoofer",
+   "slug": "jbl-bar-500-51-channel-dolby-atmos-soundbar-with-wireless-subwoofer",
+   "brand": null,
+   "reason": "all_images_broken",
+   "checked": [
+    "https://www.jbl.com/on/demandware.static/-/Sites-jbl-master/default/dw10d9e96f/JBL_Bar_500_Front_1703_x_1092px_x1.jpg"
+   ]
+  },
+  {
+   "id": "0672dfc1-428c-456d-b5b8-0c85663f7ef9",
+   "name": "FIBARO HK CO Sensor FGBHCD-001",
+   "slug": "fibaro-hk-co-sensor-fgbhcd-001",
+   "brand": "FIBARO",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://www.fibaro.com/media/catalog/product/c/o/co_sensor_hk_01.png"
+   ]
+  },
+  {
+   "id": "0f759240-06f0-4342-874d-d91299327568",
+   "name": "HELTUN Touch Panel Switch 5 Channel TPS05",
+   "slug": "heltun-touch-panel-switch-5ch-tps05",
+   "brand": "HELTUN",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://www.heltun.com/uploads/1/3/0/5/130530825/tps05_orig.png"
+   ]
+  },
+  {
+   "id": "20fc02ff-e163-49ec-bf97-8e442924c38c",
+   "name": "Amazon Echo (4th Gen)",
+   "slug": "amazon-echo-4th-gen",
+   "brand": "Amazon",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://images-na.ssl-images-amazon.com/images/I/61hJLb7kzOL._AC_SL1500_.jpg"
+   ]
+  },
+  {
+   "id": "25d162bf-58b8-4994-808d-1360647054d6",
+   "name": "Philips Hue Smart Motion Sensor",
+   "slug": "philips-hue-smart-motion-sensor",
+   "brand": "Philips",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://d3ug4y7yq2fo6.cloudfront.net/product_images/philips-hue-smart-motion-sensor.jpg"
+   ]
+  },
+  {
+   "id": "28c5ebe5-58ae-4df3-bdec-2c7cf449f8b3",
+   "name": "Philips Hue White and Color Smart Bulb",
+   "slug": "philips-hue-white-and-color-smart-bulb",
+   "brand": "Philips",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://d1h4tqz4w9e1kq.cloudfront.net/productimages/philips/philips-hue-white-and-color-smart-bulb/PHILIPS-HUE-WHITE-AND-COLOR-SMART-BULB-1.jpg"
+   ]
+  },
+  {
+   "id": "2918eff4-df54-497b-9364-d83baf8cdb7b",
+   "name": "HELTUN High Load Switch HE-HLS01",
+   "slug": "heltun-high-load-switch-he-hls01",
+   "brand": "HELTUN",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://www.heltun.com/uploads/1/3/0/5/130530825/he-hls01_orig.png"
+   ]
+  },
+  {
+   "id": "8b0d4d0c-ad50-486b-829a-97e1e9550b49",
+   "name": "MCOHome Touch Panel Switch MH-S612",
+   "slug": "mcohome-touch-panel-switch-mh-s612",
+   "brand": "MCOHome",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://mcohome.com/uploads/mh-s612.png"
+   ]
+  },
+  {
+   "id": "2fe59cf5-f36f-4e39-ac3c-1dc4867d3f1b",
+   "name": "HELTUN Fan Coil Thermostat",
+   "slug": "heltun-fan-coil-thermostat",
+   "brand": "HELTUN",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://www.heltun.com/uploads/1/3/0/5/130530825/he-ft01_orig.png"
+   ]
+  },
+  {
+   "id": "3362834e-4d14-41ae-958b-e0cc1d1ce7e3",
+   "name": "MCOHome Fan Coil Thermostat MH8 220V",
+   "slug": "mcohome-fan-coil-thermostat-mh8-220v",
+   "brand": "MCOHome",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://mcohome.com/uploads/mh8.png"
+   ]
+  },
+  {
+   "id": "340ab6be-6c58-4016-8751-1175c7028948",
+   "name": "MCOHome Touch Panel Switch MH-S312",
+   "slug": "mcohome-touch-panel-switch-mh-s312",
+   "brand": "MCOHome",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://mcohome.com/uploads/mh-s312.png"
+   ]
+  },
+  {
+   "id": "36c4a684-bcc8-477f-8f51-589a625baeb5",
+   "name": "FIBARO HK Single Switch FGBHS-213",
+   "slug": "fibaro-hk-single-switch-fgbhs-213",
+   "brand": "FIBARO",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://www.fibaro.com/media/catalog/product/s/s/ss_hk_01.png"
+   ]
+  },
+  {
+   "id": "37c4bee4-ffdd-4122-b2ac-ce375e6cfb0d",
+   "name": "FIBARO HK Wall Plug FGBWHWPF-102",
+   "slug": "fibaro-hk-wall-plug-fgbwhwpf-102",
+   "brand": "FIBARO",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://www.fibaro.com/media/catalog/product/w/a/wall_plug_hk_01.png"
+   ]
+  },
+  {
+   "id": "3884d26a-9184-4cd2-bca1-b3bfcaf350af",
+   "name": "FIBARO Intercom FGIC-002",
+   "slug": "fibaro-intercom-fgic-002",
+   "brand": "FIBARO",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://www.fibaro.com/wp-content/uploads/2023/10/Intercom-FGIC-002-1.png"
+   ]
+  },
+  {
+   "id": "39489467-5285-445f-ba51-a3a759bc49ae",
+   "name": "MCOHome Heat Pump Thermostat MH6-HP",
+   "slug": "mcohome-heat-pump-thermostat-mh6-hp",
+   "brand": "MCOHome",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://mcohome.com/uploads/mh6-hp.png"
+   ]
+  },
+  {
+   "id": "3a1b933e-be93-4c42-8534-c8167e20db4b",
+   "name": "FIBARO The Heat Controller",
+   "slug": "fibaro-the-heat-controller",
+   "brand": "FIBARO",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://www.fibaro.com/media/catalog/product/h/e/heat_controller_01.png"
+   ]
+  },
+  {
+   "id": "47fec087-babe-4cfe-a147-0119d1a994b5",
+   "name": "Broadlink RM4 Pro Smart Universal Remote",
+   "slug": "broadlink-rm4-pro-smart-universal-remote",
+   "brand": "Broadlink",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://images-na.ssl-images-amazon.com/images/I/61pCQ5Oz8zL._AC_SL1500_.jpg"
+   ]
+  },
+  {
+   "id": "4f6733c9-dd5e-4fb1-a947-7861311afc6a",
+   "name": "FIBARO The Button FGPB-101-1 White",
+   "slug": "fibaro-the-button-fgpb-101-1-white",
+   "brand": "FIBARO",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://www.fibaro.com/media/catalog/product/t/h/the_button_white_01.png"
+   ]
+  },
+  {
+   "id": "53b21267-6dbe-45b4-bfa5-bccaf123959a",
+   "name": "HELTUN Touch Panel Switch 1 Channel TPS01",
+   "slug": "heltun-touch-panel-switch-1ch-tps01",
+   "brand": "HELTUN",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://www.heltun.com/uploads/1/3/0/5/130530825/tps01_orig.png"
+   ]
+  },
+  {
+   "id": "5e9b20d5-2d9b-424c-8bd3-d4afb743bbae",
+   "name": "FIBARO Door/Window Sensor 2 FGDW-002-3 Silver",
+   "slug": "fibaro-door-window-sensor-2-fgdw-002-3-silver",
+   "brand": "FIBARO",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://www.fibaro.com/files/images/products/door-window-sensor/door-window-sensor-3-silver.png"
+   ]
+  },
+  {
+   "id": "5fdca5db-2ab5-4fae-a24a-e880a7569f57",
+   "name": "MCOHome Touch Panel Shutter MH-C621",
+   "slug": "mcohome-touch-panel-shutter-mh-c621",
+   "brand": "MCOHome",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://mcohome.com/uploads/mh-c621.png"
+   ]
+  },
+  {
+   "id": "60b507ae-2191-4f58-b747-3830adfc1327",
+   "name": "FIBARO HK The Button FGBHPB-101-1",
+   "slug": "fibaro-hk-the-button-fgbhpb-101-1",
+   "brand": "FIBARO",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://www.fibaro.com/media/catalog/product/t/h/the_button_hk_01.png"
+   ]
+  },
+  {
+   "id": "630f243f-1c43-4420-94d2-1ca0376199eb",
+   "name": "HELTUN Touch Panel Switch 3 Channel TPS03",
+   "slug": "heltun-touch-panel-switch-3ch-tps03",
+   "brand": "HELTUN",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://www.heltun.com/uploads/1/3/0/5/130530825/tps03_orig.png"
+   ]
+  },
+  {
+   "id": "6385105d-f825-46e3-b9f3-9b309cb73a8f",
+   "name": "MCOHome Thermostat New Design MH-F500",
+   "slug": "mcohome-thermostat-new-design-mh-f500",
+   "brand": "MCOHome",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://mcohome.com/uploads/mh-f500.png"
+   ]
+  },
+  {
+   "id": "63f63881-98c3-41a0-bc86-adab759e09a5",
+   "name": "FIBARO KeyFob FGK-601",
+   "slug": "fibaro-keyfob-fgk-601",
+   "brand": "FIBARO",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://www.fibaro.com/media/catalog/product/k/e/keyfob_01.png"
+   ]
+  },
+  {
+   "id": "684e48d8-9130-4871-9708-41ec6a558ff3",
+   "name": "FIBARO Home Center 3 FGHC3 EU",
+   "slug": "fibaro-home-center-3-fghc3-eu",
+   "brand": "FIBARO",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://www.fibaro.com/media/catalog/product/h/c/hc3_01.png"
+   ]
+  },
+  {
+   "id": "69fe7f89-a8b4-4a8c-beda-80295eb3d3e7",
+   "name": "FIBARO HK Flood Sensor FGBHFS-101",
+   "slug": "fibaro-hk-flood-sensor-fgbhfs-101",
+   "brand": "FIBARO",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://www.fibaro.com/media/catalog/product/f/l/flood_sensor_hk_01.png"
+   ]
+  },
+  {
+   "id": "6ca61c73-eef0-40c9-a47e-54233b940489",
+   "name": "FIBARO Smart Implant FGBS-222",
+   "slug": "fibaro-smart-implant-fgbs-222",
+   "brand": "FIBARO",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://www.fibaro.com/_next/image?url=%2Fen%2Fproducts%2Fsmart-implant%2Fsmart-implant.png"
+   ]
+  },
+  {
+   "id": "6e4615f3-6ac4-45d3-929a-0a084b543151",
+   "name": "Smart Home Hub 2",
+   "slug": "smart-home-hub-2",
+   "brand": "Xiaomi",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://i01.appmifile.com/v/1c3a6a1c-6a2d-4c4c-8d7f-5f8d7f8d7f8d.jpg"
+   ]
+  },
+  {
+   "id": "6ec2f619-df26-487a-949e-bf7f244e3625",
+   "name": "MCOHome Touch Panel Dimmer MH-DT611",
+   "slug": "mcohome-touch-panel-dimmer-mh-dt611",
+   "brand": "MCOHome",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://mcohome.com/uploads/mh-dt611.png"
+   ]
+  },
+  {
+   "id": "74b045b8-abff-477b-adab-479c7df79f79",
+   "name": "LIFX Color 1000 Smart Light Bulb",
+   "slug": "lifx-color-1000-smart-light-bulb",
+   "brand": "LIFX",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://d2o5n6tgiiz0wv.cloudfront.net/product_images/000/000/000/large/lifx-color-1000-smart-light-bulb.jpg"
+   ]
+  },
+  {
+   "id": "79fc42c3-2fb5-4c30-a2fb-1b753c340842",
+   "name": "Ring Stick Up Cam",
+   "slug": "ring-stick-up-cam",
+   "brand": "Ring",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://images-na.ssl-images-amazon.com/images/I/71p6TQ5g8sL._AC_SL1500_.jpg"
+   ]
+  },
+  {
+   "id": "830c5d27-be9b-4bda-9d4d-4e5584af546a",
+   "name": "Smart Door Lock S1",
+   "slug": "smart-door-lock-s1",
+   "brand": "Tuya",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://img.alicdn.com/tfscom/i3/258341176/TB2QjQ8KXXXXXcIXpXXXXXXXXXX_!!0-item_pic.jpg"
+   ]
+  },
+  {
+   "id": "83d832b8-9cf6-4fe4-9fab-b26611f9c18f",
+   "name": "MCOHome Touch Panel Switch MH-S314",
+   "slug": "mcohome-touch-panel-switch-mh-s314",
+   "brand": "MCOHome",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://mcohome.com/uploads/mh-s314.png"
+   ]
+  },
+  {
+   "id": "88fe20ef-24d5-4779-aa68-f1af32a0b43a",
+   "name": "HELTUN Touch Panel Switch 4 Channel TPS04",
+   "slug": "heltun-touch-panel-switch-4ch-tps04",
+   "brand": "HELTUN",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://www.heltun.com/uploads/1/3/0/5/130530825/tps04_orig.png"
+   ]
+  },
+  {
+   "id": "ecf75040-760f-4164-b179-421f18de7e37",
+   "name": "Tuya Zigbee Shake Detector for window glasses or drawer",
+   "slug": "tuya-zigbee-shake-detector-for-window-glasses-or-drawer",
+   "brand": "K.zosar",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://reacteg.com/_next/image?url=https%3A%2F%2Fres.cloudinary.com%2Fdi8qfsuk4%2Fimage%2Fupload%2Fv1777508494%2Freact-products%2Fiotz9hfy8fzdcpqn13zy.jpg&w=3840&q=75"
+   ]
+  },
+  {
+   "id": "edab0625-3a34-4297-8b7f-73d011f1baa6",
+   "name": "FIBARO HK Door/Window Sensor FGBHDW-002-1",
+   "slug": "fibaro-hk-door-window-sensor-fgbhdw-002-1",
+   "brand": "FIBARO",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://www.fibaro.com/media/catalog/product/d/w/dw_sensor_hk_01.png"
+   ]
+  },
+  {
+   "id": "bff510a8-afe7-453e-ae28-40153143939f",
+   "name": "Philips Hue Smart Plug",
+   "slug": "philips-hue-smart-plug",
+   "brand": "Philips",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://d2o89q1j2yp2h5.cloudfront.net/product_images/philips-hue-smart-plug.jpg"
+   ]
+  },
+  {
+   "id": "8f0ac94c-a4e0-4f23-b36e-5f7b6be93b51",
+   "name": "Google Home Mini",
+   "slug": "google-home-mini",
+   "brand": "Google",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/google-home-mini-2020-2?wid=220&hei=220&fmt=jpeg&qlt=80&op_sharpen=0&shjpgid=102&webp=enable&dpr=AHR0cHM6Ly9zdGF0aWMuZmFjZWJvb2suY29tL2FwaS9zdGF0aWMvdjEuY29tL2FwaS9zdGF0aWMvdjEuY29tL2FwaS9zdGF0aWMvdjEuY29tL2FwaS9zdGF0aWMvdjEuY29tL2FwaS9zdGF0aWMvdjEuY29tL2Fwa"
+   ]
+  },
+  {
+   "id": "941b2d6d-b1ea-4a0c-99f4-cc69a8ac6db6",
+   "name": "TP-Link Smart Wi-Fi Plug",
+   "slug": "tp-link-smart-wi-fi-plug",
+   "brand": "TP-Link",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://assets.tp-link.com/images/product/2021/202103/20210316154457/HS100_01.webp"
+   ]
+  },
+  {
+   "id": "9d3a4cad-8b27-4375-8d26-3028a6fe1999",
+   "name": "FIBARO Double Smart Module",
+   "slug": "fibaro-double-smart-module",
+   "brand": "FIBARO",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://www.fibaro.com/media/catalog/product/d/s/dsm_01.png"
+   ]
+  },
+  {
+   "id": "9f548cd9-cd7d-43c6-8f0c-682fc69aa355",
+   "name": "Circuit Breaker 100A-2P (PM)",
+   "slug": "circuit-breaker-100a-2p-pm",
+   "brand": "Ewelink",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://sonoffegypt.com//storage/media/DJrLiozw38nZ4PTvyPvy2hPGnsRFZkmkCBo2G0JS.bin",
+    "https://sonoffegypt.com//storage/media/DJrLiozw38nZ4PTvyPvy2hPGnsRFZkmkCBo2G0JS.bin"
+   ]
+  },
+  {
+   "id": "b83e4053-fb6c-414c-98a8-4ebfd975c66d",
+   "name": "MCOHome Touch Panel Shutter MH-C421",
+   "slug": "mcohome-touch-panel-shutter-mh-c421",
+   "brand": "MCOHome",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://mcohome.com/uploads/mh-c421.png"
+   ]
+  },
+  {
+   "id": "b9d2422d-a32c-4ae6-9252-b3e7e554e045",
+   "name": "MCOHome Touch Panel Switch MH-S613",
+   "slug": "mcohome-touch-panel-switch-mh-s613",
+   "brand": "MCOHome",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://mcohome.com/uploads/mh-s613.png"
+   ]
+  },
+  {
+   "id": "e236c7d6-a849-4eb4-a11f-2d23b9a72933",
+   "name": "ACC-A4Tech-Hub-30C-Type C-Black - TechNex Store",
+   "slug": "acc-a4tech-hub-30c-type-c-black-technex-store",
+   "brand": null,
+   "reason": "all_images_broken",
+   "checked": [
+    "https://www.a4tech.com/upload/product/2021/8/202181717384158498.png"
+   ]
+  },
+  {
+   "id": "cd476b9c-c5e8-4d72-98c9-34f3d6144523",
+   "name": "Smart Door Lock ZK-WL10",
+   "slug": "smart-door-lock-zk-wl10",
+   "brand": "ZKTeco",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://img.zkteco.com/product/2020/07/01/20200701143038182.jpg"
+   ]
+  },
+  {
+   "id": "ce7a240f-5428-4b9d-be46-433e9374ff45",
+   "name": "Danalock V3 Smart Lock Z-Wave",
+   "slug": "danalock-v3-smart-lock-zwave",
+   "brand": "Danalock",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://danalock.com/wp-content/uploads/2020/09/danalock-v3-front.png"
+   ]
+  },
+  {
+   "id": "d6175289-ba34-45fa-9cfb-b30f7e955278",
+   "name": "FIBARO Swipe FGGC-001",
+   "slug": "fibaro-swipe-fggc-001",
+   "brand": "FIBARO",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://www.fibaro.com/media/catalog/product/s/w/swipe_01.png"
+   ]
+  },
+  {
+   "id": "ded76dce-190a-4f2f-88f5-1305f4b0af72",
+   "name": "Ceiling Loudspeakers (BTF401)",
+   "slug": "ceiling-loudspeakers-btf401",
+   "brand": "Surpass",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://sonoffegypt.com//storage/media/Ohqm4VF4OJkhopv3q0x92tH3TBejIm4urVp7SvR1.bin",
+    "https://sonoffegypt.com//storage/media/Ohqm4VF4OJkhopv3q0x92tH3TBejIm4urVp7SvR1.bin"
+   ]
+  },
+  {
+   "id": "e0639e33-011c-4a0b-a43b-82e81cf48df1",
+   "name": "HELTUN Touch Panel Switch 2 Channel TPS02",
+   "slug": "heltun-touch-panel-switch-2ch-tps02",
+   "brand": "HELTUN",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://www.heltun.com/uploads/1/3/0/5/130530825/tps02_orig.png"
+   ]
+  },
+  {
+   "id": "e2a93511-f4de-421e-a900-9decf2f46b0b",
+   "name": "Hikvision DS-2CE16C0T-IRP",
+   "slug": "hikvision-ds-2ce16c0t-irp",
+   "brand": "Hikvision",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://images-na.ssl-images-amazon.com/images/I/71w3p%2BkV7FL._AC_SL1500_.jpg"
+   ]
+  },
+  {
+   "id": "e5e708e5-362d-4e7d-829e-50d4f2bb787d",
+   "name": "HELTUN Relay Switch Quinto HE-RS01",
+   "slug": "heltun-relay-switch-quinto-he-rs01",
+   "brand": "HELTUN",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://www.heltun.com/uploads/1/3/0/5/130530825/he-rs01_orig.png"
+   ]
+  },
+  {
+   "id": "e78445ee-eb4b-4197-86b6-8ec93da4e6e5",
+   "name": "MCOHome Touch Panel Switch MH-S311",
+   "slug": "mcohome-touch-panel-switch-mh-s311",
+   "brand": "MCOHome",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://mcohome.com/uploads/mh-s311.png"
+   ]
+  },
+  {
+   "id": "eae543ea-7528-488d-bcb2-2592101c7694",
+   "name": "FIBARO Smoke Sensor FGSD-002",
+   "slug": "fibaro-smoke-sensor-fgsd-002",
+   "brand": "FIBARO",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://www.fibaro.com/media/catalog/product/s/m/smoke_sensor_01.png"
+   ]
+  },
+  {
+   "id": "eb2dc04b-dda3-4c1e-8fbe-096d0b099057",
+   "name": "FIBARO CO Sensor FGCD-001",
+   "slug": "fibaro-co-sensor-fgcd-001",
+   "brand": "FIBARO",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://www.fibaro.com/wp-content/uploads/2021/04/co-sensor.png",
+    "https://www.fibaro.com/wp-content/uploads/2021/04/co-sensor.png",
+    "https://www.fibaro.com/wp-content/uploads/2021/04/carbon-monoxide-detector.png"
+   ]
+  },
+  {
+   "id": "f221aa1d-e984-4cc3-8bf1-2a07da5e8f3b",
+   "name": "FIBARO Heat Controller Starter Pack",
+   "slug": "fibaro-heat-controller-starter-pack",
+   "brand": "FIBARO",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://www.fibaro.com/media/catalog/product/h/e/heat_controller_starter_01.png"
+   ]
+  },
+  {
+   "id": "f23c46a7-88be-437b-affa-bce036d4964a",
+   "name": "MCOHome Touch Panel Switch MH-S611",
+   "slug": "mcohome-touch-panel-switch-mh-s611",
+   "brand": "MCOHome",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://mcohome.com/uploads/mh-s611.png"
+   ]
+  },
+  {
+   "id": "f24e8129-bf84-4885-8a1a-17a63b0a04b4",
+   "name": "MCOHome Touch Panel Dimmer MH-DT311",
+   "slug": "mcohome-touch-panel-dimmer-mh-dt311",
+   "brand": "MCOHome",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://mcohome.com/uploads/mh-dt311.png"
+   ]
+  },
+  {
+   "id": "f70e18e4-b7f5-40e9-9559-3b56524b421e",
+   "name": "FIBARO Home Center 3 Lite HC3L-001 EU",
+   "slug": "fibaro-home-center-3-lite-hc3l-001-eu",
+   "brand": "FIBARO",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://www.fibaro.com/media/catalog/product/h/c/hc3l_01.png"
+   ]
+  },
+  {
+   "id": "f96d1273-5c4f-4a63-8cef-5d70ed01eafa",
+   "name": "FIBARO Temperature Sensor",
+   "slug": "fibaro-temperature-sensor",
+   "brand": "FIBARO",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://www.fibaro.com/media/catalog/product/t/e/temp_sensor_01.png"
+   ]
+  },
+  {
+   "id": "fced87d8-a607-4c04-9ec3-760bdacb1639",
+   "name": "FIBARO Door/Window Sensor 2 FGDW-002-1 White",
+   "slug": "fibaro-door-window-sensor-2-fgdw-002-1-white",
+   "brand": "FIBARO",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://www.fibaro.com/media/catalog/product/d/w/dw_sensor_white_01.png"
+   ]
+  },
+  {
+   "id": "05fc6261-420f-4fd3-8ce4-d8a1aea0845b",
+   "name": "Archer C64 AC1200 Wireless MU-MIMO WiFi Router - TechNex Store",
+   "slug": "archer-c64-ac1200-wireless-mu-mimo-wifi-router-technex-store",
+   "brand": "TP-Link",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://m.media-amazon.com/images/I/61k1jD2u4ML._AC_SL1500_.jpg"
+   ]
+  },
+  {
+   "id": "53f63f18-7b9f-493f-b60d-98ea1264cb68",
+   "name": "MOES Smart Curtain Switch – Electric Curtain Control – Egypt - Mastery IT",
+   "slug": "moes-smart-curtain-switch-electric-curtain-control-egypt-mastery-it",
+   "brand": "MOES",
+   "reason": "all_images_broken",
+   "checked": [
+    "https://moeshouse.com/cdn/shop/files/curtain-switch-1_720x720.jpg"
+   ]
+  }
+ ]
+}

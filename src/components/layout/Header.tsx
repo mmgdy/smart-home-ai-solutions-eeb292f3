@@ -8,6 +8,7 @@ import { LanguageToggle } from './LanguageToggle';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import defaultLogoImage from '@/assets/logo.png';
+import defaultLogoDark from '@/assets/logo-dark.png';
 import { AuthButton } from '@/components/auth/AuthButton';
 import { InstallAppButton } from '@/components/InstallAppButton';
 import { AISearchDialog } from '@/components/AISearchDialog';
@@ -17,9 +18,15 @@ import { ThemeSlider } from '@/components/theme/ThemeSlider';
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [logoDefault, setLogoDefault] = useState<string>(defaultLogoImage);
-  const [logoLight, setLogoLight] = useState<string | null>(null);
-  const [logoDark, setLogoDark] = useState<string | null>(null);
+  const [logoDefault, setLogoDefault] = useState<string>(() => {
+    try { return localStorage.getItem('azka_logo_default') || defaultLogoImage; } catch { return defaultLogoImage; }
+  });
+  const [logoLight, setLogoLight] = useState<string | null>(() => {
+    try { return localStorage.getItem('azka_logo_light') || defaultLogoImage; } catch { return defaultLogoImage; }
+  });
+  const [logoDark, setLogoDark] = useState<string | null>(() => {
+    try { return localStorage.getItem('azka_logo_dark') || defaultLogoDark; } catch { return defaultLogoDark; }
+  });
   const [logoSize, setLogoSize] = useState(120);
   const { theme } = useTheme();
   const itemCount = useCart((state) => state.getItemCount());
@@ -49,9 +56,18 @@ export function Header() {
           .in('key', ['logo_url', 'logo_light_url', 'logo_dark_url', 'logo_size']);
         if (settings) {
           settings.forEach(s => {
-            if (s.key === 'logo_url' && s.value) setLogoDefault(s.value);
-            if (s.key === 'logo_light_url' && s.value) setLogoLight(s.value);
-            if (s.key === 'logo_dark_url' && s.value) setLogoDark(s.value);
+            if (s.key === 'logo_url' && s.value) {
+              setLogoDefault(s.value);
+              try { localStorage.setItem('azka_logo_default', s.value); } catch {}
+            }
+            if (s.key === 'logo_light_url' && s.value) {
+              setLogoLight(s.value);
+              try { localStorage.setItem('azka_logo_light', s.value); } catch {}
+            }
+            if (s.key === 'logo_dark_url' && s.value) {
+              setLogoDark(s.value);
+              try { localStorage.setItem('azka_logo_dark', s.value); } catch {}
+            }
             if (s.key === 'logo_size' && s.value) setLogoSize(parseInt(s.value));
           });
         }

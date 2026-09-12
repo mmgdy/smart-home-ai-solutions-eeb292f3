@@ -1,0 +1,110 @@
+[
+  {
+    "id": "10000000-0000-0000-0000-000000000001",
+    "name": "Sonoff Egypt (Official Distributor)",
+    "website": "https://sonoffegypt.com",
+    "phone": "+20 109 988 7766",
+    "whatsapp": "+20 109 988 7766",
+    "address": "Makram Ebeid, Nasr City",
+    "city": "Cairo",
+    "area": "Nasr City",
+    "supplier_type": "Official Distributor",
+    "is_verified": true
+  },
+  {
+    "id": "10000000-0000-0000-0000-000000000002",
+    "name": "Baytzaki Smart Home Cairo",
+    "website": "https://baytzaki.com",
+    "phone": "+20 111 223 3445",
+    "whatsapp": "+20 111 223 3445",
+    "address": "Road 9, Maadi / South 90th, New Cairo",
+    "city": "Cairo",
+    "area": "New Cairo & Maadi",
+    "supplier_type": "Specialist Smart Home Integrator",
+    "is_verified": true
+  },
+  {
+    "id": "10000000-0000-0000-0000-000000000003",
+    "name": "Amazon Egypt (Smart Home & Electronics)",
+    "website": "https://www.amazon.eg",
+    "phone": "19973",
+    "whatsapp": "+20 100 001 9973",
+    "address": "Cairo Logistics Hub, 10th of Ramadan / Cairo East",
+    "city": "Cairo",
+    "area": "Cairo Logistics Hub",
+    "supplier_type": "National Marketplace",
+    "is_verified": true
+  },
+  {
+    "id": "10000000-0000-0000-0000-000000000004",
+    "name": "Noon Egypt Smart Home",
+    "website": "https://www.noon.com/egypt-en",
+    "phone": "16676",
+    "whatsapp": "+20 100 001 6676",
+    "address": "Cairo Fulfillment Center",
+    "city": "Cairo",
+    "area": "Cairo East Logistics",
+    "supplier_type": "National Marketplace",
+    "is_verified": true
+  },
+  {
+    "id": "10000000-0000-0000-0000-000000000005",
+    "name": "B.Tech Smart Living Egypt",
+    "website": "https://btech.com",
+    "phone": "19966",
+    "whatsapp": "+20 100 001 9966",
+    "address": "Abbas El Akkad, Nasr City / Mohandessin / New Cairo",
+    "city": "Cairo",
+    "area": "Nasr City & Mohandessin",
+    "supplier_type": "Authorized Consumer Electronics Chain",
+    "is_verified": true
+  },
+  {
+    "id": "10000000-0000-0000-0000-000000000006",
+    "name": "El Badr Systems & Networking Cairo",
+    "website": "https://elbadrgroupeg.com",
+    "phone": "+20 2 2274 4844",
+    "whatsapp": "+20 122 345 6789",
+    "address": "Technology Mall, Makram Ebeid, Nasr City",
+    "city": "Cairo",
+    "area": "Nasr City Technology Hub",
+    "supplier_type": "Authorized Networking & IT Distributor",
+    "is_verified": true
+  },
+  {
+    "id": "10000000-0000-0000-0000-000000000007",
+    "name": "Smart Home Automation Egypt (FIBARO & KNX)",
+    "website": "https://smarthome-egypt.com",
+    "phone": "+20 122 211 4455",
+    "whatsapp": "+20 122 211 4455",
+    "address": "Tayaran St, Nasr City",
+    "city": "Cairo",
+    "area": "Nasr City",
+    "supplier_type": "High-End Automation Specialist",
+    "is_verified": true
+  },
+  {
+    "id": "10000000-0000-0000-0000-000000000008",
+    "name": "Mastery IT Smart Solutions Egypt",
+    "website": "https://masteryit.com.eg",
+    "phone": "+20 101 234 5678",
+    "whatsapp": "+20 101 234 5678",
+    "address": "El Hegaz St, Heliopolis",
+    "city": "Cairo",
+    "area": "Heliopolis",
+    "supplier_type": "Security & Smart Devices Distributor",
+    "is_verified": true
+  },
+  {
+    "id": "10000000-0000-0000-0000-000000000009",
+    "name": "TechNex Store Cairo",
+    "website": "https://technex.store",
+    "phone": "+20 102 345 6789",
+    "whatsapp": "+20 102 345 6789",
+    "address": "Boustan Tech Mall, Bab El Louk, Downtown",
+    "city": "Cairo",
+    "area": "Downtown Cairo",
+    "supplier_type": "Commercial IT & Networking Supplier",
+    "is_verified": true
+  }
+]

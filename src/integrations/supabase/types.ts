@@ -600,6 +600,174 @@ export type Database = {
           },
         ]
       }
+      suppliers: {
+        Row: {
+          address: string | null
+          city: string | null
+          area: string | null
+          created_at: string
+          id: string
+          is_verified: boolean
+          name: string
+          notes: string | null
+          phone: string | null
+          supplier_type: string | null
+          updated_at: string
+          website: string | null
+          whatsapp: string | null
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          area?: string | null
+          created_at?: string
+          id?: string
+          is_verified?: boolean
+          name: string
+          notes?: string | null
+          phone?: string | null
+          supplier_type?: string | null
+          updated_at?: string
+          website?: string | null
+          whatsapp?: string | null
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          area?: string | null
+          created_at?: string
+          id?: string
+          is_verified?: boolean
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          supplier_type?: string | null
+          updated_at?: string
+          website?: string | null
+          whatsapp?: string | null
+        }
+        Relationships: []
+      }
+      product_sources: {
+        Row: {
+          address: string | null
+          area: string | null
+          availability: string | null
+          city: string | null
+          created_at: string
+          id: string
+          last_checked: string
+          match_confidence: number
+          notes: string | null
+          phone: string | null
+          price_egp: number | null
+          product_id: string
+          product_url: string
+          supplier_id: string | null
+          supplier_name: string
+          supplier_url: string | null
+          whatsapp: string | null
+        }
+        Insert: {
+          address?: string | null
+          area?: string | null
+          availability?: string | null
+          city?: string | null
+          created_at?: string
+          id?: string
+          last_checked?: string
+          match_confidence?: number
+          notes?: string | null
+          phone?: string | null
+          price_egp?: number | null
+          product_id: string
+          product_url: string
+          supplier_id?: string | null
+          supplier_name: string
+          supplier_url?: string | null
+          whatsapp?: string | null
+        }
+        Update: {
+          address?: string | null
+          area?: string | null
+          availability?: string | null
+          city?: string | null
+          created_at?: string
+          id?: string
+          last_checked?: string
+          match_confidence?: number
+          notes?: string | null
+          phone?: string | null
+          price_egp?: number | null
+          product_id?: string
+          product_url?: string
+          supplier_id?: string | null
+          supplier_name?: string
+          supplier_url?: string | null
+          whatsapp?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_sources_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_sources_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      product_audits: {
+        Row: {
+          action_taken: string
+          audit_date: string
+          cairo_source_status: string
+          description_status: string
+          id: string
+          image_status: string
+          price_status: string
+          previous_data: Json | null
+          product_id: string | null
+          product_name: string
+          reason: string | null
+          updated_data: Json | null
+        }
+        Insert: {
+          action_taken?: string
+          audit_date?: string
+          cairo_source_status?: string
+          description_status?: string
+          id?: string
+          image_status?: string
+          price_status?: string
+          previous_data?: Json | null
+          product_id?: string | null
+          product_name: string
+          reason?: string | null
+          updated_data?: Json | null
+        }
+        Update: {
+          action_taken?: string
+          audit_date?: string
+          cairo_source_status?: string
+          description_status?: string
+          id?: string
+          image_status?: string
+          price_status?: string
+          previous_data?: Json | null
+          product_id?: string | null
+          product_name?: string
+          reason?: string | null
+          updated_data?: Json | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

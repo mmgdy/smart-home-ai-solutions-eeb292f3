@@ -35,11 +35,19 @@ import OAuthConsent from "./pages/OAuthConsent";
 
 const queryClient = new QueryClient();
 
+import { applyFavicon } from '@/lib/favicon';
+
 // Reads favicon_url / app_icon_url from admin_settings and applies them to the
 // document head + dynamic web app manifest.
 export function FaviconUpdater() {
   useEffect(() => {
-    (async () => {
+    // 1. Immediately apply cached favicon if present
+    try {
+      const cachedFav = localStorage.getItem('azka_favicon_url');
+      if (cachedFav) applyFavicon(cachedFav);
+    } catch {}
+
+    const syncFavicon = async () => {
       const { data } = await supabase
         .from('admin_settings')
         .select('key, value')
@@ -49,9 +57,7 @@ export function FaviconUpdater() {
 
       // Favicon
       if (map.favicon_url) {
-        let link = document.querySelector("link[rel='icon']") as HTMLLinkElement | null;
-        if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link); }
-        link.href = map.favicon_url;
+        applyFavicon(map.favicon_url);
       }
 
       // Apple touch icon (iOS home screen)
@@ -81,7 +87,11 @@ export function FaviconUpdater() {
           }
         } catch { /* best-effort manifest update */ }
       }
-    })();
+    };
+
+    syncFavicon();
+    window.addEventListener('azka-settings-updated', syncFavicon);
+    return () => window.removeEventListener('azka-settings-updated', syncFavicon);
   }, []);
   return null;
 }

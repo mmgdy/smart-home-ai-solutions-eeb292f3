@@ -5,6 +5,7 @@ import { useSiteInfo } from '@/hooks/useSiteInfo';
 import { Phone, MapPin, Mail, MessageCircle, Facebook, Instagram, Youtube } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import defaultLogoImage from '@/assets/logo.png';
+import defaultLogoDark from '@/assets/logo-dark.png';
 import { useTheme } from '@/lib/theme';
 
 export function Footer() {
@@ -12,9 +13,15 @@ export function Footer() {
   const { get } = useSiteInfo();
   const { theme } = useTheme();
   const isRTL = language === 'ar';
-  const [logoDefault, setLogoDefault] = useState<string>(defaultLogoImage);
-  const [logoLight, setLogoLight] = useState<string | null>(null);
-  const [logoDark, setLogoDark] = useState<string | null>(null);
+  const [logoDefault, setLogoDefault] = useState<string>(() => {
+    try { return localStorage.getItem('azka_logo_default') || defaultLogoImage; } catch { return defaultLogoImage; }
+  });
+  const [logoLight, setLogoLight] = useState<string | null>(() => {
+    try { return localStorage.getItem('azka_logo_light') || defaultLogoImage; } catch { return defaultLogoImage; }
+  });
+  const [logoDark, setLogoDark] = useState<string | null>(() => {
+    try { return localStorage.getItem('azka_logo_dark') || defaultLogoDark; } catch { return defaultLogoDark; }
+  });
   const [logoSize, setLogoSize] = useState(80);
 
   useEffect(() => {
@@ -24,9 +31,18 @@ export function Footer() {
         .select('key, value')
         .in('key', ['logo_url', 'logo_light_url', 'logo_dark_url', 'logo_size']);
       data?.forEach((s) => {
-        if (s.key === 'logo_url' && s.value) setLogoDefault(s.value);
-        if (s.key === 'logo_light_url' && s.value) setLogoLight(s.value);
-        if (s.key === 'logo_dark_url' && s.value) setLogoDark(s.value);
+        if (s.key === 'logo_url' && s.value) {
+          setLogoDefault(s.value);
+          try { localStorage.setItem('azka_logo_default', s.value); } catch {}
+        }
+        if (s.key === 'logo_light_url' && s.value) {
+          setLogoLight(s.value);
+          try { localStorage.setItem('azka_logo_light', s.value); } catch {}
+        }
+        if (s.key === 'logo_dark_url' && s.value) {
+          setLogoDark(s.value);
+          try { localStorage.setItem('azka_logo_dark', s.value); } catch {}
+        }
         if (s.key === 'logo_size' && s.value) setLogoSize(Math.min(parseInt(s.value), 80));
       });
     };

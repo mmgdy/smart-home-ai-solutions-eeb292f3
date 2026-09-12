@@ -12,6 +12,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { getProductImage } from "@/lib/productImage";
+import { CairoSourcesViewer } from "@/components/admin/CairoSourcesViewer";
+import { cairoSupplierService } from "@/data/cairoSupplierService";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Building2, ShieldCheck, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
 
 interface Props {
   adminToken: string;
@@ -74,6 +78,7 @@ export function ProductEditor({ adminToken }: Props) {
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [brandFilter, setBrandFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [bulkBusy, setBulkBusy] = useState(false);
   const [discountPct, setDiscountPct] = useState("");
   const [aiBusy, setAiBusy] = useState(false);
@@ -136,12 +141,18 @@ export function ProductEditor({ adminToken }: Props) {
     const q = search.trim().toLowerCase();
     return products.filter((p) => {
       if (brandFilter !== "all" && (p.brand ?? "") !== brandFilter) return false;
+      const audit = cairoSupplierService.getProductAudit(p.id);
+      if (statusFilter === "valid" && audit?.image_status !== "VALID") return false;
+      if (statusFilter === "invalid_image" && audit?.image_status !== "INVALID") return false;
+      if (statusFilter === "delete_candidate" && audit?.action_taken !== "DELETE_CANDIDATE") return false;
+      if (statusFilter === "no_cairo" && (audit?.sources_count ?? 0) > 0) return false;
       if (!q) return true;
       return p.name.toLowerCase().includes(q) ||
         (p.brand ?? "").toLowerCase().includes(q) ||
-        (p.slug ?? "").toLowerCase().includes(q);
+        (p.slug ?? "").toLowerCase().includes(q) ||
+        (audit?.sku && audit.sku.toLowerCase().includes(q));
     });
-  }, [products, search, brandFilter]);
+  }, [products, search, brandFilter, statusFilter]);
 
   const allBrands = useMemo(
     () => Array.from(new Set(products.map((p) => p.brand).filter(Boolean))).sort() as string[],
@@ -350,13 +361,24 @@ export function ProductEditor({ adminToken }: Props) {
           <Input value={search} onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by name, brand, slug…" className="pl-9" />
         </div>
-        <Select value={brandFilter} onValueChange={setBrandFilter}>
-          <SelectTrigger className="w-full sm:w-44"><SelectValue placeholder="Brand" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All brands</SelectItem>
-            {allBrands.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        <div className="flex flex-wrap gap-2">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-full sm:w-44"><SelectValue placeholder="Audit Status" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="valid">✅ Valid Images</SelectItem>
+              <SelectItem value="invalid_image">❌ Invalid Images</SelectItem>
+              <SelectItem value="delete_candidate">🗑️ Delete Candidates</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={brandFilter} onValueChange={setBrandFilter}>
+            <SelectTrigger className="w-full sm:w-44"><SelectValue placeholder="Brand" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All brands</SelectItem>
+              {allBrands.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
         <Button onClick={openNew}><Plus className="h-4 w-4 mr-2" />New Product</Button>
       </div>
 
@@ -413,6 +435,8 @@ export function ProductEditor({ adminToken }: Props) {
             {visibleSlice.map((p) => {
               const isHidden = hiddenIds.includes(p.id);
               const isSelected = selectedIds.has(p.id);
+              const audit = cairoSupplierService.getProductAudit(p.id);
+              const sources = cairoSupplierService.getCairoSources(p.id);
               return (
                 <div key={p.id} className={`flex items-center gap-3 p-3 hover:bg-muted/40 ${isSelected ? "bg-primary/5" : ""}`}>
                   <Checkbox
@@ -427,16 +451,36 @@ export function ProductEditor({ adminToken }: Props) {
                     onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/placeholder.svg"; }}
                   />
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-medium truncate">{p.name}</p>
                       {isHidden ? (
                         <span className="text-xs bg-orange-500/10 text-orange-600 px-2 py-0.5 rounded-full shrink-0">Hidden</span>
                       ) : (
                         <span className="text-xs bg-green-500/10 text-green-600 px-2 py-0.5 rounded-full shrink-0">Published</span>
                       )}
+                      {audit?.image_status === 'VALID' ? (
+                        <span className="text-[11px] bg-emerald-500/10 text-emerald-600 px-2 py-0.5 rounded-full flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" /> Image OK
+                        </span>
+                      ) : (
+                        <span className="text-[11px] bg-red-500/10 text-red-600 px-2 py-0.5 rounded-full flex items-center gap-1 font-semibold">
+                          <XCircle className="w-3 h-3" /> Invalid Image
+                        </span>
+                      )}
+                      {sources.length > 0 && (
+                        <span className="text-[11px] bg-primary/10 text-primary px-2 py-0.5 rounded-full flex items-center gap-1">
+                          <Building2 className="w-3 h-3" /> {sources.length} Cairo Sources
+                          {audit?.lowest_cairo_price ? ` • min ${audit.lowest_cairo_price.toLocaleString()} EGP` : ''}
+                        </span>
+                      )}
+                      {audit?.action_taken === 'DELETE_CANDIDATE' && (
+                        <span className="text-[11px] bg-red-600 text-white px-2 py-0.5 rounded-full font-bold">
+                          Delete Candidate
+                        </span>
+                      )}
                     </div>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {p.brand || "No brand"} • {p.price} EGP • Stock: {p.stock}
+                    <p className="text-xs text-muted-foreground truncate pt-0.5">
+                      {p.brand || "No brand"} {audit?.sku ? `• SKU: ${audit.sku}` : ''} • {p.price} EGP • Stock: {p.stock}
                       {p.featured ? " • ⭐ Featured" : ""}
                     </p>
                   </div>
@@ -470,7 +514,16 @@ export function ProductEditor({ adminToken }: Props) {
             <DialogTitle>{editing.id ? "Edit Product" : "New Product"}</DialogTitle>
           </DialogHeader>
 
-          <div className="grid gap-4 md:grid-cols-2">
+          <Tabs defaultValue="details" className="w-full">
+            <TabsList className="grid grid-cols-2 mb-4">
+              <TabsTrigger value="details">Product Details</TabsTrigger>
+              <TabsTrigger value="cairo" className="flex items-center gap-1.5">
+                <Building2 className="w-4 h-4 text-primary" /> Egypt / Cairo Sources
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="details">
+              <div className="grid gap-4 md:grid-cols-2">
             <div className="md:col-span-2 space-y-2">
               <Label>Image</Label>
               <div className="flex items-center gap-3">
@@ -640,8 +693,24 @@ export function ProductEditor({ adminToken }: Props) {
               </div>
             )}
           </div>
+        </TabsContent>
 
-          <DialogFooter>
+        <TabsContent value="cairo" className="space-y-4">
+          {editing.id ? (
+            <CairoSourcesViewer 
+              productId={editing.id} 
+              productName={editing.name ?? ''} 
+              currentPrice={editing.price ?? 0} 
+            />
+          ) : (
+            <div className="py-8 text-center text-muted-foreground text-sm border border-dashed rounded-xl">
+              Please save the product first before attaching Cairo supplier sources.
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
+
+      <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}><X className="h-4 w-4 mr-2" />Cancel</Button>
             <Button onClick={save} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
