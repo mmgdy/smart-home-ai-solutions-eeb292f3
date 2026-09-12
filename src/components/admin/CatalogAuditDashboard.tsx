@@ -32,12 +32,14 @@ import {
   Youtube,
   Zap,
   TrendingUp,
-  Edit3
+  Edit3,
+  EyeOff
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogTrigger, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
@@ -67,6 +69,14 @@ export const CatalogAuditDashboard: React.FC<CatalogAuditDashboardProps> = ({ to
   const [newImageUrl, setNewImageUrl] = useState('');
   const [isUpdatingImage, setIsUpdatingImage] = useState(false);
   const [previewImageZoom, setPreviewImageZoom] = useState<{ url: string; name: string } | null>(null);
+
+  // Multi-select and Bulk Action State
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [syncingId, setSyncingId] = useState<string | null>(null);
+  const [isBulkSyncing, setIsBulkSyncing] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [isBulkSettingVisibility, setIsBulkSettingVisibility] = useState(false);
+  const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
 
   // Bulk action execution state
   const [isExecuting, setIsExecuting] = useState(false);
@@ -246,11 +256,214 @@ WHERE id IN (
 );`;
   }, [deleteCandidates]);
 
-  const handleCopySql = () => {
-    navigator.clipboard.writeText(sqlScript);
-    setCopiedSql(true);
-    setTimeout(() => setCopiedSql(false), 2500);
-    toast({ title: 'SQL Copied!', description: 'Ready to run in Supabase SQL Editor.' });
+  // Selection Handlers
+  const allFilteredSelected = filtered.length > 0 && filtered.every(a => selectedIds.has(a.product_id));
+  const someFilteredSelected = filtered.some(a => selectedIds.has(a.product_id));
+
+  const toggleSelectAll = () => {
+    if (allFilteredSelected) {
+      setSelectedIds(new Set());
+    } else {
+      const next = new Set(selectedIds);
+      filtered.forEach(a => next.add(a.product_id));
+      setSelectedIds(next);
+    }
+  };
+
+  const toggleSelect = (productId: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(productId)) next.delete(productId);
+      else next.add(productId);
+      return next;
+    });
+  };
+
+  // 1. Single Product Sourcing & Calibration Sync
+  const handleSyncSingleProduct = async (product: ProductAuditInfo) => {
+    setSyncingId(product.product_id);
+    try {
+      const rec = cairoSupplierService.getRecommendations(
+        product.product_id,
+        product.product_name || '',
+        product.price || 0,
+        10,
+        '',
+        product.brand || '',
+        ''
+      );
+
+      const newPrice = rec.recommendedPrice || product.price || 0;
+      const newStock = rec.recommendedStock ?? 10;
+
+      if (adminToken) {
+        const { data, error } = await supabase.functions.invoke('admin-write', {
+          headers: { Authorization: `Bearer ${adminToken}` },
+          body: {
+            action: 'update-product',
+            id: product.product_id,
+            updates: {
+              price: newPrice,
+              stock: newStock
+            }
+          }
+        });
+        if (error || !data?.success) throw new Error(data?.error || error?.message || 'Update failed');
+      }
+
+      // Update in local state
+      setAllAudits(prev => prev.map(a => {
+        if (a.product_id === product.product_id) {
+          return { ...a, price: newPrice };
+        }
+        return a;
+      }));
+
+      toast({
+        title: '⚡ Synchronized with Cairo Suppliers',
+        description: `${product.product_name}: Price calibrated to ${newPrice.toLocaleString()} EGP, Stock set to ${newStock} units.`
+      });
+    } catch (e: any) {
+      toast({
+        title: 'Sync Failed',
+        description: e.message || 'Could not update product in live database',
+        variant: 'destructive'
+      });
+    } finally {
+      setSyncingId(null);
+    }
+  };
+
+  // 2. Bulk Sync Recommendations (Price & Stock)
+  const handleBulkSyncRecommendations = async () => {
+    if (selectedIds.size === 0) return;
+    setIsBulkSyncing(true);
+    const ids = Array.from(selectedIds);
+    let syncedCount = 0;
+
+    try {
+      for (const id of ids) {
+        const p = allAudits.find(a => a.product_id === id);
+        if (!p) continue;
+        const rec = cairoSupplierService.getRecommendations(
+          p.product_id,
+          p.product_name || '',
+          p.price || 0,
+          10,
+          '',
+          p.brand || '',
+          ''
+        );
+        const newPrice = rec.recommendedPrice || p.price || 0;
+        const newStock = rec.recommendedStock ?? 10;
+
+        if (adminToken) {
+          await supabase.functions.invoke('admin-write', {
+            headers: { Authorization: `Bearer ${adminToken}` },
+            body: {
+              action: 'update-product',
+              id,
+              updates: { price: newPrice, stock: newStock }
+            }
+          });
+        }
+        syncedCount++;
+      }
+
+      setAllAudits(prev => prev.map(a => {
+        if (selectedIds.has(a.product_id)) {
+          const rec = cairoSupplierService.getRecommendations(a.product_id, a.product_name || '', a.price || 0);
+          return { ...a, price: rec.recommendedPrice || a.price };
+        }
+        return a;
+      }));
+
+      toast({
+        title: '⚡ Bulk Sync Complete',
+        description: `Successfully synchronized ${syncedCount} products to live database!`
+      });
+      setSelectedIds(new Set());
+    } catch (e: any) {
+      toast({
+        title: 'Bulk Sync Error',
+        description: e.message || 'Error occurred during bulk sync',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsBulkSyncing(false);
+    }
+  };
+
+  // 3. Bulk Delete Products
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    setIsBulkDeleting(true);
+    const ids = Array.from(selectedIds);
+
+    try {
+      if (adminToken) {
+        const { data, error } = await supabase.functions.invoke('admin-write', {
+          headers: { Authorization: `Bearer ${adminToken}` },
+          body: {
+            action: 'bulk-delete-products',
+            ids
+          }
+        });
+        if (error || !data?.success) throw new Error(data?.error || error?.message || 'Delete failed');
+      }
+
+      setAllAudits(prev => prev.filter(a => !selectedIds.has(a.product_id)));
+      toast({
+        title: 'Products Deleted',
+        description: `Successfully deleted ${ids.length} products from the database.`
+      });
+      setSelectedIds(new Set());
+      setBulkDeleteDialogOpen(false);
+      fetchLiveCount();
+    } catch (e: any) {
+      toast({
+        title: 'Delete Failed',
+        description: e.message || 'Could not delete products',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
+
+  // 4. Bulk Set Visibility (Show / Hide Products)
+  const handleBulkSetVisibility = async (hidden: boolean) => {
+    if (selectedIds.size === 0) return;
+    setIsBulkSettingVisibility(true);
+    const ids = Array.from(selectedIds);
+
+    try {
+      if (adminToken) {
+        const { data, error } = await supabase.functions.invoke('admin-write', {
+          headers: { Authorization: `Bearer ${adminToken}` },
+          body: {
+            action: 'bulk-set-visibility',
+            ids,
+            hidden
+          }
+        });
+        if (error || !data?.success) throw new Error(data?.error || error?.message || 'Visibility update failed');
+      }
+
+      toast({
+        title: hidden ? 'Products Hidden' : 'Products Published',
+        description: `${ids.length} products are now ${hidden ? 'hidden from public store' : 'visible in public store'}.`
+      });
+      setSelectedIds(new Set());
+    } catch (e: any) {
+      toast({
+        title: 'Visibility Update Failed',
+        description: e.message,
+        variant: 'destructive'
+      });
+    } finally {
+      setIsBulkSettingVisibility(false);
+    }
   };
 
   // Execute full automated catalog purge & heal via admin-write
@@ -693,30 +906,151 @@ WHERE id IN (
             </div>
           </div>
 
+          {/* BULK ACTIONS TOOLBAR */}
+          {selectedIds.size > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-primary/10 border border-primary/30 rounded-xl animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="flex items-center gap-2.5">
+                <Checkbox
+                  checked={allFilteredSelected}
+                  onCheckedChange={toggleSelectAll}
+                  id="bulk-toolbar-select-all"
+                />
+                <Label htmlFor="bulk-toolbar-select-all" className="text-sm font-semibold cursor-pointer">
+                  {selectedIds.size} of {filtered.length} products selected
+                </Label>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                {/* 1. Bulk Sync Recommendations */}
+                <Button
+                  size="sm"
+                  onClick={handleBulkSyncRecommendations}
+                  disabled={isBulkSyncing}
+                  className="h-8 text-xs gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-xs"
+                >
+                  {isBulkSyncing ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Zap className="w-3.5 h-3.5 text-amber-300 fill-amber-300" />
+                  )}
+                  Bulk Sync Price & Stock ({selectedIds.size})
+                </Button>
+
+                {/* 2. Show in Store (Publish) */}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleBulkSetVisibility(false)}
+                  disabled={isBulkSettingVisibility}
+                  className="h-8 text-xs gap-1.5 border-emerald-500/40 hover:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-medium"
+                >
+                  {isBulkSettingVisibility ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Eye className="w-3.5 h-3.5" />
+                  )}
+                  Show in Store ({selectedIds.size})
+                </Button>
+
+                {/* 3. Hide from Store */}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleBulkSetVisibility(true)}
+                  disabled={isBulkSettingVisibility}
+                  className="h-8 text-xs gap-1.5 border-amber-500/40 hover:bg-amber-500/10 text-amber-600 dark:text-amber-400 font-medium"
+                >
+                  {isBulkSettingVisibility ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <EyeOff className="w-3.5 h-3.5" />
+                  )}
+                  Hide from Store ({selectedIds.size})
+                </Button>
+
+                {/* 4. Delete Products */}
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => setBulkDeleteDialogOpen(true)}
+                  disabled={isBulkDeleting}
+                  className="h-8 text-xs gap-1.5 font-medium"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Delete ({selectedIds.size})
+                </Button>
+
+                {/* Deselect */}
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setSelectedIds(new Set())}
+                  className="h-8 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Deselect
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* AUDIT TABLE WITH IMAGES & INTERACTIVE SUPPLIERS */}
           <div className="border rounded-xl overflow-hidden bg-card shadow-sm">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead className="bg-muted/50 border-b text-xs text-muted-foreground">
                   <tr>
+                    <th className="py-3 px-3 w-10">
+                      <Checkbox
+                        checked={allFilteredSelected}
+                        onCheckedChange={toggleSelectAll}
+                        aria-label="Select all products"
+                      />
+                    </th>
                     <th className="py-3 px-3 w-14">Image</th>
                     <th className="py-3 px-4">Product Name</th>
                     <th className="py-3 px-3">Brand / SKU</th>
                     <th className="py-3 px-3">Store Price</th>
-                    <th className="py-3 px-3">Image Verification</th>
+                    <th className="py-3 px-3">Recommended Action</th>
+                    <th className="py-3 px-3">Image Status</th>
                     <th className="py-3 px-3">Cairo Suppliers</th>
-                    <th className="py-3 px-3">Lowest Cairo Price</th>
+                    <th className="py-3 px-3">Lowest Cost</th>
                     <th className="py-3 px-3">Audit Status</th>
-                    <th className="py-3 px-4">Action</th>
+                    <th className="py-3 px-4">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
                   {filtered.slice(0, 100).map((a) => {
                     const isFlagged = cairoSupplierService.isWrongImageFlagged(a.product_id);
                     const isVerified = cairoSupplierService.isImageVerified(a.product_id);
+                    const isSelected = selectedIds.has(a.product_id);
+                    const isSyncing = syncingId === a.product_id;
+
+                    const rec = cairoSupplierService.getRecommendations(
+                      a.product_id,
+                      a.product_name || '',
+                      a.price || 0,
+                      10,
+                      '',
+                      a.brand || '',
+                      ''
+                    );
 
                     return (
-                      <tr key={a.id} className={`hover:bg-muted/30 transition-colors ${isFlagged ? 'bg-red-500/5' : ''}`}>
+                      <tr 
+                        key={a.id} 
+                        className={`hover:bg-muted/30 transition-colors ${
+                          isSelected ? 'bg-primary/5' : isFlagged ? 'bg-red-500/5' : ''
+                        }`}
+                      >
+                        {/* 0. Row Checkbox */}
+                        <td className="py-3 px-3 w-10">
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={() => toggleSelect(a.product_id)}
+                            aria-label={`Select ${a.product_name}`}
+                          />
+                        </td>
+
                         {/* 1. Image Thumbnail with Zoom */}
                         <td className="py-2.5 px-3">
                           <div 
@@ -759,7 +1093,45 @@ WHERE id IN (
                           {a.price ? `${a.price.toLocaleString()} EGP` : '—'}
                         </td>
 
-                        {/* 5. Image Verification Status & Direct Quick Action */}
+                        {/* 5. Recommended Action & Sourcing Intelligence */}
+                        <td className="py-3 px-3 whitespace-nowrap">
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-1.5">
+                              <Badge
+                                variant="outline"
+                                className={`text-[10px] px-1.5 py-0 font-medium ${
+                                  rec.pricingStatus === 'HEALTHY'
+                                    ? 'border-emerald-500/30 text-emerald-600 bg-emerald-500/5'
+                                    : rec.pricingStatus === 'LOSS_RISK'
+                                    ? 'border-red-500/30 text-red-600 bg-red-500/5'
+                                    : rec.pricingStatus === 'THIN_MARGIN'
+                                    ? 'border-amber-500/30 text-amber-600 bg-amber-500/5'
+                                    : 'border-blue-500/30 text-blue-600 bg-blue-500/5'
+                                }`}
+                              >
+                                {rec.pricingStatus === 'HEALTHY' ? 'Healthy Margin' : rec.pricingStatus === 'LOSS_RISK' ? 'Loss Risk' : rec.pricingStatus === 'THIN_MARGIN' ? 'Thin Margin' : rec.pricingStatus}
+                              </Badge>
+                              {rec.currentMarginPct !== null && (
+                                <span className={`text-[10px] font-mono ${rec.currentMarginPct >= 15 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                                  {rec.currentMarginPct >= 0 ? '+' : ''}{rec.currentMarginPct}%
+                                </span>
+                              )}
+                            </div>
+                            {rec.recommendedPrice ? (
+                              <div className="text-xs font-semibold text-foreground flex items-center gap-1">
+                                <span className="text-[10px] text-muted-foreground font-normal">Rec:</span>
+                                <span className="text-primary font-bold">{rec.recommendedPrice.toLocaleString()} EGP</span>
+                              </div>
+                            ) : (
+                              <span className="text-[11px] text-muted-foreground italic">No price data</span>
+                            )}
+                            <div className="text-[10px] text-muted-foreground">
+                              Stock buffer: {rec.recommendedStock} pcs
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* 6. Image Verification Status & Quick Action */}
                         <td className="py-3 px-3 whitespace-nowrap">
                           <div className="flex flex-col gap-1">
                             {isFlagged ? (
@@ -807,7 +1179,7 @@ WHERE id IN (
                           </div>
                         </td>
 
-                        {/* 6. Clickable Cairo Sources Modal Trigger */}
+                        {/* 7. Clickable Cairo Sources Modal Trigger */}
                         <td className="py-3 px-3 whitespace-nowrap">
                           <Button
                             variant="outline"
@@ -821,12 +1193,12 @@ WHERE id IN (
                           </Button>
                         </td>
 
-                        {/* 7. Lowest Cairo Price */}
+                        {/* 8. Lowest Cairo Cost */}
                         <td className="py-3 px-3 whitespace-nowrap font-semibold text-primary">
                           {a.lowest_cairo_price ? `${a.lowest_cairo_price.toLocaleString()} EGP` : '—'}
                         </td>
 
-                        {/* 8. Audit Status */}
+                        {/* 9. Audit Status */}
                         <td className="py-3 px-3 whitespace-nowrap">
                           {a.action_taken === 'DELETE_CANDIDATE' ? (
                             <Badge variant="destructive" className="gap-1 text-[11px]">
@@ -851,16 +1223,32 @@ WHERE id IN (
                           )}
                         </td>
 
-                        {/* 9. Action */}
+                        {/* 10. Actions (⚡ Quick Sync + Sources) */}
                         <td className="py-3 px-4 whitespace-nowrap">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => setSelectedProductForSources(a)}
-                            className="h-7 px-2 text-xs text-primary hover:bg-primary/10 gap-1"
-                          >
-                            View Suppliers
-                          </Button>
+                          <div className="flex items-center gap-1.5">
+                            <Button
+                              size="sm"
+                              onClick={() => handleSyncSingleProduct(a)}
+                              disabled={isSyncing}
+                              title="Sync recommended price & stock to live store"
+                              className="h-7 px-2.5 text-xs font-semibold gap-1 bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs"
+                            >
+                              {isSyncing ? (
+                                <RefreshCw className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <Zap className="w-3 h-3 text-amber-300 fill-amber-300" />
+                              )}
+                              Sync
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setSelectedProductForSources(a)}
+                              className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                            >
+                              Sources
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -992,9 +1380,24 @@ WHERE id IN (
                       </div>
                     </div>
 
-                    <p className="text-[11px] text-muted-foreground">
-                      💡 {rec.pricingReason}
-                    </p>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between pt-2 border-t border-primary/20 gap-2">
+                      <p className="text-[11px] text-muted-foreground flex-1">
+                        💡 {rec.pricingReason}
+                      </p>
+                      <Button
+                        size="sm"
+                        onClick={() => handleSyncSingleProduct(selectedProductForSources)}
+                        disabled={syncingId === selectedProductForSources.product_id}
+                        className="h-7 px-3 text-xs gap-1.5 font-semibold bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs shrink-0"
+                      >
+                        {syncingId === selectedProductForSources.product_id ? (
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Zap className="w-3.5 h-3.5 text-amber-300 fill-amber-300" />
+                        )}
+                        ⚡ Apply & Sync to Store Now
+                      </Button>
+                    </div>
                   </div>
                 );
               })()}
@@ -1239,6 +1642,43 @@ WHERE id IN (
           <div className="p-3 text-center">
             <h4 className="font-semibold text-sm text-foreground">{previewImageZoom?.name}</h4>
           </div>
+        </DialogContent>
+      </Dialog>
+      {/* MODAL 4: BULK DELETE CONFIRMATION */}
+      <Dialog open={bulkDeleteDialogOpen} onOpenChange={setBulkDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-[450px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <Trash2 className="w-5 h-5" />
+              Confirm Bulk Delete
+            </DialogTitle>
+            <DialogDescription className="text-xs pt-1">
+              Are you sure you want to permanently delete <strong>{selectedIds.size}</strong> selected products from the database? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="p-3 bg-destructive/10 text-destructive text-xs rounded-lg border border-destructive/20 font-medium">
+            ⚠️ Warning: All {selectedIds.size} selected products will be permanently removed from your database and store catalog.
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setBulkDeleteDialogOpen(false)}
+              disabled={isBulkDeleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleBulkDelete}
+              disabled={isBulkDeleting}
+              className="gap-1.5"
+            >
+              {isBulkDeleting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+              Delete {selectedIds.size} Products
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
