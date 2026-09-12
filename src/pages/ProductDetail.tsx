@@ -2,9 +2,14 @@ import { useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Helmet } from 'react-helmet-async';
-import { ArrowLeft, ArrowRight, ShoppingCart, Loader2, Zap, Check, Shield, Truck, Award, Wifi, CreditCard, Globe, ExternalLink } from 'lucide-react';
+import { 
+  ArrowLeft, ArrowRight, ShoppingCart, Loader2, Zap, Check, Shield, Truck, 
+  Award, Wifi, CreditCard, Globe, ExternalLink, Building2, MessageCircle, 
+  Phone, Search, FileText, ShoppingBag, Youtube 
+} from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { Product } from '@/types/store';
 import { useCart } from '@/hooks/useCart';
@@ -12,6 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/lib/i18n';
 import { parseProtocols } from '@/lib/protocolIcon';
 import { getProductImage, productPlaceholder } from '@/lib/productImage';
+import { cairoSupplierService, CairoSource } from '@/data/cairoSupplierService';
 import { cn } from '@/lib/utils';
 
 function getYouTubeEmbedUrl(url: string): string | null {
@@ -101,6 +107,11 @@ const ProductDetail = () => {
     staleTime: 1000 * 60 * 30, // 30 min cache
     retry: 1,
   });
+
+  const cairoSources = useMemo<CairoSource[]>(() => {
+    if (!activeProduct?.id) return [];
+    return cairoSupplierService.getCairoSources(activeProduct.id);
+  }, [activeProduct?.id]);
 
   const handleAddToCart = () => {
     if (activeProduct) {
@@ -419,81 +430,205 @@ const ProductDetail = () => {
                 </div>
               )}
 
-              {/* Find sources on the web */}
-              <div className="mt-4 rounded-xl border border-border bg-card p-5">
-                <div className="mb-3 flex items-center justify-between gap-3">
+              {/* External Sources & Local Cairo Suppliers */}
+              <div className="mt-4 rounded-xl border border-border bg-card p-5 space-y-4">
+                <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
                     <Globe className="h-4 w-4 text-primary" />
                     <h3 className="font-display text-base font-semibold text-foreground">
-                      {t('webSourcesTitle')}
+                      {isRTL ? 'المصادر الخارجية والتوريد المحلي' : 'External Sources & Local Suppliers'}
                     </h3>
                   </div>
                   <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                    {t('webSourcesPoweredBy')}
+                    {isRTL ? 'بيانات معتمدة ومباشرة' : 'Direct Verified Links'}
                   </span>
                 </div>
-                <p className="mb-3 text-xs text-muted-foreground">{t('webSourcesDesc')}</p>
+                <p className="text-xs text-muted-foreground">
+                  {isRTL 
+                    ? 'يمكنك الاطلاع على الموردين المحليين المعتمدين في مصر، الأسعار المباشرة، أو تصفح المتاجر والمواصفات الفنية.' 
+                    : 'Access verified local Egyptian suppliers, live pricing, and direct technical specifications.'}
+                </p>
 
+                {/* 1. Verified Local Egyptian / Cairo Suppliers */}
+                {cairoSources && cairoSources.length > 0 && (
+                  <div className="space-y-2 pt-1">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                      <Building2 className="h-3.5 w-3.5 text-primary" />
+                      <span>{isRTL ? `الموردون المعتمدون في مصر (${cairoSources.length})` : `Verified Egyptian Suppliers (${cairoSources.length})`}</span>
+                    </div>
+                    <ul className="space-y-2">
+                      {cairoSources.map((src) => {
+                        const cleanPhone = (src.whatsapp || src.phone || '').replace(/[^0-9]/g, '');
+                        const waText = encodeURIComponent(
+                          isRTL 
+                            ? `مرحباً، أستفسر عن توفر وسعر: ${product.name}`
+                            : `Hello, inquiring about availability for: ${product.name}`
+                        );
+                        const targetUrl = src.product_url || src.supplier_url || `https://www.google.com/search?q=${encodeURIComponent(`${src.supplier_name} ${product.name}`)}`;
+
+                        return (
+                          <li key={src.id} className="rounded-lg border border-border/70 bg-background/60 p-3 hover:border-primary/40 transition">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-semibold text-sm text-foreground">{src.supplier_name}</span>
+                                  <Badge variant="outline" className="text-[10px] py-0 border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
+                                    {isRTL ? 'متوفر بمصر' : src.availability || 'In Stock'}
+                                  </Badge>
+                                  {src.area && (
+                                    <span className="text-[11px] text-muted-foreground">({src.area})</span>
+                                  )}
+                                </div>
+                                {src.price_egp && (
+                                  <p className="text-xs font-semibold text-primary mt-1">
+                                    {isRTL ? 'السعر التقديري: ' : 'Supplier Price: '}
+                                    {src.price_egp.toLocaleString()} EGP
+                                  </p>
+                                )}
+                              </div>
+
+                              <div className="flex items-center gap-2 shrink-0">
+                                {cleanPhone && (
+                                  <a
+                                    href={`https://wa.me/${cleanPhone}?text=${waText}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 px-2.5 py-1.5 rounded-md font-medium transition"
+                                  >
+                                    <MessageCircle className="w-3.5 h-3.5" />
+                                    <span>WhatsApp</span>
+                                  </a>
+                                )}
+                                {targetUrl && (
+                                  <a
+                                    href={targetUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="inline-flex items-center gap-1 text-xs text-primary font-medium hover:underline bg-primary/10 hover:bg-primary/15 px-2.5 py-1.5 rounded-md transition"
+                                  >
+                                    <span>{isRTL ? 'فتح المصدر' : 'Open Source'}</span>
+                                    <ExternalLink className="w-3.5 h-3.5" />
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                )}
+
+                {/* 2. Web Crawled Sources (if returned by edge function) */}
                 {sourcesLoading && (
-                  <div className="flex items-center gap-2 py-3 text-sm text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  <div className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
                     {t('webSourcesLoading')}
                   </div>
                 )}
 
-                {!sourcesLoading && sourcesError && (
-                  <p className="py-3 text-sm text-muted-foreground">{t('webSourcesError')}</p>
-                )}
-
-                {!sourcesLoading && !sourcesError && webSources && webSources.length === 0 && (
-                  <p className="py-3 text-sm text-muted-foreground">{t('webSourcesEmpty')}</p>
-                )}
-
-                {!sourcesLoading && !sourcesError && webSources && webSources.length > 0 && (
-                  <ul className="space-y-2">
-                    {webSources.map((src) => {
-                      let host = '';
-                      try {
-                        host = new URL(src.url).hostname.replace(/^www\./, '');
-                      } catch {
-                        host = src.source;
-                      }
-                      const favicon = `https://www.google.com/s2/favicons?domain=${host}&sz=32`;
-                      return (
-                        <li key={src.url}>
-                          <a
-                            href={src.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="group flex items-start gap-3 rounded-lg border border-border/60 bg-background/50 p-3 transition hover:border-primary/40 hover:bg-background"
-                          >
-                            <img
-                              src={favicon}
-                              alt=""
-                              loading="lazy"
-                              width={20}
-                              height={20}
-                              className="mt-0.5 h-5 w-5 shrink-0 rounded"
-                              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                            />
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center justify-between gap-2">
-                                <p className="truncate text-sm font-medium text-foreground group-hover:text-primary">
-                                  {src.title}
-                                </p>
-                                <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted-foreground group-hover:text-primary" />
+                {!sourcesLoading && webSources && webSources.length > 0 && (
+                  <div className="space-y-2 pt-1 border-t">
+                    <div className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                      <Search className="h-3.5 w-3.5 text-primary" />
+                      <span>{isRTL ? 'مصادر الويب الإضافية' : 'Additional Web References'}</span>
+                    </div>
+                    <ul className="space-y-2">
+                      {webSources.map((src) => {
+                        let host = '';
+                        try {
+                          host = new URL(src.url).hostname.replace(/^www\./, '');
+                        } catch {
+                          host = src.source;
+                        }
+                        const favicon = `https://www.google.com/s2/favicons?domain=${host}&sz=32`;
+                        return (
+                          <li key={src.url}>
+                            <a
+                              href={src.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="group flex items-start gap-3 rounded-lg border border-border/60 bg-background/50 p-2.5 transition hover:border-primary/40 hover:bg-background"
+                            >
+                              <img
+                                src={favicon}
+                                alt=""
+                                loading="lazy"
+                                width={18}
+                                height={18}
+                                className="mt-0.5 h-4.5 w-4.5 shrink-0 rounded"
+                                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                              />
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center justify-between gap-2">
+                                  <p className="truncate text-xs font-medium text-foreground group-hover:text-primary">
+                                    {src.title}
+                                  </p>
+                                  <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground group-hover:text-primary" />
+                                </div>
+                                <p className="text-[10px] text-muted-foreground">{host}</p>
                               </div>
-                              <p className="text-[11px] text-muted-foreground">{host}</p>
-                              {src.snippet && (
-                                <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{src.snippet}</p>
-                              )}
-                            </div>
-                          </a>
-                        </li>
-                      );
-                    })}
-                  </ul>
+                            </a>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
                 )}
+
+                {/* 3. Guaranteed Direct Marketplaces & Reference Hub */}
+                <div className="pt-2 border-t space-y-2">
+                  <div className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                    <ShoppingBag className="h-3.5 w-3.5 text-primary" />
+                    <span>{isRTL ? 'روابط فحص ومقارنة خارجية مباشرة' : 'Direct External Market & Spec Links'}</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <a
+                      href={`https://www.amazon.eg/s?k=${encodeURIComponent(`${product.brand || ''} ${product.name}`.trim())}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex items-center justify-between p-2.5 rounded-lg border border-border bg-background/60 hover:border-amber-500/40 hover:bg-amber-500/5 text-xs font-medium transition group"
+                    >
+                      <span className="flex items-center gap-1.5 text-foreground group-hover:text-amber-600 dark:group-hover:text-amber-400">
+                        <ShoppingBag className="w-3.5 h-3.5 text-amber-500" />
+                        Amazon Egypt
+                      </span>
+                      <ExternalLink className="w-3 h-3 text-muted-foreground group-hover:text-amber-600" />
+                    </a>
+
+                    <a
+                      href={`https://www.google.com/search?q=${encodeURIComponent(`${product.brand || ''} ${product.name} specifications datasheet manual`)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex items-center justify-between p-2.5 rounded-lg border border-border bg-background/60 hover:border-primary/40 hover:bg-primary/5 text-xs font-medium transition group"
+                    >
+                      <span className="flex items-center gap-1.5 text-foreground group-hover:text-primary">
+                        <FileText className="w-3.5 h-3.5 text-primary" />
+                        {isRTL ? 'المواصفات والكتالوج' : 'Datasheet & Specs'}
+                      </span>
+                      <ExternalLink className="w-3 h-3 text-muted-foreground group-hover:text-primary" />
+                    </a>
+
+                    <a
+                      href={`https://www.youtube.com/results?search_query=${encodeURIComponent(`${product.brand || ''} ${product.name} smart home review`)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex items-center justify-between p-2.5 rounded-lg border border-border bg-background/60 hover:border-red-500/40 hover:bg-red-500/5 text-xs font-medium transition group"
+                    >
+                      <span className="flex items-center gap-1.5 text-foreground group-hover:text-red-600 dark:group-hover:text-red-400">
+                        <Youtube className="w-3.5 h-3.5 text-red-500" />
+                        {isRTL ? 'فيديوهات ومراجعات' : 'Video Reviews'}
+                      </span>
+                      <ExternalLink className="w-3 h-3 text-muted-foreground group-hover:text-red-600" />
+                    </a>
+                  </div>
+                </div>
               </div>
 
               {/* Bundle suggestion */}

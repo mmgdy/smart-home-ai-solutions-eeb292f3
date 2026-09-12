@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { cairoSupplierService, CairoSource, ProductAuditInfo } from '@/data/cairoSupplierService';
 import { 
   CheckCircle2, 
@@ -14,7 +14,9 @@ import {
   ShieldCheck,
   Calendar,
   DollarSign,
-  Tag
+  Tag,
+  Globe,
+  Check
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -30,10 +32,34 @@ interface Props {
 }
 
 export const CairoSourcesViewer: React.FC<Props> = ({ productId, productName, currentPrice }) => {
-  const audit = cairoSupplierService.getProductAudit(productId);
+  const [audit, setAudit] = useState<ProductAuditInfo | null>(() => cairoSupplierService.getProductAudit(productId));
   const [sources, setSources] = useState<CairoSource[]>(() => cairoSupplierService.getCairoSources(productId));
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [flagState, setFlagState] = useState(0); // Trigger re-render
   
+  useEffect(() => {
+    setAudit(cairoSupplierService.getProductAudit(productId));
+    setSources(cairoSupplierService.getCairoSources(productId));
+  }, [productId, flagState]);
+
+  const isFlaggedWrong = cairoSupplierService.isWrongImageFlagged(productId);
+  const isVerified = cairoSupplierService.isImageVerified(productId);
+  const wrongReason = cairoSupplierService.getWrongImageReason(productId);
+
+  const handleToggleFlagWrong = () => {
+    if (isFlaggedWrong) {
+      cairoSupplierService.unflagWrongImage(productId);
+    } else {
+      cairoSupplierService.flagWrongImage(productId, 'Reported as wrong image by admin');
+    }
+    setFlagState(prev => prev + 1);
+  };
+
+  const handleMarkVerified = () => {
+    cairoSupplierService.markImageVerified(productId);
+    setFlagState(prev => prev + 1);
+  };
+
   // New source form state
   const [supplierName, setSupplierName] = useState('');
   const [supplierUrl, setSupplierUrl] = useState('');
@@ -79,91 +105,155 @@ export const CairoSourcesViewer: React.FC<Props> = ({ productId, productName, cu
     <div className="space-y-6 pt-2">
       {/* 1. PRODUCT AUDIT HEALTH SUMMARY */}
       <div className="bg-muted/40 p-4 rounded-xl border border-border">
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-5 h-5 text-primary" />
-            <h4 className="font-semibold text-sm">Product Catalog Health Status</h4>
+            <h4 className="font-semibold text-sm">Product Catalog Health & Image Verification</h4>
           </div>
-          {audit?.sku && (
-            <Badge variant="outline" className="font-mono text-xs">
-              SKU: {audit.sku}
-            </Badge>
-          )}
+          <div className="flex items-center gap-2">
+            {audit?.sku && (
+              <Badge variant="outline" className="font-mono text-xs">
+                SKU: {audit.sku}
+              </Badge>
+            )}
+            {isFlaggedWrong ? (
+              <Badge variant="destructive" className="gap-1 text-xs">
+                <AlertTriangle className="w-3 h-3" /> Flagged: Wrong Image
+              </Badge>
+            ) : isVerified ? (
+              <Badge variant="outline" className="text-emerald-600 border-emerald-500/30 gap-1 text-xs">
+                <CheckCircle2 className="w-3 h-3" /> Verified Image
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="text-amber-600 border-amber-500/30 gap-1 text-xs">
+                <AlertTriangle className="w-3 h-3" /> Unverified Photo
+              </Badge>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-          {/* Image Status */}
-          <div className="p-2.5 rounded-lg bg-background/80 border flex flex-col gap-1">
-            <span className="text-xs text-muted-foreground">Image Status</span>
+          {/* Image Status & Action */}
+          <div className={`p-2.5 rounded-lg border flex flex-col justify-between gap-1.5 ${
+            isFlaggedWrong ? 'bg-red-500/10 border-red-500/30' : 'bg-background/80'
+          }`}>
+            <span className="text-xs text-muted-foreground font-medium">Image Verification</span>
             <div className="flex items-center gap-1.5 font-medium">
-              {audit?.image_status === 'VALID' ? (
+              {isFlaggedWrong ? (
                 <>
-                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                  <span className="text-emerald-700 dark:text-emerald-400">Valid</span>
+                  <XCircle className="w-4 h-4 text-red-500 shrink-0" />
+                  <span className="text-red-700 dark:text-red-400 font-semibold text-xs">Wrong Image Reported</span>
+                </>
+              ) : isVerified ? (
+                <>
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                  <span className="text-emerald-700 dark:text-emerald-400 text-xs">Confirmed OK</span>
+                </>
+              ) : audit?.image_status === 'VALID' ? (
+                <>
+                  <CheckCircle2 className="w-4 h-4 text-amber-500 shrink-0" />
+                  <span className="text-amber-700 dark:text-amber-400 text-xs">HTTP 200 (Check Visual)</span>
                 </>
               ) : (
                 <>
-                  <XCircle className="w-4 h-4 text-red-500" />
-                  <span className="text-red-700 dark:text-red-400 font-semibold">{audit?.image_status || 'Checking'}</span>
+                  <XCircle className="w-4 h-4 text-red-500 shrink-0" />
+                  <span className="text-red-700 dark:text-red-400 font-semibold text-xs">{audit?.image_status || 'Checking'}</span>
                 </>
+              )}
+            </div>
+            <div className="pt-1 flex items-center gap-1.5 border-t">
+              {isFlaggedWrong ? (
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={handleMarkVerified}
+                  className="h-6 text-[11px] px-2 text-emerald-600 hover:bg-emerald-500/10 border-emerald-500/30 w-full"
+                >
+                  <Check className="w-3 h-3 mr-1" /> Mark Correct
+                </Button>
+              ) : (
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  onClick={handleToggleFlagWrong}
+                  className="h-6 text-[11px] px-2 text-red-600 hover:bg-red-500/10 hover:text-red-700 w-full"
+                >
+                  <AlertTriangle className="w-3 h-3 mr-1" /> Flag as Wrong Image
+                </Button>
               )}
             </div>
           </div>
 
           {/* Price Status */}
-          <div className="p-2.5 rounded-lg bg-background/80 border flex flex-col gap-1">
-            <span className="text-xs text-muted-foreground">Price Status</span>
+          <div className="p-2.5 rounded-lg bg-background/80 border flex flex-col justify-between gap-1">
+            <span className="text-xs text-muted-foreground font-medium">Price Status</span>
             <div className="flex items-center gap-1.5 font-medium">
               {audit?.price_status === 'VALID' ? (
                 <>
-                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                  <span className="text-emerald-700 dark:text-emerald-400">Valid ({currentPrice} EGP)</span>
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                  <span className="text-emerald-700 dark:text-emerald-400 text-xs">Valid ({currentPrice.toLocaleString()} EGP)</span>
                 </>
               ) : (
                 <>
-                  <XCircle className="w-4 h-4 text-red-500" />
-                  <span className="text-red-700 dark:text-red-400">Invalid</span>
+                  <XCircle className="w-4 h-4 text-red-500 shrink-0" />
+                  <span className="text-red-700 dark:text-red-400 text-xs">Invalid</span>
                 </>
               )}
+            </div>
+            <div className="text-[11px] text-muted-foreground pt-1 border-t">
+              Public store pricing
             </div>
           </div>
 
           {/* Description Status */}
-          <div className="p-2.5 rounded-lg bg-background/80 border flex flex-col gap-1">
-            <span className="text-xs text-muted-foreground">Description</span>
+          <div className="p-2.5 rounded-lg bg-background/80 border flex flex-col justify-between gap-1">
+            <span className="text-xs text-muted-foreground font-medium">Description</span>
             <div className="flex items-center gap-1.5 font-medium">
               {audit?.description_status === 'VALID' ? (
                 <>
-                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                  <span className="text-emerald-700 dark:text-emerald-400">Valid</span>
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                  <span className="text-emerald-700 dark:text-emerald-400 text-xs">Cleaned & Formatted</span>
                 </>
               ) : (
                 <>
-                  <AlertTriangle className="w-4 h-4 text-amber-500" />
-                  <span className="text-amber-700 dark:text-amber-400">Needs Review</span>
+                  <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+                  <span className="text-amber-700 dark:text-amber-400 text-xs">Needs Review</span>
                 </>
               )}
+            </div>
+            <div className="text-[11px] text-muted-foreground pt-1 border-t">
+              HTML tags sanitized
             </div>
           </div>
 
           {/* Cairo Sourcing Status */}
-          <div className="p-2.5 rounded-lg bg-background/80 border flex flex-col gap-1">
-            <span className="text-xs text-muted-foreground">Cairo Sourcing</span>
+          <div className="p-2.5 rounded-lg bg-background/80 border flex flex-col justify-between gap-1">
+            <span className="text-xs text-muted-foreground font-medium">Cairo Sourcing</span>
             <div className="flex items-center gap-1.5 font-medium">
               {sources.length > 0 ? (
                 <>
-                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                  <span className="text-emerald-700 dark:text-emerald-400">{sources.length} Found in Cairo</span>
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                  <span className="text-emerald-700 dark:text-emerald-400 text-xs">{sources.length} Local Supplier{sources.length > 1 ? 's' : ''}</span>
                 </>
               ) : (
                 <>
-                  <AlertTriangle className="w-4 h-4 text-amber-500" />
-                  <span className="text-amber-700 dark:text-amber-400">Not Found</span>
+                  <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+                  <span className="text-amber-700 dark:text-amber-400 text-xs">Not Found Yet</span>
                 </>
               )}
             </div>
+            <div className="text-[11px] text-muted-foreground pt-1 border-t">
+              {audit?.lowest_cairo_price ? `Best: ${audit.lowest_cairo_price.toLocaleString()} EGP` : 'Internal registry'}
+            </div>
           </div>
         </div>
+
+        {wrongReason && isFlaggedWrong && (
+          <div className="mt-3 p-2.5 bg-red-500/10 rounded-lg text-xs text-red-900 dark:text-red-300 border border-red-500/20 flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+            <span><strong>Wrong Image Note:</strong> {wrongReason}. Please upload or paste the accurate product image in the Product Details tab.</span>
+          </div>
+        )}
 
         {audit?.reason && audit.action_taken !== 'NO_CHANGE' && (
           <div className="mt-3 p-2 bg-amber-500/10 rounded text-xs text-amber-900 dark:text-amber-300 border border-amber-500/20">
@@ -181,7 +271,7 @@ export const CairoSourcesViewer: React.FC<Props> = ({ productId, productName, cu
               Egypt & Cairo Suppliers ({sources.length})
             </h4>
             <p className="text-xs text-muted-foreground">
-              Internal commercial intelligence. Not visible on public store.
+              Internal commercial intelligence for local procurement in Cairo & Egypt.
             </p>
           </div>
           <Button size="sm" variant="outline" onClick={() => setIsAddOpen(true)} className="gap-1.5 h-8">
@@ -196,77 +286,102 @@ export const CairoSourcesViewer: React.FC<Props> = ({ productId, productName, cu
           </div>
         ) : (
           <div className="space-y-3">
-            {sources.map((s, idx) => (
-              <div key={s.id || idx} className="p-4 rounded-xl border bg-card hover:shadow-sm transition-shadow">
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-sm">{s.supplier_name}</span>
-                      <Badge variant="secondary" className="text-[10px] py-0">
-                        {s.availability || 'In Stock'}
-                      </Badge>
-                      <Badge variant="outline" className="text-[10px] py-0 text-emerald-600 dark:text-emerald-400 border-emerald-500/30">
-                        {s.match_confidence}% Match
-                      </Badge>
-                    </div>
+            {sources.map((s, idx) => {
+              const diff = s.price_egp && currentPrice > 0 ? currentPrice - s.price_egp : null;
+              const marginPct = diff !== null && currentPrice > 0 ? Math.round((diff / currentPrice) * 100) : null;
+              const cleanPhone = (s.whatsapp || s.phone || '').replace(/[^0-9]/g, '');
+              const waText = encodeURIComponent(`Hello, I am inquiring about availability of: ${productName}`);
 
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap pt-0.5">
-                      <span className="flex items-center gap-1">
-                        <MapPin className="w-3 h-3 text-primary" />
-                        {s.area || 'Cairo, Egypt'}
-                      </span>
-                      {s.phone && (
-                        <a href={`tel:${s.phone}`} className="flex items-center gap-1 hover:text-foreground">
-                          <Phone className="w-3 h-3" />
-                          {s.phone}
-                        </a>
-                      )}
-                      {s.whatsapp && (
-                        <a 
-                          href={`https://wa.me/${s.whatsapp.replace(/[^0-9]/g, '')}`} 
-                          target="_blank" 
-                          rel="noreferrer" 
-                          className="flex items-center gap-1 text-emerald-600 hover:underline"
-                        >
-                          <MessageCircle className="w-3 h-3" />
-                          WhatsApp
-                        </a>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex sm:flex-col items-end justify-between gap-2">
-                    <div className="text-right">
-                      <div className="text-base font-bold text-primary">
-                        {s.price_egp ? `${s.price_egp.toLocaleString()} EGP` : 'Price on Request'}
+              return (
+                <div key={s.id || idx} className="p-4 rounded-xl border bg-card hover:shadow-sm transition-shadow">
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                    <div className="space-y-1.5 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-sm text-foreground">{s.supplier_name}</span>
+                        <Badge variant="secondary" className="text-[10px] py-0">
+                          {s.availability || 'In Stock'}
+                        </Badge>
+                        <Badge variant="outline" className="text-[10px] py-0 text-emerald-600 dark:text-emerald-400 border-emerald-500/30">
+                          {s.match_confidence}% Match
+                        </Badge>
+                        {marginPct !== null && (
+                          <Badge variant="outline" className={`text-[10px] py-0 ${marginPct >= 0 ? 'text-emerald-600 border-emerald-500/30' : 'text-amber-600 border-amber-500/30'}`}>
+                            Store Margin: {marginPct >= 0 ? '+' : ''}{marginPct}%
+                          </Badge>
+                        )}
                       </div>
-                      {s.price_egp && currentPrice > 0 && (
-                        <span className="text-[11px] text-muted-foreground">
-                          Store: {currentPrice.toLocaleString()} EGP
+
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap pt-0.5">
+                        <span className="flex items-center gap-1">
+                          <MapPin className="w-3 h-3 text-primary shrink-0" />
+                          {s.area || s.address || 'Cairo, Egypt'}
                         </span>
-                      )}
+                        {s.phone && (
+                          <a href={`tel:${s.phone}`} className="flex items-center gap-1 hover:text-foreground hover:underline font-mono">
+                            <Phone className="w-3 h-3 text-primary shrink-0" />
+                            {s.phone}
+                          </a>
+                        )}
+                        {cleanPhone && (
+                          <a 
+                            href={`https://wa.me/${cleanPhone}?text=${waText}`} 
+                            target="_blank" 
+                            rel="noreferrer" 
+                            className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 hover:underline bg-emerald-500/10 px-2 py-0.5 rounded font-medium"
+                          >
+                            <MessageCircle className="w-3 h-3" />
+                            WhatsApp Supplier
+                          </a>
+                        )}
+                        {s.supplier_url && (
+                          <a 
+                            href={s.supplier_url} 
+                            target="_blank" 
+                            rel="noreferrer" 
+                            className="flex items-center gap-1 hover:text-foreground text-muted-foreground"
+                          >
+                            <Globe className="w-3 h-3" />
+                            Company Site
+                          </a>
+                        )}
+                      </div>
                     </div>
 
-                    <a 
-                      href={s.product_url} 
-                      target="_blank" 
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1 text-xs text-primary font-medium hover:underline bg-primary/10 px-2.5 py-1 rounded-md"
-                    >
-                      Open Supplier
-                      <ExternalLink className="w-3 h-3" />
-                    </a>
-                  </div>
-                </div>
+                    <div className="flex sm:flex-col items-end justify-between gap-2 shrink-0">
+                      <div className="text-right">
+                        <div className="text-base font-bold text-primary">
+                          {s.price_egp ? `${s.price_egp.toLocaleString()} EGP` : 'Price on Request'}
+                        </div>
+                        {s.price_egp && currentPrice > 0 && (
+                          <span className="text-[11px] text-muted-foreground block">
+                            Store: {currentPrice.toLocaleString()} EGP
+                          </span>
+                        )}
+                      </div>
 
-                {s.notes && (
-                  <div className="mt-2.5 pt-2 border-t text-xs text-muted-foreground">
-                    <span className="font-medium text-foreground">Note: </span>
-                    {s.notes}
+                      {s.product_url && (
+                        <a 
+                          href={s.product_url} 
+                          target="_blank" 
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-primary font-medium hover:underline bg-primary/10 px-2.5 py-1 rounded-md"
+                        >
+                          Open Supplier Page
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      )}
+                    </div>
                   </div>
-                )}
-              </div>
-            ))}
+
+                  {s.notes && (
+                    <div className="mt-2.5 pt-2 border-t text-xs text-muted-foreground">
+                      <span className="font-medium text-foreground">Note: </span>
+                      {s.notes}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

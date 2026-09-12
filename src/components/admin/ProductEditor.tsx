@@ -79,6 +79,7 @@ export function ProductEditor({ adminToken }: Props) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [brandFilter, setBrandFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [flagVersion, setFlagVersion] = useState(0);
   const [bulkBusy, setBulkBusy] = useState(false);
   const [discountPct, setDiscountPct] = useState("");
   const [aiBusy, setAiBusy] = useState(false);
@@ -142,6 +143,12 @@ export function ProductEditor({ adminToken }: Props) {
     return products.filter((p) => {
       if (brandFilter !== "all" && (p.brand ?? "") !== brandFilter) return false;
       const audit = cairoSupplierService.getProductAudit(p.id);
+      const isFlagged = cairoSupplierService.isWrongImageFlagged(p.id);
+      const isVerified = cairoSupplierService.isImageVerified(p.id);
+
+      if (statusFilter === "flagged_wrong" && !isFlagged) return false;
+      if (statusFilter === "verified" && !isVerified) return false;
+      if (statusFilter === "unverified" && (isFlagged || isVerified)) return false;
       if (statusFilter === "valid" && audit?.image_status !== "VALID") return false;
       if (statusFilter === "invalid_image" && audit?.image_status !== "INVALID") return false;
       if (statusFilter === "delete_candidate" && audit?.action_taken !== "DELETE_CANDIDATE") return false;
@@ -152,7 +159,7 @@ export function ProductEditor({ adminToken }: Props) {
         (p.slug ?? "").toLowerCase().includes(q) ||
         (audit?.sku && audit.sku.toLowerCase().includes(q));
     });
-  }, [products, search, brandFilter, statusFilter]);
+  }, [products, search, brandFilter, statusFilter, flagVersion]);
 
   const allBrands = useMemo(
     () => Array.from(new Set(products.map((p) => p.brand).filter(Boolean))).sort() as string[],
@@ -363,10 +370,13 @@ export function ProductEditor({ adminToken }: Props) {
         </div>
         <div className="flex flex-wrap gap-2">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full sm:w-44"><SelectValue placeholder="Audit Status" /></SelectTrigger>
+            <SelectTrigger className="w-full sm:w-48"><SelectValue placeholder="Audit Status" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Statuses</SelectItem>
-              <SelectItem value="valid">✅ Valid Images</SelectItem>
+              <SelectItem value="flagged_wrong">⚠️ Wrong Images</SelectItem>
+              <SelectItem value="verified">✅ Verified Images</SelectItem>
+              <SelectItem value="unverified">🔍 Unverified Images</SelectItem>
+              <SelectItem value="valid">Validated HTTP</SelectItem>
               <SelectItem value="invalid_image">❌ Invalid Images</SelectItem>
               <SelectItem value="delete_candidate">🗑️ Delete Candidates</SelectItem>
             </SelectContent>
@@ -437,6 +447,9 @@ export function ProductEditor({ adminToken }: Props) {
               const isSelected = selectedIds.has(p.id);
               const audit = cairoSupplierService.getProductAudit(p.id);
               const sources = cairoSupplierService.getCairoSources(p.id);
+              const isFlagged = cairoSupplierService.isWrongImageFlagged(p.id);
+              const isVerified = cairoSupplierService.isImageVerified(p.id);
+
               return (
                 <div key={p.id} className={`flex items-center gap-3 p-3 hover:bg-muted/40 ${isSelected ? "bg-primary/5" : ""}`}>
                   <Checkbox
@@ -447,32 +460,76 @@ export function ProductEditor({ adminToken }: Props) {
                   <img
                     src={getProductImage(p as any)}
                     alt={p.name}
-                    className="w-14 h-14 rounded-lg object-cover bg-muted flex-shrink-0"
+                    className="w-14 h-14 rounded-lg object-cover bg-muted flex-shrink-0 cursor-pointer"
+                    onClick={() => openEdit(p)}
                     onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/placeholder.svg"; }}
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-medium truncate">{p.name}</p>
+                      <p className="font-medium truncate cursor-pointer hover:underline" onClick={() => openEdit(p)}>{p.name}</p>
                       {isHidden ? (
                         <span className="text-xs bg-orange-500/10 text-orange-600 px-2 py-0.5 rounded-full shrink-0">Hidden</span>
                       ) : (
                         <span className="text-xs bg-green-500/10 text-green-600 px-2 py-0.5 rounded-full shrink-0">Published</span>
                       )}
-                      {audit?.image_status === 'VALID' ? (
-                        <span className="text-[11px] bg-emerald-500/10 text-emerald-600 px-2 py-0.5 rounded-full flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3" /> Image OK
+
+                      {/* Honest Image Verification Status */}
+                      {isFlagged ? (
+                        <span className="text-[11px] bg-red-500/10 text-red-600 border border-red-500/30 px-2 py-0.5 rounded-full flex items-center gap-1 font-bold">
+                          <AlertTriangle className="w-3 h-3 text-red-500" /> Flagged Wrong Image
+                        </span>
+                      ) : isVerified ? (
+                        <span className="text-[11px] bg-emerald-500/10 text-emerald-600 border border-emerald-500/30 px-2 py-0.5 rounded-full flex items-center gap-1 font-medium">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-500" /> Verified Photo
+                        </span>
+                      ) : audit?.image_status === 'VALID' ? (
+                        <span className="text-[11px] bg-amber-500/10 text-amber-600 border border-amber-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3 text-amber-500" /> Unverified (HTTP 200)
                         </span>
                       ) : (
                         <span className="text-[11px] bg-red-500/10 text-red-600 px-2 py-0.5 rounded-full flex items-center gap-1 font-semibold">
                           <XCircle className="w-3 h-3" /> Invalid Image
                         </span>
                       )}
+
+                      {/* Flag / Unflag quick action */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (isFlagged) {
+                            cairoSupplierService.unflagWrongImage(p.id);
+                          } else {
+                            cairoSupplierService.flagWrongImage(p.id, 'Reported wrong image');
+                          }
+                          setFlagVersion(v => v + 1);
+                        }}
+                        className="text-[10px] text-muted-foreground hover:text-red-500 underline"
+                      >
+                        {isFlagged ? "Mark OK" : "Flag wrong"}
+                      </button>
+
+                      {/* Clickable Cairo Sources to open supplier details */}
                       {sources.length > 0 && (
-                        <span className="text-[11px] bg-primary/10 text-primary px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditing({ ...p });
+                            setOpen(true);
+                            setTimeout(() => {
+                              const cairoTab = document.querySelector('[value="cairo"]') as HTMLButtonElement;
+                              cairoTab?.click();
+                            }, 60);
+                          }}
+                          className="text-[11px] bg-primary/10 text-primary hover:bg-primary/20 px-2 py-0.5 rounded-full flex items-center gap-1 cursor-pointer transition-colors"
+                          title="Click to view full supplier intelligence"
+                        >
                           <Building2 className="w-3 h-3" /> {sources.length} Cairo Sources
                           {audit?.lowest_cairo_price ? ` • min ${audit.lowest_cairo_price.toLocaleString()} EGP` : ''}
-                        </span>
+                          <ExternalLink className="w-2.5 h-2.5 opacity-60 ml-0.5" />
+                        </button>
                       )}
+
                       {audit?.action_taken === 'DELETE_CANDIDATE' && (
                         <span className="text-[11px] bg-red-600 text-white px-2 py-0.5 rounded-full font-bold">
                           Delete Candidate
