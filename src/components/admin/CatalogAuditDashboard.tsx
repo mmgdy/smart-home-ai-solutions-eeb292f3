@@ -920,7 +920,7 @@ WHERE id IN (
                 <div className="text-right">
                   <div className="text-xs text-muted-foreground">Store Price</div>
                   <div className="text-base font-bold text-primary">
-                    {selectedProductForSources.price ? `${selectedProductForSources.price.toLocaleString()} EGP` : '—'}
+                    {selectedProductForSources.price ? `${Number(selectedProductForSources.price).toLocaleString()} EGP` : '—'}
                   </div>
                 </div>
               </div>
@@ -929,11 +929,11 @@ WHERE id IN (
               {(() => {
                 const rec = cairoSupplierService.getRecommendations(
                   selectedProductForSources.product_id,
-                  selectedProductForSources.product_name,
-                  selectedProductForSources.price,
+                  selectedProductForSources.product_name || '',
+                  selectedProductForSources.price || 0,
                   10,
                   '',
-                  selectedProductForSources.brand,
+                  selectedProductForSources.brand || '',
                   ''
                 );
 
@@ -962,7 +962,7 @@ WHERE id IN (
                       <div className="p-2 rounded-lg bg-background border">
                         <span className="text-muted-foreground block text-[11px]">Lowest Supplier Cost</span>
                         <span className="font-semibold text-primary">
-                          {rec.lowestSupplierPrice ? `${rec.lowestSupplierPrice.toLocaleString()} EGP` : 'Not recorded'}
+                          {rec.lowestSupplierPrice ? `${Number(rec.lowestSupplierPrice).toLocaleString()} EGP` : 'Not recorded'}
                         </span>
                         {rec.lowestSupplierName && (
                           <span className="text-[10px] text-muted-foreground block truncate">({rec.lowestSupplierName})</span>
@@ -972,7 +972,7 @@ WHERE id IN (
                       <div className="p-2 rounded-lg bg-background border">
                         <span className="text-muted-foreground block text-[11px]">Recommended Price (25% Margin)</span>
                         <span className="font-bold text-foreground">
-                          {rec.recommendedPrice ? `${rec.recommendedPrice.toLocaleString()} EGP` : '—'}
+                          {rec.recommendedPrice ? `${Number(rec.recommendedPrice).toLocaleString()} EGP` : '—'}
                         </span>
                         {rec.currentMarginPct !== null && (
                           <span className={`text-[10px] block ${rec.currentMarginPct >= 15 ? 'text-emerald-600' : 'text-amber-600'}`}>
@@ -1013,10 +1013,11 @@ WHERE id IN (
                   </div>
                 ) : (
                   activeSources.map((s, idx) => {
-                    const diff = s.price_egp && selectedProductForSources.price > 0 ? selectedProductForSources.price - s.price_egp : null;
-                    const marginPct = diff !== null && selectedProductForSources.price > 0 ? Math.round((diff / selectedProductForSources.price) * 100) : null;
+                    const storePrice = selectedProductForSources.price || 0;
+                    const diff = s.price_egp && storePrice > 0 ? storePrice - Number(s.price_egp) : null;
+                    const marginPct = diff !== null && storePrice > 0 ? Math.round((diff / storePrice) * 100) : null;
                     const cleanPhone = (s.whatsapp || s.phone || '').replace(/[^0-9]/g, '');
-                    const waText = encodeURIComponent(`Hello, I am inquiring about availability of: ${selectedProductForSources.product_name}`);
+                    const waText = encodeURIComponent(`Hello, I am inquiring about availability of: ${selectedProductForSources.product_name || 'Product'}`);
 
                     return (
                       <div key={s.id || idx} className="p-4 rounded-xl border bg-card space-y-2 hover:shadow-xs transition-shadow">
@@ -1038,15 +1039,22 @@ WHERE id IN (
                             </div>
 
                             <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap pt-0.5">
-                              <span className="flex items-center gap-1">
-                                <MapPin className="w-3 h-3 text-primary shrink-0" />
-                                {s.area || s.address || 'Cairo, Egypt'}
-                              </span>
+                              {s.address && (
+                                <span className="flex items-center gap-1">
+                                  <MapPin className="w-3 h-3 text-primary" />
+                                  {s.address}
+                                </span>
+                              )}
                               {s.phone && (
-                                <a href={`tel:${s.phone}`} className="flex items-center gap-1 hover:text-foreground font-mono">
-                                  <Phone className="w-3 h-3 text-primary shrink-0" />
+                                <span className="flex items-center gap-1">
+                                  <Phone className="w-3 h-3" />
                                   {s.phone}
-                                </a>
+                                </span>
+                              )}
+                              {s.notes && (
+                                <span className="text-muted-foreground italic truncate max-w-xs">
+                                  "{s.notes}"
+                                </span>
                               )}
                             </div>
                           </div>
@@ -1054,11 +1062,11 @@ WHERE id IN (
                           <div className="flex sm:flex-col items-end justify-between gap-2 shrink-0">
                             <div className="text-right">
                               <div className="text-base font-bold text-primary">
-                                {s.price_egp ? `${s.price_egp.toLocaleString()} EGP` : 'Price on Request'}
+                                {s.price_egp ? `${Number(s.price_egp).toLocaleString()} EGP` : 'Price on Request'}
                               </div>
-                              {s.price_egp && selectedProductForSources.price > 0 && (
+                              {s.price_egp && storePrice > 0 && (
                                 <span className="text-[11px] text-muted-foreground block">
-                                  Cost saving: {(selectedProductForSources.price - s.price_egp).toLocaleString()} EGP
+                                  Cost saving: {(storePrice - Number(s.price_egp)).toLocaleString()} EGP
                                 </span>
                               )}
                             </div>

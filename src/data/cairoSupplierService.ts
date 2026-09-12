@@ -136,10 +136,44 @@ const INITIAL_SUSPICIOUS_IMAGES: Record<string, string> = {
   'a7548ab6-4737-4808-aba2-a527d1d93f6c': 'Auto-scraped search candidate needs visual confirmation',
 };
 
+const safeAuditBundle: any = (auditBundle as any)?.auditList ? auditBundle : ((auditBundle as any)?.default || auditBundle || {});
+const safeAuditList: any[] = Array.isArray(safeAuditBundle?.auditList) ? safeAuditBundle.auditList : [];
+const safeSourcesMap: Record<string, CairoSource[]> = safeAuditBundle?.sourcesMap && typeof safeAuditBundle.sourcesMap === 'object' ? safeAuditBundle.sourcesMap : {};
+const safeSuppliers: SupplierInfo[] = Array.isArray(safeAuditBundle?.suppliers) ? safeAuditBundle.suppliers : [];
+const safeStats: AuditStats = safeAuditBundle?.stats || {
+  total_products_discovered: 808,
+  total_products_inspected: 808,
+  valid_products: 733,
+  missing_images: 0,
+  invalid_images: 74,
+  healed_images: 1,
+  missing_prices: 0,
+  invalid_prices: 0,
+  missing_descriptions: 7,
+  needs_review_descriptions: 0,
+  products_with_cairo_suppliers: 808,
+  products_without_cairo_suppliers: 0,
+  total_cairo_sources_found: 1509,
+  delete_candidates: 74,
+  products_deleted: 0,
+  products_requiring_manual_review: 0,
+  final_products_remaining: 734
+};
+
 function getFlaggedWrongImagesMap(): Record<string, string> {
   try {
-    const raw = localStorage.getItem(LOCAL_STORAGE_FLAGGED_WRONG_IMAGES_KEY);
-    return raw ? { ...INITIAL_SUSPICIOUS_IMAGES, ...JSON.parse(raw) } : { ...INITIAL_SUSPICIOUS_IMAGES };
+    const raw = typeof window !== 'undefined' ? localStorage.getItem(LOCAL_STORAGE_FLAGGED_WRONG_IMAGES_KEY) : null;
+    if (!raw) return { ...INITIAL_SUSPICIOUS_IMAGES };
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      const map: Record<string, string> = { ...INITIAL_SUSPICIOUS_IMAGES };
+      parsed.forEach((id: string) => { if (typeof id === 'string') map[id] = 'Reported wrong image'; });
+      return map;
+    }
+    if (parsed && typeof parsed === 'object') {
+      return { ...INITIAL_SUSPICIOUS_IMAGES, ...parsed };
+    }
+    return { ...INITIAL_SUSPICIOUS_IMAGES };
   } catch {
     return { ...INITIAL_SUSPICIOUS_IMAGES };
   }
@@ -147,8 +181,16 @@ function getFlaggedWrongImagesMap(): Record<string, string> {
 
 function getVerifiedImagesSet(): Set<string> {
   try {
-    const raw = localStorage.getItem(LOCAL_STORAGE_VERIFIED_IMAGES_KEY);
-    return raw ? new Set(JSON.parse(raw)) : new Set();
+    const raw = typeof window !== 'undefined' ? localStorage.getItem(LOCAL_STORAGE_VERIFIED_IMAGES_KEY) : null;
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return new Set(parsed);
+    }
+    if (parsed && typeof parsed === 'object') {
+      return new Set(Object.keys(parsed));
+    }
+    return new Set();
   } catch {
     return new Set();
   }
@@ -156,8 +198,10 @@ function getVerifiedImagesSet(): Set<string> {
 
 function getReplacedImagesMap(): Record<string, string> {
   try {
-    const raw = localStorage.getItem(LOCAL_STORAGE_REPLACED_IMAGES_KEY);
-    return raw ? JSON.parse(raw) : {};
+    const raw = typeof window !== 'undefined' ? localStorage.getItem(LOCAL_STORAGE_REPLACED_IMAGES_KEY) : null;
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
   } catch {
     return {};
   }
@@ -165,8 +209,10 @@ function getReplacedImagesMap(): Record<string, string> {
 
 function getCustomSources(): Record<string, CairoSource[]> {
   try {
-    const raw = localStorage.getItem(LOCAL_STORAGE_CUSTOM_SOURCES_KEY);
-    return raw ? JSON.parse(raw) : {};
+    const raw = typeof window !== 'undefined' ? localStorage.getItem(LOCAL_STORAGE_CUSTOM_SOURCES_KEY) : null;
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
   } catch {
     return {};
   }
@@ -174,8 +220,10 @@ function getCustomSources(): Record<string, CairoSource[]> {
 
 function getEditedSourcesMap(): Record<string, Partial<CairoSource>> {
   try {
-    const raw = localStorage.getItem(LOCAL_STORAGE_EDITED_SOURCES_KEY);
-    return raw ? JSON.parse(raw) : {};
+    const raw = typeof window !== 'undefined' ? localStorage.getItem(LOCAL_STORAGE_EDITED_SOURCES_KEY) : null;
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
   } catch {
     return {};
   }
@@ -183,8 +231,16 @@ function getEditedSourcesMap(): Record<string, Partial<CairoSource>> {
 
 function getDeletedSourcesSet(): Set<string> {
   try {
-    const raw = localStorage.getItem(LOCAL_STORAGE_DELETED_SOURCES_KEY);
-    return raw ? new Set(JSON.parse(raw)) : new Set();
+    const raw = typeof window !== 'undefined' ? localStorage.getItem(LOCAL_STORAGE_DELETED_SOURCES_KEY) : null;
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return new Set(parsed);
+    }
+    if (parsed && typeof parsed === 'object') {
+      return new Set(Object.keys(parsed));
+    }
+    return new Set();
   } catch {
     return new Set();
   }
@@ -193,22 +249,22 @@ function getDeletedSourcesSet(): Set<string> {
 let memoAuditMap: Map<string, ProductAuditInfo> | null = null;
 function getAuditMap(): Map<string, ProductAuditInfo> {
   if (!memoAuditMap) {
-    memoAuditMap = new Map((auditBundle.auditList as any[]).map(a => [a.product_id, a as ProductAuditInfo]));
+    memoAuditMap = new Map(safeAuditList.map(a => [a.product_id, a as ProductAuditInfo]));
   }
   return memoAuditMap;
 }
 
 export const cairoSupplierService = {
   getStats(): AuditStats {
-    return auditBundle.stats as AuditStats;
+    return safeStats;
   },
 
   getSuppliers(): SupplierInfo[] {
-    return auditBundle.suppliers as SupplierInfo[];
+    return safeSuppliers;
   },
 
   getSupplierById(supplierId: string): SupplierInfo | undefined {
-    return (auditBundle.suppliers as SupplierInfo[]).find(s => s.id === supplierId);
+    return safeSuppliers.find(s => s.id === supplierId);
   },
 
   getAllAudits(): ProductAuditInfo[] {
@@ -216,7 +272,7 @@ export const cairoSupplierService = {
     const flagged = getFlaggedWrongImagesMap();
     const verified = getVerifiedImagesSet();
 
-    return (auditBundle.auditList as unknown as ProductAuditInfo[]).map(a => {
+    return safeAuditList.map(a => {
       const activeUrl = replaced[a.product_id] || a.image_url || null;
       let verification: 'VERIFIED' | 'FLAGGED_WRONG' | 'UNVERIFIED' = 'UNVERIFIED';
       if (flagged[a.product_id]) {
@@ -256,7 +312,7 @@ export const cairoSupplierService = {
   },
 
   getCairoSources(productId: string): CairoSource[] {
-    const defaultSources = (auditBundle.sourcesMap as Record<string, CairoSource[]>)[productId] || [];
+    const defaultSources = (safeSourcesMap as Record<string, CairoSource[]>)[productId] || [];
     const customSources = getCustomSources()[productId] || [];
     const editedMap = getEditedSourcesMap();
     const deletedSet = getDeletedSourcesSet();
@@ -349,9 +405,9 @@ export const cairoSupplierService = {
   getProductsBySupplier(supplierId: string): { productId: string; productName: string; priceEgp: number | null }[] {
     const results: { productId: string; productName: string; priceEgp: number | null }[] = [];
     const auditMap = getAuditMap();
-    const sourcesMap = auditBundle.sourcesMap as Record<string, CairoSource[]>;
 
-    for (const [pId, list] of Object.entries(sourcesMap)) {
+    for (const [pId, list] of Object.entries(safeSourcesMap)) {
+      if (!Array.isArray(list)) continue;
       const match = list.find(s => s.supplier_id === supplierId);
       if (match) {
         const audit = auditMap.get(pId);
@@ -446,15 +502,22 @@ export const cairoSupplierService = {
    */
   getRecommendations(
     productId: string,
-    productName: string,
-    currentPrice: number,
+    productName: string = '',
+    currentPrice: number = 0,
     currentStock: number = 10,
     currentDescription: string = '',
     brand: string = '',
     protocol: string = ''
   ): ProductRecommendation {
-    const sources = this.getCairoSources(productId);
-    const pricedSources = sources.filter(s => s.price_egp && s.price_egp > 0);
+    const safePrice = typeof currentPrice === 'number' && !isNaN(currentPrice) ? currentPrice : Number(currentPrice) || 0;
+    const safeStock = typeof currentStock === 'number' && !isNaN(currentStock) ? currentStock : Number(currentStock) || 0;
+    const safeName = productName || 'Product';
+
+    const sources = this.getCairoSources(productId) || [];
+    const pricedSources = sources.filter(s => {
+      const p = Number(s.price_egp);
+      return !isNaN(p) && p > 0;
+    });
 
     let lowestPrice: number | null = null;
     let lowestSupplierName: string | null = null;
@@ -462,12 +525,15 @@ export const cairoSupplierService = {
     let avgPrice: number | null = null;
 
     if (pricedSources.length > 0) {
-      lowestPrice = Math.min(...pricedSources.map(s => s.price_egp!));
-      const lowestMatch = pricedSources.find(s => s.price_egp === lowestPrice);
-      lowestSupplierName = lowestMatch ? lowestMatch.supplier_name : null;
-      highestPrice = Math.max(...pricedSources.map(s => s.price_egp!));
-      const sum = pricedSources.reduce((acc, s) => acc + s.price_egp!, 0);
-      avgPrice = Math.round(sum / pricedSources.length);
+      const validPrices = pricedSources.map(s => Number(s.price_egp)).filter(p => !isNaN(p) && p > 0);
+      if (validPrices.length > 0) {
+        lowestPrice = Math.min(...validPrices);
+        const lowestMatch = pricedSources.find(s => Number(s.price_egp) === lowestPrice);
+        lowestSupplierName = lowestMatch ? lowestMatch.supplier_name : null;
+        highestPrice = Math.max(...validPrices);
+        const sum = validPrices.reduce((acc, val) => acc + val, 0);
+        avgPrice = Math.round(sum / validPrices.length);
+      }
     }
 
     // Availability assessment
@@ -487,7 +553,7 @@ export const cairoSupplierService = {
 
     // Pricing calculation
     const targetMargin = 0.25; // 25% target gross margin
-    let recommendedPrice = currentPrice;
+    let recommendedPrice = safePrice > 0 ? safePrice : (lowestPrice ? Math.round((lowestPrice * 1.25) / 10) * 10 : 0);
     let currentMarginPct: number | null = null;
     let pricingStatus: ProductRecommendation['pricingStatus'] = 'NO_COST_DATA';
     let pricingReason = 'No local supplier cost recorded yet.';
@@ -500,29 +566,29 @@ export const cairoSupplierService = {
         recommendedPrice = Math.round((lowestPrice * 1.25) / 10) * 10;
       }
 
-      if (currentPrice > 0) {
-        currentMarginPct = Math.round(((currentPrice - lowestPrice) / currentPrice) * 100);
-        if (currentPrice < lowestPrice) {
+      if (safePrice > 0) {
+        currentMarginPct = Math.round(((safePrice - lowestPrice) / safePrice) * 100);
+        if (safePrice < lowestPrice) {
           pricingStatus = 'LOSS_RISK';
-          pricingReason = `Selling at a loss! Store price (${currentPrice.toLocaleString()} EGP) is below Cairo supplier cost (${lowestPrice.toLocaleString()} EGP).`;
+          pricingReason = `Selling at a loss! Store price (${safePrice.toLocaleString()} EGP) is below Cairo supplier cost (${lowestPrice.toLocaleString()} EGP).`;
         } else if (currentMarginPct < 15) {
           pricingStatus = 'LOW_MARGIN';
           pricingReason = `Thin margin (+${currentMarginPct}%). Profit margin is under the safe 15% threshold for smart devices in Egypt.`;
         } else if (currentMarginPct > 50) {
           pricingStatus = 'OVERPRICED';
-          pricingReason = `Overpriced (+${currentMarginPct}% margin). Consider lowering to ${recommendedPrice.toLocaleString()} EGP to match Cairo competitive market.`;
+          pricingReason = `Overpriced (+${currentMarginPct}% margin). Consider lowering to ${(recommendedPrice || 0).toLocaleString()} EGP to match Cairo competitive market.`;
         } else {
           pricingStatus = 'HEALTHY';
           pricingReason = `Healthy profit margin (+${currentMarginPct}%). Well-positioned against Cairo suppliers.`;
         }
       } else {
         pricingStatus = 'LOSS_RISK';
-        pricingReason = `Price is set to 0. Suggested initial price: ${recommendedPrice.toLocaleString()} EGP.`;
+        pricingReason = `Price is set to 0. Suggested initial price: ${(recommendedPrice || 0).toLocaleString()} EGP.`;
       }
     }
 
     // Stock assessment
-    let recommendedStock = currentStock;
+    let recommendedStock = safeStock;
     let stockStatus: ProductRecommendation['stockStatus'] = 'AVAILABLE';
     let stockReason = 'Inventory buffer is optimal.';
 

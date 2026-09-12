@@ -53,8 +53,8 @@ interface Props {
 
 export const CairoSourcesViewer: React.FC<Props> = ({ 
   productId, 
-  productName, 
-  currentPrice,
+  productName = '', 
+  currentPrice = 0,
   currentStock = 10,
   currentDescription = '',
   brand = '',
@@ -210,7 +210,7 @@ export const CairoSourcesViewer: React.FC<Props> = ({
   const handleSyncPrice = () => {
     if (rec.recommendedPrice && onApplyPrice) {
       onApplyPrice(rec.recommendedPrice);
-      toast({ title: `Synced price to recommended ${rec.recommendedPrice.toLocaleString()} EGP` });
+      toast({ title: `Synced price to recommended ${(rec.recommendedPrice || 0).toLocaleString()} EGP` });
     }
   };
 
@@ -226,7 +226,7 @@ export const CairoSourcesViewer: React.FC<Props> = ({
     if (onApplyStock) onApplyStock(rec.recommendedStock);
     toast({ 
       title: '⚡ Synchronized from Cairo Sources',
-      description: `Price set to ${rec.recommendedPrice.toLocaleString()} EGP, Stock set to ${rec.recommendedStock} units`
+      description: `Price set to ${(rec.recommendedPrice || 0).toLocaleString()} EGP, Stock set to ${rec.recommendedStock} units`
     });
   };
 
@@ -299,7 +299,7 @@ export const CairoSourcesViewer: React.FC<Props> = ({
               <div className="space-y-1 pt-1">
                 <div className="flex justify-between text-muted-foreground">
                   <span>Current Store Price:</span>
-                  <span className="font-bold text-foreground">{currentPrice.toLocaleString()} EGP</span>
+                  <span className="font-bold text-foreground">{(currentPrice || 0).toLocaleString()} EGP</span>
                 </div>
                 <div className="flex justify-between text-muted-foreground">
                   <span>Lowest Supplier Cost:</span>
@@ -331,7 +331,7 @@ export const CairoSourcesViewer: React.FC<Props> = ({
                 className="w-full text-xs h-7 gap-1 border-primary/30 hover:bg-primary/10 text-primary"
               >
                 <TrendingUp className="w-3 h-3" />
-                Apply Recommended ({rec.recommendedPrice.toLocaleString()} EGP)
+                Apply Recommended ({(rec.recommendedPrice || 0).toLocaleString()} EGP)
               </Button>
             </div>
           </div>
@@ -533,7 +533,7 @@ export const CairoSourcesViewer: React.FC<Props> = ({
             <span className="text-xs text-muted-foreground font-medium">Store Price Health</span>
             <div className="flex items-center gap-1.5 font-medium">
               <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-              <span className="text-xs font-semibold">{currentPrice.toLocaleString()} EGP</span>
+              <span className="text-xs font-semibold">{(currentPrice || 0).toLocaleString()} EGP</span>
             </div>
             <div className="text-[11px] text-muted-foreground pt-1 border-t">
               {rec.lowestSupplierPrice ? `Cost: ${rec.lowestSupplierPrice.toLocaleString()} EGP` : 'Cost not set'}
@@ -675,11 +675,11 @@ export const CairoSourcesViewer: React.FC<Props> = ({
                     <div className="flex sm:flex-col items-end justify-between gap-2 shrink-0">
                       <div className="text-right">
                         <div className="text-base font-bold text-primary">
-                          {s.price_egp ? `${s.price_egp.toLocaleString()} EGP` : 'Price on Request'}
+                          {s.price_egp ? `${Number(s.price_egp).toLocaleString()} EGP` : 'Price on Request'}
                         </div>
                         {s.price_egp && currentPrice > 0 && (
                           <span className="text-[11px] text-muted-foreground block">
-                            Cost Diff: {(currentPrice - s.price_egp).toLocaleString()} EGP
+                            Cost Diff: {((currentPrice || 0) - Number(s.price_egp)).toLocaleString()} EGP
                           </span>
                         )}
                       </div>
