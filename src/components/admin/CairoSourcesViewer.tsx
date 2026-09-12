@@ -16,7 +16,10 @@ import {
   DollarSign,
   Tag,
   Globe,
-  Check
+  Check,
+  ShoppingBag,
+  FileText,
+  Youtube
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -384,6 +387,57 @@ export const CairoSourcesViewer: React.FC<Props> = ({ productId, productName, cu
             })}
           </div>
         )}
+
+        {/* 3. EXTERNAL SOURCING & MARKET RESEARCH (ADMIN EXCLUSIVE) */}
+        <div className="pt-3 border-t space-y-2.5">
+          <div className="flex items-center justify-between">
+            <h5 className="font-semibold text-xs flex items-center gap-1.5 text-foreground">
+              <Globe className="w-3.5 h-3.5 text-primary" />
+              <span>External Marketplaces & Spec Sourcing (Admin Only)</span>
+            </h5>
+            <span className="text-[10px] text-muted-foreground">Confidential procurement links</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <a
+              href={`https://www.amazon.eg/s?k=${encodeURIComponent(productName)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-between p-2.5 rounded-lg border border-border bg-background hover:border-amber-500/50 hover:bg-amber-500/5 text-xs font-medium transition group"
+            >
+              <span className="flex items-center gap-1.5 text-foreground group-hover:text-amber-600 dark:group-hover:text-amber-400">
+                <ShoppingBag className="w-3.5 h-3.5 text-amber-500" />
+                Amazon Egypt
+              </span>
+              <ExternalLink className="w-3 h-3 text-muted-foreground group-hover:text-amber-600" />
+            </a>
+
+            <a
+              href={`https://www.google.com/search?q=${encodeURIComponent(`${productName} datasheet specifications manual`)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-between p-2.5 rounded-lg border border-border bg-background hover:border-primary/50 hover:bg-primary/5 text-xs font-medium transition group"
+            >
+              <span className="flex items-center gap-1.5 text-foreground group-hover:text-primary">
+                <FileText className="w-3.5 h-3.5 text-primary" />
+                Datasheet & Specs
+              </span>
+              <ExternalLink className="w-3 h-3 text-muted-foreground group-hover:text-primary" />
+            </a>
+
+            <a
+              href={`https://www.youtube.com/results?search_query=${encodeURIComponent(`${productName} smart home review setup`)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-between p-2.5 rounded-lg border border-border bg-background hover:border-red-500/50 hover:bg-red-500/5 text-xs font-medium transition group"
+            >
+              <span className="flex items-center gap-1.5 text-foreground group-hover:text-red-600 dark:group-hover:text-red-400">
+                <Youtube className="w-3.5 h-3.5 text-red-500" />
+                Video Reviews
+              </span>
+              <ExternalLink className="w-3 h-3 text-muted-foreground group-hover:text-red-600" />
+            </a>
+          </div>
+        </div>
       </div>
 
       {/* 3. ADD SUPPLIER MODAL */}
