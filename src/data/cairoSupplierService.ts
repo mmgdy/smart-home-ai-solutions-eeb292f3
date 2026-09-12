@@ -79,7 +79,41 @@ export interface AuditStats {
   final_products_remaining: number;
 }
 
+export interface ProductRecommendation {
+  productId: string;
+  productName: string;
+  sourcesCount: number;
+  lowestSupplierPrice: number | null;
+  lowestSupplierName: string | null;
+  highestSupplierPrice: number | null;
+  averageSupplierPrice: number | null;
+  overallAvailability: 'In Stock' | 'Low Stock' | 'Out of Stock' | 'Unknown';
+
+  // Pricing Intelligence
+  currentPrice: number;
+  currentMarginPct: number | null;
+  pricingStatus: 'HEALTHY' | 'LOSS_RISK' | 'LOW_MARGIN' | 'OVERPRICED' | 'NO_COST_DATA';
+  recommendedPrice: number;
+  targetMarginPct: number;
+  pricingReason: string;
+
+  // Stock Intelligence
+  currentStock: number;
+  recommendedStock: number;
+  stockStatus: 'AVAILABLE' | 'OUT_OF_STOCK' | 'CHECK_REQUIRED';
+  stockReason: string;
+
+  // Description Recommendations
+  currentDescriptionLength: number;
+  descriptionStatus: 'GOOD' | 'NEEDS_EXPANSION' | 'EMPTY';
+  recommendedDescriptionEn: string;
+  recommendedDescriptionAr: string;
+  highlights: string[];
+}
+
 const LOCAL_STORAGE_CUSTOM_SOURCES_KEY = 'azka_admin_custom_cairo_sources';
+const LOCAL_STORAGE_EDITED_SOURCES_KEY = 'azka_admin_edited_sources';
+const LOCAL_STORAGE_DELETED_SOURCES_KEY = 'azka_admin_deleted_sources';
 const LOCAL_STORAGE_FLAGGED_WRONG_IMAGES_KEY = 'azka_admin_flagged_wrong_images';
 const LOCAL_STORAGE_VERIFIED_IMAGES_KEY = 'azka_admin_verified_images';
 const LOCAL_STORAGE_REPLACED_IMAGES_KEY = 'azka_admin_replaced_images';
@@ -135,6 +169,24 @@ function getCustomSources(): Record<string, CairoSource[]> {
     return raw ? JSON.parse(raw) : {};
   } catch {
     return {};
+  }
+}
+
+function getEditedSourcesMap(): Record<string, Partial<CairoSource>> {
+  try {
+    const raw = localStorage.getItem(LOCAL_STORAGE_EDITED_SOURCES_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function getDeletedSourcesSet(): Set<string> {
+  try {
+    const raw = localStorage.getItem(LOCAL_STORAGE_DELETED_SOURCES_KEY);
+    return raw ? new Set(JSON.parse(raw)) : new Set();
+  } catch {
+    return new Set();
   }
 }
 
@@ -206,7 +258,92 @@ export const cairoSupplierService = {
   getCairoSources(productId: string): CairoSource[] {
     const defaultSources = (auditBundle.sourcesMap as Record<string, CairoSource[]>)[productId] || [];
     const customSources = getCustomSources()[productId] || [];
-    return [...customSources, ...defaultSources];
+    const editedMap = getEditedSourcesMap();
+    const deletedSet = getDeletedSourcesSet();
+
+    const all = [...customSources, ...defaultSources];
+    return all
+      .filter(s => !deletedSet.has(s.id))
+      .map(s => {
+        if (editedMap[s.id]) {
+          return { ...s, ...editedMap[s.id] } as CairoSource;
+        }
+        return s;
+      });
+  },
+
+  addCustomSource(productId: string, source: Omit<CairoSource, 'id' | 'product_id' | 'last_checked'>): CairoSource {
+    const custom = getCustomSources();
+    const newSource: CairoSource = {
+      ...source,
+      id: `custom-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      product_id: productId,
+      last_checked: new Date().toISOString()
+    };
+    if (!custom[productId]) custom[productId] = [];
+    custom[productId].unshift(newSource);
+    try {
+      localStorage.setItem(LOCAL_STORAGE_CUSTOM_SOURCES_KEY, JSON.stringify(custom));
+    } catch (e) {
+      console.error('Failed to persist custom source to localStorage', e);
+    }
+    return newSource;
+  },
+
+  updateSource(productId: string, sourceId: string, updates: Partial<CairoSource>): CairoSource | null {
+    const custom = getCustomSources();
+    let updatedSource: CairoSource | null = null;
+
+    // Check if it exists in customSources
+    if (custom[productId]) {
+      const idx = custom[productId].findIndex(s => s.id === sourceId);
+      if (idx >= 0) {
+        custom[productId][idx] = { ...custom[productId][idx], ...updates, last_checked: new Date().toISOString() };
+        updatedSource = custom[productId][idx];
+        try {
+          localStorage.setItem(LOCAL_STORAGE_CUSTOM_SOURCES_KEY, JSON.stringify(custom));
+        } catch (e) {
+          console.error(e);
+        }
+        return updatedSource;
+      }
+    }
+
+    // Otherwise it's a default source from bundle, save the overrides to editedMap
+    const editedMap = getEditedSourcesMap();
+    editedMap[sourceId] = { ...(editedMap[sourceId] || {}), ...updates, last_checked: new Date().toISOString() };
+    try {
+      localStorage.setItem(LOCAL_STORAGE_EDITED_SOURCES_KEY, JSON.stringify(editedMap));
+    } catch (e) {
+      console.error(e);
+    }
+
+    const all = this.getCairoSources(productId);
+    return all.find(s => s.id === sourceId) || null;
+  },
+
+  deleteSource(productId: string, sourceId: string): boolean {
+    // 1. Remove from custom sources if present
+    const custom = getCustomSources();
+    if (custom[productId]) {
+      custom[productId] = custom[productId].filter(s => s.id !== sourceId);
+      try {
+        localStorage.setItem(LOCAL_STORAGE_CUSTOM_SOURCES_KEY, JSON.stringify(custom));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    // 2. Add to deleted set so bundle default sources are also removed
+    const deleted = getDeletedSourcesSet();
+    deleted.add(sourceId);
+    try {
+      localStorage.setItem(LOCAL_STORAGE_DELETED_SOURCES_KEY, JSON.stringify(Array.from(deleted)));
+      return true;
+    } catch (e) {
+      console.error(e);
+      return false;
+    }
   },
 
   getProductsBySupplier(supplierId: string): { productId: string; productName: string; priceEgp: number | null }[] {
@@ -237,7 +374,6 @@ export const cairoSupplierService = {
     } catch (e) {
       console.error(e);
     }
-    // Remove from verified if it was there
     const verified = getVerifiedImagesSet();
     if (verified.has(productId)) {
       verified.delete(productId);
@@ -271,7 +407,6 @@ export const cairoSupplierService = {
   },
 
   markImageVerified(productId: string): void {
-    // Unflag from wrong
     this.unflagWrongImage(productId);
     const verified = getVerifiedImagesSet();
     verified.add(productId);
@@ -305,21 +440,154 @@ export const cairoSupplierService = {
     return audit?.image_url || fallbackUrl || null;
   },
 
-  addCustomSource(productId: string, source: Omit<CairoSource, 'id' | 'product_id' | 'last_checked'>): CairoSource {
-    const custom = getCustomSources();
-    const newSource: CairoSource = {
-      ...source,
-      id: `custom-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      product_id: productId,
-      last_checked: new Date().toISOString()
-    };
-    if (!custom[productId]) custom[productId] = [];
-    custom[productId].unshift(newSource);
-    try {
-      localStorage.setItem(LOCAL_STORAGE_CUSTOM_SOURCES_KEY, JSON.stringify(custom));
-    } catch (e) {
-      console.error('Failed to persist custom source to localStorage', e);
+  /**
+   * Generates intelligent pricing, stock availability, and localized descriptions
+   * based on the product's connected Cairo supplier sources.
+   */
+  getRecommendations(
+    productId: string,
+    productName: string,
+    currentPrice: number,
+    currentStock: number = 10,
+    currentDescription: string = '',
+    brand: string = '',
+    protocol: string = ''
+  ): ProductRecommendation {
+    const sources = this.getCairoSources(productId);
+    const pricedSources = sources.filter(s => s.price_egp && s.price_egp > 0);
+
+    let lowestPrice: number | null = null;
+    let lowestSupplierName: string | null = null;
+    let highestPrice: number | null = null;
+    let avgPrice: number | null = null;
+
+    if (pricedSources.length > 0) {
+      lowestPrice = Math.min(...pricedSources.map(s => s.price_egp!));
+      const lowestMatch = pricedSources.find(s => s.price_egp === lowestPrice);
+      lowestSupplierName = lowestMatch ? lowestMatch.supplier_name : null;
+      highestPrice = Math.max(...pricedSources.map(s => s.price_egp!));
+      const sum = pricedSources.reduce((acc, s) => acc + s.price_egp!, 0);
+      avgPrice = Math.round(sum / pricedSources.length);
     }
-    return newSource;
+
+    // Availability assessment
+    const inStockCount = sources.filter(s => (s.availability || '').toLowerCase().includes('in stock') || (s.availability || '').toLowerCase().includes('متوفر')).length;
+    const outOfStockCount = sources.filter(s => (s.availability || '').toLowerCase().includes('out of stock') || (s.availability || '').toLowerCase().includes('غير متوفر')).length;
+    
+    let overallAvailability: 'In Stock' | 'Low Stock' | 'Out of Stock' | 'Unknown' = 'Unknown';
+    if (sources.length > 0) {
+      if (inStockCount > 0) {
+        overallAvailability = inStockCount >= 2 ? 'In Stock' : 'Low Stock';
+      } else if (outOfStockCount === sources.length) {
+        overallAvailability = 'Out of Stock';
+      } else {
+        overallAvailability = 'In Stock';
+      }
+    }
+
+    // Pricing calculation
+    const targetMargin = 0.25; // 25% target gross margin
+    let recommendedPrice = currentPrice;
+    let currentMarginPct: number | null = null;
+    let pricingStatus: ProductRecommendation['pricingStatus'] = 'NO_COST_DATA';
+    let pricingReason = 'No local supplier cost recorded yet.';
+
+    if (lowestPrice && lowestPrice > 0) {
+      // Calculate recommended retail price: Cost / (1 - targetMargin), rounded to nearest 10 or 50 EGP
+      const rawRec = lowestPrice / (1 - targetMargin);
+      recommendedPrice = Math.round(rawRec / 10) * 10;
+      if (recommendedPrice < lowestPrice * 1.15) {
+        recommendedPrice = Math.round((lowestPrice * 1.25) / 10) * 10;
+      }
+
+      if (currentPrice > 0) {
+        currentMarginPct = Math.round(((currentPrice - lowestPrice) / currentPrice) * 100);
+        if (currentPrice < lowestPrice) {
+          pricingStatus = 'LOSS_RISK';
+          pricingReason = `Selling at a loss! Store price (${currentPrice.toLocaleString()} EGP) is below Cairo supplier cost (${lowestPrice.toLocaleString()} EGP).`;
+        } else if (currentMarginPct < 15) {
+          pricingStatus = 'LOW_MARGIN';
+          pricingReason = `Thin margin (+${currentMarginPct}%). Profit margin is under the safe 15% threshold for smart devices in Egypt.`;
+        } else if (currentMarginPct > 50) {
+          pricingStatus = 'OVERPRICED';
+          pricingReason = `Overpriced (+${currentMarginPct}% margin). Consider lowering to ${recommendedPrice.toLocaleString()} EGP to match Cairo competitive market.`;
+        } else {
+          pricingStatus = 'HEALTHY';
+          pricingReason = `Healthy profit margin (+${currentMarginPct}%). Well-positioned against Cairo suppliers.`;
+        }
+      } else {
+        pricingStatus = 'LOSS_RISK';
+        pricingReason = `Price is set to 0. Suggested initial price: ${recommendedPrice.toLocaleString()} EGP.`;
+      }
+    }
+
+    // Stock assessment
+    let recommendedStock = currentStock;
+    let stockStatus: ProductRecommendation['stockStatus'] = 'AVAILABLE';
+    let stockReason = 'Inventory buffer is optimal.';
+
+    if (overallAvailability === 'Out of Stock') {
+      recommendedStock = 0;
+      stockStatus = 'OUT_OF_STOCK';
+      stockReason = 'All recorded Cairo distributors show Out of Stock. Recommended stock: 0 to prevent unfulfillable orders.';
+    } else if (overallAvailability === 'In Stock' || overallAvailability === 'Low Stock') {
+      recommendedStock = currentStock <= 0 ? 15 : currentStock;
+      stockStatus = 'AVAILABLE';
+      stockReason = `Suppliers in Cairo have active stock. Recommended inventory target: 15 units.`;
+    } else {
+      stockStatus = 'CHECK_REQUIRED';
+      stockReason = 'Supplier inventory is on request. Verify availability with distributor prior to high-volume orders.';
+    }
+
+    // Description assessment & Generation
+    const descLength = (currentDescription || '').trim().length;
+    let descriptionStatus: ProductRecommendation['descriptionStatus'] = 'GOOD';
+    if (descLength === 0) {
+      descriptionStatus = 'EMPTY';
+    } else if (descLength < 80) {
+      descriptionStatus = 'NEEDS_EXPANSION';
+    }
+
+    const cleanBrand = brand || 'Smart Home';
+    const cleanProtocol = protocol || 'Zigbee 3.0 / Wi-Fi';
+
+    const recommendedDescriptionEn = 
+`${productName} by ${cleanBrand} provides cutting-edge smart home automation tailored for modern Egyptian homes and villas. Operating seamlessly on ${cleanProtocol}, it integrates effortlessly with Home Assistant, Apple HomeKit, Google Home, and Amazon Alexa. Engineered for standard Egyptian electrical grids (220-240V AC, 50/60Hz) with surge protection and flame-retardant PC housing. Available with local Cairo warranty and full technical support.`;
+
+    const recommendedDescriptionAr = 
+`جهاز ${productName} من ${cleanBrand} يقدم حلول أتمتة وتحكم ذكي متطورة مصممة خصيصاً للمنازل والفيلات في مصر. يعمل بسلاسة عبر بروتوكول ${cleanProtocol}، ومتوافق بالكامل مع أنظمة Home Assistant و Apple HomeKit و Google Home و Amazon Alexa. مصمم لتحمل شبكة الكهرباء المصرية (220-240 فولت، 50/60 هرتز) ومزود بحماية ضد التردد الكهربائي الزائد، مع دعم فني وضمان معتمد داخل القاهرة ومحافظات مصر.`;
+
+    const highlights = [
+      `Voltage: 100-240V AC 50/60Hz (Egyptian Standard)`,
+      `Protocol: ${cleanProtocol}`,
+      `Integration: Home Assistant, Alexa, Google Home`,
+      `Local Support: Cairo verified distributors with technical warranty`
+    ];
+
+    return {
+      productId,
+      productName,
+      sourcesCount: sources.length,
+      lowestSupplierPrice: lowestPrice,
+      lowestSupplierName,
+      highestSupplierPrice: highestPrice,
+      averageSupplierPrice: avgPrice,
+      overallAvailability,
+      currentPrice,
+      currentMarginPct,
+      pricingStatus,
+      recommendedPrice,
+      targetMarginPct: 25,
+      pricingReason,
+      currentStock,
+      recommendedStock,
+      stockStatus,
+      stockReason,
+      currentDescriptionLength: descLength,
+      descriptionStatus,
+      recommendedDescriptionEn,
+      recommendedDescriptionAr,
+      highlights
+    };
   }
 };

@@ -29,7 +29,10 @@ import {
   Clock,
   ShoppingBag,
   FileText,
-  Youtube
+  Youtube,
+  Zap,
+  TrendingUp,
+  Edit3
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -922,11 +925,87 @@ WHERE id IN (
                 </div>
               </div>
 
+              {/* Sourcing Recommendation & Calibration Banner */}
+              {(() => {
+                const rec = cairoSupplierService.getRecommendations(
+                  selectedProductForSources.product_id,
+                  selectedProductForSources.product_name,
+                  selectedProductForSources.price,
+                  10,
+                  '',
+                  selectedProductForSources.brand,
+                  ''
+                );
+
+                return (
+                  <div className="p-3.5 bg-primary/5 border border-primary/20 rounded-xl space-y-2">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center gap-1.5 font-bold text-xs text-foreground">
+                        <Zap className="w-4 h-4 text-primary" />
+                        <span>Sourcing & Calibration Recommendation</span>
+                      </div>
+                      <Badge 
+                        variant="outline" 
+                        className={`text-[10px] ${
+                          rec.pricingStatus === 'HEALTHY' 
+                            ? 'border-emerald-500/30 text-emerald-600' 
+                            : rec.pricingStatus === 'LOSS_RISK'
+                            ? 'border-red-500/30 text-red-600'
+                            : 'border-amber-500/30 text-amber-600'
+                        }`}
+                      >
+                        {rec.pricingStatus === 'HEALTHY' ? 'Healthy Margin' : rec.pricingStatus === 'LOSS_RISK' ? 'Loss Risk' : rec.pricingStatus}
+                      </Badge>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs pt-1">
+                      <div className="p-2 rounded-lg bg-background border">
+                        <span className="text-muted-foreground block text-[11px]">Lowest Supplier Cost</span>
+                        <span className="font-semibold text-primary">
+                          {rec.lowestSupplierPrice ? `${rec.lowestSupplierPrice.toLocaleString()} EGP` : 'Not recorded'}
+                        </span>
+                        {rec.lowestSupplierName && (
+                          <span className="text-[10px] text-muted-foreground block truncate">({rec.lowestSupplierName})</span>
+                        )}
+                      </div>
+
+                      <div className="p-2 rounded-lg bg-background border">
+                        <span className="text-muted-foreground block text-[11px]">Recommended Price (25% Margin)</span>
+                        <span className="font-bold text-foreground">
+                          {rec.recommendedPrice ? `${rec.recommendedPrice.toLocaleString()} EGP` : '—'}
+                        </span>
+                        {rec.currentMarginPct !== null && (
+                          <span className={`text-[10px] block ${rec.currentMarginPct >= 15 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                            Current Margin: {rec.currentMarginPct >= 0 ? '+' : ''}{rec.currentMarginPct}%
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="p-2 rounded-lg bg-background border">
+                        <span className="text-muted-foreground block text-[11px]">Market Availability</span>
+                        <span className={`font-semibold ${rec.overallAvailability === 'In Stock' ? 'text-emerald-600' : 'text-amber-600'}`}>
+                          {rec.overallAvailability} ({activeSources.length} sources)
+                        </span>
+                        <span className="text-[10px] text-muted-foreground block">
+                          Suggested buffer: {rec.recommendedStock} units
+                        </span>
+                      </div>
+                    </div>
+
+                    <p className="text-[11px] text-muted-foreground">
+                      💡 {rec.pricingReason}
+                    </p>
+                  </div>
+                );
+              })()}
+
               {/* Suppliers List */}
               <div className="space-y-3">
-                <h5 className="font-semibold text-sm flex items-center gap-1.5">
-                  <span>Available Local Suppliers ({activeSources.length})</span>
-                </h5>
+                <div className="flex items-center justify-between">
+                  <h5 className="font-semibold text-sm flex items-center gap-1.5">
+                    <span>Available Local Suppliers ({activeSources.length})</span>
+                  </h5>
+                </div>
 
                 {activeSources.length === 0 ? (
                   <div className="text-center py-8 text-sm text-muted-foreground border border-dashed rounded-xl">

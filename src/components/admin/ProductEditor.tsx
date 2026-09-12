@@ -574,8 +574,8 @@ export function ProductEditor({ adminToken }: Props) {
           <Tabs defaultValue="details" className="w-full">
             <TabsList className="grid grid-cols-2 mb-4">
               <TabsTrigger value="details">Product Details</TabsTrigger>
-              <TabsTrigger value="cairo" className="flex items-center gap-1.5">
-                <Building2 className="w-4 h-4 text-primary" /> Egypt / Cairo Sources
+              <TabsTrigger value="cairo" className="flex items-center gap-1.5 font-medium">
+                <Building2 className="w-4 h-4 text-primary" /> Sourcing, Live Sources & Sync
               </TabsTrigger>
             </TabsList>
 
@@ -757,7 +757,20 @@ export function ProductEditor({ adminToken }: Props) {
             <CairoSourcesViewer 
               productId={editing.id} 
               productName={editing.name ?? ''} 
-              currentPrice={editing.price ?? 0} 
+              currentPrice={editing.price ?? 0}
+              currentStock={editing.stock ?? 10}
+              currentDescription={editing.description ?? ''}
+              brand={editing.brand ?? ''}
+              protocol={editing.protocol ?? ''}
+              onApplyPrice={(newPrice) => {
+                setEditing(prev => ({ ...prev, price: newPrice }));
+              }}
+              onApplyStock={(newStock) => {
+                setEditing(prev => ({ ...prev, stock: newStock }));
+              }}
+              onApplyDescription={(newDesc) => {
+                setEditing(prev => ({ ...prev, description: newDesc }));
+              }}
             />
           ) : (
             <div className="py-8 text-center text-muted-foreground text-sm border border-dashed rounded-xl">
