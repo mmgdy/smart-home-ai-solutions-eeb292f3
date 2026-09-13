@@ -45,6 +45,20 @@ import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 
+interface SyncSource {
+  id: string;
+  url: string;
+  name: string;
+  source_type: string;
+  is_active: boolean;
+  sync_status: 'pending' | 'syncing' | 'success' | 'error';
+  sync_message?: string;
+  last_synced_at?: string;
+  products_found: number;
+  products_added: number;
+  created_at: string;
+}
+
 interface Props {
   adminToken?: string;
   onProductAdded?: () => void;
@@ -54,7 +68,16 @@ export const MarketSyncManager: React.FC<Props> = ({ adminToken, onProductAdded 
   const { toast } = useToast();
 
   // State
-  const [activeTab, setActiveTab] = useState<'sources' | 'discovered' | 'suppliers' | 'sync'>('sources');
+  const [activeTab, setActiveTab] = useState<'mysources' | 'sources' | 'discovered' | 'suppliers' | 'sync'>('mysources');
+
+  // My Sources (DB-backed real URLs)
+  const [syncSources, setSyncSources] = useState<SyncSource[]>([]);
+  const [newSourceUrl, setNewSourceUrl] = useState('');
+  const [newSourceName, setNewSourceName] = useState('');
+  const [isAddingSource, setIsAddingSource] = useState(false);
+  const [syncingSourceId, setSyncingSourceId] = useState<string | null>(null);
+  const [isSyncingAll, setIsSyncingAll] = useState(false);
+  const [syncResults, setSyncResults] = useState<any[]>([]);
   const [allSources, setAllSources] = useState<CairoSource[]>(() => cairoSupplierService.getAllCairoSources());
   const [suppliers, setSuppliers] = useState<SupplierInfo[]>(() => cairoSupplierService.getSuppliers());
   const [dbProducts, setDbProducts] = useState<Array<{ id: string; name: string; slug: string; price: number; stock: number }>>([]);
@@ -78,6 +101,110 @@ export const MarketSyncManager: React.FC<Props> = ({ adminToken, onProductAdded 
   const [isMarketSyncing, setIsMarketSyncing] = useState(false);
   const [marketSyncProgress, setMarketSyncProgress] = useState(0);
   const [marketSyncResults, setMarketSyncResults] = useState<any[]>([]);
+
+  // ─── My Sources API Calls ───────────────────────────────────────────────────
+  const callSourcesApi = async (action: string, extra: Record<string, unknown> = {}) => {
+    const res = await supabase.functions.invoke('sync-from-sources', {
+      headers: adminToken ? { Authorization: `Bearer ${adminToken}` } : {},
+      body: { action, token: adminToken, ...extra },
+    });
+    if (res.error) throw res.error;
+    return res.data;
+  };
+
+  const loadSyncSources = async () => {
+    try {
+      const data = await callSourcesApi('list-sources');
+      if (data?.sources) setSyncSources(data.sources);
+    } catch (e: any) {
+      console.error('loadSyncSources error:', e);
+    }
+  };
+
+  const handleAddSource = async () => {
+    if (!newSourceUrl.trim()) return;
+    setIsAddingSource(true);
+    try {
+      const data = await callSourcesApi('add-source', { url: newSourceUrl.trim(), name: newSourceName.trim() });
+      if (data?.success) {
+        setNewSourceUrl('');
+        setNewSourceName('');
+        toast({ title: 'Source Added', description: `"${data.source.name}" will be synced automatically.` });
+        await loadSyncSources();
+      } else {
+        throw new Error(data?.error || 'Failed to add source');
+      }
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    } finally {
+      setIsAddingSource(false);
+    }
+  };
+
+  const handleDeleteSource = async (id: string) => {
+    if (!window.confirm('Delete this source?')) return;
+    try {
+      await callSourcesApi('delete-source', { source_id: id });
+      toast({ title: 'Source Deleted' });
+      await loadSyncSources();
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    }
+  };
+
+  const handleToggleSource = async (id: string) => {
+    try {
+      await callSourcesApi('toggle-source', { source_id: id });
+      await loadSyncSources();
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    }
+  };
+
+  const handleSyncSource = async (id: string) => {
+    setSyncingSourceId(id);
+    setSyncResults([]);
+    // Optimistically mark as syncing in UI
+    setSyncSources(prev => prev.map(s => s.id === id ? { ...s, sync_status: 'syncing' } : s));
+    try {
+      const data = await callSourcesApi('sync-source', { source_id: id });
+      setSyncResults(data?.results || []);
+      toast({
+        title: data?.success ? 'Sync Complete' : 'Sync Error',
+        description: data?.success
+          ? `Found ${data.productsFound} products, added ${data.productsAdded} new.`
+          : data?.error,
+        variant: data?.success ? 'default' : 'destructive',
+      });
+      if (onProductAdded) onProductAdded();
+    } catch (e: any) {
+      toast({ title: 'Sync Failed', description: e.message, variant: 'destructive' });
+    } finally {
+      setSyncingSourceId(null);
+      await loadSyncSources();
+    }
+  };
+
+  const handleSyncAll = async () => {
+    setIsSyncingAll(true);
+    setSyncResults([]);
+    setSyncSources(prev => prev.map(s => s.is_active ? { ...s, sync_status: 'syncing' } : s));
+    try {
+      const data = await callSourcesApi('sync-all');
+      setSyncResults(data?.results || []);
+      const totalAdded = (data?.results || []).reduce((acc: number, r: any) => acc + (r.added || 0), 0);
+      toast({
+        title: 'All Sources Synced',
+        description: `${totalAdded} new product(s) added across ${(data?.results || []).length} sources.`,
+      });
+      if (onProductAdded) onProductAdded();
+    } catch (e: any) {
+      toast({ title: 'Sync All Failed', description: e.message, variant: 'destructive' });
+    } finally {
+      setIsSyncingAll(false);
+      await loadSyncSources();
+    }
+  };
 
   // Load live DB products to compute accurate margins and detect new products
   const fetchDbProducts = async () => {
@@ -106,6 +233,7 @@ export const MarketSyncManager: React.FC<Props> = ({ adminToken, onProductAdded 
     fetchDbProducts();
     setAllSources(cairoSupplierService.getAllCairoSources());
     setSuppliers(cairoSupplierService.getSuppliers());
+    loadSyncSources();
   }, []);
 
   // Quick lookup map for DB products by id or normalized name
@@ -572,6 +700,15 @@ export const MarketSyncManager: React.FC<Props> = ({ adminToken, onProductAdded 
       {/* Main Tabs Navigation */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="space-y-4">
         <TabsList className="bg-muted/60 p-1 rounded-xl h-auto flex flex-wrap gap-1 border border-border/60">
+          <TabsTrigger value="mysources" className="gap-2 py-2 px-3.5 text-xs font-semibold">
+            <Globe className="w-4 h-4 text-primary" />
+            <span>My Sync Sources</span>
+            {syncSources.length > 0 && (
+              <Badge variant="outline" className="ml-1 text-[10px] h-4 px-1.5 py-0 font-bold border-primary/40 text-primary">
+                {syncSources.length}
+              </Badge>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="sources" className="gap-2 py-2 px-3.5 text-xs font-semibold">
             <Layers className="w-4 h-4" />
             <span>Market Sources Explorer ({allSources.length})</span>
@@ -594,6 +731,191 @@ export const MarketSyncManager: React.FC<Props> = ({ adminToken, onProductAdded 
             <span>AI Market Sync Engine</span>
           </TabsTrigger>
         </TabsList>
+
+        {/* ─── TAB 0: MY SYNC SOURCES ───────────────────────────────────────── */}
+        <TabsContent value="mysources" className="space-y-4 mt-2">
+          {/* Add Source Form */}
+          <div className="bg-card border border-border rounded-xl p-5 shadow-xs">
+            <h3 className="text-base font-bold flex items-center gap-2 mb-4">
+              <Globe className="w-4.5 h-4.5 text-primary" />
+              Add a Sync Source
+            </h3>
+            <p className="text-xs text-muted-foreground mb-4">
+              Paste any Amazon.eg, Noon, Jumia, or any product/search page URL. The system will scrape products from it and keep syncing automatically.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Input
+                placeholder="https://www.amazon.eg/s?k=sonoff+smart+switch"
+                value={newSourceUrl}
+                onChange={e => setNewSourceUrl(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleAddSource()}
+                className="flex-1 h-9 text-xs font-mono"
+              />
+              <Input
+                placeholder="Source name (optional)"
+                value={newSourceName}
+                onChange={e => setNewSourceName(e.target.value)}
+                className="w-full sm:w-44 h-9 text-xs"
+              />
+              <Button
+                onClick={handleAddSource}
+                disabled={isAddingSource || !newSourceUrl.trim()}
+                className="h-9 gap-1.5 text-xs font-semibold bg-primary hover:bg-primary/90 text-primary-foreground shrink-0"
+              >
+                {isAddingSource ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                Add Source
+              </Button>
+            </div>
+          </div>
+
+          {/* Sources List */}
+          <div className="bg-card border border-border rounded-xl overflow-hidden shadow-xs">
+            <div className="flex items-center justify-between px-5 py-3.5 border-b bg-muted/30">
+              <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                <Layers className="w-4 h-4 text-primary" />
+                Active Sync Sources ({syncSources.length})
+              </h3>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={loadSyncSources} className="h-8 gap-1.5 text-xs">
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  Refresh
+                </Button>
+                {syncSources.some(s => s.is_active) && (
+                  <Button
+                    size="sm"
+                    onClick={handleSyncAll}
+                    disabled={isSyncingAll}
+                    className="h-8 gap-1.5 text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
+                  >
+                    {isSyncingAll ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+                    Sync All Active
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {syncSources.length === 0 ? (
+              <div className="text-center py-16">
+                <Globe className="w-10 h-10 mx-auto mb-3 text-muted-foreground/40" />
+                <p className="text-sm font-medium text-foreground">No sources yet</p>
+                <p className="text-xs text-muted-foreground mt-1 max-w-xs mx-auto">
+                  Paste an Amazon.eg search URL, a Noon category page, or any product listing above to get started.
+                </p>
+              </div>
+            ) : (
+              <div className="divide-y divide-border/60">
+                {syncSources.map(src => {
+                  const isSyncing = syncingSourceId === src.id || (isSyncingAll && src.is_active);
+                  const statusColor = {
+                    success: 'text-emerald-600 bg-emerald-500/10 border-emerald-500/30',
+                    error: 'text-red-600 bg-red-500/10 border-red-500/30',
+                    syncing: 'text-blue-600 bg-blue-500/10 border-blue-500/30',
+                    pending: 'text-amber-600 bg-amber-500/10 border-amber-500/30',
+                  }[src.sync_status] || 'text-muted-foreground bg-muted border-border';
+
+                  const typeIcon = {
+                    amazon: '🛒',
+                    noon: '🟡',
+                    jumia: '🟠',
+                    btech: '🔵',
+                  }[src.source_type] || '🌐';
+
+                  return (
+                    <div key={src.id} className={`p-4 flex flex-col sm:flex-row items-start sm:items-center gap-3 hover:bg-muted/20 transition-colors ${!src.is_active ? 'opacity-50' : ''}`}>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-base">{typeIcon}</span>
+                          <span className="font-semibold text-sm text-foreground truncate">{src.name}</span>
+                          <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-4 font-semibold capitalize border shrink-0 ${statusColor}`}>
+                            {isSyncing ? 'syncing...' : src.sync_status}
+                          </Badge>
+                          {!src.is_active && <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-muted-foreground shrink-0">Paused</Badge>}
+                        </div>
+                        <div className="text-[11px] text-muted-foreground font-mono truncate max-w-[480px]" title={src.url}>
+                          {src.url}
+                        </div>
+                        <div className="flex items-center gap-3 mt-1.5 text-[11px] text-muted-foreground">
+                          {src.last_synced_at && (
+                            <span>Last synced: {new Date(src.last_synced_at).toLocaleString('en-EG')}</span>
+                          )}
+                          {src.products_found > 0 && (
+                            <span className="text-emerald-600 font-medium">{src.products_added} added / {src.products_found} found</span>
+                          )}
+                          {src.sync_message && (
+                            <span className={src.sync_status === 'error' ? 'text-red-500' : ''}>{src.sync_message}</span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <a
+                          href={src.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 h-8 px-2.5 text-xs rounded-lg border border-border hover:bg-muted transition-colors text-primary"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleToggleSource(src.id)}
+                          className="h-8 px-2.5 text-xs"
+                          title={src.is_active ? 'Pause source' : 'Activate source'}
+                        >
+                          {src.is_active ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleSyncSource(src.id)}
+                          disabled={isSyncing || isSyncingAll}
+                          className="h-8 px-2.5 text-xs gap-1 font-medium"
+                        >
+                          {isSyncing
+                            ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            : <RefreshCw className="w-3.5 h-3.5" />}
+                          Sync Now
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => handleDeleteSource(src.id)}
+                          className="h-8 px-2.5 text-xs"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Sync Results */}
+          {syncResults.length > 0 && (
+            <div className="bg-card border border-border rounded-xl p-4 shadow-xs">
+              <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                Last Sync Results ({syncResults.length} items)
+              </h4>
+              <div className="space-y-1.5 max-h-64 overflow-y-auto">
+                {syncResults.map((r, i) => (
+                  <div key={i} className={`text-xs flex items-center justify-between p-2 rounded-lg border ${
+                    r.status === 'added' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-700'
+                    : r.status === 'updated' ? 'bg-blue-500/10 border-blue-500/20 text-blue-700'
+                    : r.status === 'skipped' ? 'bg-muted/50 border-border text-muted-foreground'
+                    : 'bg-red-500/10 border-red-500/20 text-red-700'
+                  }`}>
+                    <span className="font-medium truncate flex-1 mr-2">{r.name || r.source || r.url}</span>
+                    <Badge variant="outline" className="text-[10px] shrink-0 capitalize">{r.status}</Badge>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </TabsContent>
 
         {/* ─── TAB 1: ALL MARKET SOURCES EXPLORER ─────────────────────────── */}
         <TabsContent value="sources" className="space-y-4 mt-2">
