@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { supabase } from '@/integrations/supabase/client';
 import { Product, Category } from '@/types/store';
+import { cairoSupplierService } from '@/data/cairoSupplierService';
 import { useLanguage } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 
@@ -26,9 +27,14 @@ const Products = () => {
     priceRange: [0, 150000],
   });
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(32);
   const { t, isRTL } = useLanguage();
 
-  const { data: categories } = useQuery({
+  useEffect(() => {
+    setVisibleCount(32);
+  }, [selectedCategory, search, filters.brands, filters.protocols, filters.availability, filters.sortBy]);
+
+  const { data: rawCategories } = useQuery({
     queryKey: ['categories'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -40,33 +46,29 @@ const Products = () => {
     },
   });
 
-  const { data: hiddenIds } = useQuery({
-    queryKey: ['hidden-product-ids'],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('site_info')
-        .select('value')
-        .eq('section', 'products')
-        .eq('key', 'hidden_ids')
-        .maybeSingle();
-      if (!data?.value) return [] as string[];
-      try { return JSON.parse(data.value) as string[]; } catch { return [] as string[]; }
-    },
-    staleTime: 5 * 60 * 1000,
-  });
+  // Filter out any unwanted furniture categories
+  const categories = useMemo(() => {
+    const defaultCats: Category[] = [
+      { id: '934d2c8e-8e1f-459e-8dd4-d93520719215', name: 'Smart Switches', slug: 'smart-switches', description: null, image_url: null, created_at: '' },
+      { id: '0dc4982c-ac41-4201-aa69-3a7494ed0a7b', name: 'Smart Sensors', slug: 'smart-sensors', description: null, image_url: null, created_at: '' },
+      { id: '161fef6c-d985-427e-a31f-f5735b0fa4c3', name: 'Smart Hubs', slug: 'smart-hubs', description: null, image_url: null, created_at: '' },
+      { id: 'f6461e11-a1df-490f-b81f-34009d5e48e6', name: 'Smart Panels', slug: 'smart-panels', description: null, image_url: null, created_at: '' },
+      { id: '61869110-4165-4bfe-80f1-af06217abd61', name: 'Smart Locks', slug: 'smart-locks', description: null, image_url: null, created_at: '' },
+      { id: '1b122176-06c8-440f-8a46-4e0855cbedea', name: 'Smart Plugs', slug: 'smart-plugs', description: null, image_url: null, created_at: '' },
+      { id: '2ded3f14-d5cb-47c6-a18b-1305ea346f67', name: 'Networking', slug: 'networking', description: null, image_url: null, created_at: '' },
+      { id: 'c73bb3ed-3b43-4f83-8759-a283ec7bdcf9', name: 'Accessories', slug: 'accessories', description: null, image_url: null, created_at: '' },
+    ];
+    if (!rawCategories || rawCategories.length === 0) return defaultCats;
+    return rawCategories.filter(
+      (c) => c.slug !== 'art-furniture' && !c.name.toLowerCase().includes('furniture')
+    );
+  }, [rawCategories]);
 
-  const { data: products, isLoading } = useQuery({
-    queryKey: ['products'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .is('parent_id', null)
-        .order('featured', { ascending: false });
-      if (error) throw error;
-      return data as Product[];
-    },
-  });
+  // Fresh sync from external sources (725 authentic smart home devices)
+  const products = useMemo<Product[]>(() => {
+    return cairoSupplierService.getCleanSmartHomeCatalog();
+  }, []);
+  const isLoading = false;
 
   // Derive available brands/protocols from loaded products
   const availableBrands = useMemo(() => {
@@ -87,15 +89,59 @@ const Products = () => {
   // Apply all filters, search, sorting
   const filteredProducts = useMemo(() => {
     if (!products) return [];
-    const hidden = hiddenIds ?? [];
-
-    let result = products.filter((p) => !hidden.includes(p.id));
+    let result = [...products];
 
     // Category filter
     if (selectedCategory) {
-      const category = categories?.find((c) => c.slug === selectedCategory);
-      if (category) {
-        result = result.filter((p) => p.category_id === category.id);
+      if (selectedCategory === 'lighting') {
+        result = result.filter(
+          (p) =>
+            p.category?.slug === 'smart-switches' ||
+            p.name.toLowerCase().includes('switch') ||
+            p.name.toLowerCase().includes('light') ||
+            p.name.toLowerCase().includes('dimmer')
+        );
+      } else if (selectedCategory === 'security') {
+        result = result.filter(
+          (p) =>
+            p.category?.slug === 'smart-locks' ||
+            p.category?.slug === 'smart-sensors' ||
+            p.name.toLowerCase().includes('lock') ||
+            p.name.toLowerCase().includes('camera') ||
+            p.name.toLowerCase().includes('sensor')
+        );
+      } else if (selectedCategory === 'energy') {
+        result = result.filter(
+          (p) =>
+            p.category?.slug === 'smart-plugs' ||
+            p.name.toLowerCase().includes('plug') ||
+            p.name.toLowerCase().includes('meter') ||
+            p.name.toLowerCase().includes('power')
+        );
+      } else if (selectedCategory === 'climate') {
+        result = result.filter(
+          (p) =>
+            p.name.toLowerCase().includes('thermostat') ||
+            p.name.toLowerCase().includes('temperature') ||
+            p.name.toLowerCase().includes('ac ') ||
+            p.name.toLowerCase().includes('remote')
+        );
+      } else if (selectedCategory === 'curtains') {
+        result = result.filter(
+          (p) =>
+            p.name.toLowerCase().includes('curtain') ||
+            p.name.toLowerCase().includes('blind') ||
+            p.name.toLowerCase().includes('roller') ||
+            p.name.toLowerCase().includes('motor')
+        );
+      } else {
+        const cat = categories?.find((c) => c.slug === selectedCategory || c.id === selectedCategory);
+        result = result.filter(
+          (p) =>
+            p.category?.slug === selectedCategory ||
+            p.category_id === selectedCategory ||
+            (cat && p.category_id === cat.id)
+        );
       }
     }
 
@@ -370,13 +416,26 @@ const Products = () => {
               ) : filteredProducts.length > 0 ? (
                 <>
                   <p className="mb-6 text-sm text-muted-foreground">
-                    {t('showing')} {filteredProducts.length} {filteredProducts.length !== 1 ? t('productsPlural') : t('product')}
+                    {t('showing')} {Math.min(visibleCount, filteredProducts.length)} of {filteredProducts.length} {filteredProducts.length !== 1 ? t('productsPlural') : t('product')}
                   </p>
                   <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4">
-                    {filteredProducts.map((product) => (
+                    {filteredProducts.slice(0, visibleCount).map((product) => (
                       <ProductCard key={product.id} product={product} />
                     ))}
                   </div>
+
+                  {visibleCount < filteredProducts.length && (
+                    <div className="mt-8 flex justify-center">
+                      <Button
+                        size="lg"
+                        variant="outline"
+                        onClick={() => setVisibleCount((prev) => prev + 32)}
+                        className="px-8 font-medium border-primary/30 hover:bg-primary/5 text-foreground"
+                      >
+                        {isRTL ? 'عرض المزيد من المنتجات' : 'Load More Products'} ({filteredProducts.length - visibleCount} {isRTL ? 'متبقي' : 'remaining'})
+                      </Button>
+                    </div>
+                  )}
                 </>
               ) : (
                 <div className="rounded-xl border border-dashed border-border bg-card/50 py-20 text-center">

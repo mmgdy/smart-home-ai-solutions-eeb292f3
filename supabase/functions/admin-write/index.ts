@@ -129,8 +129,12 @@ Deno.serve(async (req) => {
       if (!Array.isArray(ids) || !ids.length) return new Response(JSON.stringify({ success: false, error: "ids required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
-      const { error } = await supabase.from("products").delete().in("id", ids);
-      if (error) throw error;
+      const BATCH = 40;
+      for (let i = 0; i < ids.length; i += BATCH) {
+        const chunk = ids.slice(i, i + BATCH);
+        const { error } = await supabase.from("products").delete().in("id", chunk);
+        if (error) throw error;
+      }
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

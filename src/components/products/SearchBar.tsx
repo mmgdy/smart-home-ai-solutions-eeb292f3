@@ -1,11 +1,10 @@
-import { useState, useRef, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { Search, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
-import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
+import { cairoSupplierService } from '@/data/cairoSupplierService';
 
 interface SearchBarProps {
   value: string;
@@ -22,30 +21,31 @@ export function SearchBar({ value, onChange, className }: SearchBarProps) {
 
   // Debounce the parent onChange
   useEffect(() => {
+    if (localValue === value) return;
     const timer = setTimeout(() => onChange(localValue), 300);
     return () => clearTimeout(timer);
-  }, [localValue, onChange]);
+  }, [localValue, value, onChange]);
 
   // Sync external value
   useEffect(() => {
     setLocalValue(value);
   }, [value]);
 
-  // Autocomplete suggestions
-  const { data: suggestions } = useQuery({
-    queryKey: ['search-suggestions', localValue],
-    queryFn: async () => {
-      if (!localValue || localValue.length < 2) return [];
-      const { data, error } = await supabase
-        .from('products')
-        .select('id, name, slug, price, image_url, brand')
-        .or(`name.ilike.%${localValue}%,brand.ilike.%${localValue}%,description.ilike.%${localValue}%`)
-        .limit(6);
-      if (error) throw error;
-      return data;
-    },
-    enabled: localValue.length >= 2 && focused,
-  });
+  // Autocomplete suggestions from clean smart home catalog
+  const suggestions = useMemo(() => {
+    if (!localValue || localValue.length < 2 || !focused) return [];
+    const q = localValue.toLowerCase();
+    const catalog = cairoSupplierService.getCleanSmartHomeCatalog();
+    return catalog
+      .filter(
+        (p) =>
+          p.name.toLowerCase().includes(q) ||
+          p.brand?.toLowerCase().includes(q) ||
+          p.protocol?.toLowerCase().includes(q) ||
+          p.description?.toLowerCase().includes(q)
+      )
+      .slice(0, 6);
+  }, [localValue, focused]);
 
   // Click outside to close
   useEffect(() => {

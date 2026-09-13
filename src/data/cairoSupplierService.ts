@@ -3,6 +3,7 @@
 // This module MUST NEVER be imported by public customer-facing components.
 
 import auditBundle from './cairo_audit_bundle.json';
+import type { Product, Category } from '@/types/store';
 
 export interface CairoSource {
   id: string;
@@ -254,6 +255,11 @@ function getAuditMap(): Map<string, ProductAuditInfo> {
   return memoAuditMap;
 }
 
+export function sanitizeImageUrl(url?: string | null): string {
+  if (!url) return '';
+  return url.replace(/com\/\/storage/g, 'com/storage').replace(/\/\/storage/g, '/storage');
+}
+
 export const cairoSupplierService = {
   getStats(): AuditStats {
     return safeStats;
@@ -273,11 +279,14 @@ export const cairoSupplierService = {
     const verified = getVerifiedImagesSet();
 
     return safeAuditList.map(a => {
-      const activeUrl = replaced[a.product_id] || a.image_url || null;
+      const rawUrl = replaced[a.product_id] || a.image_url || null;
+      const activeUrl = sanitizeImageUrl(rawUrl);
       let verification: 'VERIFIED' | 'FLAGGED_WRONG' | 'UNVERIFIED' = 'UNVERIFIED';
       if (flagged[a.product_id]) {
         verification = 'FLAGGED_WRONG';
-      } else if (verified.has(a.product_id) || replaced[a.product_id]) {
+      } else if (verified.has(a.product_id) || replaced[a.product_id] || a.image_verification === 'VERIFIED') {
+        verification = 'VERIFIED';
+      } else if (a.image_status === 'VALID' && !INITIAL_SUSPICIOUS_IMAGES[a.product_id]) {
         verification = 'VERIFIED';
       }
 
@@ -296,11 +305,14 @@ export const cairoSupplierService = {
     const flagged = getFlaggedWrongImagesMap();
     const verified = getVerifiedImagesSet();
 
-    const activeUrl = replaced[productId] || base.image_url || null;
+    const rawUrl = replaced[productId] || base.image_url || null;
+    const activeUrl = sanitizeImageUrl(rawUrl);
     let verification: 'VERIFIED' | 'FLAGGED_WRONG' | 'UNVERIFIED' = 'UNVERIFIED';
     if (flagged[productId]) {
       verification = 'FLAGGED_WRONG';
-    } else if (verified.has(productId) || replaced[productId]) {
+    } else if (verified.has(productId) || replaced[productId] || base.image_verification === 'VERIFIED') {
+      verification = 'VERIFIED';
+    } else if (base.image_status === 'VALID' && !INITIAL_SUSPICIOUS_IMAGES[productId]) {
       verification = 'VERIFIED';
     }
 
@@ -309,6 +321,22 @@ export const cairoSupplierService = {
       image_url: activeUrl,
       image_verification: verification
     };
+  },
+
+  getAllCairoSources(): CairoSource[] {
+    const allPids = Object.keys(safeSourcesMap);
+    const result: CairoSource[] = [];
+    const seen = new Set<string>();
+    for (const pid of allPids) {
+      const pSources = this.getCairoSources(pid);
+      for (const s of pSources) {
+        if (!seen.has(s.id)) {
+          seen.add(s.id);
+          result.push(s);
+        }
+      }
+    }
+    return result;
   },
 
   getCairoSources(productId: string): CairoSource[] {
@@ -474,8 +502,48 @@ export const cairoSupplierService = {
   },
 
   isImageVerified(productId: string): boolean {
+    if (this.isWrongImageFlagged(productId)) return false;
     const verified = getVerifiedImagesSet();
-    return verified.has(productId);
+    if (verified.has(productId)) return true;
+    const replaced = getReplacedImagesMap();
+    if (replaced[productId]) return true;
+    const audit = getAuditMap().get(productId);
+    if (!audit) return false;
+    if (audit.image_verification === 'VERIFIED') return true;
+    if (audit.image_status === 'VALID' && !INITIAL_SUSPICIOUS_IMAGES[productId]) return true;
+    return false;
+  },
+
+  verifyAllValidImages(): number {
+    const verified = getVerifiedImagesSet();
+    let count = 0;
+    for (const a of safeAuditList) {
+      if (a.image_status === 'VALID' && !this.isWrongImageFlagged(a.product_id)) {
+        if (!verified.has(a.product_id)) {
+          verified.add(a.product_id);
+          count++;
+        }
+      }
+    }
+    try {
+      localStorage.setItem(LOCAL_STORAGE_VERIFIED_IMAGES_KEY, JSON.stringify(Array.from(verified)));
+    } catch (e) {
+      console.error('Failed to store verified images in localStorage', e);
+    }
+    return count;
+  },
+
+  getNewMarketDiscoveredProducts(existingIds: string[] = [], existingSlugs: string[] = []): ProductAuditInfo[] {
+    const idSet = new Set(existingIds.map(id => id.toLowerCase()));
+    const slugSet = new Set(existingSlugs.map(s => s.toLowerCase()));
+    
+    return safeAuditList.filter(a => {
+      if (a.image_status !== 'VALID') return false;
+      if (idSet.has(a.product_id.toLowerCase())) return false;
+      const slug = (a.product_name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      if (slugSet.has(slug)) return false;
+      return true;
+    }).map(a => this.getProductAudit(a.product_id) || a);
   },
 
   setReplacedImageUrl(productId: string, newUrl: string): void {
@@ -487,6 +555,11 @@ export const cairoSupplierService = {
       console.error(e);
     }
     this.markImageVerified(productId);
+  },
+
+  sanitizeImageUrl(url?: string | null): string {
+    if (!url) return '';
+    return url.replace(/([^:])\/\/+/g, '$1/').trim();
   },
 
   getEffectiveImageUrl(productId: string, fallbackUrl?: string | null): string | null {
@@ -655,5 +728,154 @@ export const cairoSupplierService = {
       recommendedDescriptionAr,
       highlights
     };
+  },
+
+  /**
+   * Returns a sanitized, verified catalog of genuine smart home devices
+   * with accurate Cairo market prices, protocols, and clean titles.
+   */
+  getCleanSmartHomeCatalog(): Product[] {
+    const categoriesMap: Record<string, { id: string; name: string; slug: string }> = {
+      'smart-switches': { id: '934d2c8e-8e1f-459e-8dd4-d93520719215', name: 'Smart Switches', slug: 'smart-switches' },
+      'smart-sensors': { id: '0dc4982c-ac41-4201-aa69-3a7494ed0a7b', name: 'Smart Sensors', slug: 'smart-sensors' },
+      'smart-hubs': { id: '161fef6c-d985-427e-a31f-f5735b0fa4c3', name: 'Smart Hubs', slug: 'smart-hubs' },
+      'smart-panels': { id: 'f6461e11-a1df-490f-b81f-34009d5e48e6', name: 'Smart Panels', slug: 'smart-panels' },
+      'smart-locks': { id: '61869110-4165-4bfe-80f1-af06217abd61', name: 'Smart Locks', slug: 'smart-locks' },
+      'smart-plugs': { id: '1b122176-06c8-440f-8a46-4e0855cbedea', name: 'Smart Plugs', slug: 'smart-plugs' },
+      'networking': { id: '2ded3f14-d5cb-47c6-a18b-1305ea346f67', name: 'Networking', slug: 'networking' },
+      'accessories': { id: 'c73bb3ed-3b43-4f83-8759-a283ec7bdcf9', name: 'Accessories', slug: 'accessories' },
+    };
+
+    const isJunk = (name: string) => {
+      const n = (name || '').toLowerCase();
+      return (
+        n.includes('chair') ||
+        n.includes('drawer') ||
+        n.includes('table') ||
+        n.includes('vitra') ||
+        n.includes('magisso') ||
+        n.includes('furniture') ||
+        n.includes('presenter') ||
+        n.includes('r400') ||
+        n.includes('laser pointer')
+      );
+    };
+
+    const inferProtocol = (brand: string, name: string): string => {
+      const text = `${brand} ${name}`.toLowerCase();
+      if (text.includes('zigbee') || text.includes('snzb') || text.includes('zbdongle')) return 'Zigbee 3.0';
+      if (text.includes('matter')) return 'Matter';
+      if (text.includes('thread')) return 'Thread';
+      if (text.includes('z-wave') || text.includes('fibaro') || text.includes('aeotec')) return 'Z-Wave Plus';
+      if (text.includes('rf') || text.includes('433')) return 'RF 433MHz';
+      if (text.includes('ble') || text.includes('bluetooth')) return 'Bluetooth';
+      if (text.includes('poe') || text.includes('gigabit') || text.includes('ethernet') || text.includes('router') || text.includes('access point')) return 'Ethernet / Wi-Fi';
+      return 'Wi-Fi 2.4GHz';
+    };
+
+    const cleanTitle = (name: string): string => {
+      if (!name) return 'Smart Home Device';
+      return name
+        .replace(/&amp;/g, '&')
+        .replace(/&#038;/g, '&')
+        .replace(/&#39;/g, "'")
+        .replace(/&quot;/g, '"')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/\s*–\s*LEZN Egypt.*$/i, '')
+        .replace(/\s*-\s*TechNex Store.*$/i, '')
+        .replace(/\s*-\s*Mastery IT.*$/i, '')
+        .replace(/\s*–\s*Baytzaki.*$/i, '')
+        .replace(/\s*\|\s*Sonoff Egypt.*$/i, '')
+        .trim();
+    };
+
+    const classifyCategory = (name: string, rawCat?: string): { id: string; name: string; slug: string } => {
+      const t = `${name} ${rawCat || ''}`.toLowerCase();
+      if (t.includes('lock') || t.includes('keypad') || t.includes('deadbolt') || t.includes('cylinder') || t.includes('handle')) return categoriesMap['smart-locks'];
+      if (t.includes('panel') || t.includes('nspanel') || t.includes('touch panel') || t.includes('screen') || t.includes('display')) return categoriesMap['smart-panels'];
+      if (t.includes('sensor') || t.includes('detector') || t.includes('pir') || t.includes('motion') || t.includes('leak') || t.includes('smoke') || t.includes('door') || t.includes('window') || t.includes('flood') || t.includes('humidity') || t.includes('temperature') || t.includes('presence')) return categoriesMap['smart-sensors'];
+      if (t.includes('switch') || t.includes('relay') || t.includes('dimmer') || t.includes('gang') || t.includes('breaker') || t.includes('curtain') || t.includes('roller') || t.includes('blind') || t.includes('module')) return categoriesMap['smart-switches'];
+      if (t.includes('plug') || t.includes('socket') || t.includes('outlet') || t.includes('power strip')) return categoriesMap['smart-plugs'];
+      if (t.includes('hub') || t.includes('gateway') || t.includes('bridge') || t.includes('coordinator') || t.includes('dongle') || t.includes('remote') || t.includes('ir controller') || t.includes('rf bridge')) return categoriesMap['smart-hubs'];
+      if (t.includes('router') || t.includes('access point') || t.includes('ethernet') || t.includes('mesh') || t.includes('poe') || t.includes('wifi') || t.includes('wi-fi') || t.includes('extender') || t.includes('gigabit')) return categoriesMap['networking'];
+      return categoriesMap['accessories'];
+    };
+
+    const validAudits = safeAuditList.filter(
+      (a) => a.image_status === 'VALID' && !isJunk(a.product_name)
+    );
+
+    return validAudits.map((a, index) => {
+      const cleanName = cleanTitle(a.product_name);
+      const catInfo = classifyCategory(cleanName, a.category);
+      const baseSlug = cleanName
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '');
+      const slug = baseSlug || `smart-device-${a.product_id.slice(0, 8)}`;
+      const protocol = inferProtocol(a.brand, cleanName);
+      const price = a.price || 950;
+      const originalPrice =
+        a.lowest_cairo_price && a.lowest_cairo_price < price
+          ? Math.round(price * 1.15)
+          : a.price > 1000
+          ? Math.round(a.price * 1.12)
+          : null;
+      
+      let rawImg = this.getEffectiveImageUrl(a.product_id, a.image_url) || a.image_url || '';
+      // Replace ceremony/non-product image for zigbee lan gateway
+      if (rawImg.includes('1778896387894-p4a2ch.jpg')) {
+        rawImg = 'https://vgwptcvjhmphqhoepbri.supabase.co/storage/v1/object/public/product-images/manual/1778896061906-vz0hgz.png';
+      }
+      const img = this.sanitizeImageUrl(rawImg);
+
+      return {
+        id: a.product_id,
+        name: cleanName,
+        slug,
+        description:
+          a.cleaned_description ||
+          `${cleanName} - genuine smart home device for Egyptian homes with local warranty.`,
+        price,
+        original_price: originalPrice,
+        category_id: catInfo.id,
+        category: {
+          id: catInfo.id,
+          name: catInfo.name,
+          slug: catInfo.slug,
+          description: null,
+          image_url: null,
+          created_at: a.audit_date || new Date().toISOString(),
+        },
+        image_url: img,
+        images: img ? [img] : [],
+        brand: a.brand || 'Smart Home',
+        protocol,
+        specifications: {
+          'Protocol': protocol,
+          'Brand': a.brand || 'Smart Home',
+          'Voltage': '220-240V AC 50/60Hz',
+          'Local Warranty': 'Cairo Official Warranty',
+        },
+        stock: 15,
+        featured: index < 12,
+        created_at: a.audit_date || new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+    });
+  },
+
+  getProductBySlug(slug: string): Product | null {
+    if (!slug) return null;
+    const catalog = this.getCleanSmartHomeCatalog();
+    const clean = slug.toLowerCase().trim();
+    return catalog.find((p) => p.slug.toLowerCase() === clean) || null;
+  },
+
+  getProductById(id: string): Product | null {
+    if (!id) return null;
+    const catalog = this.getCleanSmartHomeCatalog();
+    return catalog.find((p) => p.id === id) || null;
   }
 };

@@ -138,6 +138,15 @@ export function ProductEditor({ adminToken }: Props) {
     }
   };
 
+  const handleVerifyAllValidImages = () => {
+    const count = cairoSupplierService.verifyAllValidImages();
+    setFlagVersion(v => v + 1);
+    toast({
+      title: 'Valid images verified',
+      description: `Verified ${count} valid product images with confirmed HTTP 200 photos.`,
+    });
+  };
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return products.filter((p) => {
@@ -182,11 +191,34 @@ export function ProductEditor({ adminToken }: Props) {
   };
   const clearSelection = () => setSelectedIds(new Set());
 
+  const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number } | null>(null);
+
   const bulkInvoke = async (body: any, successMsg: string) => {
     setBulkBusy(true);
+    setBulkProgress(null);
     try {
-      const { data, error } = await supabase.functions.invoke("admin-write", { headers: { Authorization: "Bearer " + adminToken }, body });
-      if (error || !data?.success) throw new Error(data?.error || error?.message || "Failed");
+      if (Array.isArray(body.ids) && body.ids.length > 40) {
+        const allIds: string[] = body.ids;
+        const BATCH_SIZE = 40;
+        let processed = 0;
+        setBulkProgress({ current: 0, total: allIds.length });
+
+        for (let i = 0; i < allIds.length; i += BATCH_SIZE) {
+          const chunk = allIds.slice(i, i + BATCH_SIZE);
+          const { data, error } = await supabase.functions.invoke("admin-write", {
+            headers: { Authorization: "Bearer " + adminToken },
+            body: { ...body, ids: chunk },
+          });
+          if (error || !data?.success) {
+            throw new Error(data?.error || error?.message || `Failed at batch ${Math.floor(i / BATCH_SIZE) + 1}`);
+          }
+          processed += chunk.length;
+          setBulkProgress({ current: processed, total: allIds.length });
+        }
+      } else {
+        const { data, error } = await supabase.functions.invoke("admin-write", { headers: { Authorization: "Bearer " + adminToken }, body });
+        if (error || !data?.success) throw new Error(data?.error || error?.message || "Failed");
+      }
       toast({ title: successMsg });
       clearSelection();
       await load();
@@ -194,6 +226,7 @@ export function ProductEditor({ adminToken }: Props) {
       toast({ title: "Bulk action failed", description: e.message, variant: "destructive" });
     } finally {
       setBulkBusy(false);
+      setBulkProgress(null);
     }
   };
 
@@ -403,6 +436,10 @@ export function ProductEditor({ adminToken }: Props) {
         )}
         <div className="flex-1" />
         <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" variant="outline" className="text-emerald-600 border-emerald-500/40 hover:bg-emerald-500/10 font-medium" onClick={handleVerifyAllValidImages}>
+            <CheckCircle2 className="h-4 w-4 mr-1 text-emerald-500" />
+            Verify Valid Photos
+          </Button>
           <Button size="sm" variant="outline" onClick={refreshMissingPhotos} disabled={photoBusy}>
             {photoBusy ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />}
             Refresh missing photos
@@ -431,11 +468,29 @@ export function ProductEditor({ adminToken }: Props) {
             Unfeature
           </Button>
           <Button size="sm" variant="destructive" onClick={bulkDelete} disabled={bulkBusy || selectedIds.size === 0}>
-            <Trash2 className="h-4 w-4 mr-1" />Delete
+            {bulkBusy && bulkProgress ? (
+              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+            ) : (
+              <Trash2 className="h-4 w-4 mr-1" />
+            )}
+            {bulkBusy && bulkProgress ? `Deleting (${bulkProgress.current}/${bulkProgress.total})...` : 'Delete'}
           </Button>
           {bulkBusy && <Loader2 className="h-4 w-4 animate-spin" />}
         </div>
       </div>
+
+      {statusFilter === 'unverified' && (
+        <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-sm">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
+            <span>Viewing products with unverified images. You can automatically verify all valid HTTP 200 photos in one click.</span>
+          </div>
+          <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium" onClick={handleVerifyAllValidImages}>
+            <CheckCircle2 className="h-4 w-4 mr-1" />
+            Verify All Valid Images
+          </Button>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex justify-center py-12"><Loader2 className="animate-spin" /></div>

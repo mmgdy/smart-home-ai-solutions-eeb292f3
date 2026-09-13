@@ -193,6 +193,29 @@ export const CatalogAuditDashboard: React.FC<CatalogAuditDashboardProps> = ({ to
     setAllAudits(cairoSupplierService.getAllAudits());
   };
 
+  const handleVerifyAllValid = () => {
+    const count = cairoSupplierService.verifyAllValidImages();
+    toast({
+      title: 'Valid images verified',
+      description: `Verified ${count} valid product images with confirmed HTTP 200 photos.`,
+    });
+    setAllAudits(cairoSupplierService.getAllAudits());
+  };
+
+  const handleBulkVerifyImages = () => {
+    let count = 0;
+    selectedIds.forEach(id => {
+      cairoSupplierService.markImageVerified(id);
+      count++;
+    });
+    toast({
+      title: 'Images verified',
+      description: `Verified ${count} selected product photos.`,
+    });
+    setAllAudits(cairoSupplierService.getAllAudits());
+    setSelectedIds(new Set());
+  };
+
   // Open replace image dialog
   const handleOpenReplaceImage = (product: ProductAuditInfo) => {
     setImageReplaceProduct(product);
@@ -399,17 +422,21 @@ WHERE id IN (
     if (selectedIds.size === 0) return;
     setIsBulkDeleting(true);
     const ids = Array.from(selectedIds);
+    const BATCH_SIZE = 40;
 
     try {
       if (adminToken) {
-        const { data, error } = await supabase.functions.invoke('admin-write', {
-          headers: { Authorization: `Bearer ${adminToken}` },
-          body: {
-            action: 'bulk-delete-products',
-            ids
-          }
-        });
-        if (error || !data?.success) throw new Error(data?.error || error?.message || 'Delete failed');
+        for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+          const chunk = ids.slice(i, i + BATCH_SIZE);
+          const { data, error } = await supabase.functions.invoke('admin-write', {
+            headers: { Authorization: `Bearer ${adminToken}` },
+            body: {
+              action: 'bulk-delete-products',
+              ids: chunk
+            }
+          });
+          if (error || !data?.success) throw new Error(data?.error || error?.message || `Failed at batch ${Math.floor(i / BATCH_SIZE) + 1}`);
+        }
       }
 
       setAllAudits(prev => prev.filter(a => !selectedIds.has(a.product_id)));
@@ -436,18 +463,22 @@ WHERE id IN (
     if (selectedIds.size === 0) return;
     setIsBulkSettingVisibility(true);
     const ids = Array.from(selectedIds);
+    const BATCH_SIZE = 40;
 
     try {
       if (adminToken) {
-        const { data, error } = await supabase.functions.invoke('admin-write', {
-          headers: { Authorization: `Bearer ${adminToken}` },
-          body: {
-            action: 'bulk-set-visibility',
-            ids,
-            hidden
-          }
-        });
-        if (error || !data?.success) throw new Error(data?.error || error?.message || 'Visibility update failed');
+        for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+          const chunk = ids.slice(i, i + BATCH_SIZE);
+          const { data, error } = await supabase.functions.invoke('admin-write', {
+            headers: { Authorization: `Bearer ${adminToken}` },
+            body: {
+              action: 'bulk-set-visibility',
+              ids: chunk,
+              hidden
+            }
+          });
+          if (error || !data?.success) throw new Error(data?.error || error?.message || `Failed at batch ${Math.floor(i / BATCH_SIZE) + 1}`);
+        }
       }
 
       toast({
@@ -594,7 +625,15 @@ WHERE id IN (
   };
 
   const handleCopySql = () => {
-    navigator.clipboard.writeText(sqlScript);
+    const ids = deleteCandidates.map((c) => `'${c.product_id}'`).join(',\n  ');
+    const script = `-- Migration: purge_invalid_products.sql
+BEGIN;
+DELETE FROM public.products
+WHERE id IN (
+  ${ids || "''"}
+);
+COMMIT;`;
+    navigator.clipboard.writeText(script);
     setCopiedSql(true);
     toast({
       title: 'SQL Script Copied',
@@ -913,8 +952,31 @@ WHERE id IN (
                   Clear
                 </Button>
               )}
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleVerifyAllValid}
+                className="text-xs h-9 px-3 text-emerald-600 border-emerald-500/40 hover:bg-emerald-500/10 font-medium gap-1.5"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                Verify Valid Photos
+              </Button>
             </div>
           </div>
+
+          {statusFilter === 'unverified' && (
+            <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-900 dark:text-amber-200 text-sm">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+                <span>Showing products with unverified photos. Valid active photos can be marked verified in one click.</span>
+              </div>
+              <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold gap-1.5" onClick={handleVerifyAllValid}>
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Verify All Valid Photos
+              </Button>
+            </div>
+          )}
 
           {/* BULK ACTIONS TOOLBAR */}
           {selectedIds.size > 0 && (
@@ -931,6 +993,17 @@ WHERE id IN (
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
+                {/* Bulk Verify Images */}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleBulkVerifyImages}
+                  className="h-8 text-xs gap-1.5 border-emerald-500/40 hover:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-medium"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  Verify Photos ({selectedIds.size})
+                </Button>
+
                 {/* 1. Bulk Sync Recommendations */}
                 <Button
                   size="sm"

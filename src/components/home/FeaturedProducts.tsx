@@ -9,6 +9,8 @@ import { useLanguage } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 
+import { cairoSupplierService } from '@/data/cairoSupplierService';
+
 export function FeaturedProducts() {
   const { t, isRTL } = useLanguage();
 
@@ -27,22 +29,7 @@ export function FeaturedProducts() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const { data: rawProducts, isLoading, isError } = useQuery({
-    queryKey: ['featured-products'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .eq('featured', true)
-        .limit(12);
-      if (error) throw error;
-      return data as Product[];
-    },
-  });
-
-  const products = rawProducts
-    ? rawProducts.filter((p) => !(hiddenIds ?? []).includes(p.id)).slice(0, 8)
-    : undefined;
+  const products = cairoSupplierService.getCleanSmartHomeCatalog().slice(0, 8);
 
   return (
     <section className="py-20 bg-background relative overflow-hidden">

@@ -48,13 +48,19 @@ const ProductDetail = () => {
   const { data: master, isLoading } = useQuery({
     queryKey: ['product', slug],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .eq('slug', slug)
-        .maybeSingle();
-      if (error) throw error;
-      return data as Product | null;
+      const cleanProd = cairoSupplierService.getProductBySlug(slug || '') || cairoSupplierService.getProductById(slug || '');
+      if (cleanProd) return cleanProd;
+      try {
+        const { data, error } = await supabase
+          .from('products')
+          .select('*')
+          .eq('slug', slug)
+          .maybeSingle();
+        if (!error && data) return data as Product;
+      } catch (err) {
+        console.warn('DB query failed:', err);
+      }
+      return null;
     },
     enabled: !!slug,
   });

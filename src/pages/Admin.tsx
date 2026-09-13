@@ -28,6 +28,7 @@ import { AdminSecurity } from '@/components/admin/AdminSecurity';
 import MediaManager from '@/components/admin/MediaManager';
 import { BackupManager } from '@/components/admin/BackupManager';
 import { CatalogAuditDashboard } from '@/components/admin/CatalogAuditDashboard';
+import { MarketSyncManager } from '@/components/admin/MarketSyncManager';
 
 interface ProductExport {
   id: string;
@@ -759,73 +760,12 @@ export default function Admin() {
           </TabsContent>
 
           <TabsContent value="market-sync" className="mt-6">
-            <div className="bg-card border border-border rounded-xl p-6">
-              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                <Globe className="w-5 h-5 text-primary" />
-                Egyptian Market Sync
-              </h2>
-              <p className="text-muted-foreground mb-6">
-                AI-powered discovery of new smart home products and price updates from the Egyptian market (Amazon.eg, Noon, Jumia). Runs daily automatically.
-              </p>
-
-              <div className="grid gap-3 sm:grid-cols-3 mb-6">
-                <Button onClick={() => handleMarketSync('discover-products')} disabled={isMarketSyncing} variant="outline" className="h-auto py-4 flex flex-col gap-2">
-                  <Sparkles className="w-5 h-5" />
-                  <span className="text-sm font-medium">Discover Products</span>
-                  <span className="text-xs text-muted-foreground">Find new products</span>
-                </Button>
-
-                <Button onClick={() => handleMarketSync('update-prices')} disabled={isMarketSyncing} variant="outline" className="h-auto py-4 flex flex-col gap-2">
-                  <DollarSign className="w-5 h-5" />
-                  <span className="text-sm font-medium">Update Prices</span>
-                  <span className="text-xs text-muted-foreground">Check current EGP prices</span>
-                </Button>
-
-                <Button onClick={() => handleMarketSync('full-sync')} disabled={isMarketSyncing} className="h-auto py-4 flex flex-col gap-2">
-                  <RefreshCw className="w-5 h-5" />
-                  <span className="text-sm font-medium">Full Sync</span>
-                  <span className="text-xs text-muted-foreground">All categories + prices</span>
-                </Button>
-              </div>
-
-              {isMarketSyncing && (
-                <div className="mb-4">
-                  <Progress value={marketSyncProgress} className="h-2" />
-                  <p className="text-sm text-muted-foreground mt-2 flex items-center gap-2">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Syncing market data... {Math.round(marketSyncProgress)}%
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {marketSyncResults.length > 0 && (
-              <div className="mt-6 bg-card border border-border rounded-xl p-6">
-                <h3 className="font-semibold mb-4">
-                  Results ({marketSyncResults.length} items)
-                  <span className="ml-2 text-sm font-normal text-muted-foreground">
-                    {marketSyncResults.filter(r => r.status === 'new_product_added' || r.status === 'added').length} new,
-                    {' '}{marketSyncResults.filter(r => r.status === 'price_updated').length} price updates
-                  </span>
-                </h3>
-                <div className="space-y-2 max-h-96 overflow-y-auto">
-                  {marketSyncResults.map((item, i) => (
-                    <div key={i} className={`p-3 rounded-lg text-sm ${item.status === 'new_product_added' || item.status === 'added' ? 'bg-primary/10' : item.status === 'price_updated' || item.status === 'updated' ? 'bg-accent/20' : item.status === 'already_exists' || item.status === 'exists' || item.status === 'price_unchanged' ? 'bg-muted' : 'bg-destructive/10'}`}>
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-medium truncate flex-1">{item.name || item.category}</span>
-                        <span className={`text-xs capitalize ml-2 ${item.status === 'new_product_added' || item.status === 'added' ? 'text-primary' : item.status === 'price_updated' || item.status === 'updated' ? 'text-accent-foreground' : 'text-muted-foreground'}`}>{item.status?.replace(/_/g, ' ')}</span>
-                      </div>
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                        {item.brand && <span>{item.brand}</span>}
-                        {item.category && <span>• {item.category}</span>}
-                        {item.price && <span>• {item.price} EGP</span>}
-                        {item.oldPrice && <span>• Was: {item.oldPrice} EGP → Now: {item.newPrice} EGP</span>}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            <MarketSyncManager 
+              adminToken={token} 
+              onProductAdded={() => {
+                fetchExportStats();
+              }} 
+            />
           </TabsContent>
           <TabsContent value="scraper" className="mt-6">
             <div className="bg-card border border-border rounded-xl p-6">
