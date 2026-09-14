@@ -15,7 +15,7 @@ import { getProductImage } from "@/lib/productImage";
 import { CairoSourcesViewer } from "@/components/admin/CairoSourcesViewer";
 import { cairoSupplierService } from "@/data/cairoSupplierService";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building2, ShieldCheck, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
+import { Building2, ShieldCheck, CheckCircle2, XCircle, AlertTriangle, ExternalLink } from "lucide-react";
 
 interface Props {
   adminToken: string;
