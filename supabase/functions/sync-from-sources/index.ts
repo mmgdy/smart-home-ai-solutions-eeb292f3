@@ -36,40 +36,55 @@ function isListingPage(url: string): boolean {
   } catch { return false; }
 }
 
+function isGoodProductImage(url: string): boolean {
+  const lower = url.toLowerCase();
+  return (
+    !lower.includes("sprite") &&
+    !lower.includes("fls-eu") &&
+    !lower.includes("pixel") &&
+    !lower.includes("nav-sprite") &&
+    !lower.includes("events/") &&
+    !lower.includes("xcm_manual") &&
+    !lower.includes("icon") &&
+    !lower.includes("logo") &&
+    !lower.includes("badge")
+  );
+}
+
 // Extract product links from a listing/search page HTML
 function extractProductLinks(html: string, baseUrl: string, sourceType: string): string[] {
   const links: Set<string> = new Set();
   const base = new URL(baseUrl);
 
   if (sourceType === "amazon") {
-    // Amazon ASINs in href patterns like /dp/ASIN or /gp/product/ASIN
-    const asinPattern = /href="(\/(?:dp|gp\/product)\/([A-Z0-9]{10})[^"]*?)"/g;
+    // Matches both standard HTML hrefs (/dp/ASIN) and markdown URLs from Jina reader
+    const asinPattern = /(?:href=["'])?(?:https?:\/\/[^/]+)?(?:\/dp\/|\/gp\/product\/)([A-Z0-9]{10})/gi;
     let m: RegExpExecArray | null;
     while ((m = asinPattern.exec(html)) !== null) {
-      const path = m[1].split("?")[0].split("#")[0];
-      links.add(`https://${base.hostname}${path}`);
-      if (links.size >= 20) break;
+      const asin = m[1].toUpperCase();
+      links.add(`https://${base.hostname}/dp/${asin}`);
+      if (links.size >= 25) break;
     }
   } else if (sourceType === "noon") {
     // Noon product links
-    const noonPattern = /href="(\/egypt-en\/[^"]+\/p\/[^"]+)"/g;
+    const noonPattern = /(?:href=["'])?(\/egypt-en\/[^"'\s\)]+\/p\/[^"'\s\)]+)/g;
     let m: RegExpExecArray | null;
     while ((m = noonPattern.exec(html)) !== null) {
       links.add(`https://www.noon.com${m[1]}`);
-      if (links.size >= 20) break;
+      if (links.size >= 25) break;
     }
   } else if (sourceType === "jumia") {
-    const jumiaPattern = /href="(\/[^"]+\.html)"/g;
+    const jumiaPattern = /(?:href=["'])?(\/[^"'\s\)]+\.html)/g;
     let m: RegExpExecArray | null;
     while ((m = jumiaPattern.exec(html)) !== null) {
       if (m[1].includes("-") && !m[1].includes("catalog")) {
         links.add(`https://www.jumia.com.eg${m[1]}`);
-        if (links.size >= 20) break;
+        if (links.size >= 25) break;
       }
     }
   }
 
-  return [...links].slice(0, 12);
+  return [...links].slice(0, 20);
 }
 
 const BROWSER_HEADERS = {
@@ -80,17 +95,80 @@ const BROWSER_HEADERS = {
 };
 
 async function fetchHtml(url: string): Promise<string> {
-  const resp = await fetch(url, { headers: BROWSER_HEADERS, redirect: "follow" });
-  if (!resp.ok) throw new Error(`HTTP ${resp.status} for ${url}`);
-  return resp.text();
+  const isAmazon = url.includes("amazon.eg") || url.includes("amazon.com");
+
+  // Amazon blocks direct cloud datacenter IP requests with HTTP 503; try reader proxy first for Amazon
+  if (isAmazon) {
+    try {
+      const jinaResp = await fetch(`https://r.jina.ai/${url}`, {
+        headers: { "Accept": "text/html,text/plain,*/*" },
+      });
+      if (jinaResp.ok) {
+        const text = await jinaResp.text();
+        if (text && text.length > 500) return text;
+      }
+    } catch (err) {
+      console.warn("Jina reader proxy failed for Amazon, falling back to direct:", err);
+    }
+  }
+
+  // Direct fetch with browser headers
+  try {
+    const resp = await fetch(url, { headers: BROWSER_HEADERS, redirect: "follow" });
+    if (resp.ok) {
+      return await resp.text();
+    }
+    // If direct fetch returned anti-bot status (403, 503, 429), try reader proxy
+    if (resp.status === 403 || resp.status === 503 || resp.status === 429) {
+      const jinaResp = await fetch(`https://r.jina.ai/${url}`, {
+        headers: { "Accept": "text/html,text/plain,*/*" },
+      });
+      if (jinaResp.ok) {
+        const text = await jinaResp.text();
+        if (text && text.length > 500) return text;
+      }
+    }
+    throw new Error(`HTTP ${resp.status} for ${url}`);
+  } catch (err: any) {
+    // If direct fetch had network/connection error, attempt proxy fallback
+    if (!isAmazon) {
+      try {
+        const jinaResp = await fetch(`https://r.jina.ai/${url}`);
+        if (jinaResp.ok) {
+          const text = await jinaResp.text();
+          if (text && text.length > 500) return text;
+        }
+      } catch {}
+    }
+    throw err;
+  }
 }
 
 function extractImagesFromHtml(html: string): string[] {
   const images: string[] = [];
   const ogMatch = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i);
-  if (ogMatch) images.push(ogMatch[1]);
+  if (ogMatch && isGoodProductImage(ogMatch[1])) images.push(ogMatch[1]);
   const twMatch = html.match(/<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i);
-  if (twMatch && !images.includes(twMatch[1])) images.push(twMatch[1]);
+  if (twMatch && !images.includes(twMatch[1]) && isGoodProductImage(twMatch[1])) images.push(twMatch[1]);
+
+  // Markdown image tags from Jina reader: ![alt](url)
+  const mdImgMatches = html.matchAll(/!\[[^\]]*\]\((https:\/\/[^\s\)]+)\)/g);
+  for (const m of mdImgMatches) {
+    const imgUrl = m[1];
+    if (!images.includes(imgUrl) && isGoodProductImage(imgUrl)) {
+      images.push(imgUrl);
+    }
+  }
+
+  // Amazon high-res product images
+  const amzImgMatches = html.matchAll(/https:\/\/m\.media-amazon\.com\/images\/I\/[A-Za-z0-9%_-]+\.(?:jpg|png|webp)/gi);
+  for (const m of amzImgMatches) {
+    const imgUrl = m[0];
+    if (!images.includes(imgUrl) && isGoodProductImage(imgUrl)) {
+      images.push(imgUrl);
+    }
+  }
+
   // JSON-LD
   const jsonLdMatches = html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi);
   for (const m of jsonLdMatches) {
@@ -99,9 +177,9 @@ function extractImagesFromHtml(html: string): string[] {
       const items = Array.isArray(ld) ? ld : [ld];
       for (const it of items) {
         const img = it.image;
-        if (typeof img === "string" && !images.includes(img)) images.push(img);
-        else if (Array.isArray(img)) images.push(...img.filter((x: any) => typeof x === "string" && !images.includes(x)));
-        else if (img?.url && !images.includes(img.url)) images.push(img.url);
+        if (typeof img === "string" && !images.includes(img) && isGoodProductImage(img)) images.push(img);
+        else if (Array.isArray(img)) images.push(...img.filter((x: any) => typeof x === "string" && !images.includes(x) && isGoodProductImage(x)));
+        else if (img?.url && !images.includes(img.url) && isGoodProductImage(img.url)) images.push(img.url);
       }
     } catch {}
   }

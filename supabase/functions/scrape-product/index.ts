@@ -82,27 +82,68 @@ serve(async (req) => {
       });
     }
 
-    // Fetch the page content
-    const pageResp = await fetch(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        "Accept": "text/html,application/xhtml+xml",
-        "Accept-Language": "en-US,en;q=0.9,ar;q=0.8",
-      },
-    });
+    // Fetch the page content with anti-bot resilience
+    let html = "";
+    const isAmazon = url.includes("amazon.eg") || url.includes("amazon.com");
 
-    if (!pageResp.ok) {
-      throw new Error(`Failed to fetch URL: ${pageResp.status}`);
+    if (isAmazon) {
+      try {
+        const jinaResp = await fetch(`https://r.jina.ai/${url}`, {
+          headers: { "Accept": "text/html,text/plain,*/*" },
+        });
+        if (jinaResp.ok) {
+          const text = await jinaResp.text();
+          if (text && text.length > 500) html = text;
+        }
+      } catch {}
     }
 
-    const html = await pageResp.text();
+    if (!html) {
+      const pageResp = await fetch(url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+          "Accept": "text/html,application/xhtml+xml",
+          "Accept-Language": "en-US,en;q=0.9,ar;q=0.8",
+        },
+      });
 
-    // Pre-extract real images from HTML before AI (og:image, json-ld, srcset)
+      if (!pageResp.ok) {
+        // Try proxy fallback if direct fetch fails (403, 503, 429)
+        const jinaResp = await fetch(`https://r.jina.ai/${url}`);
+        if (jinaResp.ok) {
+          html = await jinaResp.text();
+        } else {
+          throw new Error(`Failed to fetch URL: ${pageResp.status}`);
+        }
+      } else {
+        html = await pageResp.text();
+      }
+    }
+
+    // Pre-extract real images from HTML/markdown before AI (og:image, json-ld, markdown, amazon cdn)
     const realImages: string[] = [];
+    const isGoodImage = (img: string) => {
+      const l = img.toLowerCase();
+      return !l.includes("sprite") && !l.includes("fls-eu") && !l.includes("pixel") && !l.includes("nav-sprite") && !l.includes("events/") && !l.includes("icon");
+    };
+
     const ogMatch = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i);
-    if (ogMatch) realImages.push(ogMatch[1]);
+    if (ogMatch && isGoodImage(ogMatch[1])) realImages.push(ogMatch[1]);
     const twMatch = html.match(/<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i);
-    if (twMatch) realImages.push(twMatch[1]);
+    if (twMatch && isGoodImage(twMatch[1])) realImages.push(twMatch[1]);
+
+    // Markdown image tags from Jina reader: ![alt](url)
+    const mdImgMatches = html.matchAll(/!\[[^\]]*\]\((https:\/\/[^\s\)]+)\)/g);
+    for (const m of mdImgMatches) {
+      if (isGoodImage(m[1]) && !realImages.includes(m[1])) realImages.push(m[1]);
+    }
+
+    // Amazon high-res product images
+    const amzImgMatches = html.matchAll(/https:\/\/m\.media-amazon\.com\/images\/I\/[A-Za-z0-9%_-]+\.(?:jpg|png|webp)/gi);
+    for (const m of amzImgMatches) {
+      if (isGoodImage(m[0]) && !realImages.includes(m[0])) realImages.push(m[0]);
+    }
+
     // JSON-LD product images
     const jsonLdMatches = html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi);
     for (const m of jsonLdMatches) {
@@ -111,9 +152,9 @@ serve(async (req) => {
         const items = Array.isArray(ld) ? ld : [ld];
         for (const it of items) {
           const img = it.image;
-          if (typeof img === "string") realImages.push(img);
-          else if (Array.isArray(img)) realImages.push(...img.filter((x: any) => typeof x === "string"));
-          else if (img?.url) realImages.push(img.url);
+          if (typeof img === "string" && isGoodImage(img)) realImages.push(img);
+          else if (Array.isArray(img)) realImages.push(...img.filter((x: any) => typeof x === "string" && isGoodImage(x)));
+          else if (img?.url && isGoodImage(img.url)) realImages.push(img.url);
         }
       } catch {}
     }
