@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
 
 import { supabase } from '@/integrations/supabase/client';
 import { Product } from '@/types/store';
@@ -29,7 +30,11 @@ export function FeaturedProducts() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const products = cairoSupplierService.getCleanSmartHomeCatalog().slice(0, 8);
+  const products = useMemo(() => {
+    const catalog = cairoSupplierService.getCleanSmartHomeCatalog();
+    const hiddenSet = new Set(hiddenIds ?? []);
+    return catalog.filter((p) => !hiddenSet.has(p.id)).slice(0, 8);
+  }, [hiddenIds]);
 
   return (
     <section className="py-20 bg-background relative overflow-hidden">
@@ -84,15 +89,7 @@ export function FeaturedProducts() {
           </motion.div>
         </div>
 
-        {isLoading ? (
-          <div className="flex justify-center py-16">
-            <span className="inline-block h-8 w-8 animate-spin rounded-full border-2 border-current border-t-transparent text-muted-foreground" />
-          </div>
-        ) : isError ? (
-          <p className="text-center text-muted-foreground py-16">
-            {isRTL ? 'تعذر تحميل المنتجات. يرجى المحاولة لاحقاً.' : 'Failed to load products. Please try again later.'}
-          </p>
-        ) : products && products.length > 0 ? (
+        {products && products.length > 0 ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {products.map((product) => (
               <ProductCard key={product.id} product={product} />
