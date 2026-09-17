@@ -1,0 +1,2 @@
+product-import-trigger: 141 products imported from smartzoom.tech on 2026-09-16T22:07:22Z
+categories-fixed: 2026-09-17T00:20:49Z — 141 products categorized (53 locks, 28 switches, 22 sensors, 22 accessories, 7 hubs, 6 panels, 3 plugs)
