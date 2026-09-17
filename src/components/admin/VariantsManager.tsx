@@ -77,7 +77,7 @@ export function VariantsManager({ adminToken }: { adminToken: string }) {
       const { data } = await supabase
         .from('products')
         .select('id,name,brand,price,stock,image_url,parent_id,variant_axis,variant_label')
-        .is('parent_id', null);
+        .eq('parent_id', null);
       setSuggestions(computeSuggestions((data as AllProduct[]) || []));
     } catch (e: any) {
       toast({ title: 'Error', description: e.message, variant: 'destructive' });

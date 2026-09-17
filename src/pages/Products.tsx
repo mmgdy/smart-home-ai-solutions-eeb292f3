@@ -64,11 +64,30 @@ const Products = () => {
     );
   }, [rawCategories]);
 
-  // Fresh sync from external sources (725 authentic smart home devices)
+  // Products from Supabase (with fallback to local audit bundle)
+  const { data: supabaseProducts, isLoading: sbLoading } = useQuery({
+    queryKey: ['products'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('parent_id', null)
+        .eq('is_published', true)
+        .order('featured', { ascending: false })
+        .order('name');
+      if (error) throw error;
+      return data as Product[];
+    },
+  });
+
+  // Merge Supabase products with local audit catalog
   const products = useMemo<Product[]>(() => {
+    const supabaseList = supabaseProducts || [];
+    if (supabaseList.length > 0) return supabaseList;
+
+    // Fallback to local audit bundle
     return cairoSupplierService.getCleanSmartHomeCatalog();
-  }, []);
-  const isLoading = false;
+  }, [supabaseProducts]);
 
   // Derive available brands/protocols from loaded products
   const availableBrands = useMemo(() => {
@@ -409,7 +428,7 @@ const Products = () => {
                 </div>
               )}
 
-              {isLoading ? (
+              {sbLoading ? (
                 <div className="flex items-center justify-center py-20">
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
