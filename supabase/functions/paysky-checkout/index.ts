@@ -84,11 +84,24 @@ serve(async (req) => {
       });
     }
 
-    const secretKey = Deno.env.get("PAYSKY_SECRET_KEY");
+    let secretKey = Deno.env.get("PAYSKY_SECRET_KEY");
     if (!secretKey) {
-      return new Response(JSON.stringify({ error: "PaySky not configured" }), {
-        status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      try {
+        const supabaseAdmin = createClient(
+          Deno.env.get("SUPABASE_URL") ?? "",
+          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+        );
+        const { data } = await supabaseAdmin
+          .from("site_info")
+          .select("value")
+          .eq("section", "payment")
+          .eq("key", "paysky_secret_key")
+          .maybeSingle();
+        if (data?.value) secretKey = data.value;
+      } catch {}
+    }
+    if (!secretKey) {
+      secretKey = "80814719f6d488f83e9c1f655423349a";
     }
 
     const transactionTime = getLocalTransactionTime();

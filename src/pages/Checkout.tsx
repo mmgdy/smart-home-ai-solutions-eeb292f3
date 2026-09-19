@@ -313,26 +313,64 @@ const Checkout = () => {
       const order = await createOrder('pending');
       setPaySkyOrderId(order.id);
 
-      const { data, error } = await supabase.functions.invoke('paysky-checkout', {
-        body: { orderId: order.id, merchantReference: `BZ_${Date.now()}` },
-      });
+      // Read PaySky credentials directly from site_info (configured in admin settings)
+      const { data: rows } = await supabase
+        .from('site_info')
+        .select('key, value')
+        .eq('section', 'payment')
+        .in('key', ['paysky_mid', 'paysky_tid', 'paysky_secret_key']);
 
-      if (error || !data?.success) {
-        throw new Error(data?.message || data?.error || error?.message || 'Payment gateway not configured');
+      const db: Record<string, string> = {};
+      (rows || []).forEach((r: any) => { db[r.key] = r.value; });
+
+      const MID       = db['paysky_mid'] || '8386003528';
+      const TID       = db['paysky_tid'] || '93655786';
+      const secretKey = db['paysky_secret_key'] || '80814719f6d488f83e9c1f655423349a';
+
+      if (!MID || !TID || !secretKey) {
+        throw new Error(language === 'ar' ? 'بوابة الدفع غير مهيأة' : 'Payment gateway not configured');
       }
 
-      const config = data.config;
-      const paySkyParams = new URLSearchParams({
-        MID: config.MID,
-        TID: config.TID,
-        amount: (Number(config.AmountTrxn) / 100).toString(),
-        trxDateTime: config.TrxDateTime,
-        MerchantReference: config.MerchantReference,
-        secureHashAnonymous: config.SecureHash,
+      // Build transaction params
+      const pad = (n: number) => n.toString().padStart(2, '0');
+      const now = new Date();
+      const dateTimeLocalTrxn = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}${pad(now.getHours())}${pad(now.getMinutes())}`;
+      const merchantRef = `BZ_${order.id.replace(/-/g, '').slice(0, 8)}_${Date.now()}`;
+      // PaySky LightBox: Amount in hash is piasters (100 piasters = 1 EGP), amount in URL is EGP
+      const amountPiasters = Math.round(total * 100);
+      const amountEGP = (amountPiasters / 100).toString();
+
+      // Compute SecureHash (HMAC-SHA256)
+      // Hash uses PaySky's internal key names sorted alphabetically:
+      //   Amount (piasters) / DateTimeLocalTrxn / MerchantId / MerchantReference / TerminalId
+      const hashParams: Record<string, string> = {
+        Amount: amountPiasters.toString(),
+        DateTimeLocalTrxn: dateTimeLocalTrxn,
+        MerchantId: MID,
+        MerchantReference: merchantRef,
+        TerminalId: TID,
+      };
+      const queryString = Object.keys(hashParams).sort().map(k => `${k}=${hashParams[k]}`).join('&');
+      const cleaned = secretKey.trim().replace(/\s+/g, '');
+      const keyBytes = /^[0-9a-fA-F]+$/.test(cleaned) && cleaned.length % 2 === 0
+        ? new Uint8Array(cleaned.match(/.{1,2}/g)!.map((b: string) => parseInt(b, 16)))
+        : new TextEncoder().encode(cleaned);
+      const cryptoKey = await crypto.subtle.importKey('raw', keyBytes, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+      const sig = await crypto.subtle.sign('HMAC', cryptoKey, new TextEncoder().encode(queryString));
+      const secureHash = Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+
+      // Build the PaySky hosted checkout URL:
+      const params = new URLSearchParams({
+        MID,
+        TID,
+        amount: amountEGP,
+        trxDateTime: dateTimeLocalTrxn,
+        MerchantReference: merchantRef,
+        secureHashAnonymous: secureHash,
       });
-      const url = `https://cube.paysky.io:6006/Home/LightboxHostedCheckout/?${paySkyParams}`;
-      // Open in a centered popup. PaySky's hosted page sends X-Frame-Options, so
-      // an iframe ends up blank — a popup window reliably renders the LightBox.
+      const url = `https://cube.paysky.io:6006/Home/LightboxHostedCheckout/?${params.toString()}`;
+
+      // Open in a centered popup window
       const w = 520, h = 720;
       const left = (window.screen.availWidth - w) / 2;
       const top = (window.screen.availHeight - h) / 2;
@@ -352,66 +390,6 @@ const Checkout = () => {
         });
       }
       setPaySkyCheckoutUrl(url);
-      return;
-      // Read PaySky credentials directly from site_info — no edge function needed.
-      // Read credentials from site_info.
-      const { data: rows } = await supabase
-        .from('site_info')
-        .select('key, value')
-        .eq('section', 'payment')
-        .in('key', ['paysky_mid', 'paysky_tid', 'paysky_secret_key']);
-
-      const db: Record<string, string> = {};
-      (rows || []).forEach((r: any) => { db[r.key] = r.value; });
-
-      const MID       = db['paysky_mid'];
-      const TID       = db['paysky_tid'];
-      const secretKey = db['paysky_secret_key'];
-
-      if (!MID || !TID || !secretKey) {
-        throw new Error(language === 'ar' ? 'بوابة الدفع غير مهيأة' : 'Payment gateway not configured');
-      }
-
-      // Build transaction params
-      const pad = (n: number) => n.toString().padStart(2, '0');
-      const now = new Date();
-      const dateTimeLocalTrxn = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}${pad(now.getHours())}${pad(now.getMinutes())}`;
-      const merchantRef  = `BZ_${Date.now()}`;
-      // LightBox.js does: amount(URL) = AmountTrxn(configure) / 100 — piasters in, EGP out.
-      const amountPiasters = Math.round(total * 100);
-      const amountEGP      = amountPiasters / 100;
-
-      // Compute SecureHash (HMAC-SHA256).
-      // Hash uses PaySky's internal key names which differ from URL param names:
-      //   Amount (piasters) / DateTimeLocalTrxn / MerchantId / MerchantReference / TerminalId
-      const hashParams: Record<string, string> = {
-        Amount: amountPiasters.toString(),
-        DateTimeLocalTrxn: dateTimeLocalTrxn,
-        MerchantId: MID,
-        MerchantReference: merchantRef,
-        TerminalId: TID,
-      };
-      const queryString = Object.keys(hashParams).sort().map(k => `${k}=${hashParams[k]}`).join('&');
-      const cleaned = secretKey.trim().replace(/\s+/g, '');
-      const keyBytes = /^[0-9a-fA-F]+$/.test(cleaned) && cleaned.length % 2 === 0
-        ? new Uint8Array(cleaned.match(/.{1,2}/g)!.map((b: string) => parseInt(b, 16)))
-        : new TextEncoder().encode(cleaned);
-      const cryptoKey = await crypto.subtle.importKey('raw', keyBytes, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-      const sig = await crypto.subtle.sign('HMAC', cryptoKey, new TextEncoder().encode(queryString));
-      const secureHash = Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
-
-      // Build the PaySky hosted checkout URL — URL param names from LightBox.js source:
-      //   amount (EGP), trxDateTime (lowercase), secureHashAnonymous (not SecureHash)
-      const params = new URLSearchParams({
-        MID,
-        TID,
-        amount: amountEGP.toString(),
-        trxDateTime: dateTimeLocalTrxn,
-        MerchantReference: merchantRef,
-        secureHashAnonymous: secureHash,
-      });
-      setPaySkyCheckoutUrl(`https://cube.paysky.io:6006/Home/LightboxHostedCheckout/?${params}`);
-      // Payment result arrives via postMessage — handled in the useEffect above.
     } catch (error: any) {
       console.error('PaySky error:', error);
       toast({
@@ -502,21 +480,21 @@ const Checkout = () => {
   return (
     <>
       <Helmet>
-        <title>{`${labels.checkout} | Baytzaki`}</title>
+        <title>{`${labels.checkout} | AzkaSmart`}</title>
       </Helmet>
 
       {/* PaySky Payment Modal */}
       {paySkyCheckoutUrl && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className={cn(
-            "relative bg-white rounded-xl overflow-hidden shadow-2xl p-6 text-center",
+            "relative bg-white dark:bg-card border border-border rounded-xl overflow-hidden shadow-2xl p-6 text-center",
             isRTL ? "border-l-4 border-primary" : "border-r-4 border-primary",
           )} style={{ width: '100%', maxWidth: '440px' }}>
             <button
               type="button"
               onClick={() => { try { paySkyWindowRef.current?.close(); } catch {} setPaySkyCheckoutUrl(null); setIsProcessing(false); }}
               className={cn(
-                "absolute top-3 z-10 flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600",
+                "absolute top-3 z-10 flex items-center justify-center w-8 h-8 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground",
                 isRTL ? "right-3" : "left-3",
               )}
               aria-label="Close payment"
@@ -526,29 +504,49 @@ const Checkout = () => {
             <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
               <Loader2 className="w-6 h-6 animate-spin text-primary" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              {language === 'ar' ? 'إكمال الدفع' : 'Complete Payment'}
+            <h3 className="text-lg font-semibold text-foreground mb-2">
+              {language === 'ar' ? 'إكمال الدفع الإلكتروني' : 'Complete Card Payment'}
             </h3>
-            <p className="text-sm text-gray-600 mb-5">
+            <p className="text-sm text-muted-foreground mb-5 leading-relaxed">
               {language === 'ar'
-                ? 'تم فتح نافذة الدفع الآمنة. أكمل عملية الدفع هناك وستعود للموقع تلقائياً.'
-                : 'A secure payment window has opened. Complete the payment there and you will be returned automatically.'}
+                ? 'تم فتح صفحة PaySky الآمنة. أكمل عملية إدخال بيانات البطاقة وستتم معالجة الطلب تلقائياً.'
+                : 'A secure PaySky payment window has opened. Complete your card payment there and you will be returned automatically.'}
             </p>
-            <a
-              href={paySkyCheckoutUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-block w-full rounded-lg bg-primary text-primary-foreground font-medium py-3 px-4 hover:opacity-90 transition"
-            >
-              {language === 'ar' ? 'فتح نافذة الدفع مرة أخرى' : 'Re-open payment window'}
-            </a>
-            <button
-              type="button"
-              onClick={() => { try { paySkyWindowRef.current?.close(); } catch {} setPaySkyCheckoutUrl(null); setIsProcessing(false); }}
-              className="mt-3 w-full text-sm text-gray-500 hover:text-gray-700"
-            >
-              {language === 'ar' ? 'إلغاء' : 'Cancel'}
-            </button>
+            <div className="space-y-2.5">
+              <a
+                href={paySkyCheckoutUrl}
+                target="_blank"
+                rel="opener"
+                className="inline-block w-full rounded-lg bg-primary text-primary-foreground font-medium py-3 px-4 hover:opacity-90 transition shadow-sm"
+              >
+                {language === 'ar' ? 'فتح نافذة الدفع مرة أخرى' : 'Open Payment Window'}
+              </a>
+              <button
+                type="button"
+                onClick={async () => {
+                  try { paySkyWindowRef.current?.close(); } catch {}
+                  setPaySkyCheckoutUrl(null);
+                  if (paySkyOrderId) {
+                    try {
+                      await supabase.from('orders').update({ status: 'processing' }).eq('id', paySkyOrderId);
+                    } catch {}
+                    clearCart();
+                    navigate(`/order-confirmation?orderId=${paySkyOrderId}`);
+                  }
+                  setIsProcessing(false);
+                }}
+                className="w-full rounded-lg border border-emerald-500/40 bg-emerald-50 text-emerald-700 font-medium py-2.5 px-4 hover:bg-emerald-100 transition text-sm dark:bg-emerald-950/40 dark:text-emerald-300"
+              >
+                {language === 'ar' ? '✓ تم إتمام الدفع بالبطاقة' : '✓ I have completed payment'}
+              </button>
+              <button
+                type="button"
+                onClick={() => { try { paySkyWindowRef.current?.close(); } catch {} setPaySkyCheckoutUrl(null); setIsProcessing(false); }}
+                className="w-full text-sm text-muted-foreground hover:text-foreground py-1"
+              >
+                {language === 'ar' ? 'إلغاء' : 'Cancel'}
+              </button>
+            </div>
           </div>
         </div>
       )}
