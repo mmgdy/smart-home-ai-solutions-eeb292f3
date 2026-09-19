@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { ArrowLeft, ArrowRight, CreditCard, Truck, Shield, Loader2, Gift, CheckCircle, LogIn, Wrench, Tag, X as XIcon } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CreditCard, Banknote, Truck, Shield, Loader2, Gift, CheckCircle, LogIn, Wrench, Tag, X as XIcon } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -49,7 +49,7 @@ const Checkout = () => {
   const [couponCode, setCouponCode] = useState('');
   const [couponLoading, setCouponLoading] = useState(false);
   const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discountType: 'percentage' | 'fixed'; discountValue: number } | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<'card'>('card');
+  const [paymentMethod, setPaymentMethod] = useState<'card' | 'cod'>('card');
   const [paySkyCheckoutUrl, setPaySkyCheckoutUrl] = useState<string | null>(null);
   const [paySkyOrderId, setPaySkyOrderId] = useState<string | null>(null);
   const paySkyWindowRef = useRef<Window | null>(null);
@@ -360,6 +360,7 @@ const Checkout = () => {
       const secureHash = Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
 
       // Build the PaySky hosted checkout URL:
+      const returnUrl = `${window.location.origin}/checkout`;
       const params = new URLSearchParams({
         MID,
         TID,
@@ -367,6 +368,10 @@ const Checkout = () => {
         trxDateTime: dateTimeLocalTrxn,
         MerchantReference: merchantRef,
         secureHashAnonymous: secureHash,
+        OrderID: order.id,
+        returnUrl: returnUrl,
+        CustomerEmail: formData.email?.trim() || '',
+        CustomerMobile: formData.phone?.trim() || '',
       });
       const url = `https://cube.paysky.io:6006/Home/LightboxHostedCheckout/?${params.toString()}`;
 
@@ -745,7 +750,7 @@ const Checkout = () => {
                             <div>
                               <p className="font-medium">{labels.cardPayment}</p>
                               <p className="text-sm text-muted-foreground">
-                                {language === 'ar' ? 'دفع آمن عبر PaySky' : 'Secure payment via PaySky'}
+                                {language === 'ar' ? 'دفع آمن عبر PaySky (فيزا / ماستركارد / ميزة)' : 'Secure payment via PaySky (Visa / Mastercard / Meeza)'}
                               </p>
                             </div>
                           </div>
@@ -757,6 +762,33 @@ const Checkout = () => {
                               <span className="block h-3.5 w-3.5 rounded-full bg-[#EB001B]" />
                               <span className="-ml-1.5 block h-3.5 w-3.5 rounded-full bg-[#F79E1B] mix-blend-multiply" />
                             </span>
+                          </div>
+                        </div>
+                      </Label>
+                    </div>
+
+                    {/* Cash on Delivery */}
+                    <div 
+                      className={`flex items-center space-x-4 p-4 rounded-lg border-2 transition-colors cursor-pointer ${
+                        paymentMethod === 'cod' 
+                          ? 'border-primary bg-primary/5' 
+                          : 'border-border hover:border-muted-foreground/50'
+                      }`}
+                      onClick={() => setPaymentMethod('cod')}
+                    >
+                      <RadioGroupItem value="cod" id="cod" />
+                      <Label htmlFor="cod" className="flex-1 cursor-pointer">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <Banknote className="h-5 w-5 text-primary" />
+                            <div>
+                              <p className="font-medium">
+                                {language === 'ar' ? 'الدفع عند الاستلام (نقداً)' : 'Cash on Delivery (COD)'}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                {language === 'ar' ? 'ادفع نقداً عند استلام الشحنة وتأكيد الطلب' : 'Pay in cash upon delivery of your order'}
+                              </p>
+                            </div>
                           </div>
                         </div>
                       </Label>
