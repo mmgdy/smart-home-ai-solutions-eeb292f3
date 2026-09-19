@@ -455,7 +455,7 @@ export default function Admin() {
           </TabsContent>
 
           <TabsContent value="payment" className="mt-6">
-            <PaymentSettings />
+            <PaymentSettings adminToken={token} />
           </TabsContent>
 
           <TabsContent value="prices" className="mt-6">

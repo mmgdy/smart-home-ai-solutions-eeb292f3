@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { CheckCircle, Package, Truck, MapPin, Mail, Phone, ArrowRight, ArrowLeft, Copy, Check } from 'lucide-react';
+import { CheckCircle, Package, Truck, MapPin, Mail, Phone, ArrowRight, ArrowLeft, Copy, Check, Smartphone, MessageCircle } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/lib/i18n';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useSiteInfo } from '@/hooks/useSiteInfo';
 
 interface OrderDetails {
   id: string;
@@ -21,6 +22,10 @@ interface OrderDetails {
     address: string;
     city: string;
     governorate: string;
+    paymentMethod?: string;
+    instapayReference?: string;
+    instapayReceiptUrl?: string;
+    notes?: string;
   };
   items: {
     id: string;
@@ -41,6 +46,7 @@ const OrderConfirmation = () => {
   const [orderConfirmed, setOrderConfirmed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const { get: getInfo } = useSiteInfo();
 
   const NextArrow = isRTL ? ArrowLeft : ArrowRight;
 
@@ -339,6 +345,51 @@ const OrderConfirmation = () => {
                     </div>
                   </div>
                 </div>
+
+                {/* InstaPay Verification Card */}
+                {order.shipping_address?.paymentMethod === 'instapay' && (
+                  <div className="rounded-xl border border-purple-300 dark:border-purple-800 bg-purple-50/50 dark:bg-purple-950/30 p-6 space-y-3">
+                    <div className="flex items-center gap-2 text-purple-900 dark:text-purple-200 font-semibold">
+                      <Smartphone className="h-5 w-5 text-purple-600" />
+                      <h3>{language === 'ar' ? 'تأكيد الدفع عبر إنستاباي' : 'InstaPay Payment Verification'}</h3>
+                    </div>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      {language === 'ar'
+                        ? 'إذا لم تكن قد قمت بالتحويل بعد، يرجى تحويل إجمالي الطلب إلى عنوان إنستاباي التالي:'
+                        : 'If you have not yet completed the transfer, please transfer the order total to the following InstaPay address:'}
+                    </p>
+                    <div className="bg-white dark:bg-card p-3 rounded-lg border border-purple-200 dark:border-purple-900 flex items-center justify-between">
+                      <div>
+                        <span className="text-xs text-muted-foreground block">{language === 'ar' ? 'عنوان إنستاباي (IPA):' : 'InstaPay Address (IPA):'}</span>
+                        <span className="font-mono font-bold text-sm text-foreground">
+                          {getInfo('payment', 'instapay_address', 'azkasmart@instapay')}
+                        </span>
+                      </div>
+                      <code className="text-xs bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 px-2 py-1 rounded font-bold">
+                        {formatPrice(order.total)}
+                      </code>
+                    </div>
+                    {order.shipping_address?.instapayReference && (
+                      <p className="text-xs text-muted-foreground">
+                        <span>{language === 'ar' ? 'الرقم المرجعي للتحويل:' : 'Transfer Reference:'} </span>
+                        <strong className="text-foreground font-mono">{order.shipping_address.instapayReference}</strong>
+                      </p>
+                    )}
+                    <a
+                      href={`https://wa.me/${getInfo('contact', 'whatsapp', '201050627310').replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+                        language === 'ar'
+                          ? `مرحباً أزكاسمارت، أود تأكيد الدفع عبر إنستاباي للطلب رقم: ${order.id.slice(0, 8).toUpperCase()} بمبلغ ${order.total} ج.م`
+                          : `Hello AzkaSmart, I would like to confirm my InstaPay payment for Order #${order.id.slice(0, 8).toUpperCase()} (${order.total} EGP)`
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-sm transition shadow-sm"
+                    >
+                      <MessageCircle className="h-4 w-4" />
+                      {language === 'ar' ? 'إرسال صورة الإيصال عبر واتساب لتأكيد الشحن فوراً' : 'Send Transfer Screenshot via WhatsApp'}
+                    </a>
+                  </div>
+                )}
               </div>
             </div>
 

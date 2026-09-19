@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Package, Eye, Truck, CheckCircle, Clock, CreditCard, Banknote, Loader2, X, RefreshCcw, Trash2 } from 'lucide-react';
+import { Package, Eye, Truck, CheckCircle, Clock, CreditCard, Banknote, Loader2, X, RefreshCcw, Trash2, Smartphone, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -137,9 +137,13 @@ export const OrdersManagement = ({ adminToken }: Props) => {
     });
 
   const getPaymentMethod = (order: Order) => {
-    if (order.stripe_session_id?.startsWith('cod_')) return { type: 'cod', label: 'Cash on Delivery', icon: Banknote };
-    if (order.stripe_session_id) return { type: 'card', label: 'Online Payment', icon: CreditCard };
-    return { type: 'cod', label: 'Cash on Delivery', icon: Banknote };
+    const pm = order.shipping_address?.paymentMethod;
+    if (pm === 'instapay') return { type: 'instapay', label: 'InstaPay', icon: Smartphone, color: 'bg-purple-100 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-800' };
+    if (pm === 'card') return { type: 'card', label: 'Card (PaySky)', icon: CreditCard, color: 'bg-blue-100 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-800' };
+    if (pm === 'cod') return { type: 'cod', label: 'Cash on Delivery', icon: Banknote, color: 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800' };
+    if (order.stripe_session_id?.startsWith('cod_')) return { type: 'cod', label: 'Cash on Delivery', icon: Banknote, color: 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800' };
+    if (order.stripe_session_id) return { type: 'card', label: 'Online Payment', icon: CreditCard, color: 'bg-blue-100 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-800' };
+    return { type: 'cod', label: 'Cash on Delivery', icon: Banknote, color: 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800' };
   };
 
   if (loading) {
@@ -185,7 +189,7 @@ export const OrdersManagement = ({ adminToken }: Props) => {
                         <StatusIcon className="w-3 h-3 inline mr-1" />
                         {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
                       </span>
-                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-muted text-muted-foreground">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium border ${payment.color || 'bg-muted text-muted-foreground'}`}>
                         <PaymentIcon className="w-3 h-3 inline mr-1" />
                         {payment.label}
                       </span>
@@ -290,6 +294,40 @@ export const OrdersManagement = ({ adminToken }: Props) => {
                           {selectedOrder.shipping_address.address}, {selectedOrder.shipping_address.city}, {selectedOrder.shipping_address.governorate}
                         </p>
                       </div>
+                      {selectedOrder.shipping_address.notes && (
+                        <div className="col-span-2 p-3 bg-muted/40 rounded-lg border border-border">
+                          <p className="text-muted-foreground text-xs font-semibold mb-1">Delivery Notes</p>
+                          <p className="font-medium text-foreground">{selectedOrder.shipping_address.notes}</p>
+                        </div>
+                      )}
+                      <div className="col-span-2 pt-2 border-t border-border">
+                        <p className="text-muted-foreground text-xs font-semibold mb-1">Payment Method</p>
+                        <div className="flex items-center gap-2">
+                          <span className={`px-2.5 py-1 rounded-md text-xs font-semibold border ${getPaymentMethod(selectedOrder).color}`}>
+                            {getPaymentMethod(selectedOrder).label}
+                          </span>
+                        </div>
+                      </div>
+                      {selectedOrder.shipping_address.instapayReference && (
+                        <div>
+                          <p className="text-muted-foreground">InstaPay Reference</p>
+                          <p className="font-mono font-bold text-foreground">{selectedOrder.shipping_address.instapayReference}</p>
+                        </div>
+                      )}
+                      {selectedOrder.shipping_address.instapayReceiptUrl && (
+                        <div>
+                          <p className="text-muted-foreground mb-1">InstaPay Receipt</p>
+                          <a
+                            href={selectedOrder.shipping_address.instapayReceiptUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 text-xs text-primary font-medium hover:underline bg-primary/5 px-2.5 py-1.5 rounded-md border border-primary/20"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            View Receipt Image
+                          </a>
+                        </div>
+                      )}
                     </>
                   )}
                 </div>
