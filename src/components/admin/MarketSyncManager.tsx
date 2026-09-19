@@ -123,11 +123,46 @@ export const MarketSyncManager: React.FC<Props> = ({ adminToken, onProductAdded 
     }
   };
 
+  const sanitizeSourceInputUrl = (raw: string): string => {
+    try {
+      const u = new URL(raw.trim());
+      if (u.hostname.includes('amazon')) {
+        const dropParams = ['ref', 'language', 'pf_rd_r', 'pf_rd_p', 'pf_rd_m', 'pf_rd_s', 'pf_rd_t', 'sprefix', 'crid', 'qid', 'tag', 'linkCode'];
+        for (const p of dropParams) u.searchParams.delete(p);
+      }
+      return u.toString();
+    } catch {
+      return raw.trim();
+    }
+  };
+
   const handleAddSource = async () => {
     if (!newSourceUrl.trim()) return;
     setIsAddingSource(true);
     try {
-      const data = await callSourcesApi('add-source', { url: newSourceUrl.trim(), name: newSourceName.trim() });
+      const cleanUrl = sanitizeSourceInputUrl(newSourceUrl);
+      let autoName = newSourceName.trim();
+      if (!autoName) {
+        try {
+          const u = new URL(cleanUrl);
+          const k = u.searchParams.get('k') || u.searchParams.get('field-keywords');
+          if (u.hostname.includes('amazon')) {
+            autoName = k ? `Amazon Egypt - ${decodeURIComponent(k)}` : 'Amazon Egypt';
+          } else if (u.hostname.includes('noon')) {
+            autoName = 'Noon Egypt';
+          } else if (u.hostname.includes('jumia')) {
+            autoName = 'Jumia Egypt';
+          } else if (u.hostname.includes('smartzoom')) {
+            autoName = 'SmartZoom Egypt';
+          } else {
+            autoName = u.hostname.replace('www.', '');
+          }
+        } catch {
+          autoName = 'Sync Source';
+        }
+      }
+
+      const data = await callSourcesApi('add-source', { url: cleanUrl, name: autoName });
       if (data?.success) {
         setNewSourceUrl('');
         setNewSourceName('');
@@ -171,16 +206,24 @@ export const MarketSyncManager: React.FC<Props> = ({ adminToken, onProductAdded 
     try {
       const data = await callSourcesApi('sync-source', { source_id: id });
       setSyncResults(data?.results || []);
+      const is503 = (data?.error || '').includes('503');
       toast({
-        title: data?.success ? 'Sync Complete' : 'Sync Error',
+        title: data?.success ? 'Sync Complete' : (is503 ? 'Anti-Bot Fallback Engaged' : 'Sync Notice'),
         description: data?.success
           ? `Found ${data.productsFound} products, added ${data.productsAdded} new.`
-          : data?.error,
+          : (is503 ? 'Amazon Egypt anti-bot challenged direct request. Search engine fallback active.' : data?.error),
         variant: data?.success ? 'default' : 'destructive',
       });
       if (onProductAdded) onProductAdded();
     } catch (e: any) {
-      toast({ title: 'Sync Failed', description: e.message, variant: 'destructive' });
+      const is503 = String(e?.message || '').includes('503');
+      toast({
+        title: is503 ? 'Amazon Anti-Bot Fallback (503)' : 'Sync Failed',
+        description: is503
+          ? 'Amazon.eg blocked automated datacenter access. Search discovery fallback is engaged for this source.'
+          : e.message,
+        variant: 'destructive',
+      });
     } finally {
       setSyncingSourceId(null);
       await loadSyncSources();
@@ -819,6 +862,7 @@ export const MarketSyncManager: React.FC<Props> = ({ adminToken, onProductAdded 
                     amazon: '🛒',
                     noon: '🟡',
                     jumia: '🟠',
+                    smartzoom: '⚡',
                     btech: '🔵',
                   }[src.source_type] || '🌐';
 

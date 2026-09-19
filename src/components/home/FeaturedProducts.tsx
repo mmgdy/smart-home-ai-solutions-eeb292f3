@@ -10,8 +10,6 @@ import { useLanguage } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 
-import { cairoSupplierService } from '@/data/cairoSupplierService';
-
 export function FeaturedProducts() {
   const { t, isRTL } = useLanguage();
 
@@ -30,11 +28,32 @@ export function FeaturedProducts() {
     staleTime: 5 * 60 * 1000,
   });
 
+  const { data: rawProducts } = useQuery({
+    queryKey: ['featured-products'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*, categories(*)')
+        .is('parent_id', null)
+        .order('featured', { ascending: false })
+        .limit(16);
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const products = useMemo(() => {
-    const catalog = cairoSupplierService.getCleanSmartHomeCatalog();
+    if (!rawProducts) return [];
     const hiddenSet = new Set(hiddenIds ?? []);
-    return catalog.filter((p) => !hiddenSet.has(p.id)).slice(0, 8);
-  }, [hiddenIds]);
+    return (rawProducts as any[])
+      .filter((p) => !hiddenSet.has(p.id))
+      .map((p) => ({
+        ...p,
+        category: p.categories || p.category,
+        images: Array.isArray(p.images) && p.images.length > 0 ? p.images : p.image_url ? [p.image_url] : [],
+      }))
+      .slice(0, 8) as Product[];
+  }, [rawProducts, hiddenIds]);
 
   return (
     <section className="py-20 bg-background relative overflow-hidden">

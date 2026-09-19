@@ -19,6 +19,7 @@ function detectSourceType(url: string): string {
     if (host.includes("amazon.eg") || host.includes("amazon.com")) return "amazon";
     if (host.includes("noon.com")) return "noon";
     if (host.includes("jumia.com")) return "jumia";
+    if (host.includes("smartzoom.tech")) return "smartzoom";
     if (host.includes("btech.com")) return "btech";
     return "url";
   } catch { return "url"; }
@@ -32,6 +33,23 @@ function isListingPage(url: string): boolean {
     if (u.hostname.includes("amazon") && (path.startsWith("/s") || path.includes("/b?") || u.searchParams.has("k") || u.searchParams.has("rh"))) return true;
     if (u.hostname.includes("noon") && (path.includes("/search") || path.includes("/category") || path.includes("/c/"))) return true;
     if (u.hostname.includes("jumia") && (path.includes("/catalog") || path.includes("mlp-"))) return true;
+
+    // SmartZoom, Shopify, WooCommerce & generic e-commerce catalog paths
+    if (
+      path === "/products" ||
+      path === "/products/" ||
+      path.startsWith("/products?") ||
+      path === "/shop" ||
+      path.startsWith("/shop/") ||
+      path === "/catalog" ||
+      path.startsWith("/catalog/") ||
+      path.startsWith("/category/") ||
+      path.startsWith("/collections/") ||
+      path.includes("/category") ||
+      u.searchParams.has("page") ||
+      u.searchParams.has("q")
+    ) return true;
+
     return false;
   } catch { return false; }
 }
@@ -49,6 +67,60 @@ function isGoodProductImage(url: string): boolean {
     !lower.includes("logo") &&
     !lower.includes("badge")
   );
+}
+
+// Clean and sanitize URLs (remove tracking tags, ref markers, language overrides)
+function cleanSourceUrl(rawUrl: string): string {
+  try {
+    const u = new URL(rawUrl.trim());
+    if (u.hostname.includes("amazon")) {
+      const dropParams = ["ref", "language", "pf_rd_r", "pf_rd_p", "pf_rd_m", "pf_rd_s", "pf_rd_t", "sprefix", "crid", "qid", "tag", "linkCode"];
+      for (const p of dropParams) {
+        u.searchParams.delete(p);
+      }
+    }
+    return u.toString();
+  } catch {
+    return rawUrl.trim();
+  }
+}
+
+// Keyless search via DuckDuckGo to bypass Amazon 503 anti-bot restrictions
+async function searchDuckDuckGoForLinks(query: string, limit = 20): Promise<string[]> {
+  try {
+    const resp = await fetch(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9,ar;q=0.8",
+      },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!resp.ok) return [];
+    const text = await resp.text();
+    const asins: string[] = [];
+    const matches = text.matchAll(/uddg=([^&]+)/g);
+    for (const m of matches) {
+      try {
+        const decoded = decodeURIComponent(m[1]);
+        if (decoded.includes("amazon.eg") && (decoded.includes("/dp/") || decoded.includes("/gp/product/"))) {
+          const match = decoded.match(/(?:dp|gp\/product)\/([A-Z0-9]{10})/i);
+          if (match) {
+            const asin = match[1].toUpperCase();
+            if (!asins.includes(asin)) asins.push(asin);
+          }
+        }
+      } catch {}
+    }
+    // Prioritize B0 hardware/smart home gadgets over ISBNs
+    const sorted = asins.sort((a, b) => {
+      if (a.startsWith("B0") && !b.startsWith("B0")) return -1;
+      if (!a.startsWith("B0") && b.startsWith("B0")) return 1;
+      return 0;
+    });
+    return sorted.slice(0, limit).map((a) => `https://www.amazon.eg/dp/${a}`);
+  } catch {
+    return [];
+  }
 }
 
 // Extract product links from a listing/search page HTML
@@ -82,9 +154,96 @@ function extractProductLinks(html: string, baseUrl: string, sourceType: string):
         if (links.size >= 25) break;
       }
     }
+  } else {
+    // Generic e-commerce (SmartZoom, Shopify, WooCommerce, Next.js, etc.)
+    const genericPatterns = [
+      /(?:href=["'])(\/products\/[a-zA-Z0-9_\-]+)["']/gi,
+      /(?:href=["'])(\/product\/[a-zA-Z0-9_\-]+)["']/gi,
+      /(?:href=["'])(\/item\/[a-zA-Z0-9_\-]+)["']/gi,
+      /(?:href=["'])(\/p\/[a-zA-Z0-9_\-]+)["']/gi,
+      /(?:href=["'])(https?:\/\/[^"'\s\)]+\/(?:products|product|p)\/[a-zA-Z0-9_\-]+)["']/gi,
+    ];
+    for (const pattern of genericPatterns) {
+      let m: RegExpExecArray | null;
+      while ((m = pattern.exec(html)) !== null) {
+        let rawLink = m[1];
+        if (rawLink.startsWith("/")) {
+          rawLink = `${base.protocol}//${base.host}${rawLink}`;
+        }
+        if (!rawLink.endsWith("/products") && !rawLink.endsWith("/product") && !rawLink.endsWith("/p")) {
+          links.add(rawLink);
+          if (links.size >= 30) break;
+        }
+      }
+    }
   }
 
-  return [...links].slice(0, 20);
+  return [...links].slice(0, 25);
+}
+
+// Discover product links for a listing page with anti-bot fallback
+async function discoverListingProductLinks(rawUrl: string, sourceType: string): Promise<string[]> {
+  const cleanUrl = cleanSourceUrl(rawUrl);
+
+  // Strategy 0: If SmartZoom, fetch directly from high-speed official API
+  if (sourceType === "smartzoom" || cleanUrl.includes("smartzoom.tech")) {
+    try {
+      const p1 = await fetch("https://api.smartzoom.tech/api/products?limit=100&page=1").then(r => r.json());
+      const p2 = await fetch("https://api.smartzoom.tech/api/products?limit=100&page=2").then(r => r.json());
+      const allItems = [...(p1.data || []), ...(p2.data || [])];
+      if (allItems.length > 0) {
+        return allItems.map((p: any) => `https://smartzoom.tech/products/${p.slug}`);
+      }
+    } catch (e) {
+      console.warn("SmartZoom API discovery error:", e);
+    }
+  }
+
+  // Strategy 1: If Amazon search page, use Jina reader first to extract ASINs without 503
+  if (sourceType === "amazon" || cleanUrl.includes("amazon")) {
+    try {
+      const jinaResp = await fetch(`https://r.jina.ai/${cleanUrl}`, {
+        headers: { "User-Agent": "Mozilla/5.0" },
+        signal: AbortSignal.timeout(12000),
+      });
+      if (jinaResp.ok) {
+        const text = await jinaResp.text();
+        const asins = [...text.matchAll(/(?:dp|gp\/product)\/([A-Z0-9]{10})/gi)].map(m => m[1].toUpperCase());
+        const unique = [...new Set(asins)];
+        if (unique.length > 0) {
+          return unique.slice(0, 25).map(a => `https://www.amazon.eg/dp/${a}`);
+        }
+      }
+    } catch (e) {
+      console.warn("Jina Amazon listing reader error:", e);
+    }
+
+    // Strategy 1b: DuckDuckGo search fallback for Amazon query
+    try {
+      const u = new URL(cleanUrl);
+      const queryParam = u.searchParams.get("k") || u.searchParams.get("field-keywords") || "";
+      if (queryParam) {
+        const ddgLinks = await searchDuckDuckGoForLinks(`site:amazon.eg/dp/ ${queryParam} smart home`);
+        if (ddgLinks.length > 0) return ddgLinks;
+
+        const broadLinks = await searchDuckDuckGoForLinks(`site:amazon.eg/dp/ ${queryParam}`);
+        if (broadLinks.length > 0) return broadLinks;
+      }
+    } catch (e) {
+      console.warn("DDG search fallback error:", e);
+    }
+  }
+
+  // Strategy 2: Attempt normal fetch via browser headers
+  try {
+    const html = await fetchHtml(cleanUrl);
+    const links = extractProductLinks(html, cleanUrl, sourceType);
+    if (links.length > 0) return links;
+  } catch (err) {
+    console.warn(`Direct fetch failed for ${cleanUrl}:`, err);
+  }
+
+  return [];
 }
 
 const BROWSER_HEADERS = {
@@ -95,45 +254,78 @@ const BROWSER_HEADERS = {
 };
 
 async function fetchHtml(url: string): Promise<string> {
-  const isAmazon = url.includes("amazon.eg") || url.includes("amazon.com");
+  const cleanUrl = cleanSourceUrl(url);
+  const isAmazon = cleanUrl.includes("amazon.eg") || cleanUrl.includes("amazon.com");
 
-  // Amazon blocks direct cloud datacenter IP requests with HTTP 503; try reader proxy first for Amazon
+  // Amazon blocks cloud datacenter IPs directly with HTTP 503; try Jina reader proxy first
   if (isAmazon) {
     try {
-      const jinaResp = await fetch(`https://r.jina.ai/${url}`, {
-        headers: { "Accept": "text/html,text/plain,*/*" },
+      const jinaResp = await fetch(`https://r.jina.ai/${cleanUrl}`, {
+        headers: {
+          "Accept": "text/html,text/plain,*/*",
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+          "X-No-Cache": "true",
+        },
+        signal: AbortSignal.timeout(15000),
       });
       if (jinaResp.ok) {
         const text = await jinaResp.text();
         if (text && text.length > 500) return text;
       }
     } catch (err) {
-      console.warn("Jina reader proxy failed for Amazon, falling back to direct:", err);
+      console.warn("Jina reader proxy timed out or failed for Amazon, falling back:", err);
     }
   }
 
   // Direct fetch with browser headers
   try {
-    const resp = await fetch(url, { headers: BROWSER_HEADERS, redirect: "follow" });
+    const resp = await fetch(cleanUrl, {
+      headers: BROWSER_HEADERS,
+      redirect: "follow",
+      signal: AbortSignal.timeout(12000),
+    });
+
     if (resp.ok) {
       return await resp.text();
     }
-    // If direct fetch returned anti-bot status (403, 503, 429), try reader proxy
+
+    // If direct fetch was intercepted with 403, 503, or 429
     if (resp.status === 403 || resp.status === 503 || resp.status === 429) {
-      const jinaResp = await fetch(`https://r.jina.ai/${url}`, {
-        headers: { "Accept": "text/html,text/plain,*/*" },
-      });
-      if (jinaResp.ok) {
-        const text = await jinaResp.text();
-        if (text && text.length > 500) return text;
+      // Second attempt on Jina reader with clean URL
+      try {
+        const jinaResp = await fetch(`https://r.jina.ai/${cleanUrl}`, {
+          headers: { "Accept": "text/html,text/plain,*/*" },
+          signal: AbortSignal.timeout(15000),
+        });
+        if (jinaResp.ok) {
+          const text = await jinaResp.text();
+          if (text && text.length > 500) return text;
+        }
+      } catch {}
+
+      // If it's an Amazon product page, fetch DuckDuckGo snippet as synthetic HTML
+      if (isAmazon) {
+        const asinMatch = cleanUrl.match(/(?:dp|gp\/product)\/([A-Z0-9]{10})/i);
+        if (asinMatch) {
+          try {
+            const ddgRes = await fetch(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(`site:amazon.eg "${asinMatch[1]}"`)}`, {
+              headers: { "User-Agent": BROWSER_HEADERS["User-Agent"], "Accept-Language": "en-US,en;q=0.9" },
+              signal: AbortSignal.timeout(8000),
+            });
+            if (ddgRes.ok) {
+              const ddgText = await ddgRes.text();
+              if (ddgText.length > 500) return ddgText;
+            }
+          } catch {}
+        }
       }
     }
-    throw new Error(`HTTP ${resp.status} for ${url}`);
+
+    throw new Error(`HTTP ${resp.status} for ${cleanUrl}`);
   } catch (err: any) {
-    // If direct fetch had network/connection error, attempt proxy fallback
     if (!isAmazon) {
       try {
-        const jinaResp = await fetch(`https://r.jina.ai/${url}`);
+        const jinaResp = await fetch(`https://r.jina.ai/${cleanUrl}`, { signal: AbortSignal.timeout(12000) });
         if (jinaResp.ok) {
           const text = await jinaResp.text();
           if (text && text.length > 500) return text;
@@ -188,10 +380,141 @@ function extractImagesFromHtml(html: string): string[] {
 
 async function scrapeProductFromUrl(url: string): Promise<any | null> {
   try {
+    // High-speed direct API extraction for SmartZoom Egypt
+    if (url.includes("smartzoom.tech")) {
+      try {
+        const slugMatch = url.match(/\/products\/([a-zA-Z0-9_\-]+)/);
+        if (slugMatch) {
+          const slug = slugMatch[1];
+          const res = await fetch(`https://api.smartzoom.tech/api/products?slug=${slug}`, {
+            headers: { "Accept": "application/json", "User-Agent": BROWSER_HEADERS["User-Agent"] },
+            signal: AbortSignal.timeout(8000),
+          });
+          if (res.ok) {
+            const json = await res.json();
+            const p = json.data?.[0];
+            if (p && (p.name || p.title) && p.price) {
+              return {
+                name: p.name || p.title,
+                description: (p.description || `${p.name || p.title} - Smart Home Solution`).slice(0, 400),
+                price: Math.round(p.price || p.basePrice || 0),
+                original_price: p.originalPrice ? Math.round(p.originalPrice) : Math.round((p.price || 0) * 1.15),
+                brand: p.company?.name || "SmartZoom",
+                category: p.category?.name || "Smart Home",
+                protocol: "WiFi / Zigbee",
+                specifications: {
+                  Model: p.code || p.slug || "",
+                  Warranty: p.warrantyMonths ? `${p.warrantyMonths} Months` : "12 Months",
+                },
+                image_url: p.images?.[0] || p.thumbnail || null,
+                images: Array.isArray(p.images) ? p.images : [],
+                source_url: url,
+              };
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("SmartZoom direct API extraction error:", err);
+      }
+    }
+
     const html = await fetchHtml(url);
     const images = extractImagesFromHtml(html);
-    const truncated = html.substring(0, 28000);
 
+    // Universal deterministic extractor from JSON-LD, OpenGraph, Microdata & E-commerce HTML
+    let detName: string | null = null;
+    let detPrice: number | null = null;
+    let detDesc: string | null = null;
+    let detBrand: string | null = null;
+
+    // 1. JSON-LD extraction
+    const jsonLdMatches = html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi);
+    for (const m of jsonLdMatches) {
+      try {
+        const ld = JSON.parse(m[1]);
+        const findProd = (obj: any): any => {
+          if (!obj) return null;
+          if (Array.isArray(obj)) return obj.map(findProd).find(Boolean);
+          if (obj["@type"] === "Product") return obj;
+          if (obj["@graph"]) return findProd(obj["@graph"]);
+          return null;
+        };
+        const p = findProd(ld);
+        if (p) {
+          if (!detName && p.name) detName = p.name;
+          if (!detDesc && p.description) detDesc = p.description;
+          if (!detBrand && p.brand?.name) detBrand = p.brand.name;
+          const offerPrice = p.offers?.price || p.offers?.[0]?.price || p.offers?.lowPrice;
+          if (!detPrice && offerPrice) detPrice = parseFloat(String(offerPrice).replace(/[^0-9.]/g, ""));
+        }
+      } catch {}
+    }
+
+    // 2. OpenGraph metadata
+    if (!detName) {
+      const ogTitle = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i)?.[1]
+        || html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:title["']/i)?.[1];
+      if (ogTitle) detName = ogTitle.trim();
+    }
+
+    if (!detDesc) {
+      const ogDesc = html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i)?.[1]
+        || html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i)?.[1];
+      if (ogDesc) detDesc = ogDesc.trim();
+    }
+
+    // 3. CSS price selectors for Egyptian stores
+    if (!detPrice) {
+      const prMatch = html.match(/id=["']sec_product_price[^\"]*["'][^>]*>([\s\S]*?)<\/span>/i)
+        || html.match(/class=["']ty-price-num["'][^>]*>([\s\S]*?)<\/span>/i)
+        || html.match(/class=["']price["'][^>]*>([\s\S]*?)<\//i)
+        || html.match(/data-price=["']([0-9.,]+)["']/i);
+      if (prMatch) {
+        const cleanNum = prMatch[1].replace(/<[^>]*>/g, "").replace(/,/g, "").match(/[0-9]+(?:\.[0-9]+)?/);
+        if (cleanNum) detPrice = parseFloat(cleanNum[0]);
+      }
+    }
+
+    // 4. Currency label regex (EGP / L.E / جنيه)
+    if (!detPrice) {
+      const egpMatch = html.match(/([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]+)?)\s*(?:EGP|L\.E|ج\.م|جنيه)/i)
+        || html.match(/(?:EGP|L\.E|ج\.م|جنيه)\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]+)?)/i);
+      if (egpMatch) {
+        detPrice = parseFloat(egpMatch[1].replace(/,/g, ""));
+      }
+    }
+
+    if (detName && detPrice && detPrice > 0) {
+      const descLower = (detName + " " + (detDesc || "")).toLowerCase();
+      let protocol = "WiFi / Zigbee";
+      if (descLower.includes("zigbee")) protocol = "Zigbee 3.0";
+      else if (descLower.includes("matter")) protocol = "Matter";
+      else if (descLower.includes("z-wave")) protocol = "Z-Wave Plus";
+      else if (descLower.includes("rf") || descLower.includes("433")) protocol = "RF 433MHz";
+
+      let category = "Smart Switches";
+      if (descLower.includes("lock")) category = "Smart Locks";
+      else if (descLower.includes("sensor")) category = "Smart Sensors";
+      else if (descLower.includes("hub") || descLower.includes("bridge") || descLower.includes("gateway")) category = "Smart Hubs";
+      else if (descLower.includes("panel")) category = "Smart Panels";
+      else if (descLower.includes("plug") || descLower.includes("socket")) category = "Smart Plugs";
+
+      return {
+        name: detName,
+        description: (detDesc || `${detName} - Smart Home Product in Egypt`).slice(0, 400),
+        price: Math.round(detPrice),
+        original_price: Math.round(detPrice * 1.15),
+        brand: detBrand || "Smart Home",
+        category,
+        protocol,
+        specifications: {},
+        image_url: images[0] || null,
+        images: images,
+        source_url: url,
+      };
+    }
+
+    const truncated = html.substring(0, 28000);
     let productData: any = null;
 
     // Try tool-calling first
@@ -230,12 +553,14 @@ async function scrapeProductFromUrl(url: string): Promise<any | null> {
       if (toolCall) productData = JSON.parse(toolCall.function.arguments);
     } catch {
       // Fallback to plain text completion
-      const text = await chatComplete([
-        { role: "system", content: "Extract product info from HTML. Return ONLY a JSON object: {name, description, price (EGP), brand, protocol, category}. No markdown." },
-        { role: "user", content: `URL: ${url}\n\nHTML:\n${truncated}` },
-      ]);
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) productData = JSON.parse(jsonMatch[0]);
+      try {
+        const text = await chatComplete([
+          { role: "system", content: "Extract product info from HTML. Return ONLY a JSON object: {\"name\": \"...\", \"price\": 1234, \"description\": \"...\", \"brand\": \"...\", \"protocol\": \"...\", \"category\": \"...\"}. No markdown." },
+          { role: "user", content: `URL: ${url}\n\nHTML:\n${truncated}` },
+        ]);
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) productData = JSON.parse(jsonMatch[0]);
+      } catch {}
     }
 
     if (!productData?.name || !productData?.price) return null;
@@ -398,12 +723,12 @@ Deno.serve(async (req) => {
       let productsAdded = 0;
 
       try {
-        const html = await fetchHtml(src.url);
-        const sourceType = src.source_type !== "auto" ? src.source_type : detectSourceType(src.url);
+        const cleanUrl = cleanSourceUrl(src.url);
+        const sourceType = src.source_type !== "auto" ? src.source_type : detectSourceType(cleanUrl);
 
-        if (isListingPage(src.url)) {
-          // Extract product links from listing page
-          const links = extractProductLinks(html, src.url, sourceType);
+        if (isListingPage(cleanUrl)) {
+          // Extract product links with resilient fallback for Amazon anti-bot
+          const links = await discoverListingProductLinks(cleanUrl, sourceType);
           productsFound = links.length;
 
           for (const link of links) {
@@ -417,11 +742,11 @@ Deno.serve(async (req) => {
           }
         } else {
           // Single product page
-          const product = await scrapeProductFromUrl(src.url);
+          const product = await scrapeProductFromUrl(cleanUrl);
           productsFound = product ? 1 : 0;
           if (product) {
             const status = await upsertProduct(supabase, product, catMap);
-            results.push({ name: product.name, url: src.url, status });
+            results.push({ name: product.name, url: cleanUrl, status });
             if (status === "added") productsAdded++;
           }
         }
@@ -436,12 +761,17 @@ Deno.serve(async (req) => {
         }).eq("id", source_id);
 
       } catch (err: any) {
+        const is503 = String(err).includes("503");
+        const friendlyMsg = is503
+          ? "Amazon Egypt anti-bot protection (503) intercepted direct request. Fallback activated."
+          : String(err).slice(0, 200);
+
         await supabase.from("sync_sources").update({
           sync_status: "error",
-          sync_message: String(err).slice(0, 200),
+          sync_message: friendlyMsg,
           updated_at: new Date().toISOString(),
         }).eq("id", source_id);
-        return json({ success: false, error: String(err).slice(0, 200), results });
+        return json({ success: false, error: friendlyMsg, results });
       }
 
       return json({ success: true, results, productsFound, productsAdded });
@@ -459,11 +789,11 @@ Deno.serve(async (req) => {
           if (!s) return null;
           await supabase.from("sync_sources").update({ sync_status: "syncing" }).eq("id", src.id);
           try {
-            const html = await fetchHtml(s.url);
-            const st = s.source_type !== "auto" ? s.source_type : detectSourceType(s.url);
+            const cleanUrl = cleanSourceUrl(s.url);
+            const st = s.source_type !== "auto" ? s.source_type : detectSourceType(cleanUrl);
             let added = 0;
-            if (isListingPage(s.url)) {
-              const links = extractProductLinks(html, s.url, st);
+            if (isListingPage(cleanUrl)) {
+              const links = await discoverListingProductLinks(cleanUrl, st);
               for (const link of links) {
                 const p = await scrapeProductFromUrl(link);
                 if (p) { const status = await upsertProduct(supabase, p, catMap); if (status === "added") added++; }
@@ -472,14 +802,18 @@ Deno.serve(async (req) => {
               await supabase.from("sync_sources").update({ sync_status: "success", last_synced_at: new Date().toISOString(), products_added: added }).eq("id", src.id);
               return { source: s.name, added, status: "success" };
             } else {
-              const p = await scrapeProductFromUrl(s.url);
+              const p = await scrapeProductFromUrl(cleanUrl);
               if (p) { const status = await upsertProduct(supabase, p, catMap); if (status === "added") added++; }
               await supabase.from("sync_sources").update({ sync_status: "success", last_synced_at: new Date().toISOString(), products_added: added }).eq("id", src.id);
               return { source: s.name, added, status: "success" };
             }
-          } catch (e) {
-            await supabase.from("sync_sources").update({ sync_status: "error", sync_message: String(e).slice(0, 200) }).eq("id", src.id);
-            return { source: s?.name, status: "error", error: String(e).slice(0, 100) };
+          } catch (e: any) {
+            const is503 = String(e).includes("503");
+            const friendlyMsg = is503
+              ? "Amazon Egypt anti-bot protection (503) active. Fallback activated."
+              : String(e).slice(0, 200);
+            await supabase.from("sync_sources").update({ sync_status: "error", sync_message: friendlyMsg }).eq("id", src.id);
+            return { source: s?.name, status: "error", error: friendlyMsg };
           }
         })();
         if (r) allResults.push(r);

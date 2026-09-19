@@ -20,6 +20,8 @@ dist-ssr
 *.local
 .tools/
 supabase/.temp/
+.*_temp
+*.temp
 
 # Helper scripts
 fix_ai_headers.py

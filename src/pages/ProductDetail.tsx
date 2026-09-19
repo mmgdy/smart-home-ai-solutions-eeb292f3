@@ -48,19 +48,37 @@ const ProductDetail = () => {
   const { data: master, isLoading } = useQuery({
     queryKey: ['product', slug],
     queryFn: async () => {
-      const cleanProd = cairoSupplierService.getProductBySlug(slug || '') || cairoSupplierService.getProductById(slug || '');
-      if (cleanProd) return cleanProd;
       try {
-        const { data, error } = await supabase
+        let { data, error } = await supabase
           .from('products')
-          .select('*')
+          .select('*, categories(*)')
           .eq('slug', slug)
           .maybeSingle();
-        if (!error && data) return data as Product;
+
+        if (!data && slug) {
+          const res = await supabase
+            .from('products')
+            .select('*, categories(*)')
+            .eq('id', slug)
+            .maybeSingle();
+          if (res.data) data = res.data;
+        }
+
+        if (data) {
+          return {
+            ...data,
+            category: (data as any).categories || (data as any).category,
+            images: Array.isArray((data as any).images) && (data as any).images.length > 0
+              ? (data as any).images
+              : (data as any).image_url ? [(data as any).image_url] : [],
+          } as Product;
+        }
       } catch (err) {
         console.warn('DB query failed:', err);
       }
-      return null;
+
+      const cleanProd = cairoSupplierService.getProductBySlug(slug || '') || cairoSupplierService.getProductById(slug || '');
+      return cleanProd || null;
     },
     enabled: !!slug,
   });

@@ -12,7 +12,6 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { supabase } from '@/integrations/supabase/client';
 import { Product, Category } from '@/types/store';
-import { cairoSupplierService } from '@/data/cairoSupplierService';
 import { useLanguage } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 
@@ -64,30 +63,45 @@ const Products = () => {
     );
   }, [rawCategories]);
 
-  // Products from Supabase (with fallback to local audit bundle)
-  const { data: supabaseProducts, isLoading: sbLoading } = useQuery({
+  const { data: hiddenIds } = useQuery({
+    queryKey: ['hidden-product-ids'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('site_info')
+        .select('value')
+        .eq('section', 'products')
+        .eq('key', 'hidden_ids')
+        .maybeSingle();
+      if (!data?.value) return [] as string[];
+      try { return JSON.parse(data.value) as string[]; } catch { return [] as string[]; }
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: rawProducts, isLoading } = useQuery({
     queryKey: ['products'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('products')
-        .select('*')
-        .eq('parent_id', null)
-        .eq('is_published', true)
-        .order('featured', { ascending: false })
-        .order('name');
+        .select('*, categories(*)')
+        .is('parent_id', null)
+        .order('featured', { ascending: false });
       if (error) throw error;
-      return data as Product[];
+      return data;
     },
   });
 
-  // Merge Supabase products with local audit catalog
   const products = useMemo<Product[]>(() => {
-    const supabaseList = supabaseProducts || [];
-    if (supabaseList.length > 0) return supabaseList;
-
-    // Fallback to local audit bundle
-    return cairoSupplierService.getCleanSmartHomeCatalog();
-  }, [supabaseProducts]);
+    if (!rawProducts) return [];
+    const hiddenSet = new Set(hiddenIds ?? []);
+    return (rawProducts as any[])
+      .filter((p) => !hiddenSet.has(p.id))
+      .map((p) => ({
+        ...p,
+        category: p.categories || p.category,
+        images: Array.isArray(p.images) && p.images.length > 0 ? p.images : p.image_url ? [p.image_url] : [],
+      })) as Product[];
+  }, [rawProducts, hiddenIds]);
 
   // Derive available brands/protocols from loaded products
   const availableBrands = useMemo(() => {

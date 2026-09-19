@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Globe, Loader2, Plus, ExternalLink, Check, Package } from 'lucide-react';
+import { Globe, Loader2, Plus, ExternalLink, Check, Package, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -46,6 +46,19 @@ export function ProductScraper({ adminToken }: { adminToken: string }) {
     setScrapedProduct(null);
     setSaved(false);
 
+    const cleanUrl = (() => {
+      try {
+        const u = new URL(url.trim());
+        if (u.hostname.includes('amazon')) {
+          const dropParams = ['ref', 'language', 'pf_rd_r', 'pf_rd_p', 'pf_rd_m', 'pf_rd_s', 'pf_rd_t', 'sprefix', 'crid', 'qid', 'tag', 'linkCode'];
+          for (const p of dropParams) u.searchParams.delete(p);
+        }
+        return u.toString();
+      } catch {
+        return url.trim();
+      }
+    })();
+
     try {
       const resp = await fetch(
         `${SUPABASE_URL}/functions/v1/scrape-product`,
@@ -55,7 +68,7 @@ export function ProductScraper({ adminToken }: { adminToken: string }) {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
           },
-          body: JSON.stringify({ url: url.trim(), adminToken }),
+          body: JSON.stringify({ url: cleanUrl, adminToken }),
         }
       );
 
@@ -74,10 +87,14 @@ export function ProductScraper({ adminToken }: { adminToken: string }) {
 
       toast({ title: 'Product extracted!', description: p.name });
     } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      const is503 = msg.includes('503');
       toast({
         variant: 'destructive',
-        title: 'Scrape failed',
-        description: err instanceof Error ? err.message : 'Unknown error',
+        title: is503 ? 'Amazon Anti-Bot Intercepted (503)' : 'Scrape failed',
+        description: is503
+          ? 'Amazon.eg blocked direct scraper request. Use a direct product link (amazon.eg/dp/ASIN) or sync the search query via "My Sync Sources".'
+          : msg,
       });
     } finally {
       setIsScraping(false);
@@ -173,7 +190,7 @@ export function ProductScraper({ adminToken }: { adminToken: string }) {
               <a
                 href={scrapedProduct.source_url}
                 target="_blank"
-                rel="noopener"
+                rel="noopener noreferrer"
                 className="text-xs text-primary hover:underline flex items-center gap-1 mt-1"
               >
                 <ExternalLink className="w-3 h-3" /> Source

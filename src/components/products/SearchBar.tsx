@@ -1,10 +1,12 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Search, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { useLanguage } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
-import { cairoSupplierService } from '@/data/cairoSupplierService';
+import { supabase } from '@/integrations/supabase/client';
+import { Product } from '@/types/store';
 
 interface SearchBarProps {
   value: string;
@@ -19,6 +21,20 @@ export function SearchBar({ value, onChange, className }: SearchBarProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const { t, formatPrice } = useLanguage();
 
+  const { data: searchProducts } = useQuery({
+    queryKey: ['search-products'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('products')
+        .select('id, name, slug, brand, price, image_url, protocol, description')
+        .is('parent_id', null)
+        .limit(250);
+      if (error) throw error;
+      return (data || []) as Product[];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
   // Debounce the parent onChange
   useEffect(() => {
     if (localValue === value) return;
@@ -31,12 +47,11 @@ export function SearchBar({ value, onChange, className }: SearchBarProps) {
     setLocalValue(value);
   }, [value]);
 
-  // Autocomplete suggestions from clean smart home catalog
+  // Autocomplete suggestions from live products
   const suggestions = useMemo(() => {
-    if (!localValue || localValue.length < 2 || !focused) return [];
+    if (!localValue || localValue.length < 2 || !focused || !searchProducts) return [];
     const q = localValue.toLowerCase();
-    const catalog = cairoSupplierService.getCleanSmartHomeCatalog();
-    return catalog
+    return searchProducts
       .filter(
         (p) =>
           p.name.toLowerCase().includes(q) ||
@@ -45,7 +60,7 @@ export function SearchBar({ value, onChange, className }: SearchBarProps) {
           p.description?.toLowerCase().includes(q)
       )
       .slice(0, 6);
-  }, [localValue, focused]);
+  }, [localValue, focused, searchProducts]);
 
   // Click outside to close
   useEffect(() => {
