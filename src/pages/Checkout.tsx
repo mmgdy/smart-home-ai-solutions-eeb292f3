@@ -67,6 +67,28 @@ const checkoutSchema = z.object({
 type CheckoutFormData = z.infer<typeof checkoutSchema>;
 
 
+const loadPaySkyScript = (): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    if (typeof window !== 'undefined' && (window as any).Lightbox?.Checkout) {
+      resolve();
+      return;
+    }
+    const existing = document.getElementById('paysky-lightbox-script');
+    if (existing) {
+      existing.addEventListener('load', () => resolve(), { once: true });
+      existing.addEventListener('error', () => reject(new Error('Failed to load PaySky script')), { once: true });
+      return;
+    }
+    const script = document.createElement('script');
+    script.id = 'paysky-lightbox-script';
+    script.src = 'https://cube.paysky.io:6006/js/LightBox.js';
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('Failed to load PaySky script'));
+    document.head.appendChild(script);
+  });
+};
+
 const Checkout = () => {
   const navigate = useNavigate();
   const { items, getTotal, clearCart } = useCart();
@@ -87,9 +109,6 @@ const Checkout = () => {
   const [instapayReceiptFile, setInstapayReceiptFile] = useState<File | null>(null);
   const [instapayReceiptPreview, setInstapayReceiptPreview] = useState<string | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
-  const [paySkyCheckoutUrl, setPaySkyCheckoutUrl] = useState<string | null>(null);
-  const [paySkyOrderId, setPaySkyOrderId] = useState<string | null>(null);
-  const paySkyWindowRef = useRef<Window | null>(null);
   const [includeInstallation, setIncludeInstallation] = useState(true);
 
   const payskyEnabled = getInfo('payment', 'paysky_enabled', 'true') !== 'false';
@@ -136,49 +155,7 @@ const Checkout = () => {
 
   const BackArrow = isRTL ? ArrowRight : ArrowLeft;
 
-  // Listen for PaySky postMessage callbacks while the checkout iframe is open.
-  useEffect(() => {
-    if (!paySkyCheckoutUrl) return;
 
-    const handleMessage = async (event: MessageEvent) => {
-      if (!String(event.origin).includes('paysky.io')) return;
-      const data = event.data;
-      if (!data?.callback) return;
-
-      if (data.callback === 'completeCallback') {
-        window.removeEventListener('message', handleMessage);
-        try { paySkyWindowRef.current?.close(); } catch {}
-        setPaySkyCheckoutUrl(null);
-        try {
-          if (!paySkyOrderId) throw new Error('Missing order id');
-          toast({
-            title: language === 'ar' ? 'تم الدفع بنجاح' : 'Payment Successful',
-            description: language === 'ar' ? 'تم إتمام طلبك بنجاح' : 'Your order has been placed successfully',
-          });
-          clearCart();
-          navigate(`/order-confirmation?orderId=${paySkyOrderId}`);
-        } catch (err: any) {
-          toast({ variant: 'destructive', title: language === 'ar' ? 'خطأ' : 'Error', description: err.message });
-        }
-        setIsProcessing(false);
-      } else if (data.callback === 'errorCallback') {
-        window.removeEventListener('message', handleMessage);
-        try { paySkyWindowRef.current?.close(); } catch {}
-        setPaySkyCheckoutUrl(null);
-        toast({ variant: 'destructive', title: language === 'ar' ? 'فشل الدفع' : 'Payment Failed', description: data.Info?.message || data.Info || 'Payment was not successful' });
-        setIsProcessing(false);
-      } else if (data.callback === 'cancelCallback') {
-        window.removeEventListener('message', handleMessage);
-        try { paySkyWindowRef.current?.close(); } catch {}
-        setPaySkyCheckoutUrl(null);
-        toast({ title: language === 'ar' ? 'تم إلغاء الدفع' : 'Payment Cancelled' });
-        setIsProcessing(false);
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, [paySkyCheckoutUrl, paySkyOrderId]);
 
   // Redirect if cart is empty
   useEffect(() => {
@@ -390,12 +367,41 @@ const Checkout = () => {
     // Coupon usage tracking is handled via admin reports — public increment was removed
     // to prevent abuse (anyone could exhaust max_uses by replaying the request).
 
-    // Send order notification email — never block the order on email failures.
-    supabase.functions.invoke('send-order-notification', {
-      body: { orderId, paymentMethod },
-    }).then(({ error }) => {
-      if (error) console.warn('Could not send order notification:', error);
-    }).catch((e) => console.warn('Could not send order notification:', e));
+    // Send order notification email for non-card orders immediately
+    // (Card orders send notification upon completeCallback)
+    if (paymentMethod !== 'card') {
+      supabase.functions.invoke('send-order-notification', {
+        body: { orderId, paymentMethod },
+      }).then(({ error }) => {
+        if (error) console.warn('Could not send order notification:', error);
+      }).catch((e) => console.warn('Could not send order notification:', e));
+    }
+
+    // Store last order receipt in sessionStorage so OrderConfirmation page can display
+    // full receipt and PDF even for guest checkouts (bypassing RLS read restriction).
+    try {
+      const receiptData = {
+        id: orderId,
+        email: formData.email,
+        total,
+        status: 'pending',
+        created_at: new Date().toISOString(),
+        shipping_address: {
+          ...shippingAddress,
+          paymentMethod,
+          notes: formData.notes,
+        },
+        items: items.map(i => ({
+          id: i.id,
+          product_name: i.title,
+          quantity: i.quantity,
+          price: i.price,
+        })),
+      };
+      sessionStorage.setItem('last_order_receipt', JSON.stringify(receiptData));
+    } catch (e) {
+      console.warn('Could not cache order receipt:', e);
+    }
 
     return orderData;
   };
@@ -403,7 +409,6 @@ const Checkout = () => {
   const handlePaySkyPayment = async () => {
     try {
       const order = await createOrder('pending');
-      setPaySkyOrderId(order.id);
 
       // Read PaySky credentials directly from site_info (configured in admin settings)
       const { data: rows } = await supabase
@@ -423,18 +428,18 @@ const Checkout = () => {
         throw new Error(language === 'ar' ? 'بوابة الدفع غير مهيأة' : 'Payment gateway not configured');
       }
 
+      // Load official PaySky LightBox.js script
+      await loadPaySkyScript();
+
       // Build transaction params
       const pad = (n: number) => n.toString().padStart(2, '0');
       const now = new Date();
-      const dateTimeLocalTrxn = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}${pad(now.getHours())}${pad(now.getMinutes())}`;
+      const dateTimeLocalTrxn = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
       const merchantRef = `BZ_${order.id.replace(/-/g, '').slice(0, 8)}_${Date.now()}`;
-      // PaySky LightBox: Amount in hash is piasters (100 piasters = 1 EGP), amount in URL is EGP
+      // PaySky LightBox: AmountTrxn is piasters (100 piasters = 1 EGP)
       const amountPiasters = Math.round(total * 100);
-      const amountEGP = (amountPiasters / 100).toString();
 
       // Compute SecureHash (HMAC-SHA256)
-      // Hash uses PaySky's internal key names sorted alphabetically:
-      //   Amount (piasters) / DateTimeLocalTrxn / MerchantId / MerchantReference / TerminalId
       const hashParams: Record<string, string> = {
         Amount: amountPiasters.toString(),
         DateTimeLocalTrxn: dateTimeLocalTrxn,
@@ -451,42 +456,68 @@ const Checkout = () => {
       const sig = await crypto.subtle.sign('HMAC', cryptoKey, new TextEncoder().encode(queryString));
       const secureHash = Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
 
-      // Build the PaySky hosted checkout URL:
-      const returnUrl = `${window.location.origin}/checkout`;
-      const params = new URLSearchParams({
-        MID,
-        TID,
-        amount: amountEGP,
-        trxDateTime: dateTimeLocalTrxn,
-        MerchantReference: merchantRef,
-        secureHashAnonymous: secureHash,
-        OrderID: order.id,
-        returnUrl: returnUrl,
-        CustomerEmail: formData.email?.trim() || '',
-        CustomerMobile: formData.phone?.trim() || '',
-      });
-      const url = `https://cube.paysky.io:6006/Home/LightboxHostedCheckout/?${params.toString()}`;
-
-      // Open in a centered popup window
-      const w = 520, h = 720;
-      const left = (window.screen.availWidth - w) / 2;
-      const top = (window.screen.availHeight - h) / 2;
-      const popup = window.open(
-        url,
-        'paysky-checkout',
-        `width=${w},height=${h},left=${left},top=${top},resizable=yes,scrollbars=yes,status=no,menubar=no,toolbar=no`
-      );
-      paySkyWindowRef.current = popup;
-      if (!popup || popup.closed) {
-        toast({
-          variant: 'destructive',
-          title: language === 'ar' ? 'تم حظر النافذة' : 'Popup Blocked',
-          description: language === 'ar'
-            ? 'فضلاً اسمح بالنوافذ المنبثقة لإكمال الدفع، أو اضغط على رابط الدفع في النافذة.'
-            : 'Please allow popups to complete payment, or use the open-payment link in the dialog.',
-        });
+      const lightbox = (window as any).Lightbox?.Checkout;
+      if (!lightbox) {
+        throw new Error(language === 'ar' ? 'تعذر تشغيل بوابة الدفع' : 'PaySky Lightbox could not be initialized');
       }
-      setPaySkyCheckoutUrl(url);
+
+      lightbox.configure = {
+        MID: MID,
+        TID: TID,
+        AmountTrxn: amountPiasters,
+        MerchantReference: merchantRef,
+        TrxDateTime: dateTimeLocalTrxn,
+        SecureHash: secureHash,
+        OrderId: order.id,
+        ReturnUrl: `${window.location.origin}/order-confirmation?orderId=${order.id}`,
+        AdditionalCustomerData: {
+          CustomerEmail: formData.email?.trim() || '',
+          CustomerMobile: formData.phone?.trim() || '',
+        },
+        completeCallback: async (paymentInfo: any) => {
+          try {
+            await supabase.from('orders').update({
+              status: 'processing',
+              shipping_address: {
+                ...order.shipping_address,
+                paymentDetails: paymentInfo,
+              },
+            }).eq('id', order.id);
+          } catch (err) {
+            console.warn('Could not update order status:', err);
+          }
+
+          // Trigger email receipt and notification upon successful payment
+          supabase.functions.invoke('send-order-notification', {
+            body: { orderId: order.id, paymentMethod: 'card', isPaid: true },
+          }).catch((e) => console.warn('Could not send order notification:', e));
+
+          toast({
+            title: language === 'ar' ? 'تم الدفع بنجاح' : 'Payment Successful',
+            description: language === 'ar' ? 'تم إتمام طلبك بنجاح' : 'Your order has been placed successfully',
+          });
+          clearCart();
+          navigate(`/order-confirmation?orderId=${order.id}`);
+        },
+        errorCallback: (errorInfo: any) => {
+          console.error('PaySky errorCallback:', errorInfo);
+          toast({
+            variant: 'destructive',
+            title: language === 'ar' ? 'فشل الدفع' : 'Payment Failed',
+            description: errorInfo?.Message || errorInfo?.Description || (language === 'ar' ? 'فشل إتمام عملية الدفع. حاول مرة أخرى أو استخدم طريقة دفع أخرى.' : 'Payment failed. Please try again or use another payment method.'),
+          });
+          setIsProcessing(false);
+        },
+        cancelCallback: () => {
+          toast({
+            title: language === 'ar' ? 'تم إلغاء الدفع' : 'Payment Cancelled',
+            description: language === 'ar' ? 'تم إلغاء عملية الدفع بالبطاقة' : 'Card payment was cancelled.',
+          });
+          setIsProcessing(false);
+        },
+      };
+
+      lightbox.showLightbox();
     } catch (error: any) {
       console.error('PaySky error:', error);
       toast({
@@ -619,73 +650,7 @@ const Checkout = () => {
         <title>{`${labels.checkout} | AzkaSmart`}</title>
       </Helmet>
 
-      {/* PaySky Payment Modal */}
-      {paySkyCheckoutUrl && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className={cn(
-            "relative bg-white dark:bg-card border border-border rounded-xl overflow-hidden shadow-2xl p-6 text-center",
-            isRTL ? "border-l-4 border-primary" : "border-r-4 border-primary",
-          )} style={{ width: '100%', maxWidth: '440px' }}>
-            <button
-              type="button"
-              onClick={() => { try { paySkyWindowRef.current?.close(); } catch {} setPaySkyCheckoutUrl(null); setIsProcessing(false); }}
-              className={cn(
-                "absolute top-3 z-10 flex items-center justify-center w-8 h-8 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground",
-                isRTL ? "right-3" : "left-3",
-              )}
-              aria-label="Close payment"
-            >
-              <XIcon className="w-4 h-4" />
-            </button>
-            <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-              <Loader2 className="w-6 h-6 animate-spin text-primary" />
-            </div>
-            <h3 className="text-lg font-semibold text-foreground mb-2">
-              {language === 'ar' ? 'إكمال الدفع الإلكتروني' : 'Complete Card Payment'}
-            </h3>
-            <p className="text-sm text-muted-foreground mb-5 leading-relaxed">
-              {language === 'ar'
-                ? 'تم فتح صفحة PaySky الآمنة. أكمل عملية إدخال بيانات البطاقة وستتم معالجة الطلب تلقائياً.'
-                : 'A secure PaySky payment window has opened. Complete your card payment there and you will be returned automatically.'}
-            </p>
-            <div className="space-y-2.5">
-              <a
-                href={paySkyCheckoutUrl}
-                target="_blank"
-                rel="opener"
-                className="inline-block w-full rounded-lg bg-primary text-primary-foreground font-medium py-3 px-4 hover:opacity-90 transition shadow-sm"
-              >
-                {language === 'ar' ? 'فتح نافذة الدفع مرة أخرى' : 'Open Payment Window'}
-              </a>
-              <button
-                type="button"
-                onClick={async () => {
-                  try { paySkyWindowRef.current?.close(); } catch {}
-                  setPaySkyCheckoutUrl(null);
-                  if (paySkyOrderId) {
-                    try {
-                      await supabase.from('orders').update({ status: 'processing' }).eq('id', paySkyOrderId);
-                    } catch {}
-                    clearCart();
-                    navigate(`/order-confirmation?orderId=${paySkyOrderId}`);
-                  }
-                  setIsProcessing(false);
-                }}
-                className="w-full rounded-lg border border-emerald-500/40 bg-emerald-50 text-emerald-700 font-medium py-2.5 px-4 hover:bg-emerald-100 transition text-sm dark:bg-emerald-950/40 dark:text-emerald-300"
-              >
-                {language === 'ar' ? '✓ تم إتمام الدفع بالبطاقة' : '✓ I have completed payment'}
-              </button>
-              <button
-                type="button"
-                onClick={() => { try { paySkyWindowRef.current?.close(); } catch {} setPaySkyCheckoutUrl(null); setIsProcessing(false); }}
-                className="w-full text-sm text-muted-foreground hover:text-foreground py-1"
-              >
-                {language === 'ar' ? 'إلغاء' : 'Cancel'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
 
       <Layout>
         <div className="container py-8 md:py-12">
@@ -894,32 +859,40 @@ const Checkout = () => {
                     {/* Card Payment */}
                     {payskyEnabled && (
                       <div 
-                        className={`flex items-center space-x-4 p-4 rounded-lg border-2 transition-colors cursor-pointer ${
+                        role="button"
+                        tabIndex={0}
+                        className={`relative flex items-start sm:items-center gap-3.5 p-4 rounded-xl border-2 transition-all cursor-pointer select-none ${
                           paymentMethod === 'card' 
-                            ? 'border-primary bg-primary/5' 
-                            : 'border-border hover:border-muted-foreground/50'
+                            ? 'border-primary bg-primary/[0.06] shadow-sm ring-1 ring-primary/30' 
+                            : 'border-border/80 hover:border-primary/40 bg-card hover:bg-muted/20'
                         }`}
                         onClick={() => setPaymentMethod('card')}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPaymentMethod('card'); } }}
                       >
-                        <RadioGroupItem value="card" id="card" />
+                        <RadioGroupItem value="card" id="card" className="h-5 w-5 shrink-0 mt-0.5 sm:mt-0 border-2" />
                         <Label htmlFor="card" className="flex-1 cursor-pointer">
-                          <div className="flex items-center justify-between">
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
                             <div className="flex items-center gap-3">
-                              <CreditCard className="h-5 w-5 text-primary" />
+                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                <CreditCard className="h-5 w-5" />
+                              </div>
                               <div>
-                                <p className="font-medium">{labels.cardPayment}</p>
-                                <p className="text-sm text-muted-foreground">
-                                  {language === 'ar' ? 'دفع آمن عبر PaySky (فيزا / ماستركارد / ميزة)' : 'Secure payment via PaySky (Visa / Mastercard / Meeza)'}
+                                <p className="font-semibold text-foreground text-sm sm:text-base">{labels.cardPayment}</p>
+                                <p className="text-xs sm:text-sm text-muted-foreground">
+                                  {language === 'ar' ? 'دفع إلكتروني فوري وآمن (فيزا / ماستركارد / ميزة)' : 'Instant secure payment (Visa / Mastercard / Meeza)'}
                                 </p>
                               </div>
                             </div>
-                            <div className="flex items-center gap-1.5">
-                              <span className="inline-flex h-6 items-center rounded-md bg-[#1A1F71] px-2 text-[11px] font-bold italic tracking-wider text-white">
+                            <div className="flex items-center gap-1.5 self-start sm:self-auto shrink-0">
+                              <span className="inline-flex h-6 items-center rounded bg-[#1A1F71] px-2 text-[11px] font-bold italic tracking-wider text-white">
                                 VISA
                               </span>
-                              <span className="inline-flex h-6 w-9 items-center justify-center rounded-md bg-white px-1 shadow-sm ring-1 ring-black/5">
+                              <span className="inline-flex h-6 w-9 items-center justify-center rounded bg-white px-1 shadow-sm ring-1 ring-black/10">
                                 <span className="block h-3.5 w-3.5 rounded-full bg-[#EB001B]" />
                                 <span className="-ml-1.5 block h-3.5 w-3.5 rounded-full bg-[#F79E1B] mix-blend-multiply" />
+                              </span>
+                              <span className="inline-flex h-6 items-center rounded bg-[#005B94] px-1.5 text-[10px] font-bold text-white">
+                                ميزة
                               </span>
                             </div>
                           </div>
@@ -930,32 +903,35 @@ const Checkout = () => {
                     {/* InstaPay */}
                     {instapayEnabled && (
                       <div 
-                        className={`p-4 rounded-lg border-2 transition-colors cursor-pointer ${
+                        role="button"
+                        tabIndex={0}
+                        className={`relative p-4 rounded-xl border-2 transition-all cursor-pointer select-none ${
                           paymentMethod === 'instapay' 
-                            ? 'border-purple-600 bg-purple-500/5' 
-                            : 'border-border hover:border-muted-foreground/50'
+                            ? 'border-purple-600 bg-purple-500/[0.06] shadow-sm ring-1 ring-purple-600/30' 
+                            : 'border-border/80 hover:border-purple-400/50 bg-card hover:bg-muted/20'
                         }`}
                         onClick={() => setPaymentMethod('instapay')}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPaymentMethod('instapay'); } }}
                       >
-                        <div className="flex items-center space-x-4">
-                          <RadioGroupItem value="instapay" id="instapay" />
+                        <div className="flex items-start sm:items-center gap-3.5">
+                          <RadioGroupItem value="instapay" id="instapay" className="h-5 w-5 shrink-0 mt-0.5 sm:mt-0 border-2 border-purple-600 text-purple-600" />
                           <Label htmlFor="instapay" className="flex-1 cursor-pointer">
-                            <div className="flex items-center justify-between">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
                               <div className="flex items-center gap-3">
-                                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#7B2CBF] to-[#9D4EDD] text-white shadow-sm">
-                                  <Smartphone className="h-4 w-4" />
+                                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[#7B2CBF] to-[#9D4EDD] text-white shadow-sm">
+                                  <Smartphone className="h-5 w-5" />
                                 </div>
                                 <div>
                                   <div className="flex items-center gap-2">
-                                    <p className="font-medium">
+                                    <p className="font-semibold text-foreground text-sm sm:text-base">
                                       {language === 'ar' ? 'الدفع عبر إنستاباي (InstaPay)' : 'Pay via InstaPay'}
                                     </p>
                                     <span className="inline-flex items-center rounded-full bg-purple-100 dark:bg-purple-950/80 px-2 py-0.5 text-[10px] font-bold text-purple-700 dark:text-purple-300">
-                                      تحويل لحظي
+                                      تحويل فوري
                                     </span>
                                   </div>
-                                  <p className="text-sm text-muted-foreground">
-                                    {language === 'ar' ? 'تحويل فوري مباشر عبر تطبيق إنستاباي بدون رسوم إضافية' : 'Instant direct transfer via InstaPay app with zero fees'}
+                                  <p className="text-xs sm:text-sm text-muted-foreground">
+                                    {language === 'ar' ? 'تحويل لحظي مباشر عبر تطبيق إنستاباي بدون رسوم' : 'Direct instant transfer via InstaPay with zero fees'}
                                   </p>
                                 </div>
                               </div>
@@ -1083,26 +1059,29 @@ const Checkout = () => {
                     {/* Cash on Delivery */}
                     {codEnabled && (
                       <div 
-                        className={`flex items-center space-x-4 p-4 rounded-lg border-2 transition-colors cursor-pointer ${
+                        role="button"
+                        tabIndex={0}
+                        className={`relative flex items-start sm:items-center gap-3.5 p-4 rounded-xl border-2 transition-all cursor-pointer select-none ${
                           paymentMethod === 'cod' 
-                            ? 'border-primary bg-primary/5' 
-                            : 'border-border hover:border-muted-foreground/50'
+                            ? 'border-primary bg-primary/[0.06] shadow-sm ring-1 ring-primary/30' 
+                            : 'border-border/80 hover:border-primary/40 bg-card hover:bg-muted/20'
                         }`}
                         onClick={() => setPaymentMethod('cod')}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPaymentMethod('cod'); } }}
                       >
-                        <RadioGroupItem value="cod" id="cod" />
+                        <RadioGroupItem value="cod" id="cod" className="h-5 w-5 shrink-0 mt-0.5 sm:mt-0 border-2" />
                         <Label htmlFor="cod" className="flex-1 cursor-pointer">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <Banknote className="h-5 w-5 text-primary" />
-                              <div>
-                                <p className="font-medium">
-                                  {language === 'ar' ? 'الدفع عند الاستلام (نقداً)' : 'Cash on Delivery (COD)'}
-                                </p>
-                                <p className="text-sm text-muted-foreground">
-                                  {language === 'ar' ? 'ادفع نقداً عند استلام الشحنة وتأكيد الطلب' : 'Pay in cash upon delivery of your order'}
-                                </p>
-                              </div>
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                              <Banknote className="h-5 w-5" />
+                            </div>
+                            <div>
+                              <p className="font-semibold text-foreground text-sm sm:text-base">
+                                {language === 'ar' ? 'الدفع عند الاستلام (نقداً)' : 'Cash on Delivery (COD)'}
+                              </p>
+                              <p className="text-xs sm:text-sm text-muted-foreground">
+                                {language === 'ar' ? 'ادفع نقداً عند استلام الشحنة وتأكيد الطلب' : 'Pay in cash upon delivery of your order'}
+                              </p>
                             </div>
                           </div>
                         </Label>

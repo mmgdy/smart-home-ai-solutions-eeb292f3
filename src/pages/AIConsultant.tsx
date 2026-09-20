@@ -166,8 +166,28 @@ const AIConsultant = () => {
       }
     }
 
+    const lower = assistantContent.toLowerCase();
+    if (
+      lower.includes("doesn't have enough credits") ||
+      lower.includes("pollinations.ai") ||
+      lower.includes("top up") ||
+      lower.includes("complete a quest")
+    ) {
+      assistantContent = isRTL
+        ? "أهلاً بك في **AzkaSmart**! لمساعدتك في اختيار أفضل الأجهزة الذكية لمنزلك، يمكنك تصفح [كتالوج المنتجات الذكية](/products) أو [باقات التوفير المتكاملة](/bundles)، أو التحدث مباشرة مع خبرائنا عبر [واتساب](https://wa.me/201050627310)."
+        : "Welcome to **AzkaSmart**! We are here to help you choose the best smart devices for your home. You can explore our [Product Catalog](/products) or [Smart Bundles](/bundles), or chat directly with our specialists on [WhatsApp](https://wa.me/201050627310).";
+
+      setMessages(prev => {
+        const last = prev[prev.length - 1];
+        if (last?.role === "assistant") {
+          return prev.map((m, i) => (i === prev.length - 1 ? { ...m, content: assistantContent } : m));
+        }
+        return [...prev, { role: "assistant", content: assistantContent }];
+      });
+    }
+
     return assistantContent;
-  }, []);
+  }, [isRTL]);
 
   const handleSend = async (text?: string) => {
     const messageText = text || input.trim();

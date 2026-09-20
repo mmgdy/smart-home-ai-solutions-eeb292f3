@@ -49,6 +49,11 @@ const SECTIONS = [
     { key: "shipping_flat", label: "Shipping: flat fee (EGP)" },
     { key: "shipping_free_threshold", label: "Shipping: free over (EGP)" },
   ] },
+  { key: "ai", title: "AI Advisor & LLM Keys (مفاتيح الذكاء الاصطناعي)", icon: Sparkles, fields: [
+    { key: "gemini_api_key", label: "Google Gemini API Key (مجاني وسريع من aistudio.google.com)" },
+    { key: "groq_api_key", label: "Groq API Key (مجاني وفائق السرعة من console.groq.com)" },
+    { key: "openrouter_api_key", label: "OpenRouter API Key (اختياري)" },
+  ] },
 ];
 
 export function SiteInfoEditor({ adminToken }: Props) {

@@ -40,7 +40,22 @@ const extractContent = (text: string): string | null => {
   try {
     const json = JSON.parse(text);
     const content = json?.choices?.[0]?.message?.content;
-    if (typeof content === "string" && content.trim()) return content.trim();
+    if (typeof content === "string" && content.trim()) {
+      const trimmed = content.trim();
+      const lower = trimmed.toLowerCase();
+      // Detect known error/quota messages from free-tier proxies like Pollinations
+      if (
+        lower.includes("doesn't have enough credits") ||
+        lower.includes("top up") ||
+        lower.includes("complete a quest") ||
+        lower.includes("pollinations.ai") ||
+        lower.includes("insufficient balance") ||
+        lower.includes("rate limit")
+      ) {
+        return null;
+      }
+      return trimmed;
+    }
     // Google Gemini native format fallback
     const geminiText = json?.candidates?.[0]?.content?.parts?.[0]?.text;
     if (typeof geminiText === "string" && geminiText.trim()) return geminiText.trim();
@@ -50,8 +65,39 @@ const extractContent = (text: string): string | null => {
   }
 };
 
+const dbKeyCache = new Map<string, { val: string; exp: number }>();
+
+async function getAIKey(envName: string, dbKey: string): Promise<string | null> {
+  const envVal = Deno.env.get(envName);
+  if (envVal && envVal.trim()) return envVal.trim();
+
+  const cached = dbKeyCache.get(dbKey);
+  if (cached && cached.exp > Date.now()) return cached.val;
+
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_ANON_KEY");
+    if (supabaseUrl && serviceKey) {
+      const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2.89.0");
+      const client = createClient(supabaseUrl, serviceKey);
+      const { data } = await client
+        .from("site_info")
+        .select("value")
+        .eq("section", "ai")
+        .eq("key", dbKey)
+        .maybeSingle();
+      if (data?.value && data.value.trim()) {
+        const val = data.value.trim();
+        dbKeyCache.set(dbKey, { val, exp: Date.now() + 60_000 });
+        return val;
+      }
+    }
+  } catch {}
+  return null;
+}
+
 async function tryGemini(messages: ChatMessage[], maxTokens?: number): Promise<string | null> {
-  const key = Deno.env.get("GEMINI_API_KEY");
+  const key = await getAIKey("GEMINI_API_KEY", "gemini_api_key");
   if (!key) {
     lastOutcome.set("gemini", "no-key");
     return null;
@@ -59,7 +105,7 @@ async function tryGemini(messages: ChatMessage[], maxTokens?: number): Promise<s
   const { ok, status, text } = await postJson(
     `https://generativelanguage.googleapis.com/v1beta/openai/chat/completions`,
     {
-      model: GEMINI_MODEL,
+      model: "gemini-1.5-flash",
       messages,
       max_tokens: maxTokens ?? 500,
       temperature: 0.3,
@@ -78,7 +124,7 @@ async function tryGemini(messages: ChatMessage[], maxTokens?: number): Promise<s
 }
 
 async function tryGroq(messages: ChatMessage[], maxTokens?: number): Promise<string | null> {
-  const key = Deno.env.get("GROQ_API_KEY");
+  const key = await getAIKey("GROQ_API_KEY", "groq_api_key");
   if (!key) {
     lastOutcome.set("groq", "no-key");
     return null;
@@ -105,7 +151,7 @@ async function tryGroq(messages: ChatMessage[], maxTokens?: number): Promise<str
 }
 
 async function tryOpenRouter(messages: ChatMessage[], maxTokens?: number): Promise<string | null> {
-  const key = Deno.env.get("OPENROUTER_API_KEY");
+  const key = await getAIKey("OPENROUTER_API_KEY", "openrouter_api_key");
   if (!key) {
     lastOutcome.set("openrouter", "no-key");
     return null;
@@ -135,7 +181,7 @@ async function tryOpenRouter(messages: ChatMessage[], maxTokens?: number): Promi
 }
 
 async function tryHuggingFace(messages: ChatMessage[], maxTokens?: number): Promise<string | null> {
-  const key = Deno.env.get("HUGGINGFACE_API_KEY");
+  const key = await getAIKey("HUGGINGFACE_API_KEY", "huggingface_api_key");
   if (!key) {
     lastOutcome.set("huggingface", "no-key");
     return null;

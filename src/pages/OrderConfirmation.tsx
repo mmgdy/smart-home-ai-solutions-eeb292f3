@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { CheckCircle, Package, Truck, MapPin, Mail, Phone, ArrowRight, ArrowLeft, Copy, Check, Smartphone, MessageCircle } from 'lucide-react';
+import { CheckCircle, Package, Truck, MapPin, Mail, Phone, ArrowRight, ArrowLeft, Copy, Check, Smartphone, MessageCircle, Download, FileText } from 'lucide-react';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/lib/i18n';
@@ -57,10 +59,6 @@ const OrderConfirmation = () => {
         return;
       }
 
-      // If redirected straight from checkout, the order definitely exists.
-      // Guest orders are no longer readable via client-side SELECT (RLS), so
-      // we treat a null result as "order placed, details not available" rather
-      // than "order not found".
       setOrderConfirmed(true);
 
       try {
@@ -71,8 +69,20 @@ const OrderConfirmation = () => {
           .maybeSingle();
 
         if (!orderData) {
-          // Authenticated user's own order — or fetch blocked by RLS (guest).
-          // Either way the order was placed; show the abbreviated confirmation.
+          // Check if we have the receipt in sessionStorage from checkout
+          try {
+            const cached = sessionStorage.getItem('last_order_receipt');
+            if (cached) {
+              const parsed = JSON.parse(cached);
+              if (parsed && (parsed.id === orderId || parsed.id?.slice(0, 8) === orderId?.slice(0, 8))) {
+                setOrder(parsed);
+                setLoading(false);
+                return;
+              }
+            }
+          } catch {}
+
+          // Fallback if no cached receipt
           setLoading(false);
           return;
         }
@@ -96,6 +106,91 @@ const OrderConfirmation = () => {
 
     fetchOrder();
   }, [orderId]);
+
+  const handleDownloadPDF = () => {
+    if (!order) return;
+    try {
+      const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const margin = 40;
+
+      // Header Bar
+      doc.setFillColor(15, 23, 42); // slate-900
+      doc.rect(0, 0, pageWidth, 85, 'F');
+      doc.setTextColor(0, 210, 180); // brand primary teal
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(22);
+      doc.text('AzkaSmart', margin, 42);
+
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(11);
+      doc.text('Smart Home Solutions - Official Receipt', margin, 62);
+      doc.setFontSize(9);
+      doc.text(`Date: ${new Date(order.created_at).toLocaleDateString()}`, pageWidth - margin, 62, { align: 'right' });
+
+      // Order & Customer Details
+      let y = 115;
+      doc.setTextColor(30, 41, 59);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.text(`Order Reference: #${order.id.slice(0, 8).toUpperCase()}`, margin, y);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.text(`Status: ${order.status.toUpperCase()}`, pageWidth - margin, y, { align: 'right' });
+
+      y += 24;
+      doc.text(`Customer: ${order.shipping_address?.firstName || ''} ${order.shipping_address?.lastName || ''}`, margin, y);
+      doc.text(`Phone: ${order.shipping_address?.phone || ''}`, margin, y + 16);
+      doc.text(`Address: ${order.shipping_address?.address || ''}, ${order.shipping_address?.city || ''}, ${order.shipping_address?.governorate || ''}`, margin, y + 32);
+      doc.text(`Email: ${order.email || ''}`, margin, y + 48);
+
+      y += 70;
+
+      // Items Table
+      const rows = (order.items || []).map((item) => [
+        item.product_name,
+        String(item.quantity),
+        `${item.price.toLocaleString()} EGP`,
+        `${(item.price * item.quantity).toLocaleString()} EGP`,
+      ]);
+
+      autoTable(doc, {
+        startY: y,
+        head: [['Item Description', 'Qty', 'Unit Price', 'Total']],
+        body: rows,
+        theme: 'striped',
+        headStyles: { fillColor: [15, 23, 42], textColor: [0, 210, 180], fontStyle: 'bold' },
+        styles: { fontSize: 9, cellPadding: 8 },
+        margin: { left: margin, right: margin },
+      });
+
+      const finalY = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 25 : y + 100;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(14);
+      doc.setTextColor(15, 23, 42);
+      doc.text(`Grand Total: ${order.total.toLocaleString()} EGP`, pageWidth - margin, finalY, { align: 'right' });
+
+      // Footer
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(148, 163, 184);
+      doc.text('Thank you for choosing AzkaSmart! For support, contact info@azkasmart.com or WhatsApp: +201050627310', margin, finalY + 40);
+
+      doc.save(`AzkaSmart-Receipt-${order.id.slice(0, 8).toUpperCase()}.pdf`);
+      toast({
+        title: language === 'ar' ? 'تم تنزيل الإيصال' : 'Receipt Downloaded',
+        description: language === 'ar' ? 'تم حفظ ملف الإيصال (PDF) بنجاح' : 'PDF receipt downloaded successfully',
+      });
+    } catch (pdfErr) {
+      console.error('PDF generation error:', pdfErr);
+      toast({
+        variant: 'destructive',
+        title: language === 'ar' ? 'خطأ في التنزيل' : 'Download Error',
+        description: language === 'ar' ? 'تعذر إنشاء ملف PDF' : 'Could not generate PDF receipt',
+      });
+    }
+  };
 
   const copyOrderId = () => {
     if (orderId) {
@@ -219,12 +314,29 @@ const OrderConfirmation = () => {
                   ? 'سيتم التواصل معك قريباً لتأكيد الطلب والتوصيل'
                   : 'We will contact you shortly to confirm your order and arrange delivery.'}
               </p>
-              <Link to="/">
-                <Button className="gap-2">
-                  {labels.continueShopping}
-                  <NextArrow className="h-4 w-4" />
-                </Button>
-              </Link>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                <a
+                  href={`https://wa.me/${getInfo('contact', 'whatsapp', '201050627310').replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+                    language === 'ar'
+                      ? `مرحباً أزكاسمارت، قمت بطلب جديد برقم: #${orderId}`
+                      : `Hello AzkaSmart, I placed a new order #${orderId}`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full sm:w-auto"
+                >
+                  <Button variant="outline" className="gap-2 w-full border-emerald-500/40 hover:border-emerald-600 text-emerald-700 dark:text-emerald-400">
+                    <MessageCircle className="h-4 w-4 text-emerald-600" />
+                    {language === 'ar' ? 'تأكيد عبر واتساب' : 'Confirm via WhatsApp'}
+                  </Button>
+                </a>
+                <Link to="/" className="w-full sm:w-auto">
+                  <Button className="gap-2 w-full">
+                    {labels.continueShopping}
+                    <NextArrow className="h-4 w-4" />
+                  </Button>
+                </Link>
+              </div>
             </div>
           </div>
         </Layout>
