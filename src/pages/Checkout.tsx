@@ -67,24 +67,66 @@ const checkoutSchema = z.object({
 type CheckoutFormData = z.infer<typeof checkoutSchema>;
 
 
-const loadPaySkyScript = (): Promise<void> => {
+const DEFAULT_PAYSKY_SCRIPT_URL = 'https://cube.paysky.io:6006/js/LightBox.js';
+
+const loadPaySkyScript = (targetUrl?: string): Promise<void> => {
   return new Promise((resolve, reject) => {
     if (typeof window !== 'undefined' && (window as any).Lightbox?.Checkout) {
       resolve();
       return;
     }
-    const existing = document.getElementById('paysky-lightbox-script');
+
+    const scriptUrl = (targetUrl && !targetUrl.includes('secure.paysky.io'))
+      ? targetUrl
+      : DEFAULT_PAYSKY_SCRIPT_URL;
+
+    const existing = document.getElementById('paysky-lightbox-script') as HTMLScriptElement | null;
     if (existing) {
-      existing.addEventListener('load', () => resolve(), { once: true });
-      existing.addEventListener('error', () => reject(new Error('Failed to load PaySky script')), { once: true });
-      return;
+      if ((window as any).Lightbox?.Checkout) {
+        resolve();
+        return;
+      }
+      // Remove stale/failed script so retry can proceed cleanly
+      existing.remove();
     }
+
     const script = document.createElement('script');
     script.id = 'paysky-lightbox-script';
-    script.src = 'https://cube.paysky.io:6006/js/LightBox.js';
+    script.src = scriptUrl;
     script.async = true;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error('Failed to load PaySky script'));
+
+    let timeoutId: any = null;
+    const cleanup = () => {
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+
+    script.onload = () => {
+      cleanup();
+      if ((window as any).Lightbox?.Checkout) {
+        resolve();
+      } else {
+        setTimeout(() => {
+          if ((window as any).Lightbox?.Checkout) {
+            resolve();
+          } else {
+            script.remove();
+            reject(new Error('PaySky Lightbox loaded but window.Lightbox.Checkout is not available'));
+          }
+        }, 150);
+      }
+    };
+
+    script.onerror = () => {
+      cleanup();
+      script.remove();
+      reject(new Error('Failed to load PaySky script'));
+    };
+
+    timeoutId = setTimeout(() => {
+      script.remove();
+      reject(new Error('Timeout loading PaySky script'));
+    }, 15000);
+
     document.head.appendChild(script);
   });
 };
@@ -415,7 +457,7 @@ const Checkout = () => {
         .from('site_info')
         .select('key, value')
         .eq('section', 'payment')
-        .in('key', ['paysky_mid', 'paysky_tid', 'paysky_secret_key']);
+        .in('key', ['paysky_mid', 'paysky_tid', 'paysky_secret_key', 'paysky_lightbox_url']);
 
       const db: Record<string, string> = {};
       (rows || []).forEach((r: any) => { db[r.key] = r.value; });
@@ -428,8 +470,18 @@ const Checkout = () => {
         throw new Error(language === 'ar' ? 'بوابة الدفع غير مهيأة' : 'Payment gateway not configured');
       }
 
-      // Load official PaySky LightBox.js script
-      await loadPaySkyScript();
+      // Load official PaySky LightBox.js script with resilient fallback
+      const configuredUrl = db['paysky_lightbox_url'];
+      try {
+        await loadPaySkyScript(configuredUrl);
+      } catch (err) {
+        if (configuredUrl && configuredUrl !== DEFAULT_PAYSKY_SCRIPT_URL) {
+          console.warn('Configured PaySky URL failed, falling back to default cube URL:', err);
+          await loadPaySkyScript(DEFAULT_PAYSKY_SCRIPT_URL);
+        } else {
+          throw err;
+        }
+      }
 
       // Build transaction params
       const pad = (n: number) => n.toString().padStart(2, '0');
