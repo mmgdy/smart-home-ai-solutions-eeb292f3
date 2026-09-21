@@ -520,7 +520,6 @@ const Checkout = () => {
         MerchantReference: merchantRef,
         TrxDateTime: dateTimeLocalTrxn,
         SecureHash: secureHash,
-        OrderId: order.id,
         ReturnUrl: `${window.location.origin}/order-confirmation?orderId=${order.id}`,
         AdditionalCustomerData: {
           CustomerEmail: formData.email?.trim() || '',
