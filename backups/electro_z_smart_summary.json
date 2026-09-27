@@ -1,0 +1,34 @@
+{
+  "source": "https://electro-z-smart.com/shop/",
+  "total_products": 254,
+  "in_stock_products": 201,
+  "out_of_stock_products": 53,
+  "average_price_egp": 5299,
+  "category_distribution": {
+    "smart-locks": 49,
+    "smart-accessories": 74,
+    "security-cameras": 5,
+    "smart-switches": 78,
+    "smart-controllers": 15,
+    "smart-sensors": 18,
+    "smart-plugs": 4,
+    "smart-lighting": 3,
+    "smart-curtains": 8
+  },
+  "brand_distribution": {
+    "Smart Home": 15,
+    "SIB": 45,
+    "Lezn": 13,
+    "Zosar": 14,
+    "Levana": 19,
+    "Sonoff": 101,
+    "eWeLink": 10,
+    "Tuya": 4,
+    "Amazon": 9,
+    "DNAKE": 4,
+    "Bosch": 7,
+    "Panda": 4,
+    "Surpass": 9
+  },
+  "extracted_at": "2026-09-27T18:27:14.831Z"
+}
