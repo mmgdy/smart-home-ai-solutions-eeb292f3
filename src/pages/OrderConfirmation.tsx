@@ -175,7 +175,8 @@ const OrderConfirmation = () => {
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8);
       doc.setTextColor(148, 163, 184);
-      doc.text('Thank you for choosing AzkaSmart! For support, contact info@azkasmart.com or WhatsApp: +201050627310', margin, finalY + 40);
+      const supportWhatsapp = getInfo('contact', 'whatsapp', '+201501896456');
+      doc.text(`Thank you for choosing AzkaSmart! For support, contact info@azkasmart.com or WhatsApp: ${supportWhatsapp}`, margin, finalY + 40);
 
       doc.save(`AzkaSmart-Receipt-${order.id.slice(0, 8).toUpperCase()}.pdf`);
       toast({
@@ -316,7 +317,7 @@ const OrderConfirmation = () => {
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                 <a
-                  href={`https://wa.me/${getInfo('contact', 'whatsapp', '201050627310').replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+                  href={`https://wa.me/${getInfo('contact', 'whatsapp', '201501896456').replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
                     language === 'ar'
                       ? `مرحباً أزكاسمارت، قمت بطلب جديد برقم: #${orderId}`
                       : `Hello AzkaSmart, I placed a new order #${orderId}`
@@ -488,7 +489,7 @@ const OrderConfirmation = () => {
                       </p>
                     )}
                     <a
-                      href={`https://wa.me/${getInfo('contact', 'whatsapp', '201050627310').replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+                      href={`https://wa.me/${getInfo('contact', 'whatsapp', '201501896456').replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
                         language === 'ar'
                           ? `مرحباً أزكاسمارت، أود تأكيد الدفع عبر إنستاباي للطلب رقم: ${order.id.slice(0, 8).toUpperCase()} بمبلغ ${order.total} ج.م`
                           : `Hello AzkaSmart, I would like to confirm my InstaPay payment for Order #${order.id.slice(0, 8).toUpperCase()} (${order.total} EGP)`

@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
+import { useSiteInfo } from '@/hooks/useSiteInfo';
 import { VoiceButton, speakText } from '@/components/ai/VoiceButton';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -80,6 +81,8 @@ const SUGGESTED_AR = [
 
 const AIConsultant = () => {
   const { t, isRTL } = useLanguage();
+  const { get: getInfo } = useSiteInfo();
+  const whatsappNumber = (getInfo('contact', 'whatsapp', '201501896456') || '201501896456').replace(/\D/g, '');
   const { toast } = useToast();
   const location = useLocation();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -174,8 +177,8 @@ const AIConsultant = () => {
       lower.includes("complete a quest")
     ) {
       assistantContent = isRTL
-        ? "أهلاً بك في **AzkaSmart**! لمساعدتك في اختيار أفضل الأجهزة الذكية لمنزلك، يمكنك تصفح [كتالوج المنتجات الذكية](/products) أو [باقات التوفير المتكاملة](/bundles)، أو التحدث مباشرة مع خبرائنا عبر [واتساب](https://wa.me/201050627310)."
-        : "Welcome to **AzkaSmart**! We are here to help you choose the best smart devices for your home. You can explore our [Product Catalog](/products) or [Smart Bundles](/bundles), or chat directly with our specialists on [WhatsApp](https://wa.me/201050627310).";
+        ? `أهلاً بك في **AzkaSmart**! لمساعدتك في اختيار أفضل الأجهزة الذكية لمنزلك، يمكنك تصفح [كتالوج المنتجات الذكية](/products) أو [باقات التوفير المتكاملة](/bundles)، أو التحدث مباشرة مع خبرائنا عبر [واتساب](https://wa.me/${whatsappNumber}).`
+        : `Welcome to **AzkaSmart**! We are here to help you choose the best smart devices for your home. You can explore our [Product Catalog](/products) or [Smart Bundles](/bundles), or chat directly with our specialists on [WhatsApp](https://wa.me/${whatsappNumber}).`;
 
       setMessages(prev => {
         const last = prev[prev.length - 1];

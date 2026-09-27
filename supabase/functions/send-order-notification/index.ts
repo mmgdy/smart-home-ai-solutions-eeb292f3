@@ -65,6 +65,22 @@ const handler = async (req: Request): Promise<Response> => {
       .select("product_name, quantity, price")
       .eq("order_id", orderId);
 
+    // Fetch site_info for contact details (WhatsApp, phone, email) so values stay 100% in sync with admin dashboard
+    const { data: contactRows } = await supabase
+      .from("site_info")
+      .select("key, value")
+      .eq("section", "contact");
+
+    const siteContact: Record<string, string> = {};
+    (contactRows ?? []).forEach((row: { key: string; value: string }) => {
+      if (row.key && row.value) siteContact[row.key] = row.value;
+    });
+
+    const rawWhatsapp = (siteContact.whatsapp || "+201501896456").trim();
+    const cleanWhatsapp = rawWhatsapp.replace(/[^0-9]/g, "") || "201501896456";
+    const displayWhatsapp = rawWhatsapp.startsWith("+") ? rawWhatsapp : `+${rawWhatsapp}`;
+    const contactEmail = (siteContact.email || ADMIN_EMAIL).trim();
+
     const email = (order.email || "").trim();
     const total = Number(order.total) || 0;
     const items = (rawItems ?? []).map((i: any) => ({
@@ -101,147 +117,388 @@ const handler = async (req: Request): Promise<Response> => {
       minute: "2-digit",
     });
 
-    const itemsRowsHtml = items.map((item) => `
+    // Customer WhatsApp direct link for admin notification
+    const rawCustomerPhone = shippingAddress.phone.replace(/[^0-9]/g, "");
+    const customerWaNumber = rawCustomerPhone.startsWith("0") 
+      ? "2" + rawCustomerPhone 
+      : rawCustomerPhone.startsWith("20") 
+      ? rawCustomerPhone 
+      : rawCustomerPhone ? "2" + rawCustomerPhone : "";
+    const adminCustomerWaUrl = customerWaNumber
+      ? `https://wa.me/${customerWaNumber}?text=${encodeURIComponent(`مرحباً ${shippingAddress.firstName}، بخصوص طلبك رقم #${orderId.slice(0, 8).toUpperCase()} من متجر AzkaSmart...`)}`
+      : null;
+
+    // Mobile-optimized item rows (never overflows regardless of screen width)
+    const itemsListHtml = items.map((item) => `
       <tr>
-        <td style="padding:12px 14px;border-bottom:1px solid #e2e8f0;font-size:14px;color:#1e293b;font-weight:500;">
-          ${escapeHtml(item.product_name)}
-        </td>
-        <td style="padding:12px 14px;border-bottom:1px solid #e2e8f0;text-align:center;font-size:14px;color:#475569;">
-          ${item.quantity}
-        </td>
-        <td style="padding:12px 14px;border-bottom:1px solid #e2e8f0;text-align:right;font-size:14px;color:#475569;white-space:nowrap;">
-          ${item.price.toLocaleString()} ج.م
-        </td>
-        <td style="padding:12px 14px;border-bottom:1px solid #e2e8f0;text-align:right;font-size:14px;font-weight:600;color:#0f172a;white-space:nowrap;">
-          ${(item.price * item.quantity).toLocaleString()} ج.م
+        <td style="padding:14px 0;border-bottom:1px solid #e2e8f0;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%;">
+            <tr>
+              <td align="right" valign="top" style="padding-left:12px;text-align:right;">
+                <div style="font-size:14px;font-weight:600;color:#0f172a;line-height:1.45;word-break:break-word;">
+                  ${escapeHtml(item.product_name)}
+                </div>
+                <div style="font-size:12px;color:#64748b;margin-top:5px;line-height:1.4;">
+                  الكمية: <strong style="color:#0f172a;">${item.quantity}</strong> × <span dir="ltr">${item.price.toLocaleString()} ج.م</span>
+                </div>
+              </td>
+              <td align="left" valign="top" style="text-align:left;white-space:nowrap;padding-right:4px;" dir="ltr">
+                <div style="font-size:15px;font-weight:700;color:#0f172a;">
+                  ${(item.price * item.quantity).toLocaleString()} ج.م
+                </div>
+                <div style="font-size:11px;color:#94a3b8;margin-top:2px;">
+                  ${(item.price * item.quantity).toLocaleString()} EGP
+                </div>
+              </td>
+            </tr>
+          </table>
         </td>
       </tr>
     `).join("");
 
-    // Admin notification email HTML
-    const adminEmailHtml = `
-      <!DOCTYPE html>
-      <html dir="rtl" lang="ar">
-      <head><meta charset="utf-8"><title>طلب جديد - AzkaSmart</title></head>
-      <body style="font-family:Segoe UI,Tahoma,Geneva,Verdana,sans-serif;max-width:640px;margin:0 auto;padding:20px;background:#f8fafc;direction:rtl;text-align:right;">
-        <div style="background:#0f172a;padding:24px;border-radius:12px 12px 0 0;text-align:center;">
-          <h1 style="color:#00d2b4;margin:0;font-size:22px;letter-spacing:-0.5px;">🛒 طلب جديد في أزكاسمارت (AzkaSmart)</h1>
-          <p style="color:#94a3b8;margin:6px 0 0;font-size:14px;">رقم الطلب: #${orderId.slice(0, 8)}</p>
-        </div>
-        <div style="background:#ffffff;padding:28px;border-radius:0 0 12px 12px;box-shadow:0 4px 12px rgba(0,0,0,0.06);border:1px solid #e2e8f0;border-top:none;">
-          <div style="background:#f0fdfa;border:1px solid #ccfbf1;color:#0f766e;padding:16px;border-radius:8px;margin-bottom:24px;">
-            <p style="margin:0;font-size:15px;font-weight:bold;">طريقة الدفع: ${escapeHtml(paymentLabel)}</p>
-            ${isPaid ? '<p style="margin:4px 0 0;color:#059669;font-weight:600;">✓ تم الدفع بنجاح عبر البطاقة</p>' : ''}
-            ${shippingAddress.instapayReference ? `<p style="margin:4px 0 0;color:#7c3aed;font-weight:600;">رقم مرجع إنستاباي: ${escapeHtml(shippingAddress.instapayReference)}</p>` : ''}
-          </div>
-
-          <h3 style="color:#0f172a;border-bottom:2px solid #00d2b4;padding-bottom:8px;margin:0 0 16px;font-size:16px;">بيانات العميل والتوصيل</h3>
-          <table style="width:100%;margin-bottom:24px;border-collapse:collapse;font-size:14px;">
-            <tr><td style="padding:6px 0;color:#64748b;width:120px;">الاسم:</td><td style="padding:6px 0;color:#0f172a;font-weight:600;">${escapeHtml(shippingAddress.firstName)} ${escapeHtml(shippingAddress.lastName)}</td></tr>
-            <tr><td style="padding:6px 0;color:#64748b;">البريد الإلكتروني:</td><td style="padding:6px 0;color:#0f172a;"><strong>${escapeHtml(email || 'غير مسجل')}</strong></td></tr>
-            <tr><td style="padding:6px 0;color:#64748b;">رقم الهاتف:</td><td style="padding:6px 0;color:#0f172a;font-weight:600;" dir="ltr">${escapeHtml(shippingAddress.phone)}</td></tr>
-            <tr><td style="padding:6px 0;color:#64748b;">العنوان:</td><td style="padding:6px 0;color:#0f172a;">${escapeHtml(shippingAddress.address)}, ${escapeHtml(shippingAddress.city)}, ${escapeHtml(shippingAddress.governorate)}</td></tr>
-            ${shippingAddress.notes ? `<tr><td style="padding:6px 0;color:#64748b;">ملاحظات:</td><td style="padding:6px 0;color:#b45309;font-weight:500;">${escapeHtml(shippingAddress.notes)}</td></tr>` : ''}
-          </table>
-
-          <h3 style="color:#0f172a;border-bottom:2px solid #00d2b4;padding-bottom:8px;margin:0 0 16px;font-size:16px;">المنتجات المطلوبة</h3>
-          <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
-            <thead>
-              <tr style="background:#f8fafc;">
-                <th style="padding:10px 14px;text-align:right;font-size:13px;color:#475569;border-bottom:2px solid #e2e8f0;">المنتج</th>
-                <th style="padding:10px 14px;text-align:center;font-size:13px;color:#475569;border-bottom:2px solid #e2e8f0;">الكمية</th>
-                <th style="padding:10px 14px;text-align:right;font-size:13px;color:#475569;border-bottom:2px solid #e2e8f0;">السعر</th>
-                <th style="padding:10px 14px;text-align:right;font-size:13px;color:#475569;border-bottom:2px solid #e2e8f0;">الإجمالي</th>
-              </tr>
-            </thead>
-            <tbody>${itemsRowsHtml}</tbody>
-          </table>
-
-          <div style="background:#0f172a;color:#ffffff;padding:20px 24px;border-radius:10px;text-align:left;display:flex;justify-content:space-between;align-items:center;">
-            <span style="font-size:16px;color:#94a3b8;">إجمالي الطلب:</span>
-            <span style="font-size:24px;font-weight:bold;color:#00d2b4;float:left;">${total.toLocaleString()} ج.م</span>
-            <div style="clear:both;"></div>
-          </div>
-          <p style="color:#94a3b8;font-size:12px;text-align:center;margin-top:24px;">تم تسجيل هذا الطلب في ${orderDateFormatted}</p>
-        </div>
-      </body></html>
+    // Shared CSS reset + Mobile responsive styles
+    const sharedEmailStyles = `
+      body, p, h1, h2, h3, h4, table, td, div, a, span {
+        -webkit-text-size-adjust: 100%;
+        -ms-text-size-adjust: 100%;
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        background-color: #f1f5f9;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        color: #0f172a;
+      }
+      table {
+        border-collapse: collapse !important;
+        mso-table-lspace: 0pt;
+        mso-table-rspace: 0pt;
+      }
+      img {
+        border: 0;
+        outline: none;
+        text-decoration: none;
+      }
+      @media only screen and (max-width: 600px) {
+        .email-shell {
+          padding: 8px 4px !important;
+        }
+        .email-container {
+          width: 100% !important;
+          max-width: 100% !important;
+        }
+        .email-header {
+          padding: 22px 16px !important;
+          border-radius: 10px 10px 0 0 !important;
+        }
+        .email-card {
+          padding: 18px 14px !important;
+          border-radius: 0 0 10px 10px !important;
+        }
+        .order-meta-cell {
+          display: block !important;
+          width: 100% !important;
+          text-align: right !important;
+          padding: 4px 0 !important;
+        }
+        .total-row-td {
+          padding: 14px 14px !important;
+        }
+        .total-amount-large {
+          font-size: 20px !important;
+        }
+        .mobile-stack-btn {
+          display: block !important;
+          width: 100% !important;
+          margin: 8px 0 !important;
+          text-align: center !important;
+          padding: 14px 16px !important;
+          font-size: 15px !important;
+          box-sizing: border-box !important;
+        }
+      }
     `;
 
-    // Customer receipt email HTML (Bilingual: Arabic & English)
+    // Admin notification email HTML (100% responsive on phone & desktop)
+    const adminEmailHtml = `
+      <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+      <html xmlns="http://www.w3.org/1999/xhtml" dir="rtl" lang="ar">
+      <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+        <meta name="x-apple-disable-message-reformatting" />
+        <meta name="format-detection" content="telephone=no,address=no,email=no,date=no,url=no" />
+        <title>طلب جديد - AzkaSmart #${orderId.slice(0, 8).toUpperCase()}</title>
+        <style type="text/css">
+          ${sharedEmailStyles}
+        </style>
+      </head>
+      <body style="margin:0;padding:0;background-color:#f1f5f9;direction:rtl;text-align:right;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f1f5f9;">
+          <tr>
+            <td align="center" class="email-shell" style="padding:20px 10px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="email-container" style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 16px rgba(15,23,42,0.06);border:1px solid #e2e8f0;">
+                
+                <!-- Admin Header -->
+                <tr>
+                  <td class="email-header" style="background:#0f172a;padding:26px 20px;text-align:center;">
+                    <div style="color:#00d2b4;font-size:22px;font-weight:bold;margin-bottom:6px;">
+                      🛒 طلب جديد في أزكاسمارت (AzkaSmart)
+                    </div>
+                    <div style="color:#94a3b8;font-size:14px;font-family:monospace;">
+                      رقم الطلب: #${orderId.slice(0, 8).toUpperCase()}
+                    </div>
+                  </td>
+                </tr>
+
+                <!-- Admin Body -->
+                <tr>
+                  <td class="email-card" style="padding:24px 20px;background:#ffffff;">
+
+                    <!-- Payment status badge -->
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f0fdfa;border:1px solid #ccfbf1;border-radius:10px;margin-bottom:20px;">
+                      <tr>
+                        <td style="padding:14px 16px;">
+                          <div style="font-size:14px;font-weight:bold;color:#0f766e;">
+                            طريقة الدفع: ${escapeHtml(paymentLabel)}
+                          </div>
+                          ${isPaid ? '<div style="color:#059669;font-weight:600;font-size:13px;margin-top:4px;">✓ تم الدفع بنجاح عبر البطاقة البنكية</div>' : ''}
+                          ${shippingAddress.instapayReference ? `<div style="color:#7c3aed;font-weight:600;font-size:13px;margin-top:4px;">رقم مرجع إنستاباي: <span style="font-family:monospace;">${escapeHtml(shippingAddress.instapayReference)}</span></div>` : ''}
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Customer Details -->
+                    <div style="margin-bottom:20px;">
+                      <div style="font-size:14px;font-weight:bold;color:#0f172a;border-bottom:2px solid #00d2b4;padding-bottom:6px;margin-bottom:10px;">
+                        بيانات العميل والتوصيل
+                      </div>
+                      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">
+                        <tr>
+                          <td style="padding:12px 14px;font-size:13px;color:#334155;line-height:1.7;">
+                            <div><strong>الاسم: </strong>${escapeHtml(shippingAddress.firstName)} ${escapeHtml(shippingAddress.lastName)}</div>
+                            <div><strong>البريد الإلكتروني: </strong><a href="mailto:${escapeHtml(email)}" style="color:#008b76;text-decoration:none;">${escapeHtml(email || 'غير مسجل')}</a></div>
+                            <div><strong>رقم الهاتف: </strong><span dir="ltr"><strong>${escapeHtml(shippingAddress.phone)}</strong></span></div>
+                            <div><strong>العنوان: </strong>${escapeHtml(shippingAddress.address)}, ${escapeHtml(shippingAddress.city)}, ${escapeHtml(shippingAddress.governorate)}</div>
+                            ${shippingAddress.notes ? `<div style="color:#b45309;"><strong>ملاحظات: </strong>${escapeHtml(shippingAddress.notes)}</div>` : ''}
+                          </td>
+                        </tr>
+                      </table>
+                    </div>
+
+                    ${adminCustomerWaUrl ? `
+                      <!-- Quick WhatsApp Customer Contact Button -->
+                      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:20px;">
+                        <tr>
+                          <td align="center">
+                            <a href="${adminCustomerWaUrl}"
+                               target="_blank"
+                               class="mobile-stack-btn"
+                               style="display:inline-block;background:#25d366;color:#ffffff;text-decoration:none;padding:11px 22px;border-radius:8px;font-size:14px;font-weight:bold;box-shadow:0 2px 6px rgba(37,211,102,0.25);">
+                               💬 فتح محادثة واتساب مع العميل (${escapeHtml(shippingAddress.phone)})
+                            </a>
+                          </td>
+                        </tr>
+                      </table>
+                    ` : ''}
+
+                    <!-- Products Header -->
+                    <div style="font-size:14px;font-weight:bold;color:#0f172a;border-bottom:2px solid #00d2b4;padding-bottom:6px;margin-bottom:4px;">
+                      المنتجات المطلوبة (${items.reduce((s, it) => s + it.quantity, 0)})
+                    </div>
+
+                    <!-- Products List -->
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;margin-bottom:16px;">
+                      ${itemsListHtml}
+                    </table>
+
+                    <!-- Total Block -->
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#0f172a;border-radius:10px;margin:16px 0 20px 0;">
+                      <tr>
+                        <td align="right" valign="middle" class="total-row-td" style="padding:16px 18px;color:#94a3b8;font-size:15px;font-weight:600;">
+                          إجمالي الطلب:
+                        </td>
+                        <td align="left" valign="middle" class="total-row-td" style="padding:16px 18px;color:#00d2b4;text-align:left;white-space:nowrap;" dir="ltr">
+                          <strong class="total-amount-large" style="font-size:22px;color:#00d2b4;">${total.toLocaleString()}</strong> <span style="font-size:14px;color:#00d2b4;">ج.م</span>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <div style="color:#94a3b8;font-size:12px;text-align:center;margin-top:16px;">
+                      تم تسجيل هذا الطلب في ${orderDateFormatted}
+                    </div>
+
+                  </td>
+                </tr>
+
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+    `;
+
+    // Customer receipt email HTML (Bilingual: Arabic & English, 100% mobile-friendly)
     const customerEmailHtml = `
-      <!DOCTYPE html>
-      <html dir="rtl" lang="ar">
-      <head><meta charset="utf-8"><title>إيصال تأكيد الطلب - AzkaSmart</title></head>
-      <body style="font-family:Segoe UI,Tahoma,Geneva,Verdana,sans-serif;max-width:640px;margin:0 auto;padding:20px;background:#f8fafc;direction:rtl;text-align:right;">
-        <div style="background:#0f172a;padding:28px 24px;border-radius:14px 14px 0 0;text-align:center;">
-          <h1 style="color:#00d2b4;margin:0;font-size:24px;letter-spacing:-0.5px;">AzkaSmart | أزكاسمارت</h1>
-          <p style="color:#e2e8f0;margin:8px 0 0;font-size:16px;font-weight:600;">شكراً لطلبك! تم تأكيد طلبك بنجاح 🎉</p>
-          <p style="color:#94a3b8;margin:4px 0 0;font-size:13px;">Thank you for your order! Your order has been placed successfully.</p>
-        </div>
+      <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+      <html xmlns="http://www.w3.org/1999/xhtml" dir="rtl" lang="ar">
+      <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+        <meta name="x-apple-disable-message-reformatting" />
+        <meta name="format-detection" content="telephone=no,address=no,email=no,date=no,url=no" />
+        <title>تأكيد طلبك من أزكاسمارت #${orderId.slice(0, 8).toUpperCase()}</title>
+        <style type="text/css">
+          ${sharedEmailStyles}
+        </style>
+      </head>
+      <body style="margin:0;padding:0;background-color:#f1f5f9;direction:rtl;text-align:right;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f1f5f9;">
+          <tr>
+            <td align="center" class="email-shell" style="padding:20px 10px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="email-container" style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 16px rgba(15,23,42,0.06);border:1px solid #e2e8f0;">
+                
+                <!-- Header Banner -->
+                <tr>
+                  <td class="email-header" style="background:#0f172a;padding:28px 24px;text-align:center;">
+                    <div style="color:#00d2b4;font-size:24px;font-weight:bold;letter-spacing:-0.5px;margin-bottom:8px;">
+                      AzkaSmart | أزكاسمارت
+                    </div>
+                    <div style="color:#ffffff;font-size:17px;font-weight:600;margin-bottom:4px;line-height:1.4;">
+                      شكراً لطلبك! تم تأكيد الطلب بنجاح 🎉
+                    </div>
+                    <div style="color:#94a3b8;font-size:13px;line-height:1.4;">
+                      Thank you for your order! It is now being prepared.
+                    </div>
+                  </td>
+                </tr>
 
-        <div style="background:#ffffff;padding:28px;border-radius:0 0 14px 14px;box-shadow:0 4px 12px rgba(0,0,0,0.06);border:1px solid #e2e8f0;border-top:none;">
-          <div style="background:#f0fdfa;border:1px solid #ccfbf1;border-radius:10px;padding:16px 20px;margin-bottom:24px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-              <div>
-                <span style="font-size:12px;color:#64748b;display:block;">رقم الطلب / Order ID</span>
-                <span style="font-size:17px;font-weight:bold;color:#0f766e;font-family:monospace;">#${orderId.slice(0, 8)}</span>
-              </div>
-              <div>
-                <span style="font-size:12px;color:#64748b;display:block;">التاريخ / Date</span>
-                <span style="font-size:13px;font-weight:600;color:#0f172a;">${orderDateFormatted}</span>
-              </div>
-            </div>
-            <div style="margin-top:10px;padding-top:10px;border-top:1px dashed #99f6e4;font-size:13px;color:#0f766e;">
-              <strong>طريقة الدفع: </strong>${escapeHtml(paymentLabel)}
-            </div>
-          </div>
+                <!-- Body Card -->
+                <tr>
+                  <td class="email-card" style="padding:24px 20px;background:#ffffff;">
 
-          <h3 style="color:#0f172a;border-bottom:2px solid #00d2b4;padding-bottom:8px;margin:0 0 14px;font-size:15px;">تفاصيل الشحن والتوصيل / Shipping Details</h3>
-          <div style="background:#f8fafc;border-radius:8px;padding:14px 18px;margin-bottom:24px;font-size:14px;color:#334155;line-height:1.6;">
-            <p style="margin:0 0 4px;"><strong>المستلم: </strong>${escapeHtml(shippingAddress.firstName)} ${escapeHtml(shippingAddress.lastName)}</p>
-            <p style="margin:0 0 4px;"><strong>رقم الهاتف: </strong><span dir="ltr">${escapeHtml(shippingAddress.phone)}</span></p>
-            <p style="margin:0 0 4px;"><strong>العنوان: </strong>${escapeHtml(shippingAddress.address)}, ${escapeHtml(shippingAddress.city)}, ${escapeHtml(shippingAddress.governorate)}</p>
-            ${shippingAddress.notes ? `<p style="margin:0;color:#64748b;"><strong>ملاحظات: </strong>${escapeHtml(shippingAddress.notes)}</p>` : ''}
-          </div>
+                    <!-- Order ID & Date Box -->
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f0fdfa;border:1px solid #ccfbf1;border-radius:10px;margin-bottom:20px;">
+                      <tr>
+                        <td style="padding:14px 16px;">
+                          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                            <tr>
+                              <td align="right" valign="top" class="order-meta-cell">
+                                <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">رقم الطلب / Order ID</div>
+                                <div style="font-size:16px;font-weight:bold;color:#0f766e;font-family:monospace;margin-top:2px;">#${orderId.slice(0, 8).toUpperCase()}</div>
+                              </td>
+                              <td align="left" valign="top" class="order-meta-cell" dir="ltr" style="text-align:left;">
+                                <div style="font-size:11px;color:#64748b;">تاريخ الطلب / Date</div>
+                                <div style="font-size:12px;font-weight:600;color:#0f172a;margin-top:2px;">${orderDateFormatted}</div>
+                              </td>
+                            </tr>
+                          </table>
+                          <div style="margin-top:10px;padding-top:10px;border-top:1px dashed #99f6e4;font-size:13px;color:#0f766e;line-height:1.5;">
+                            <strong>طريقة الدفع: </strong>${escapeHtml(paymentLabel)}
+                            ${isPaid ? '<div style="color:#059669;font-weight:600;margin-top:4px;">✓ تم تأكيد الدفع الإلكتروني بنجاح</div>' : ''}
+                            ${shippingAddress.instapayReference ? `<div style="color:#7c3aed;font-weight:600;margin-top:4px;">رقم مرجع إنستاباي: <span style="font-family:monospace;">${escapeHtml(shippingAddress.instapayReference)}</span></div>` : ''}
+                          </div>
+                        </td>
+                      </tr>
+                    </table>
 
-          <h3 style="color:#0f172a;border-bottom:2px solid #00d2b4;padding-bottom:8px;margin:0 0 14px;font-size:15px;">المنتجات / Order Items</h3>
-          <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
-            <thead>
-              <tr style="background:#f8fafc;">
-                <th style="padding:10px 12px;text-align:right;font-size:13px;color:#475569;border-bottom:2px solid #e2e8f0;">المنتج</th>
-                <th style="padding:10px 12px;text-align:center;font-size:13px;color:#475569;border-bottom:2px solid #e2e8f0;">الكمية</th>
-                <th style="padding:10px 12px;text-align:right;font-size:13px;color:#475569;border-bottom:2px solid #e2e8f0;">السعر</th>
-                <th style="padding:10px 12px;text-align:right;font-size:13px;color:#475569;border-bottom:2px solid #e2e8f0;">الإجمالي</th>
-              </tr>
-            </thead>
-            <tbody>${itemsRowsHtml}</tbody>
-          </table>
+                    <!-- Shipping Details -->
+                    <div style="margin-bottom:20px;">
+                      <div style="font-size:14px;font-weight:bold;color:#0f172a;border-bottom:2px solid #00d2b4;padding-bottom:6px;margin-bottom:10px;">
+                        تفاصيل الشحن والتوصيل / Shipping Details
+                      </div>
+                      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">
+                        <tr>
+                          <td style="padding:12px 14px;font-size:13px;color:#334155;line-height:1.6;">
+                            <div><strong>المستلم: </strong>${escapeHtml(shippingAddress.firstName)} ${escapeHtml(shippingAddress.lastName)}</div>
+                            <div style="margin-top:3px;"><strong>رقم الهاتف: </strong><span dir="ltr">${escapeHtml(shippingAddress.phone)}</span></div>
+                            <div style="margin-top:3px;"><strong>العنوان: </strong>${escapeHtml(shippingAddress.address)}, ${escapeHtml(shippingAddress.city)}, ${escapeHtml(shippingAddress.governorate)}</div>
+                            ${shippingAddress.notes ? `<div style="margin-top:3px;color:#b45309;"><strong>ملاحظات: </strong>${escapeHtml(shippingAddress.notes)}</div>` : ''}
+                          </td>
+                        </tr>
+                      </table>
+                    </div>
 
-          <div style="background:#0f172a;color:#ffffff;padding:20px 24px;border-radius:10px;text-align:left;">
-            <span style="font-size:16px;color:#94a3b8;">المبلغ الإجمالي / Total:</span>
-            <span style="font-size:24px;font-weight:bold;color:#00d2b4;float:left;">${total.toLocaleString()} ج.م</span>
-            <div style="clear:both;"></div>
-          </div>
+                    <!-- Items Header -->
+                    <div style="font-size:14px;font-weight:bold;color:#0f172a;border-bottom:2px solid #00d2b4;padding-bottom:6px;margin-bottom:4px;">
+                      المنتجات المطلوبة / Order Items (${items.reduce((s, it) => s + it.quantity, 0)})
+                    </div>
 
-          <div style="margin-top:28px;padding-top:20px;border-top:1px solid #e2e8f0;text-align:center;">
-            <h4 style="margin:0 0 8px;color:#0f172a;font-size:14px;">هل لديك أي استفسار حول طلبك؟</h4>
-            <p style="margin:0 0 16px;font-size:13px;color:#64748b;">فريق الدعم الفني وخدمة العملاء متاح دائماً لمساعدتك</p>
-            <a href="https://wa.me/201050627310?text=${encodeURIComponent(`مرحباً أزكاسمارت، أستفسر عن طلبي رقم #${orderId.slice(0, 8)}`)}" 
-               style="display:inline-block;background:#25d366;color:#ffffff;text-decoration:none;padding:10px 22px;border-radius:8px;font-size:14px;font-weight:600;margin-left:8px;">
-               تواصل عبر واتساب
-            </a>
-            <a href="mailto:info@azkasmart.com" 
-               style="display:inline-block;background:#0f172a;color:#ffffff;text-decoration:none;padding:10px 22px;border-radius:8px;font-size:14px;font-weight:600;">
-               info@azkasmart.com
-            </a>
-          </div>
+                    <!-- Items List (Responsive fluid table) -->
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;margin-bottom:16px;">
+                      ${itemsListHtml}
+                    </table>
 
-          <p style="color:#94a3b8;font-size:11px;text-align:center;margin-top:24px;line-height:1.5;">
-            AzkaSmart — حلول المنازل الذكية وأنظمة التحكم المتطورة<br>
-            Smart Home AI Solutions & Automation
-          </p>
-        </div>
-      </body></html>
+                    <!-- Total Block -->
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#0f172a;border-radius:10px;margin:16px 0 24px 0;">
+                      <tr>
+                        <td align="right" valign="middle" class="total-row-td" style="padding:16px 20px;color:#94a3b8;font-size:15px;font-weight:600;">
+                          المبلغ الإجمالي / Grand Total:
+                        </td>
+                        <td align="left" valign="middle" class="total-row-td" style="padding:16px 20px;color:#00d2b4;text-align:left;white-space:nowrap;" dir="ltr">
+                          <strong class="total-amount-large" style="font-size:22px;color:#00d2b4;">${total.toLocaleString()}</strong> <span style="font-size:14px;color:#00d2b4;">ج.م</span>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Support & WhatsApp Section -->
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:20px;padding-top:20px;border-top:1px solid #e2e8f0;text-align:center;">
+                      <tr>
+                        <td align="center" style="padding:0;">
+                          <div style="font-size:15px;font-weight:bold;color:#0f172a;margin-bottom:4px;">
+                            هل لديك أي استفسار حول طلبك؟
+                          </div>
+                          <div style="font-size:13px;color:#64748b;margin-bottom:14px;line-height:1.5;">
+                            فريق خدمة العملاء والدعم الفني متاح دائماً لمساعدتك عبر واتساب
+                          </div>
+                          
+                          <!-- Buttons -->
+                          <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;width:100%;max-width:440px;">
+                            <tr>
+                              <td align="center" style="padding:4px 0;">
+                                <a href="https://wa.me/${cleanWhatsapp}?text=${encodeURIComponent(`مرحباً أزكاسمارت، أستفسر عن طلبي رقم #${orderId.slice(0, 8).toUpperCase()}`)}"
+                                   target="_blank"
+                                   class="mobile-stack-btn"
+                                   style="display:inline-block;background:#25d366;color:#ffffff;text-decoration:none;padding:12px 26px;border-radius:8px;font-size:14px;font-weight:bold;box-shadow:0 2px 8px rgba(37,211,102,0.3);text-align:center;">
+                                   💬 تواصل عبر واتساب (${displayWhatsapp})
+                                </a>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td align="center" style="padding:4px 0;">
+                                <a href="mailto:${contactEmail}"
+                                   class="mobile-stack-btn"
+                                   style="display:inline-block;background:#0f172a;color:#ffffff;text-decoration:none;padding:11px 22px;border-radius:8px;font-size:13px;font-weight:600;text-align:center;">
+                                   ✉️ ${contactEmail}
+                                </a>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Footer Info -->
+                    <div style="color:#94a3b8;font-size:11px;text-align:center;margin-top:24px;line-height:1.6;border-top:1px dashed #e2e8f0;padding-top:16px;">
+                      AzkaSmart — حلول المنازل الذكية والأنظمة المتطورة في مصر<br>
+                      Smart Home AI Solutions & Automation • Cairo, Egypt
+                    </div>
+
+                  </td>
+                </tr>
+
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
     `;
 
     let adminEmailResponse = null;
@@ -292,7 +549,7 @@ const handler = async (req: Request): Promise<Response> => {
       try {
         adminEmailResponse = await sendEmail(
           [ADMIN_EMAIL],
-          `🛒 طلب جديد #${orderId.slice(0, 8)} - ${total.toLocaleString()} ج.م (${paymentLabel})`,
+          `🛒 طلب جديد #${orderId.slice(0, 8).toUpperCase()} - ${total.toLocaleString()} ج.م (${paymentLabel})`,
           adminEmailHtml
         );
       } catch (adminMailErr) {
@@ -303,7 +560,7 @@ const handler = async (req: Request): Promise<Response> => {
         try {
           customerEmailResponse = await sendEmail(
             [email],
-            `تأكيد طلبك من أزكاسمارت #${orderId.slice(0, 8)} | Order Confirmed!`,
+            `تأكيد طلبك من أزكاسمارت #${orderId.slice(0, 8).toUpperCase()} | Order Confirmed!`,
             customerEmailHtml
           );
         } catch (custMailErr) {
@@ -318,7 +575,7 @@ const handler = async (req: Request): Promise<Response> => {
     try {
       await sendPushToEmail(supabase, email, {
         title: "تم تأكيد طلبك 🎉",
-        message: `طلب #${orderId.slice(0, 8)} بقيمة ${total.toLocaleString()} ج.م. سنوافيك بالتحديثات فور شحنه.`,
+        message: `طلب #${orderId.slice(0, 8).toUpperCase()} بقيمة ${total.toLocaleString()} ج.م. سنوافيك بالتحديثات فور شحنه.`,
         url: `/order-confirmation?orderId=${orderId}`,
       });
     } catch (e) {

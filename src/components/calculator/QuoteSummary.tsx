@@ -9,9 +9,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useSiteInfo } from '@/hooks/useSiteInfo';
 import { cn } from '@/lib/utils';
 
 export function QuoteSummary() {
+  const { get: getInfo } = useSiteInfo();
+  const whatsappNumber = (getInfo('contact', 'whatsapp', '201501896456') || '201501896456').replace(/\D/g, '');
   const { 
     rooms, 
     devices, 
@@ -96,7 +99,7 @@ export function QuoteSummary() {
         `Total: ${formatPrice(total)}\n\n` +
         `Contact: ${localEmail || localPhone}`
       );
-      window.open(`https://wa.me/201050627310?text=${whatsappMessage}`, '_blank');
+      window.open(`https://wa.me/${whatsappNumber}?text=${whatsappMessage}`, '_blank');
 
     } catch (error) {
       console.error('Error saving quote:', error);
