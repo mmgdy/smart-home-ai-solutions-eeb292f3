@@ -442,16 +442,21 @@ const ProductDetail = () => {
               </div>
 
               {/* Specs */}
-              {product.specifications && Object.keys(product.specifications).length > 0 && (
+              {product.specifications &&
+                Object.entries(product.specifications).filter(([k]) => !/source/i.test(k)).length > 0 && (
                 <div className="rounded-xl border border-border bg-card p-5">
                   <h3 className="mb-3 font-display text-base font-semibold text-foreground">{t('specifications')}</h3>
                   <dl className="space-y-2">
-                    {Object.entries(product.specifications).map(([key, value]) => (
-                      <div key={key} className="flex justify-between text-sm">
-                        <dt className="text-muted-foreground">{key}</dt>
-                        <dd className="font-medium text-foreground">{String(value)}</dd>
-                      </div>
-                    ))}
+                    {Object.entries(product.specifications)
+                      .filter(([key]) => !/source/i.test(key))
+                      .map(([key, value]) => (
+                        <div key={key} className="flex justify-between text-sm">
+                          <dt className="text-muted-foreground">{key}</dt>
+                          <dd className="font-medium text-foreground">
+                            {Array.isArray(value) ? value.join(', ') : String(value)}
+                          </dd>
+                        </div>
+                      ))}
                   </dl>
                 </div>
               )}
