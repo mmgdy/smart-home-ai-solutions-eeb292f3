@@ -56,8 +56,9 @@ export function Footer() {
     ? (logoDark || logoDefault)
     : (logoLight || logoDefault);
 
-  const phone = get('contact', 'phone', '+20 150 189 6456');
-  const whatsapp = get('contact', 'whatsapp', '201501896456').replace(/\D/g, '');
+  const phone = get('contact', 'phone', '01501896456');
+  const rawWa = get('contact', 'whatsapp', '01501896456').replace(/\D/g, '');
+  const whatsapp = rawWa.startsWith('0') ? '2' + rawWa : rawWa;
   const email = get('contact', 'email', 'info@azkasmart.com');
   const address = isRTL ? get('contact', 'address_ar', 'القاهرة، مصر') : get('contact', 'address_en', 'Cairo, Egypt');
 

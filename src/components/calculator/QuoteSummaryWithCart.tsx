@@ -46,7 +46,8 @@ interface MatchedProduct {
 export function QuoteSummaryWithCart() {
   const navigate = useNavigate();
   const { get: getInfo } = useSiteInfo();
-  const whatsappNumber = (getInfo('contact', 'whatsapp', '201501896456') || '201501896456').replace(/\D/g, '');
+  const rawWa = (getInfo('contact', 'whatsapp', '01501896456') || '01501896456').replace(/\D/g, '');
+  const whatsappNumber = rawWa.startsWith('0') ? '2' + rawWa : rawWa;
   const { 
     rooms, 
     devices, 

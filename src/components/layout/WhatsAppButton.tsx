@@ -6,7 +6,9 @@ import { cn } from '@/lib/utils';
 export function WhatsAppButton() {
   const { isRTL } = useLanguage();
   const { get } = useSiteInfo();
-  const phone = (get('contact', 'whatsapp', '201501896456') || '201501896456').replace(/\D/g, '');
+  const raw = get('contact', 'whatsapp', '01501896456') || '01501896456';
+  const digits = raw.replace(/\D/g, '');
+  const phone = digits.startsWith('0') ? '2' + digits : digits;
   const message = encodeURIComponent(
     isRTL ? 'مرحباً أزكاسمارت! أود الاستفسار عن منتجات وخدمات المنزل الذكي.' : 'Hi AzkaSmart! I need help with smart home products.'
   );

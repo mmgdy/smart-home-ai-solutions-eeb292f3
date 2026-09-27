@@ -76,9 +76,22 @@ const handler = async (req: Request): Promise<Response> => {
       if (row.key && row.value) siteContact[row.key] = row.value;
     });
 
-    const rawWhatsapp = (siteContact.whatsapp || "+201501896456").trim();
-    const cleanWhatsapp = rawWhatsapp.replace(/[^0-9]/g, "") || "201501896456";
-    const displayWhatsapp = rawWhatsapp.startsWith("+") ? rawWhatsapp : `+${rawWhatsapp}`;
+    const rawWhatsapp = (siteContact.whatsapp || "01501896456").trim();
+    let digits = rawWhatsapp.replace(/[^0-9]/g, "");
+    if (digits.startsWith("0")) {
+      digits = "2" + digits;
+    } else if (!digits.startsWith("20") && digits.length === 10) {
+      digits = "20" + digits;
+    }
+    const cleanWhatsapp = digits || "201501896456";
+
+    // Format for display: 01501896456
+    let displayWhatsapp = rawWhatsapp || "01501896456";
+    if (displayWhatsapp.startsWith("+20")) {
+      displayWhatsapp = "0" + displayWhatsapp.slice(3);
+    } else if (displayWhatsapp.startsWith("20") && displayWhatsapp.length === 12) {
+      displayWhatsapp = "0" + displayWhatsapp.slice(2);
+    }
     const contactEmail = (siteContact.email || ADMIN_EMAIL).trim();
 
     const email = (order.email || "").trim();

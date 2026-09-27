@@ -1091,7 +1091,10 @@ const Checkout = () => {
                             {/* Instant WhatsApp Verification Support */}
                             <div className="pt-2 border-t border-purple-500/10">
                               <a
-                                href={`https://wa.me/${getInfo('contact', 'whatsapp', '201501896456').replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+                                href={`https://wa.me/${(() => {
+                                  const d = getInfo('contact', 'whatsapp', '01501896456').replace(/[^0-9]/g, '');
+                                  return d.startsWith('0') ? '2' + d : d;
+                                })()}?text=${encodeURIComponent(
                                   `مرحباً أزكاسمارت، أود تأكيد الدفع عبر إنستاباي بمبلغ ${total} ج.م.\nالاسم: ${formData.firstName} ${formData.lastName}\nالهاتف: ${formData.phone}`
                                 )}`}
                                 target="_blank"
