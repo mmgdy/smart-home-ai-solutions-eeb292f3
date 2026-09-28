@@ -117,13 +117,75 @@ const MATCHERS: Array<{ pattern: RegExp; token: ProtocolToken }> = [
 ];
 
 /**
+ * Canonical protocol definitions for admin selectors and UI badges
+ */
+export const COMMON_PROTOCOLS = [
+  {
+    name: 'WiFi',
+    label: 'Wi-Fi',
+    icon: Wifi,
+    activeClass: 'bg-sky-500/20 text-sky-600 dark:text-sky-400 border-sky-500/50 shadow-sm',
+    badgeClass: 'bg-sky-500 text-white',
+  },
+  {
+    name: 'Zigbee',
+    label: 'Zigbee',
+    icon: Radio,
+    activeClass: 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/50 shadow-sm',
+    badgeClass: 'bg-amber-500 text-white',
+  },
+  {
+    name: 'Matter',
+    label: 'Matter',
+    icon: Cpu,
+    activeClass: 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/50 shadow-sm',
+    badgeClass: 'bg-emerald-500 text-white',
+  },
+  {
+    name: 'Thread',
+    label: 'Thread',
+    icon: Waves,
+    activeClass: 'bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border-indigo-500/50 shadow-sm',
+    badgeClass: 'bg-indigo-500 text-white',
+  },
+  {
+    name: 'Bluetooth',
+    label: 'Bluetooth',
+    icon: Bluetooth,
+    activeClass: 'bg-blue-500/20 text-blue-600 dark:text-blue-400 border-blue-500/50 shadow-sm',
+    badgeClass: 'bg-blue-500 text-white',
+  },
+  {
+    name: 'RF 433 MHz',
+    label: 'RF 433 MHz',
+    icon: SatelliteDish,
+    activeClass: 'bg-orange-500/20 text-orange-600 dark:text-orange-400 border-orange-500/50 shadow-sm',
+    badgeClass: 'bg-orange-500 text-white',
+  },
+  {
+    name: 'Z-Wave',
+    label: 'Z-Wave',
+    icon: Radio,
+    activeClass: 'bg-purple-500/20 text-purple-600 dark:text-purple-400 border-purple-500/50 shadow-sm',
+    badgeClass: 'bg-purple-500 text-white',
+  },
+];
+
+/**
  * Extracts protocol tokens from a free-text protocol string. Returns up to
  * `max` recognisable chips (duplicates omitted), preserving first-seen order.
+ * 
+ * Enforces business rule: If a product supports Wi-Fi, remove the Zigbee badge
+ * unless 'zigbee' is explicitly written in the product title.
  */
-export function parseProtocols(protocol: string | null | undefined, max = 4): ProtocolToken[] {
+export function parseProtocols(
+  protocol: string | null | undefined,
+  productName?: string,
+  max = 4
+): ProtocolToken[] {
   if (!protocol) return [];
   const seen = new Set<string>();
-  const tokens: ProtocolToken[] = [];
+  let tokens: ProtocolToken[] = [];
   for (const { pattern, token } of MATCHERS) {
     if (pattern.test(protocol) && !seen.has(token.name)) {
       seen.add(token.name);
@@ -131,6 +193,17 @@ export function parseProtocols(protocol: string | null | undefined, max = 4): Pr
       if (tokens.length >= max) break;
     }
   }
+
+  // If both Wi-Fi and Zigbee are detected, only keep Zigbee if written in product title
+  const hasWifi = tokens.some((t) => t.name === 'Wi-Fi');
+  const hasZigbee = tokens.some((t) => t.name === 'Zigbee');
+  if (hasWifi && hasZigbee) {
+    const titleHasZigbee = productName ? /\bzigbee\b/i.test(productName) : false;
+    if (!titleHasZigbee) {
+      tokens = tokens.filter((t) => t.name !== 'Zigbee');
+    }
+  }
+
   return tokens;
 }
 
@@ -138,8 +211,8 @@ export function parseProtocols(protocol: string | null | undefined, max = 4): Pr
  * Returns a short label such as "Wi-Fi + Matter" derived from the parsed
  * tokens. Falls back to the raw input if nothing matched.
  */
-export function protocolLabel(protocol: string | null | undefined): string {
-  const tokens = parseProtocols(protocol);
+export function protocolLabel(protocol: string | null | undefined, productName?: string): string {
+  const tokens = parseProtocols(protocol, productName);
   if (tokens.length) return tokens.map((t) => t.name).join(' + ');
   return protocol?.trim() ?? '';
 }

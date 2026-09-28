@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Loader2, Plus, Pencil, Trash2, Upload, Search, X, Save, Image as ImageIcon, Video, Eye, EyeOff, Sparkles, Percent, CheckSquare, Square, RefreshCw } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, Upload, Search, X, Save, Image as ImageIcon, Video, Eye, EyeOff, Sparkles, Percent, CheckSquare, Square, RefreshCw, Radio } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,9 +9,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { getProductImage } from "@/lib/productImage";
+import { parseProtocols } from "@/lib/protocolIcon";
+import { ProtocolSelector, detectProtocolFromName } from "@/components/admin/ProtocolSelector";
 import { CairoSourcesViewer } from "@/components/admin/CairoSourcesViewer";
 import { cairoSupplierService } from "@/data/cairoSupplierService";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -79,6 +82,7 @@ export function ProductEditor({ adminToken }: Props) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [brandFilter, setBrandFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [protocolFilter, setProtocolFilter] = useState<string>("all");
   const [flagVersion, setFlagVersion] = useState(0);
   const [bulkBusy, setBulkBusy] = useState(false);
   const [discountPct, setDiscountPct] = useState("");
@@ -162,13 +166,25 @@ export function ProductEditor({ adminToken }: Props) {
       if (statusFilter === "invalid_image" && audit?.image_status !== "INVALID") return false;
       if (statusFilter === "delete_candidate" && audit?.action_taken !== "DELETE_CANDIDATE") return false;
       if (statusFilter === "no_cairo" && (audit?.sources_count ?? 0) > 0) return false;
+
+      if (protocolFilter !== "all") {
+        const proto = (p.protocol ?? "").toLowerCase();
+        if (protocolFilter === "wifi" && !/\bwi-?fi\b/.test(proto)) return false;
+        if (protocolFilter === "zigbee" && !/\bzigbee\b/.test(proto)) return false;
+        if (protocolFilter === "wifi_zigbee" && (!/\bwi-?fi\b/.test(proto) || !/\bzigbee\b/.test(proto))) return false;
+        if (protocolFilter === "matter" && !/\bmatter\b/.test(proto)) return false;
+        if (protocolFilter === "thread" && !/\bthread\b/.test(proto)) return false;
+        if (protocolFilter === "bluetooth" && !/\b(bluetooth|ble)\b/.test(proto)) return false;
+        if (protocolFilter === "none" && proto.trim() !== "") return false;
+      }
+
       if (!q) return true;
       return p.name.toLowerCase().includes(q) ||
         (p.brand ?? "").toLowerCase().includes(q) ||
         (p.slug ?? "").toLowerCase().includes(q) ||
         (audit?.sku && audit.sku.toLowerCase().includes(q));
     });
-  }, [products, search, brandFilter, statusFilter, flagVersion]);
+  }, [products, search, brandFilter, statusFilter, protocolFilter, flagVersion]);
 
   const allBrands = useMemo(
     () => Array.from(new Set(products.map((p) => p.brand).filter(Boolean))).sort() as string[],
@@ -257,6 +273,44 @@ export function ProductEditor({ adminToken }: Props) {
   const bulkResetDiscount = () =>
     bulkInvoke({ action: "bulk-apply-discount", ids: Array.from(selectedIds), mode: "reset" },
       `Reset prices for ${selectedIds.size} products`);
+
+  const bulkSetProtocol = (proto: string) => {
+    if (selectedIds.size === 0) return;
+    bulkInvoke(
+      { action: "bulk-update-products", ids: Array.from(selectedIds), updates: { protocol: proto } },
+      `Updated protocol to "${proto}" for ${selectedIds.size} products`
+    );
+  };
+
+  const bulkAutoDetectProtocols = async () => {
+    if (selectedIds.size === 0) return;
+    const selectedProducts = products.filter((p) => selectedIds.has(p.id));
+    const groups: Record<string, string[]> = {};
+    for (const p of selectedProducts) {
+      const detected = detectProtocolFromName(p.name);
+      if (!groups[detected]) groups[detected] = [];
+      groups[detected].push(p.id);
+    }
+
+    setBulkBusy(true);
+    try {
+      for (const [detectedProto, ids] of Object.entries(groups)) {
+        await supabase.functions.invoke("admin-write", {
+          headers: { Authorization: "Bearer " + adminToken },
+          body: { action: "bulk-update-products", ids, updates: { protocol: detectedProto } },
+        });
+      }
+      toast({
+        title: "Protocols auto-detected",
+        description: `Updated protocols for ${selectedProducts.length} products per title keywords.`,
+      });
+      await load();
+    } catch (e: any) {
+      toast({ title: "Auto-detect bulk update failed", description: e.message, variant: "destructive" });
+    } finally {
+      setBulkBusy(false);
+    }
+  };
 
   const aiGenerateSEO = async () => {
     if (!editing.id) {
@@ -421,6 +475,19 @@ export function ProductEditor({ adminToken }: Props) {
               {allBrands.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
             </SelectContent>
           </Select>
+          <Select value={protocolFilter} onValueChange={setProtocolFilter}>
+            <SelectTrigger className="w-full sm:w-40"><SelectValue placeholder="Protocol" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Protocols</SelectItem>
+              <SelectItem value="wifi">📶 Wi-Fi</SelectItem>
+              <SelectItem value="zigbee">📻 Zigbee</SelectItem>
+              <SelectItem value="wifi_zigbee">📶 + 📻 WiFi & Zigbee</SelectItem>
+              <SelectItem value="matter">⚡ Matter</SelectItem>
+              <SelectItem value="thread">🌊 Thread</SelectItem>
+              <SelectItem value="bluetooth">🔵 Bluetooth</SelectItem>
+              <SelectItem value="none">No Protocol</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         <Button onClick={openNew}><Plus className="h-4 w-4 mr-2" />New Product</Button>
       </div>
@@ -467,6 +534,43 @@ export function ProductEditor({ adminToken }: Props) {
           <Button size="sm" variant="outline" onClick={() => bulkFeature(false)} disabled={bulkBusy || selectedIds.size === 0}>
             Unfeature
           </Button>
+
+          {/* Bulk Protocol Action */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="outline" disabled={bulkBusy || selectedIds.size === 0} className="border-sky-500/40 text-sky-700 dark:text-sky-300">
+                <Radio className="h-4 w-4 mr-1 text-sky-500" /> Set Protocol
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem onClick={() => bulkSetProtocol('WiFi')} className="cursor-pointer">
+                📶 Set to Wi-Fi
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => bulkSetProtocol('Zigbee')} className="cursor-pointer">
+                📻 Set to Zigbee
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => bulkSetProtocol('WiFi / Zigbee')} className="cursor-pointer">
+                📶 + 📻 Set to WiFi / Zigbee
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => bulkSetProtocol('Matter')} className="cursor-pointer">
+                ⚡ Set to Matter
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => bulkSetProtocol('Thread')} className="cursor-pointer">
+                🌊 Set to Thread
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => bulkSetProtocol('Bluetooth')} className="cursor-pointer">
+                🔵 Set to Bluetooth
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => bulkSetProtocol('')} className="cursor-pointer text-muted-foreground">
+                ❌ Clear Protocol
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={bulkAutoDetectProtocols} className="cursor-pointer font-semibold text-primary">
+                ✨ Auto-detect from Titles
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           <Button size="sm" variant="destructive" onClick={bulkDelete} disabled={bulkBusy || selectedIds.size === 0}>
             {bulkBusy && bulkProgress ? (
               <Loader2 className="h-4 w-4 mr-1 animate-spin" />
@@ -526,6 +630,26 @@ export function ProductEditor({ adminToken }: Props) {
                         <span className="text-xs bg-orange-500/10 text-orange-600 px-2 py-0.5 rounded-full shrink-0">Hidden</span>
                       ) : (
                         <span className="text-xs bg-green-500/10 text-green-600 px-2 py-0.5 rounded-full shrink-0">Published</span>
+                      )}
+
+                      {/* Active Protocol Badges */}
+                      {parseProtocols(p.protocol, p.name).map((token) => {
+                        const Icon = token.icon;
+                        return (
+                          <span
+                            key={token.name}
+                            className={`text-[10px] font-medium px-2 py-0.5 rounded-full flex items-center gap-1 ${token.bg} ${token.fg} shrink-0 shadow-xs`}
+                            title={token.description}
+                          >
+                            <Icon className="w-2.5 h-2.5" />
+                            {token.name}
+                          </span>
+                        );
+                      })}
+                      {(!p.protocol || p.protocol.trim() === '') && (
+                        <span className="text-[10px] text-muted-foreground/60 px-1.5 py-0.5 border border-dashed rounded shrink-0">
+                          No protocol
+                        </span>
                       )}
 
                       {/* Honest Image Verification Status */}
@@ -689,9 +813,12 @@ export function ProductEditor({ adminToken }: Props) {
               <Input type="number" value={editing.stock ?? 0} onChange={(e) => setEditing({ ...editing, stock: Number(e.target.value) })} />
             </div>
 
-            <div className="space-y-2">
-              <Label>Protocol</Label>
-              <Input value={editing.protocol ?? ""} onChange={(e) => setEditing({ ...editing, protocol: e.target.value })} placeholder="WiFi, Zigbee, Z-Wave…" />
+            <div className="space-y-2 p-3 rounded-xl border border-border/70 bg-muted/20">
+              <ProtocolSelector
+                value={editing.protocol ?? ""}
+                onChange={(val) => setEditing({ ...editing, protocol: val })}
+                productName={editing.name ?? ""}
+              />
             </div>
 
             <div className="space-y-2">

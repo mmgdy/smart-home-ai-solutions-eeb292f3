@@ -41,7 +41,7 @@ export function ProductCard({ product, className }: ProductCardProps) {
     ? Math.round(((product.original_price - product.price) / product.original_price) * 100)
     : null;
 
-  const protocolTokens = parseProtocols(product.protocol);
+  const protocolTokens = parseProtocols(product.protocol, product.name);
 
   return (
     <Link to={`/products/${product.slug}`}>

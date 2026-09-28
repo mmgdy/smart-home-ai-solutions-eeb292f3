@@ -142,7 +142,10 @@ const ProductDetail = () => {
     return list.length > 0 ? list : [productPlaceholder];
   }, [activeProduct, familyVariants]);
 
-  const protocolTokens = useMemo(() => parseProtocols(activeProduct?.protocol), [activeProduct?.protocol]);
+  const protocolTokens = useMemo(
+    () => parseProtocols(activeProduct?.protocol, activeProduct?.name),
+    [activeProduct?.protocol, activeProduct?.name]
+  );
 
   const handleAddToCart = () => {
     if (activeProduct) {
