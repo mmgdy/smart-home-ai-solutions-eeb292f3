@@ -16,8 +16,8 @@ export function AIAdvisorShowcase() {
     },
     {
       type: 'answer',
-      textEn: 'Based on your apartment, I recommend:\n\n🔆 12x SONOFF Smart Switches — ٣,٦٠٠ EGP\n📷 4x TP-Link Cameras — ٤,٨٠٠ EGP\n⚡ Smart Energy Monitor — ١,٢٠٠ EGP\n🏠 Zigbee Hub — ٩٠٠ EGP\n\nTotal: ١٠,٥٠٠ EGP with free installation!',
-      textAr: 'بناءً على شقتك، أنصحك بـ:\n\n🔆 ١٢ مفتاح ذكي SONOFF — ٣,٦٠٠ ج.م\n📷 ٤ كاميرات TP-Link — ٤,٨٠٠ ج.م\n⚡ عداد طاقة ذكي — ١,٢٠٠ ج.م\n🏠 هاب Zigbee — ٩٠٠ ج.م\n\nالإجمالي: ١٠,٥٠٠ ج.م مع تركيب مجاني!',
+      textEn: 'Based on your apartment, I recommend:\n\n🔆 12x SONOFF MINIR4 Switches — 11,880 EGP\n📷 2x Smart Security Cameras — 3,330 EGP\n⚡ Smart Energy Meter — 1,680 EGP\n🏠 Zigbee Bridge Pro — 1,500 EGP\n\nTotal: 18,390 EGP + certified installation & 2-year warranty!',
+      textAr: 'بناءً على شقتك، أنصحك بـ:\n\n🔆 ١٢ مفتاح ذكي SONOFF MINIR4 — ١١,٨٨٠ ج.م\n📷 ٢ كاميرا مراقبة ذكية — ٣,٣٣٠ ج.م\n⚡ عداد طاقة ذكي — ١,٦٨٠ ج.م\n🏠 هاب Zigbee Pro — ١,٥٠٠ ج.م\n\nالإجمالي: ١٨,٣٩٠ ج.م + خيار التركيب المعتمد وضمان سنتين!',
     },
   ];
 

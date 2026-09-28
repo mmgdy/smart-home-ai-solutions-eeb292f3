@@ -207,8 +207,9 @@ export const useCalculator = create<CalculatorState>()(
 
       getInstallationFee: () => {
         const subtotal = get().getSubtotal();
-        // Installation is 15% of subtotal, minimum 500 EGP
-        return Math.max(500, Math.round(subtotal * 0.15));
+        if (subtotal === 0) return 0;
+        // Installation is 20% of subtotal, minimum 1500 EGP per visit
+        return Math.max(1500, Math.round(subtotal * 0.20));
       },
 
       getTotal: () => {

@@ -518,7 +518,7 @@ const ProductDetail = () => {
                   {isRTL ? '💡 وفّر أكثر مع الباقات' : '💡 Save more with bundles'}
                 </p>
                 <p className="text-xs text-muted-foreground mb-2">
-                  {isRTL ? 'اشترِ باقة كاملة واحصل على تركيب مجاني' : 'Buy a complete bundle and get free installation'}
+                  {isRTL ? 'اشترِ باقة كاملة بأسعار حقيقية مع خصم مميز وتركيب معتمد' : 'Buy a complete bundle with package discounts & certified installation'}
                 </p>
                 <Link to="/bundles">
                   <Button variant="outline" size="sm" className="rounded-full text-xs h-7">

@@ -139,7 +139,8 @@ ${productContext}
 
 Answer in the same language as the user (Arabic or English). Be friendly, helpful, practical, and concise (under 250 words).
 When recommending products, include markdown links in the format [Product Name](/products/slug).
-Mention prices in EGP and official warranty in Egypt.`;
+Mention prices in EGP and official warranty in Egypt.
+Professional installation service is available across Egypt: 20% of device total, with a minimum visit fee of 1,500 EGP.`;
 
     let aiText: string;
     try {
@@ -153,9 +154,9 @@ Mention prices in EGP and official warranty in Egypt.`;
       ).join("\n");
 
       if (isArabic) {
-        aiText = `أهلاً بك في **AzkaSmart**! لمساعدتك بخصوص "${cleaned}"، إليك أفضل الأجهزة الذكية المتوافقة والمتاحة لدينا في مصر بضمان رسمي:\n\n${recList}\n\nنوفر أيضاً خدمات المعاينة والتركيب المعتمد في جميع محافظات مصر. يمكنك استكشاف [باقات التوفير الذكية](/bundles) أو حساب التكلفة فوراً عبر [حاسبة التكلفة](/calculator).\n\nهل تود معرفة تفاصيل أو طريقة تشغيل أي منتج منها؟`;
+        aiText = `أهلاً بك في **AzkaSmart**! لمساعدتك بخصوص "${cleaned}"، إليك أفضل الأجهزة الذكية المتوافقة والمتاحة لدينا في مصر بضمان رسمي:\n\n${recList}\n\nنوفر أيضاً خدمات المعاينة والتركيب المعتمد في جميع محافظات مصر (٢٠٪ من قيمة الأجهزة بحد أدنى ١,٥٠٠ ج.م للزيارة). يمكنك استكشاف [باقات التوفير الذكية](/bundles) أو حساب التكلفة فوراً عبر [حاسبة التكلفة](/calculator).\n\nهل تود معرفة تفاصيل أو طريقة تشغيل أي منتج منها؟`;
       } else {
-        aiText = `Welcome to **AzkaSmart**! Regarding your request for "${cleaned}", here are our top recommended smart home devices available in Egypt with official warranty:\n\n${recList}\n\nWe also provide professional installation across Egypt. You can explore [Smart Bundles](/bundles) or calculate full costs on our [Calculator](/calculator).\n\nWould you like more details on any of these devices?`;
+        aiText = `Welcome to **AzkaSmart**! Regarding your request for "${cleaned}", here are our top recommended smart home devices available in Egypt with official warranty:\n\n${recList}\n\nWe also provide certified installation across Egypt (20% of equipment total, minimum 1,500 EGP per visit). You can explore [Smart Bundles](/bundles) or calculate full costs on our [Calculator](/calculator).\n\nWould you like more details on any of these devices?`;
       }
     }
 

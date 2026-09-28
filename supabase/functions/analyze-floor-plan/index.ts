@@ -64,12 +64,24 @@ Deno.serve(async (req) => {
       });
     }
 
-    const apiKey = Deno.env.get("GEMINI_API_KEY");
+    let apiKey = Deno.env.get("GEMINI_API_KEY");
+    if (!apiKey) {
+      try {
+        const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2.89.0");
+        const sb = createClient(
+          Deno.env.get("SUPABASE_URL")!,
+          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_ANON_KEY")!
+        );
+        const { data } = await sb.from("site_info").select("value").eq("section", "ai").eq("key", "gemini_api_key").maybeSingle();
+        if (data?.value?.trim()) apiKey = data.value.trim();
+      } catch {}
+    }
+
     if (!apiKey) {
       return new Response(
         JSON.stringify({
           success: false,
-          error: "Floor plan analysis requires a Gemini API key. Please set GEMINI_API_KEY in Supabase secrets.",
+          error: "Floor plan analysis requires a Gemini API key. Please configure it in the Admin AI Services page or Supabase secrets.",
           fallback: FALLBACK_ANALYSIS,
         }),
         { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }

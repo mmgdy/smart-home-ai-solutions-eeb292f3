@@ -1,9 +1,10 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Upload, Loader2, CheckCircle, AlertCircle, Image, FileText, Sparkles, Download, Filter, DollarSign, CreditCard, Package, Settings, Globe, RefreshCw, Link2, Users, Tag, Zap, Merge, Bell, Search, ShieldCheck, FolderOpen, HardDrive } from 'lucide-react';
+import { Upload, Loader2, CheckCircle, AlertCircle, Image, FileText, Sparkles, Download, Filter, DollarSign, CreditCard, Package, Settings, Globe, RefreshCw, Link2, Users, Tag, Zap, Merge, Bell, Search, ShieldCheck, FolderOpen, HardDrive, Bot } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PushBroadcaster } from '@/components/admin/PushBroadcaster';
@@ -29,6 +30,7 @@ import MediaManager from '@/components/admin/MediaManager';
 import { BackupManager } from '@/components/admin/BackupManager';
 import { CatalogAuditDashboard } from '@/components/admin/CatalogAuditDashboard';
 import { MarketSyncManager } from '@/components/admin/MarketSyncManager';
+import { AdminAISettings } from '@/components/admin/AdminAISettings';
 
 interface ProductExport {
   id: string;
@@ -47,6 +49,12 @@ interface ProductExport {
 
 export default function Admin() {
   const { isLoading: authLoading, isAuthenticated, token, admin, login, logout } = useAdminAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get('tab') || 'orders';
+  const handleTabChange = (val: string) => {
+    setSearchParams(val === 'orders' ? {} : { tab: val });
+    if (val === 'export') fetchExportStats();
+  };
   const [isImporting, setIsImporting] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [isEnhancing, setIsEnhancing] = useState(false);
@@ -392,9 +400,13 @@ export default function Admin() {
       <div className="container mx-auto px-4 py-12">
         <h1 className="text-4xl font-display font-bold mb-8">Admin Dashboard</h1>
         
-        <Tabs defaultValue="orders" className="max-w-6xl" onValueChange={(v) => v === 'export' && fetchExportStats()}>
+        <Tabs value={activeTab} className="max-w-6xl" onValueChange={handleTabChange}>
           <TabsList className="flex flex-wrap h-auto">
             <TabsTrigger value="orders"><Package className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Orders</span></TabsTrigger>
+            <TabsTrigger value="ai" className="bg-primary/10 text-primary font-medium border border-primary/20">
+              <Sparkles className="w-4 h-4 mr-1 text-primary" />
+              <span>AI Services</span>
+            </TabsTrigger>
             <TabsTrigger value="audit" className="bg-primary/10 text-primary font-medium border border-primary/20">
               <ShieldCheck className="w-4 h-4 mr-1 text-primary" />
               <span>Catalog Audit</span>
@@ -420,6 +432,10 @@ export default function Admin() {
             <TabsTrigger value="media"><FolderOpen className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Media</span></TabsTrigger>
             <TabsTrigger value="backup"><HardDrive className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Backup</span></TabsTrigger>
           </TabsList>
+
+          <TabsContent value="ai" className="mt-6">
+            <AdminAISettings adminToken={token} />
+          </TabsContent>
 
           <TabsContent value="audit" className="mt-6">
             <CatalogAuditDashboard token={token} />

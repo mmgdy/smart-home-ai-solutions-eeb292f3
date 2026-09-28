@@ -210,10 +210,9 @@ const Checkout = () => {
   const shippingFlat = Number(getInfo('service_prices', 'shipping_flat', '50')) || 0;
   const shippingThreshold = Number(getInfo('service_prices', 'shipping_free_threshold', '1000')) || 0;
   const shippingCost = shippingThreshold > 0 && subtotal >= shippingThreshold ? 0 : shippingFlat;
-  // Auto-calculated installation fee: 150 EGP per device, capped at 1500 EGP.
-  const deviceCount = items.reduce((n, i) => n + i.quantity, 0);
-  const installationFee = includeInstallation
-    ? Math.min(1500, Math.max(0, deviceCount * 150))
+  // Installation fee: 20% of subtotal, minimum 1500 EGP per visit.
+  const installationFee = includeInstallation && subtotal > 0
+    ? Math.max(1500, Math.round(subtotal * 0.20))
     : 0;
   const couponDiscount = appliedCoupon
     ? appliedCoupon.discountType === 'percentage'
@@ -1157,15 +1156,15 @@ const Checkout = () => {
                   </div>
                   <p className="text-sm text-muted-foreground mb-3">
                     {language === 'ar'
-                      ? `فريقنا المعتمد يركّب أجهزتك ويهيئها لك. الرسوم: ١٥٠ جنيه لكل جهاز (بحد أقصى ١٥٠٠ جنيه).`
-                      : `Our certified team installs and configures your devices. Fee: 150 EGP per device (capped at 1500 EGP).`}
+                      ? `فريقنا المعتمد يركّب أجهزتك ويهيئها لك بالكامل. رسوم التركيب: ٢٠٪ من إجمالي الأجهزة (الحد الأدنى للزيارة ١,٥٠٠ ج.م).`
+                      : `Our certified team installs and configures your devices. Fee: 20% of total (minimum 1,500 EGP per visit).`}
                   </p>
-                  {includeInstallation && (
+                  {includeInstallation && subtotal > 0 && (
                     <div className="flex items-center justify-between rounded-lg bg-primary/10 px-4 py-3">
                       <span className="text-sm font-medium text-foreground">
                         {language === 'ar'
-                          ? `${deviceCount} جهاز × ١٥٠ ج.م`
-                          : `${deviceCount} device${deviceCount === 1 ? '' : 's'} × 150 EGP`}
+                          ? `٢٠٪ من الإجمالي (الحد الأدنى للزيارة ١,٥٠٠ ج.م)`
+                          : `20% of total (min. 1,500 EGP visit fee)`}
                       </span>
                       <span className="font-display text-lg font-bold text-primary">
                         {formatPrice(installationFee)}
@@ -1281,7 +1280,7 @@ const Checkout = () => {
                   {includeInstallation && installationFee > 0 && (
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">
-                        {language === 'ar' ? 'التركيب' : 'Installation'}
+                        {language === 'ar' ? 'التركيب (٢٠٪، حد أدنى ١٥٠٠ ج.م)' : 'Installation (20%, min. 1,500 EGP)'}
                       </span>
                       <span className="font-medium text-foreground">{formatPrice(installationFee)}</span>
                     </div>

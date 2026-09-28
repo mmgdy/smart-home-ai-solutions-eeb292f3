@@ -12,120 +12,15 @@ import { useLanguage } from '@/lib/i18n';
 import { useCart } from '@/hooks/useCart';
 import { useToast } from '@/hooks/use-toast';
 import type { Product } from '@/types/store';
-import { normalizeBundles } from '@/lib/bundles';
+import { defaultBundles, normalizeBundles } from '@/lib/bundles';
 import { supabase } from '@/integrations/supabase/client';
-
-const allBundles = [
-  {
-    id: 'studio',
-    nameEn: 'Studio Apartment Smart Kit',
-    nameAr: 'باقة الاستوديو الذكية',
-    descEn: 'Perfect for small apartments and studios. Control lights, AC, and save on electricity.',
-    descAr: 'مثالية للشقق الصغيرة والاستوديو. تحكم في الإضاءة والتكييف ووفر في الكهرباء.',
-    priceEgp: 4500,
-    originalPrice: 5800,
-    devicesEn: ['4x SONOFF Smart Switches', '1x Tuya IR AC Controller', '1x Smart Plug with Energy Monitor', '1x Motion Sensor', '1x Zigbee Mini Hub'],
-    devicesAr: ['٤ مفاتيح ذكية SONOFF', '١ ريموت تكييف Tuya', '١ مقبس ذكي مع عداد طاقة', '١ حساس حركة', '١ هاب Zigbee صغير'],
-    savingsEn: 'Save ~200 EGP/month on electricity',
-    savingsAr: 'وفّر ~٢٠٠ ج.م/شهر من الكهرباء',
-    difficulty: 1,
-    badges: ['Alexa', 'Google', 'Zigbee'],
-    installTimeEn: '2-3 hours',
-    installTimeAr: '٢-٣ ساعات',
-  },
-  {
-    id: '2bed',
-    nameEn: '2-Bedroom Apartment Kit',
-    nameAr: 'باقة شقة غرفتين',
-    descEn: 'Smart lighting, climate control, and basic security for a 2-bedroom apartment.',
-    descAr: 'إضاءة ذكية، تحكم في المناخ، وأمان أساسي لشقة غرفتين.',
-    priceEgp: 8500,
-    originalPrice: 11000,
-    devicesEn: ['8x Smart Switches', '2x IR AC Controllers', '2x Smart Plugs', '1x Zigbee Hub', '1x Door Sensor', '1x Motion Sensor'],
-    devicesAr: ['٨ مفاتيح ذكية', '٢ ريموت تكييف', '٢ مقابس ذكية', '١ هاب Zigbee', '١ حساس باب', '١ حساس حركة'],
-    savingsEn: 'Save ~350 EGP/month on electricity',
-    savingsAr: 'وفّر ~٣٥٠ ج.م/شهر من الكهرباء',
-    difficulty: 2,
-    badges: ['Alexa', 'Google', 'Zigbee', 'WiFi'],
-    installTimeEn: '3-4 hours',
-    installTimeAr: '٣-٤ ساعات',
-  },
-  {
-    id: '3bed',
-    nameEn: '3-Bedroom Apartment Kit',
-    nameAr: 'باقة شقة ٣ غرف',
-    descEn: 'Complete smart home solution with lighting, climate, security sensors, and energy monitoring.',
-    descAr: 'حل شامل للمنزل الذكي مع إضاءة وتكييف وحساسات أمان ومراقبة الطاقة.',
-    priceEgp: 12500,
-    originalPrice: 16000,
-    devicesEn: ['12x Smart Switches', '3x IR AC Controllers', '4x Smart Plugs', '1x Zigbee Hub', '2x Motion Sensors', '2x Door Sensors', '1x Energy Monitor'],
-    devicesAr: ['١٢ مفتاح ذكي', '٣ ريموت تكييف', '٤ مقابس ذكية', '١ هاب Zigbee', '٢ حساس حركة', '٢ حساس باب', '١ عداد طاقة'],
-    savingsEn: 'Save ~450 EGP/month on electricity',
-    savingsAr: 'وفّر ~٤٥٠ ج.م/شهر من الكهرباء',
-    difficulty: 2,
-    badges: ['Alexa', 'Google', 'Zigbee', 'WiFi'],
-    installTimeEn: '4-5 hours',
-    installTimeAr: '٤-٥ ساعات',
-  },
-  {
-    id: 'villa-security',
-    nameEn: 'Villa Security Kit',
-    nameAr: 'باقة أمان الفيلا',
-    descEn: 'Comprehensive security system with cameras, smart locks, and intrusion detection.',
-    descAr: 'نظام أمان شامل مع كاميرات وأقفال ذكية وكشف التسلل.',
-    priceEgp: 18500,
-    originalPrice: 24000,
-    devicesEn: ['4x TP-Link Security Cameras', '1x Smart Door Lock', '6x Door/Window Sensors', '2x Motion Sensors', '1x Alarm Siren', '1x Zigbee Hub'],
-    devicesAr: ['٤ كاميرات أمان TP-Link', '١ قفل ذكي', '٦ حساسات أبواب/شبابيك', '٢ حساس حركة', '١ سارينة إنذار', '١ هاب Zigbee'],
-    savingsEn: '24/7 protection for your family',
-    savingsAr: 'حماية على مدار الساعة لعائلتك',
-    difficulty: 3,
-    badges: ['Alexa', 'Google', 'Zigbee'],
-    installTimeEn: '5-6 hours',
-    installTimeAr: '٥-٦ ساعات',
-  },
-  {
-    id: 'energy',
-    nameEn: 'Energy Saving Kit',
-    nameAr: 'باقة توفير الطاقة',
-    descEn: 'Focused on reducing your electricity bill with smart scheduling and monitoring.',
-    descAr: 'تركيز على تقليل فاتورة الكهرباء مع الجدولة الذكية والمراقبة.',
-    priceEgp: 6800,
-    originalPrice: 8500,
-    devicesEn: ['6x Smart Switches with Timer', '2x Smart Plugs', '1x Whole-Home Energy Monitor', '2x IR AC Controllers', '1x Smart Hub'],
-    devicesAr: ['٦ مفاتيح ذكية مع تايمر', '٢ مقابس ذكية', '١ عداد طاقة للبيت كله', '٢ ريموت تكييف', '١ هاب ذكي'],
-    savingsEn: 'Save ~350 EGP/month on electricity',
-    savingsAr: 'وفّر ~٣٥٠ ج.م/شهر من الكهرباء',
-    difficulty: 1,
-    badges: ['Alexa', 'Google', 'WiFi'],
-    installTimeEn: '2-3 hours',
-    installTimeAr: '٢-٣ ساعات',
-  },
-  {
-    id: 'villa-full',
-    nameEn: 'Full Villa Smart Home',
-    nameAr: 'فيلا ذكية بالكامل',
-    descEn: 'The ultimate smart villa with lighting, security, climate, curtains, and full automation.',
-    descAr: 'الفيلا الذكية المتكاملة مع إضاءة وأمان وتكييف وستائر وأتمتة كاملة.',
-    priceEgp: 45000,
-    originalPrice: 60000,
-    devicesEn: ['24x Smart Switches', '6x Security Cameras', '1x Smart Door Lock', '4x IR AC Controllers', '2x Motorized Curtain Motors', '8x Door/Window Sensors', '4x Motion Sensors', '1x Energy Monitor', '2x Zigbee Hubs', '1x Alarm System'],
-    devicesAr: ['٢٤ مفتاح ذكي', '٦ كاميرات أمان', '١ قفل ذكي', '٤ ريموت تكييف', '٢ موتور ستائر', '٨ حساسات أبواب/شبابيك', '٤ حساسات حركة', '١ عداد طاقة', '٢ هاب Zigbee', '١ نظام إنذار'],
-    savingsEn: 'Save ~800 EGP/month + total security',
-    savingsAr: 'وفّر ~٨٠٠ ج.م/شهر + أمان شامل',
-    difficulty: 3,
-    badges: ['Alexa', 'Google', 'Zigbee', 'WiFi', 'Matter'],
-    installTimeEn: '1-2 days',
-    installTimeAr: '١-٢ يوم',
-  },
-];
 
 const Bundles = () => {
   const { isRTL, formatPrice } = useLanguage();
   const navigate = useNavigate();
   const { addItem } = useCart();
   const { toast } = useToast();
-  const [bundles, setBundles] = useState(normalizeBundles(allBundles as any));
+  const [bundles, setBundles] = useState(normalizeBundles(defaultBundles));
   const [customizeOpen, setCustomizeOpen] = useState(false);
   const [activeBundle, setActiveBundle] = useState<any>(null);
   const [allProducts, setAllProducts] = useState<Product[]>([]);
@@ -133,18 +28,41 @@ const Bundles = () => {
   const [selectedProducts, setSelectedProducts] = useState<Record<string, number>>({});
   const [search, setSearch] = useState('');
 
-  // Match device labels to real products by keyword
+  // Match device labels / configured bundle items to real catalog products
   const matchProductsForBundle = (bundle: any, products: Product[]): Record<string, number> => {
     const sel: Record<string, number> = {};
-    const devices: string[] = bundle.devicesEn ?? [];
+
+    // 1. Direct match by configured items if available
+    if (Array.isArray(bundle.items) && bundle.items.length) {
+      bundle.items.forEach((item: any) => {
+        const found = products.find((p) =>
+          (item.productId && p.id === item.productId) ||
+          (item.nameMatch && p.name.toLowerCase().includes(item.nameMatch.toLowerCase()))
+        );
+        if (found) {
+          sel[found.id] = (sel[found.id] || 0) + item.qty;
+        }
+      });
+      if (Object.keys(sel).length > 0) return sel;
+    }
+
+    // 2. Fallback: match by line parsing on devicesEn
+    const devices: string[] = Array.isArray(bundle.devicesEn)
+      ? bundle.devicesEn
+      : (bundle.devicesEn || '').split('\n').map((s: string) => s.trim()).filter(Boolean);
+
     devices.forEach((d) => {
       const m = d.match(/^(\d+)\s*x?\s*(.+)$/i);
       const qty = m ? parseInt(m[1], 10) : 1;
       const term = (m ? m[2] : d).toLowerCase();
       const tokens = term.split(/[\s,/-]+/).filter((t) => t.length > 2);
-      const found = products.find((p) =>
-        tokens.every((t) => (p.name + ' ' + (p.description || '') + ' ' + (p.brand || '')).toLowerCase().includes(t))
-      ) || products.find((p) => tokens.some((t) => p.name.toLowerCase().includes(t)));
+      const found =
+        products.find((p) => p.name.toLowerCase().includes(term)) ||
+        products.find((p) => tokens.length >= 2 && tokens.every((t) => p.name.toLowerCase().includes(t))) ||
+        products.find((p) =>
+          tokens.every((t) => (p.name + ' ' + (p.description || '') + ' ' + (p.brand || '')).toLowerCase().includes(t))
+        ) ||
+        products.find((p) => tokens.some((t) => p.name.toLowerCase().includes(t)));
       if (found) sel[found.id] = (sel[found.id] || 0) + qty;
     });
     return sel;
@@ -239,7 +157,7 @@ const Bundles = () => {
     <>
       <Helmet>
         <title>{isRTL ? 'باقات المنزل الذكي | أزكاسمارت' : 'Smart Home Bundles | AzkaSmart'}</title>
-        <meta name="description" content="Ready-made smart home bundles for Egyptian homes. Studio, apartment, and villa kits with free installation and official warranty." />
+        <meta name="description" content="Ready-made smart home bundles with real catalog prices for Egyptian homes. Studio, apartment, and villa kits with certified installation and official warranty." />
       </Helmet>
       <Layout>
         <div className="pt-24 pb-20">
@@ -252,7 +170,7 @@ const Bundles = () => {
             >
               <Sparkles className="h-4 w-4 text-primary" />
               <span className="text-sm font-medium text-primary">
-                {isRTL ? 'تركيب مجاني + ضمان' : 'Free Installation + Warranty'}
+                {isRTL ? 'تركيب احترافي معتمد + ضمان سنتين' : 'Certified Pro Installation + 2-Year Warranty'}
               </span>
             </motion.div>
             <motion.h1
@@ -270,8 +188,8 @@ const Bundles = () => {
               className="text-muted-foreground max-w-2xl mx-auto"
             >
               {isRTL
-                ? 'كل باقة مصممة خصيصاً للمنازل المصرية. تشمل جميع الأجهزة + التركيب المجاني + ضمان ٢ سنة.'
-                : 'Every bundle designed for Egyptian homes. Includes all devices + free installation + 2-year warranty.'}
+                ? 'باقات ذكية مصممة بأسعار الأجهزة الحقيقية وخصومات مدروسة للمنازل المصرية. تشمل أجهزة أصلية معتمدة مع خيار التركيب الاحترافي (٢٠٪، بحد أدنى ١٥٠٠ ج.م للزيارة).'
+                : 'Smart bundles configured with real catalog prices and authentic savings for Egyptian homes. Genuine devices with optional certified installation (20%, min. 1,500 EGP per visit).'}
             </motion.p>
           </div>
 

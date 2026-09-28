@@ -15,7 +15,7 @@ const Services = () => {
   const email = get('contact', 'email', 'info@azkasmart.com');
 
   // Editable prices (Site Info → service_prices)
-  const installPrice = parseInt(get('service_prices', 'installation', '500'));
+  const installPrice = parseInt(get('service_prices', 'installation', '1500'));
   const configPrice = parseInt(get('service_prices', 'configuration', '750'));
   const consultPrice = parseInt(get('service_prices', 'consultation', '250'));
 

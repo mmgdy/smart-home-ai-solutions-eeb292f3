@@ -347,6 +347,130 @@ JSON: {"seo_title":"<=60 chars","seo_description":"<=155 chars","seo_keywords":[
       }
     }
 
+    if (action === "test-ai-provider") {
+      const { provider, key, model } = body as { provider?: string; key?: string; model?: string };
+      const start = performance.now();
+      try {
+        if (provider === "gemini") {
+          let apiKey = (typeof key === "string" && key.trim()) ? key.trim() : Deno.env.get("GEMINI_API_KEY");
+          if (!apiKey) {
+            const { data } = await supabase.from("site_info").select("value").eq("section", "ai").eq("key", "gemini_api_key").maybeSingle();
+            if (data?.value) apiKey = data.value.trim();
+          }
+          if (!apiKey) throw new Error("No Gemini API Key provided or configured");
+          const m = (typeof model === "string" && model.trim()) ? model.trim() : "gemini-1.5-flash";
+          const res = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+            body: JSON.stringify({
+              model: m,
+              messages: [{ role: "user", content: "Reply with OK" }],
+              max_tokens: 10,
+            }),
+          });
+          const text = await res.text();
+          if (!res.ok) throw new Error(`HTTP ${res.status}: ${text.slice(0, 160)}`);
+          return new Response(JSON.stringify({
+            success: true, provider, model: m, latencyMs: Math.round(performance.now() - start),
+          }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+
+        if (provider === "groq") {
+          let apiKey = (typeof key === "string" && key.trim()) ? key.trim() : Deno.env.get("GROQ_API_KEY");
+          if (!apiKey) {
+            const { data } = await supabase.from("site_info").select("value").eq("section", "ai").eq("key", "groq_api_key").maybeSingle();
+            if (data?.value) apiKey = data.value.trim();
+          }
+          if (!apiKey) throw new Error("No Groq API Key provided or configured");
+          const m = (typeof model === "string" && model.trim()) ? model.trim() : "llama-3.3-70b-versatile";
+          const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+            body: JSON.stringify({
+              model: m,
+              messages: [{ role: "user", content: "Reply with OK" }],
+              max_tokens: 10,
+            }),
+          });
+          const text = await res.text();
+          if (!res.ok) throw new Error(`HTTP ${res.status}: ${text.slice(0, 160)}`);
+          return new Response(JSON.stringify({
+            success: true, provider, model: m, latencyMs: Math.round(performance.now() - start),
+          }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+
+        if (provider === "openrouter") {
+          let apiKey = (typeof key === "string" && key.trim()) ? key.trim() : Deno.env.get("OPENROUTER_API_KEY");
+          if (!apiKey) {
+            const { data } = await supabase.from("site_info").select("value").eq("section", "ai").eq("key", "openrouter_api_key").maybeSingle();
+            if (data?.value) apiKey = data.value.trim();
+          }
+          if (!apiKey) throw new Error("No OpenRouter API Key provided or configured");
+          const m = (typeof model === "string" && model.trim()) ? model.trim() : "google/gemini-2.0-flash-exp:free";
+          const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}`, "HTTP-Referer": "https://azkasmart.com" },
+            body: JSON.stringify({
+              model: m,
+              messages: [{ role: "user", content: "Reply with OK" }],
+              max_tokens: 10,
+            }),
+          });
+          const text = await res.text();
+          if (!res.ok) throw new Error(`HTTP ${res.status}: ${text.slice(0, 160)}`);
+          return new Response(JSON.stringify({
+            success: true, provider, model: m, latencyMs: Math.round(performance.now() - start),
+          }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+
+        if (provider === "huggingface") {
+          let apiKey = (typeof key === "string" && key.trim()) ? key.trim() : Deno.env.get("HUGGINGFACE_API_KEY");
+          if (!apiKey) {
+            const { data } = await supabase.from("site_info").select("value").eq("section", "ai").eq("key", "huggingface_api_key").maybeSingle();
+            if (data?.value) apiKey = data.value.trim();
+          }
+          if (!apiKey) throw new Error("No Hugging Face Token provided or configured");
+          const m = (typeof model === "string" && model.trim()) ? model.trim() : "meta-llama/Llama-3.1-8B-Instruct";
+          const res = await fetch("https://router.huggingface.co/v1/chat/completions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+            body: JSON.stringify({
+              model: m,
+              messages: [{ role: "user", content: "Reply with OK" }],
+              max_tokens: 10,
+            }),
+          });
+          const text = await res.text();
+          if (!res.ok) throw new Error(`HTTP ${res.status}: ${text.slice(0, 160)}`);
+          return new Response(JSON.stringify({
+            success: true, provider, model: m, latencyMs: Math.round(performance.now() - start),
+          }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+
+        if (provider === "pollinations") {
+          const res = await fetch("https://text.pollinations.ai/openai?referrer=azkasmart.com", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: "openai-fast",
+              messages: [{ role: "user", content: "Reply with OK" }],
+              max_tokens: 10,
+            }),
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return new Response(JSON.stringify({
+            success: true, provider, model: "openai-fast", latencyMs: Math.round(performance.now() - start),
+          }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+
+        throw new Error("Invalid provider");
+      } catch (err: any) {
+        return new Response(JSON.stringify({
+          success: false, provider, error: err?.message || String(err), latencyMs: Math.round(performance.now() - start),
+        }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    }
+
     // ─── Orders CRUD ────────────────────────────────────────────────
 
     if (action === "list-orders") {

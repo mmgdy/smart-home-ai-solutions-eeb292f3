@@ -5,71 +5,12 @@ import { ArrowRight, Check, Wifi, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
-import { normalizeBundles } from '@/lib/bundles';
+import { defaultBundles, normalizeBundles } from '@/lib/bundles';
 import { supabase } from '@/integrations/supabase/client';
-
-const bundles = [
-  {
-    id: 'studio',
-    nameEn: 'Studio Apartment Kit',
-    nameAr: 'باقة الاستوديو',
-    priceEgp: 4500,
-    originalPrice: 5800,
-    devicesEn: ['4x Smart Switches', '1x IR AC Controller', '1x Smart Plug', '1x Motion Sensor'],
-    devicesAr: ['٤ مفاتيح ذكية', '١ ريموت تكييف ذكي', '١ مقبس ذكي', '١ حساس حركة'],
-    savingsEn: 'Save ~200 EGP/month on electricity',
-    savingsAr: 'وفّر ~٢٠٠ ج.م/شهر من الكهرباء',
-    difficulty: 1,
-    badges: ['Alexa', 'Google', 'Zigbee'],
-    popular: false,
-  },
-  {
-    id: '3bed',
-    nameEn: '3-Bedroom Apartment Kit',
-    nameAr: 'باقة شقة ٣ غرف',
-    priceEgp: 12500,
-    originalPrice: 16000,
-    devicesEn: ['12x Smart Switches', '2x IR AC Controllers', '4x Smart Plugs', '1x Zigbee Hub', '2x Motion Sensors', '1x Door Sensor'],
-    devicesAr: ['١٢ مفتاح ذكي', '٢ ريموت تكييف', '٤ مقابس ذكية', '١ هاب Zigbee', '٢ حساس حركة', '١ حساس باب'],
-    savingsEn: 'Save ~450 EGP/month on electricity',
-    savingsAr: 'وفّر ~٤٥٠ ج.م/شهر من الكهرباء',
-    difficulty: 2,
-    badges: ['Alexa', 'Google', 'Zigbee', 'WiFi'],
-    popular: true,
-  },
-  {
-    id: 'villa-security',
-    nameEn: 'Villa Security Kit',
-    nameAr: 'باقة أمان الفيلا',
-    priceEgp: 18500,
-    originalPrice: 24000,
-    devicesEn: ['4x Security Cameras', '1x Smart Door Lock', '6x Door/Window Sensors', '2x Motion Sensors', '1x Alarm Siren', '1x Zigbee Hub'],
-    devicesAr: ['٤ كاميرات أمان', '١ قفل ذكي', '٦ حساسات أبواب/شبابيك', '٢ حساس حركة', '١ سارينة إنذار', '١ هاب Zigbee'],
-    savingsEn: '24/7 protection for your family',
-    savingsAr: 'حماية على مدار الساعة لعائلتك',
-    difficulty: 2,
-    badges: ['Alexa', 'Google', 'Zigbee'],
-    popular: false,
-  },
-  {
-    id: 'energy',
-    nameEn: 'Energy Saving Kit',
-    nameAr: 'باقة توفير الطاقة',
-    priceEgp: 6800,
-    originalPrice: 8500,
-    devicesEn: ['6x Smart Switches', '2x Smart Plugs', '1x Energy Monitor', '2x IR AC Controllers', '1x Smart Hub'],
-    devicesAr: ['٦ مفاتيح ذكية', '٢ مقابس ذكية', '١ عداد طاقة', '٢ ريموت تكييف', '١ هاب ذكي'],
-    savingsEn: 'Save ~350 EGP/month on electricity',
-    savingsAr: 'وفّر ~٣٥٠ ج.م/شهر من الكهرباء',
-    difficulty: 1,
-    badges: ['Alexa', 'Google', 'WiFi'],
-    popular: false,
-  },
-];
 
 export function SmartBundles() {
   const { isRTL, formatPrice } = useLanguage();
-  const [displayBundles, setDisplayBundles] = useState(normalizeBundles(bundles as any).slice(0, 4));
+  const [displayBundles, setDisplayBundles] = useState(normalizeBundles(defaultBundles).slice(0, 4));
 
   useEffect(() => {
     (async () => {
@@ -117,7 +58,9 @@ export function SmartBundles() {
             transition={{ delay: 0.15 }}
             className="text-muted-foreground max-w-xl mx-auto"
           >
-            {isRTL ? 'كل باقة تشمل التركيب المجاني والضمان' : 'Every bundle includes free installation & warranty'}
+            {isRTL
+              ? 'باقات متكاملة بأسعار حقيقية مدروسة مع خيار التركيب المعتمد وضمان رسمي'
+              : 'Complete smart home bundles with real catalog prices, certified installation & warranty'}
           </motion.p>
         </div>
 

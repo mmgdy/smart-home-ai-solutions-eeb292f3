@@ -147,7 +147,7 @@ export function QuoteSummaryWithCart() {
     (sum, mp) => sum + mp.product.price * mp.quantity, 
     0
   );
-  const installationFee = Math.max(500, Math.round(productSubtotal * 0.15));
+  const installationFee = productSubtotal > 0 ? Math.max(1500, Math.round(productSubtotal * 0.20)) : 0;
   const total = productSubtotal + installationFee;
 
   // Group matched products by room
@@ -492,7 +492,7 @@ export function QuoteSummaryWithCart() {
                 <span>{formatPrice(productSubtotal)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">{isRTL ? 'التركيب' : 'Installation'}</span>
+                <span className="text-muted-foreground">{isRTL ? 'التركيب والبرمجة (٢٠٪، حد أدنى ١٥٠٠ ج.م)' : 'Installation & Setup (20%, min. 1,500 EGP)'}</span>
                 <span>{formatPrice(installationFee)}</span>
               </div>
               <div className="border-t border-border pt-3 flex justify-between">

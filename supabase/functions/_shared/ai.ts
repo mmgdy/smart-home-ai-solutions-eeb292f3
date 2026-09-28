@@ -307,7 +307,7 @@ export async function chatCompleteRaw(
 
   const steps: Array<{ name: string; run: () => Promise<Record<string, any> | null> }> = [];
 
-  const geminiKey = Deno.env.get("GEMINI_API_KEY");
+  const geminiKey = await getAIKey("GEMINI_API_KEY", "gemini_api_key");
   if (geminiKey) {
     steps.push({
       name: "gemini",
@@ -323,7 +323,7 @@ export async function chatCompleteRaw(
     lastOutcome.set("gemini", "no-key");
   }
 
-  const groqKey = Deno.env.get("GROQ_API_KEY");
+  const groqKey = await getAIKey("GROQ_API_KEY", "groq_api_key");
   if (groqKey) {
     steps.push({
       name: "groq",
@@ -339,7 +339,27 @@ export async function chatCompleteRaw(
     lastOutcome.set("groq", "no-key");
   }
 
-  const hfKey = Deno.env.get("HUGGINGFACE_API_KEY");
+  const openrouterKey = await getAIKey("OPENROUTER_API_KEY", "openrouter_api_key");
+  if (openrouterKey) {
+    steps.push({
+      name: "openrouter",
+      run: () =>
+        attempt(
+          "openrouter",
+          "https://openrouter.ai/api/v1/chat/completions",
+          { ...payloadBase, model: "google/gemini-2.0-flash-exp:free" },
+          {
+            Authorization: `Bearer ${openrouterKey}`,
+            "HTTP-Referer": "https://azkasmart.com",
+            "X-Title": "AzkaSmart",
+          },
+        ),
+    });
+  } else {
+    lastOutcome.set("openrouter", "no-key");
+  }
+
+  const hfKey = await getAIKey("HUGGINGFACE_API_KEY", "huggingface_api_key");
   if (hfKey) {
     steps.push({
       name: "huggingface",
