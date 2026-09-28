@@ -430,12 +430,12 @@ export function QuoteSummaryWithCart() {
                     return (
                       <div key={`${mp.product.id}-${mp.roomId}`} className="flex items-center gap-3">
                         {/* Product Image */}
-                        <div className="w-12 h-12 rounded-lg bg-muted overflow-hidden flex-shrink-0">
+                        <div className="w-12 h-12 rounded-lg bg-muted/30 border border-border/40 p-1 overflow-hidden flex-shrink-0 flex items-center justify-center">
                           {mp.product.image_url ? (
                             <img 
                               src={mp.product.image_url} 
                               alt={mp.product.name}
-                              className="w-full h-full object-cover"
+                              className="w-full h-full object-contain"
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">

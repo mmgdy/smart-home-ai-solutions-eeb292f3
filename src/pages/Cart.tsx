@@ -73,12 +73,12 @@ const Cart = () => {
                   className="flex gap-4 rounded-xl border border-border bg-card p-4"
                 >
                   {/* Image */}
-                  <div className="h-24 w-24 shrink-0 overflow-hidden rounded-lg bg-muted">
+                  <div className="h-24 w-24 shrink-0 overflow-hidden rounded-xl bg-muted/20 border border-border/40 p-2 flex items-center justify-center">
                     {item.product.image_url ? (
                       <img
                         src={item.product.image_url}
                         alt={item.product.name}
-                        className="h-full w-full object-cover"
+                        className="h-full w-full object-contain"
                       />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center">

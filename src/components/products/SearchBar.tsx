@@ -106,9 +106,9 @@ export function SearchBar({ value, onChange, className }: SearchBarProps) {
               className="flex items-center gap-3 px-3 py-2 hover:bg-accent/10 transition-colors"
             >
               {item.image_url ? (
-                <img src={item.image_url} alt="" className="h-10 w-10 rounded object-cover" />
+                <img src={item.image_url} alt="" className="h-10 w-10 rounded-lg object-contain p-0.5 bg-muted/30 border border-border/40 shrink-0" />
               ) : (
-                <div className="h-10 w-10 rounded bg-muted flex items-center justify-center">
+                <div className="h-10 w-10 rounded-lg bg-muted/40 border border-border/40 shrink-0 flex items-center justify-center">
                   <Search className="h-4 w-4 text-muted-foreground" />
                 </div>
               )}

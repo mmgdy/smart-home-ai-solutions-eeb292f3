@@ -161,12 +161,12 @@ export function CompatibilityCheck() {
                     key={s.productId}
                     className="flex items-center gap-3 rounded-lg border border-border bg-background/60 p-2.5"
                   >
-                    <div className="h-12 w-12 shrink-0 overflow-hidden rounded-md bg-muted">
+                    <div className="h-12 w-12 shrink-0 overflow-hidden rounded-md bg-muted/30 border border-border/40 p-1 flex items-center justify-center">
                       <img
                         src={s.image_url || '/placeholder.svg'}
                         alt={s.name}
                         onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/placeholder.svg'; }}
-                        className="h-full w-full object-cover"
+                        className="h-full w-full object-contain"
                       />
                     </div>
                     <div className="flex-1 min-w-0">

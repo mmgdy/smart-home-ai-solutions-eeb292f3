@@ -407,7 +407,7 @@ const Bundles = () => {
                       checked={qty > 0}
                       onCheckedChange={(v) => setSelectedProducts((s) => ({ ...s, [p.id]: v ? Math.max(1, qty) : 0 }))}
                     />
-                    <img src={(p as any).image_url || '/placeholder.svg'} alt={p.name} className="w-10 h-10 rounded object-cover bg-muted" onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/placeholder.svg'; }} />
+                    <img src={(p as any).image_url || '/placeholder.svg'} alt={p.name} className="w-10 h-10 rounded-lg object-contain p-0.5 bg-muted/30 border border-border/40 shrink-0" onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/placeholder.svg'; }} />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{p.name}</p>
                       <p className="text-xs text-muted-foreground">{formatPrice(p.price)}</p>

@@ -515,7 +515,7 @@ export function ProductEditor({ adminToken }: Props) {
                   <img
                     src={getProductImage(p as any)}
                     alt={p.name}
-                    className="w-14 h-14 rounded-lg object-cover bg-muted flex-shrink-0 cursor-pointer"
+                    className="w-14 h-14 rounded-lg object-contain p-1 bg-muted/30 border border-border/40 flex-shrink-0 cursor-pointer"
                     onClick={() => openEdit(p)}
                     onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/placeholder.svg"; }}
                   />
@@ -641,7 +641,7 @@ export function ProductEditor({ adminToken }: Props) {
               <div className="flex items-center gap-3">
                 <div className="w-24 h-24 rounded-lg bg-muted flex items-center justify-center overflow-hidden border border-border">
                   {editing.image_url ? (
-                    <img src={editing.image_url} alt="" className="w-full h-full object-cover"
+                    <img src={editing.image_url} alt="" className="w-full h-full object-contain p-1"
                       onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
                   ) : (
                     <ImageIcon className="h-8 w-8 text-muted-foreground" />

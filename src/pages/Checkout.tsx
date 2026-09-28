@@ -1244,12 +1244,12 @@ const Checkout = () => {
                 <div className="mb-6 space-y-3">
                   {items.map((item) => (
                     <div key={item.product.id} className="flex items-center gap-3">
-                      <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-muted">
+                      <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-muted/30 border border-border/40 p-1 flex items-center justify-center">
                         <img
                           src={item.product.image_url || '/placeholder.svg'}
                           alt={item.product.name}
                           onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/placeholder.svg'; }}
-                          className="h-full w-full object-cover"
+                          className="h-full w-full object-contain"
                         />
                       </div>
                       <div className="flex-1 min-w-0">

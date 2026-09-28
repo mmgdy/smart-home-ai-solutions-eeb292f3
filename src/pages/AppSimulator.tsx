@@ -230,12 +230,12 @@ export default function AppSimulator() {
                         to={`/products/${p.slug}`}
                         className="group rounded-xl border border-border bg-card overflow-hidden hover:shadow-lg transition-all"
                       >
-                        <div className="aspect-square bg-muted overflow-hidden">
+                        <div className="aspect-square bg-muted/20 overflow-hidden flex items-center justify-center p-3">
                           {p.image_url ? (
                             <img
                               src={p.image_url}
                               alt={p.name}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                              className="w-full h-full object-contain group-hover:scale-105 transition-transform"
                               loading="lazy"
                             />
                           ) : (

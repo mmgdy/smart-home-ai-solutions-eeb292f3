@@ -1,15 +1,13 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Helmet } from 'react-helmet-async';
 import { 
-  ArrowLeft, ArrowRight, ShoppingCart, Loader2, Zap, Check, Shield, Truck, 
-  Award, Wifi, CreditCard, Globe, ExternalLink, Building2, MessageCircle, 
-  Phone, Search, FileText, ShoppingBag, Youtube 
+  ArrowLeft, ArrowRight, ShoppingCart, Loader2, Check, Shield, Truck, 
+  Award, Wifi, CreditCard, Maximize2, X, ChevronLeft, ChevronRight 
 } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { Product } from '@/types/store';
 import { useCart } from '@/hooks/useCart';
@@ -17,8 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/lib/i18n';
 import { parseProtocols } from '@/lib/protocolIcon';
 import { getProductImage, productPlaceholder } from '@/lib/productImage';
-import { cairoSupplierService, CairoSource } from '@/data/cairoSupplierService';
-import { useAdminAuth } from '@/hooks/useAdminAuth';
+import { cairoSupplierService } from '@/data/cairoSupplierService';
 import { cn } from '@/lib/utils';
 
 function getYouTubeEmbedUrl(url: string): string | null {
@@ -30,20 +27,11 @@ function isDirectVideo(url: string): boolean {
   return /\.(mp4|webm|ogg|mov)(\?|$)/i.test(url);
 }
 
-interface WebSource {
-  title: string;
-  url: string;
-  snippet: string;
-  source: string;
-  score: number;
-}
-
 const ProductDetail = () => {
   const { slug } = useParams<{ slug: string }>();
   const addItem = useCart((state) => state.addItem);
   const { toast } = useToast();
   const { t, formatPrice, isRTL } = useLanguage();
-  const { isAuthenticated } = useAdminAuth();
 
   const { data: master, isLoading } = useQuery({
     queryKey: ['product', slug],
@@ -83,61 +71,78 @@ const ProductDetail = () => {
     enabled: !!slug,
   });
 
-  // Fetch variants if this is a master product
-  const { data: variants } = useQuery({
-    queryKey: ['product-variants', master?.id],
+  // Fetch all variants in this product family (both master and child variants)
+  const familyMasterId = master?.parent_id || master?.id;
+  const { data: familyVariants = [] } = useQuery({
+    queryKey: ['product-family-variants', familyMasterId],
     queryFn: async () => {
-      if (!master) return [] as Product[];
+      if (!familyMasterId) return [] as Product[];
       const { data, error } = await supabase
         .from('products')
         .select('*')
-        .eq('parent_id', master.id)
+        .or(`id.eq.${familyMasterId},parent_id.eq.${familyMasterId}`)
         .order('price');
       if (error) throw error;
       return (data as Product[]) || [];
     },
-    enabled: !!master?.id,
+    enabled: !!familyMasterId,
   });
 
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+
+  // Sync selected variant with master when slug changes
+  useEffect(() => {
+    if (master?.id) {
+      setSelectedVariantId(master.id);
+      setSelectedImage(null);
+    }
+  }, [master?.id]);
+
+  const hasVariants = familyVariants.length > 1;
 
   const activeProduct = useMemo<Product | null>(() => {
     if (!master) return null;
-    if (variants && variants.length > 0) {
-      const sel = variants.find((v) => v.id === selectedVariantId);
-      return sel ?? variants[0];
+    if (hasVariants) {
+      const sel = familyVariants.find((v) => v.id === selectedVariantId);
+      if (sel) return sel;
+      return familyVariants.find((v) => v.id === master.id) || familyVariants[0];
     }
     return master;
-  }, [master, variants, selectedVariantId]);
+  }, [master, familyVariants, selectedVariantId, hasVariants]);
+
+  // When variant changes, update selected image if it has its own image
+  useEffect(() => {
+    if (activeProduct) {
+      const primary = getProductImage(activeProduct);
+      setSelectedImage(primary);
+    }
+  }, [activeProduct?.id]);
+
+  // Aggregate all unique product images (master, variants, multi-angle shots)
+  const allImages = useMemo(() => {
+    if (!activeProduct) return [];
+    const set = new Set<string>();
+    if (activeProduct.image_url) set.add(activeProduct.image_url);
+    if (Array.isArray(activeProduct.images)) {
+      activeProduct.images.forEach((img) => {
+        if (img && typeof img === 'string') set.add(img);
+      });
+    }
+    familyVariants.forEach((v) => {
+      if (v.image_url) set.add(v.image_url);
+      if (Array.isArray(v.images)) {
+        v.images.forEach((img) => {
+          if (img && typeof img === 'string') set.add(img);
+        });
+      }
+    });
+    const list = Array.from(set).filter(Boolean);
+    return list.length > 0 ? list : [productPlaceholder];
+  }, [activeProduct, familyVariants]);
 
   const protocolTokens = useMemo(() => parseProtocols(activeProduct?.protocol), [activeProduct?.protocol]);
-
-  // Find web sources for this product
-  const { data: webSources, isLoading: sourcesLoading, isError: sourcesError } = useQuery<WebSource[]>({
-    queryKey: ['web-sources', activeProduct?.id, isRTL ? 'ar' : 'en'],
-    queryFn: async () => {
-      if (!activeProduct) return [];
-      const { data, error } = await supabase.functions.invoke('find-web-sources', {
-        body: {
-          brand: activeProduct.brand ?? undefined,
-          name: activeProduct.name,
-          protocol: activeProduct.protocol ?? undefined,
-          locale: isRTL ? 'ar' : 'en',
-        },
-      });
-      if (error) throw error;
-      const payload = data as { success?: boolean; sources?: WebSource[] };
-      return payload?.sources ?? [];
-    },
-    enabled: !!activeProduct?.id && isAuthenticated,
-    staleTime: 1000 * 60 * 30, // 30 min cache
-    retry: 1,
-  });
-
-  const cairoSources = useMemo<CairoSource[]>(() => {
-    if (!activeProduct?.id || !isAuthenticated) return [];
-    return cairoSupplierService.getCairoSources(activeProduct.id);
-  }, [activeProduct?.id, isAuthenticated]);
 
   const handleAddToCart = () => {
     if (activeProduct) {
@@ -169,8 +174,9 @@ const ProductDetail = () => {
   }
 
   const product = activeProduct;
-  const hasVariants = !!variants && variants.length > 0;
-  const variantAxis = hasVariants ? (variants![0].variant_axis || master.variant_axis) : null;
+  const variantAxis = hasVariants
+    ? (activeProduct.variant_axis || master.variant_axis || familyVariants[0]?.variant_axis)
+    : null;
 
   const discount = product.original_price
     ? Math.round(((product.original_price - product.price) / product.original_price) * 100)
@@ -216,9 +222,6 @@ const ProductDetail = () => {
           image: product.image_url || undefined,
           brand: product.brand ? { "@type": "Brand", name: product.brand } : undefined,
           sku: (product as any).sku || product.id,
-          ...(webSources && webSources.length > 0
-            ? { sameAs: webSources.slice(0, 5).map((s) => s.url) }
-            : {}),
           offers: {
             "@type": "Offer",
             priceCurrency: "EGP",
@@ -239,22 +242,35 @@ const ProductDetail = () => {
           <div className="grid gap-8 lg:grid-cols-2">
             {/* Image & Video */}
             <div className="space-y-4">
-              <div className="relative aspect-square overflow-hidden rounded-2xl border border-border bg-card">
+              {/* Main Product Image Container - Displays whole picture with object-contain */}
+              <div className="relative aspect-square overflow-hidden rounded-2xl border border-border bg-card/60 flex items-center justify-center p-4 sm:p-8 group shadow-sm">
                 <img
-                  src={getProductImage(product)}
+                  src={selectedImage || getProductImage(product)}
                   alt={product.name}
-                  loading="lazy"
+                  loading="eager"
                   onError={(e) => { (e.currentTarget as HTMLImageElement).src = productPlaceholder; }}
-                  className="h-full w-full object-cover"
+                  className="h-full w-full object-contain max-h-[460px] transition-transform duration-300 group-hover:scale-[1.03] cursor-zoom-in drop-shadow-sm"
+                  onClick={() => setLightboxOpen(true)}
                 />
-                <div className={cn("absolute top-4 flex flex-col gap-2", isRTL ? "right-4" : "left-4")}>
+
+                {/* Click to view whole picture full-size button */}
+                <button
+                  type="button"
+                  onClick={() => setLightboxOpen(true)}
+                  className="absolute bottom-3 end-3 p-2 rounded-xl bg-background/80 hover:bg-background text-foreground/80 hover:text-foreground backdrop-blur-md border border-border/60 shadow-sm transition-all opacity-0 group-hover:opacity-100"
+                  title={isRTL ? "عرض الصورة كاملة مكبرة" : "View whole picture full size"}
+                >
+                  <Maximize2 className="h-4 w-4" />
+                </button>
+
+                <div className={cn("absolute top-4 flex flex-col gap-2 pointer-events-none", isRTL ? "right-4" : "left-4")}>
                   {discount && (
-                    <span className="rounded-full bg-destructive px-3 py-1 text-sm font-medium text-destructive-foreground">
+                    <span className="rounded-full bg-destructive px-3 py-1 text-sm font-medium text-destructive-foreground shadow-sm">
                       {t('save')} {discount}%
                     </span>
                   )}
                   {product.featured && (
-                    <span className="rounded-full bg-primary px-3 py-1 text-sm font-medium text-primary-foreground">
+                    <span className="rounded-full bg-primary px-3 py-1 text-sm font-medium text-primary-foreground shadow-sm">
                       {t('featured')}
                     </span>
                   )}
@@ -264,8 +280,8 @@ const ProductDetail = () => {
                 {protocolTokens.length > 0 && (
                   <div
                     className={cn(
-                      "absolute bottom-4 flex flex-wrap items-center gap-1.5",
-                      isRTL ? "right-4 left-4 flex-row-reverse" : "left-4 right-4"
+                      "absolute bottom-4 flex flex-wrap items-center gap-1.5 pointer-events-none",
+                      isRTL ? "right-4 left-14 flex-row-reverse" : "left-4 right-14"
                     )}
                   >
                     {protocolTokens.map(({ name, icon: Icon, bg, fg, description }) => (
@@ -286,6 +302,36 @@ const ProductDetail = () => {
                   </div>
                 )}
               </div>
+
+              {/* Multi-angle & Gallery Thumbnails */}
+              {allImages.length > 1 && (
+                <div className="flex items-center gap-2 overflow-x-auto pb-2 pt-1">
+                  {allImages.map((img, idx) => {
+                    const isSelected = img === (selectedImage || getProductImage(product));
+                    return (
+                      <button
+                        key={img + idx}
+                        type="button"
+                        onClick={() => setSelectedImage(img)}
+                        className={cn(
+                          "relative h-16 w-16 sm:h-20 sm:w-20 shrink-0 rounded-xl border-2 overflow-hidden bg-card/60 p-1.5 transition-all flex items-center justify-center",
+                          isSelected
+                            ? "border-primary ring-2 ring-primary/20 shadow-md scale-105"
+                            : "border-border/60 hover:border-border opacity-70 hover:opacity-100"
+                        )}
+                        title={isRTL ? `صورة ${idx + 1}` : `Image ${idx + 1}`}
+                      >
+                        <img
+                          src={img}
+                          alt={`${product.name} - ${idx + 1}`}
+                          className="h-full w-full object-contain"
+                          onError={(e) => { (e.currentTarget as HTMLImageElement).src = productPlaceholder; }}
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
 
               {/* Installation Video */}
               {product.video_url && (
@@ -372,12 +418,14 @@ const ProductDetail = () => {
                     {variantAxis === 'color'
                       ? (isRTL ? 'اللون' : 'Color')
                       : variantAxis === 'channels'
-                        ? (isRTL ? 'عدد المفاتيح' : 'Channels')
+                        ? (isRTL ? 'عدد المفاتيح / الخيار' : 'Channels / Option')
                         : (isRTL ? 'الخيار' : 'Option')}
-                    : <span className="text-muted-foreground font-normal">{product.variant_label}</span>
+                    {activeProduct.variant_label && (
+                      <span className="text-muted-foreground font-normal"> : {activeProduct.variant_label}</span>
+                    )}
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    {variants!.map((v) => {
+                    {familyVariants.map((v) => {
                       const isSelected = v.id === product.id;
                       const oos = v.stock === 0;
                       return (
@@ -386,10 +434,10 @@ const ProductDetail = () => {
                           onClick={() => setSelectedVariantId(v.id)}
                           disabled={oos}
                           className={cn(
-                            "px-3 py-1.5 rounded-full border text-sm transition",
+                            "px-3.5 py-1.5 rounded-full border text-sm transition font-medium",
                             isSelected
-                              ? "border-primary bg-primary/10 text-primary font-medium"
-                              : "border-border hover:border-primary/50",
+                              ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                              : "border-border hover:border-primary/50 text-foreground bg-card",
                             oos && "opacity-40 line-through cursor-not-allowed"
                           )}
                         >
@@ -461,217 +509,6 @@ const ProductDetail = () => {
                 </div>
               )}
 
-              {/* Admin-Only Commercial Intelligence: External Sources & Local Suppliers */}
-              {isAuthenticated && (
-                <div className="mt-4 rounded-xl border-2 border-dashed border-primary/40 bg-primary/5 p-5 space-y-4">
-                  <div className="flex items-center justify-between gap-3 flex-wrap">
-                    <div className="flex items-center gap-2">
-                      <Shield className="h-4 w-4 text-primary" />
-                      <h3 className="font-display text-base font-semibold text-foreground">
-                        {isRTL ? 'بيانات الموردين والمصادر الخارجية (خاص بالأدمن فقط)' : 'Supplier Intelligence & External Sources (Admin Only)'}
-                      </h3>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-[10px] font-mono border-primary/50 text-primary font-bold">
-                        ADMIN ONLY
-                      </Badge>
-                      <Link to="/admin">
-                        <Button size="sm" variant="ghost" className="h-6 text-[11px] px-2 gap-1 text-primary hover:bg-primary/10">
-                          {isRTL ? 'لوحة الإدارة' : 'Admin Panel'}
-                          <ExternalLink className="w-3 h-3" />
-                        </Button>
-                      </Link>
-                    </div>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {isRTL 
-                      ? 'هذه البيانات تظهر لك فقط لأنك مسجل كمسؤول (أدمن). الزوار العاديون لا يمكنهم رؤية الموردين، الأسعار المحلية، أو المصادر الخارجية.' 
-                      : 'This section is confidential and visible only to authenticated admins. Public visitors cannot see suppliers, local prices, or external competitor links.'}
-                  </p>
-
-                  {/* 1. Verified Local Egyptian / Cairo Suppliers */}
-                  {cairoSources && cairoSources.length > 0 && (
-                    <div className="space-y-2 pt-1">
-                      <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                        <Building2 className="h-3.5 w-3.5 text-primary" />
-                        <span>{isRTL ? `الموردون المعتمدون في مصر (${cairoSources.length})` : `Verified Egyptian Suppliers (${cairoSources.length})`}</span>
-                      </div>
-                      <ul className="space-y-2">
-                        {cairoSources.map((src) => {
-                          const cleanPhone = (src.whatsapp || src.phone || '').replace(/[^0-9]/g, '');
-                          const waText = encodeURIComponent(
-                            isRTL 
-                              ? `مرحباً، أستفسر عن توفر وسعر: ${product.name}`
-                              : `Hello, inquiring about availability for: ${product.name}`
-                          );
-                          const targetUrl = src.product_url || src.supplier_url || `https://www.google.com/search?q=${encodeURIComponent(`${src.supplier_name} ${product.name}`)}`;
-
-                          return (
-                            <li key={src.id} className="rounded-lg border border-border/70 bg-background/60 p-3 hover:border-primary/40 transition">
-                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                                <div className="min-w-0 flex-1">
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="font-semibold text-sm text-foreground">{src.supplier_name}</span>
-                                    <Badge variant="outline" className="text-[10px] py-0 border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
-                                      {isRTL ? 'متوفر بمصر' : src.availability || 'In Stock'}
-                                    </Badge>
-                                    {src.area && (
-                                      <span className="text-[11px] text-muted-foreground">({src.area})</span>
-                                    )}
-                                  </div>
-                                  {src.price_egp && (
-                                    <p className="text-xs font-semibold text-primary mt-1">
-                                      {isRTL ? 'السعر التقديري: ' : 'Supplier Price: '}
-                                      {src.price_egp.toLocaleString()} EGP
-                                    </p>
-                                  )}
-                                </div>
-
-                                <div className="flex items-center gap-2 shrink-0">
-                                  {cleanPhone && (
-                                    <a
-                                      href={`https://wa.me/${cleanPhone}?text=${waText}`}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      onClick={(e) => e.stopPropagation()}
-                                      className="inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 px-2.5 py-1.5 rounded-md font-medium transition"
-                                    >
-                                      <MessageCircle className="w-3.5 h-3.5" />
-                                      <span>WhatsApp</span>
-                                    </a>
-                                  )}
-                                  {targetUrl && (
-                                    <a
-                                      href={targetUrl}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      onClick={(e) => e.stopPropagation()}
-                                      className="inline-flex items-center gap-1 text-xs text-primary font-medium hover:underline bg-primary/10 hover:bg-primary/15 px-2.5 py-1.5 rounded-md transition"
-                                    >
-                                      <span>{isRTL ? 'فتح المصدر' : 'Open Source'}</span>
-                                      <ExternalLink className="w-3.5 h-3.5" />
-                                    </a>
-                                  )}
-                                </div>
-                              </div>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </div>
-                  )}
-
-                  {/* 2. Web Crawled Sources (if returned by edge function) */}
-                  {sourcesLoading && (
-                    <div className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
-                      <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
-                      {t('webSourcesLoading')}
-                    </div>
-                  )}
-
-                  {!sourcesLoading && webSources && webSources.length > 0 && (
-                    <div className="space-y-2 pt-1 border-t">
-                      <div className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                        <Search className="h-3.5 w-3.5 text-primary" />
-                        <span>{isRTL ? 'مصادر الويب الإضافية' : 'Additional Web References'}</span>
-                      </div>
-                      <ul className="space-y-2">
-                        {webSources.map((src) => {
-                          let host = '';
-                          try {
-                            host = new URL(src.url).hostname.replace(/^www\./, '');
-                          } catch {
-                            host = src.source;
-                          }
-                          const favicon = `https://www.google.com/s2/favicons?domain=${host}&sz=32`;
-                          return (
-                            <li key={src.url}>
-                              <a
-                                href={src.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="group flex items-start gap-3 rounded-lg border border-border/60 bg-background/50 p-2.5 transition hover:border-primary/40 hover:bg-background"
-                              >
-                                <img
-                                  src={favicon}
-                                  alt=""
-                                  loading="lazy"
-                                  width={18}
-                                  height={18}
-                                  className="mt-0.5 h-4.5 w-4.5 shrink-0 rounded"
-                                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                                />
-                                <div className="min-w-0 flex-1">
-                                  <div className="flex items-center justify-between gap-2">
-                                    <p className="truncate text-xs font-medium text-foreground group-hover:text-primary">
-                                      {src.title}
-                                    </p>
-                                    <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground group-hover:text-primary" />
-                                  </div>
-                                  <p className="text-[10px] text-muted-foreground">{host}</p>
-                                </div>
-                              </a>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </div>
-                  )}
-
-                  {/* 3. Guaranteed Direct Marketplaces & Reference Hub */}
-                  <div className="pt-2 border-t space-y-2">
-                    <div className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                      <ShoppingBag className="h-3.5 w-3.5 text-primary" />
-                      <span>{isRTL ? 'روابط فحص ومقارنة خارجية مباشرة' : 'Direct External Market & Spec Links'}</span>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                      <a
-                        href={`https://www.amazon.eg/s?k=${encodeURIComponent(`${product.brand || ''} ${product.name}`.trim())}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        className="flex items-center justify-between p-2.5 rounded-lg border border-border bg-background/60 hover:border-amber-500/40 hover:bg-amber-500/5 text-xs font-medium transition group"
-                      >
-                        <span className="flex items-center gap-1.5 text-foreground group-hover:text-amber-600 dark:group-hover:text-amber-400">
-                          <ShoppingBag className="w-3.5 h-3.5 text-amber-500" />
-                          Amazon Egypt
-                        </span>
-                        <ExternalLink className="w-3 h-3 text-muted-foreground group-hover:text-amber-600" />
-                      </a>
-
-                      <a
-                        href={`https://www.google.com/search?q=${encodeURIComponent(`${product.brand || ''} ${product.name} specifications datasheet manual`)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        className="flex items-center justify-between p-2.5 rounded-lg border border-border bg-background/60 hover:border-primary/40 hover:bg-primary/5 text-xs font-medium transition group"
-                      >
-                        <span className="flex items-center gap-1.5 text-foreground group-hover:text-primary">
-                          <FileText className="w-3.5 h-3.5 text-primary" />
-                          {isRTL ? 'المواصفات والكتالوج' : 'Datasheet & Specs'}
-                        </span>
-                        <ExternalLink className="w-3 h-3 text-muted-foreground group-hover:text-primary" />
-                      </a>
-
-                      <a
-                        href={`https://www.youtube.com/results?search_query=${encodeURIComponent(`${product.brand || ''} ${product.name} smart home review`)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        className="flex items-center justify-between p-2.5 rounded-lg border border-border bg-background/60 hover:border-red-500/40 hover:bg-red-500/5 text-xs font-medium transition group"
-                      >
-                        <span className="flex items-center gap-1.5 text-foreground group-hover:text-red-600 dark:group-hover:text-red-400">
-                          <Youtube className="w-3.5 h-3.5 text-red-500" />
-                          {isRTL ? 'فيديوهات ومراجعات' : 'Video Reviews'}
-                        </span>
-                        <ExternalLink className="w-3 h-3 text-muted-foreground group-hover:text-red-600" />
-                      </a>
-                    </div>
-                  </div>
-                </div>
-              )}
-
               {/* Bundle suggestion */}
               <div className="mt-4 p-4 rounded-xl bg-primary/5 border border-primary/20">
                 <p className="text-sm font-medium text-foreground mb-1">
@@ -690,6 +527,75 @@ const ProductDetail = () => {
             </div>
           </div>
         </div>
+
+        {/* Fullscreen Picture Modal to see the entire photo in high-resolution detail */}
+        {lightboxOpen && (
+          <div
+            className="fixed inset-0 z-[120] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 sm:p-8 animate-in fade-in-0 duration-200"
+            onClick={() => setLightboxOpen(false)}
+          >
+            <div
+              className="relative max-w-5xl w-full max-h-[90vh] flex flex-col items-center justify-center"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Close Button */}
+              <button
+                type="button"
+                onClick={() => setLightboxOpen(false)}
+                className="absolute -top-12 end-0 p-2 text-white/80 hover:text-white rounded-full bg-white/10 hover:bg-white/20 transition-all"
+                aria-label="Close"
+              >
+                <X className="h-6 w-6" />
+              </button>
+
+              {/* Big Uncropped Picture */}
+              <div className="w-full max-h-[78vh] flex items-center justify-center overflow-hidden rounded-2xl bg-black/40 p-2">
+                <img
+                  src={selectedImage || getProductImage(product)}
+                  alt={product.name}
+                  className="max-h-[75vh] max-w-full object-contain drop-shadow-2xl select-none"
+                />
+              </div>
+
+              {/* Prev / Next controls if multiple images */}
+              {allImages.length > 1 && (
+                <div className="flex items-center gap-3 mt-4">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="h-9 px-3 rounded-full"
+                    onClick={() => {
+                      const cur = selectedImage || getProductImage(product);
+                      const curIdx = allImages.indexOf(cur);
+                      const prevIdx = (curIdx - 1 + allImages.length) % allImages.length;
+                      setSelectedImage(allImages[prevIdx]);
+                    }}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    <span className="text-xs">{isRTL ? 'السابق' : 'Previous'}</span>
+                  </Button>
+                  <span className="text-xs text-white/70 font-medium">
+                    {allImages.indexOf(selectedImage || getProductImage(product)) + 1} / {allImages.length}
+                  </span>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="h-9 px-3 rounded-full"
+                    onClick={() => {
+                      const cur = selectedImage || getProductImage(product);
+                      const curIdx = allImages.indexOf(cur);
+                      const nextIdx = (curIdx + 1) % allImages.length;
+                      setSelectedImage(allImages[nextIdx]);
+                    }}
+                  >
+                    <span className="text-xs">{isRTL ? 'التالي' : 'Next'}</span>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </Layout>
     </>
   );

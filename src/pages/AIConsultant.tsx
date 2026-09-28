@@ -53,7 +53,7 @@ function ProductMiniCard({ slug }: { slug: string }) {
       <img
         src={product.image_url || '/placeholder.svg'}
         alt={product.name}
-        className="w-14 h-14 rounded-lg object-cover flex-shrink-0 bg-muted"
+        className="w-14 h-14 rounded-xl object-contain p-1 flex-shrink-0 bg-muted/30 border border-border/40"
         onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/placeholder.svg'; }}
       />
       <div className="min-w-0 flex-1">

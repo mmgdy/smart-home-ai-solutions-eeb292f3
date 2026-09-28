@@ -51,14 +51,14 @@ export function ProductCard({ product, className }: ProductCardProps) {
           className
         )}
       >
-        {/* Image */}
-        <div className="relative aspect-[4/3] overflow-hidden bg-muted">
+        {/* Image - Clean centered display showing whole product without cropping */}
+        <div className="relative aspect-square overflow-hidden bg-muted/20 flex items-center justify-center p-3 sm:p-4">
           <img
             src={getProductImage(product)}
             alt={product.name}
             loading="lazy"
             onError={(e) => { (e.currentTarget as HTMLImageElement).src = productPlaceholder; }}
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+            className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-105 drop-shadow-sm"
           />
 
           {/* Badges */}
