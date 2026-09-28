@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { corsHeadersFor } from "../_shared/cors.ts";
+import { autoEnrichProductSpecifications } from "../_shared/product-enricher.ts";
 
 // Egyptian market price mapping based on Amazon.eg and Noon.com research
 // Prices in EGP for common SONOFF products
@@ -338,7 +339,7 @@ serve(async (req) => {
       slugCount.set(baseSlug, count + 1);
       const slug = count > 0 ? `${baseSlug}-${count}` : baseSlug;
 
-      products.push({
+      const rawProduct = {
         name,
         slug,
         description: description || null,
@@ -352,7 +353,9 @@ serve(async (req) => {
         specifications: {},
         stock: 100,
         featured: false,
-      });
+      };
+
+      products.push(autoEnrichProductSpecifications(rawProduct));
     }
 
     // Insert products in batches

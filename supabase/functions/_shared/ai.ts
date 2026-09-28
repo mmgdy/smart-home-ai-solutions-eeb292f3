@@ -248,24 +248,37 @@ export function hasConfiguredAIKey(): boolean {
   );
 }
 
-/** Chat completion with automatic provider fallback. Throws when all fail;
- *  the error message carries per-provider status codes for diagnosis. */
+/** Chat completion with automatic provider fallback, prompt sanitization, and structured audit logging. */
 export async function chatComplete(
   messages: ChatMessage[],
   opts: { maxTokens?: number } = {},
 ): Promise<string> {
+  const sanitizedMessages = messages.map((m) => {
+    if (m.role !== "user") return m;
+    let content = m.content;
+    content = content.replace(/ignore (all )?(previous|above) (instructions|rules)/gi, "[redacted]");
+    content = content.replace(/reveal (the )?(system prompt|api key|database|cost price)/gi, "[redacted]");
+    content = content.replace(/disregard (system|prior) constraints/gi, "[redacted]");
+    return { ...m, content };
+  });
+
   const outcomes: string[] = [];
+  const startTime = Date.now();
   const chain: Array<{ name: string; run: () => Promise<string | null> }> = [
-    { name: "gemini", run: () => tryGemini(messages, opts.maxTokens) },
-    { name: "groq", run: () => tryGroq(messages, opts.maxTokens) },
-    { name: "openrouter", run: () => tryOpenRouter(messages, opts.maxTokens) },
-    { name: "huggingface", run: () => tryHuggingFace(messages, opts.maxTokens) },
-    { name: "pollinations-fast", run: () => tryPollinations("openai-fast", messages, opts.maxTokens) },
-    { name: "pollinations", run: () => tryPollinations("openai", messages, opts.maxTokens) },
+    { name: "gemini", run: () => tryGemini(sanitizedMessages, opts.maxTokens) },
+    { name: "groq", run: () => tryGroq(sanitizedMessages, opts.maxTokens) },
+    { name: "openrouter", run: () => tryOpenRouter(sanitizedMessages, opts.maxTokens) },
+    { name: "huggingface", run: () => tryHuggingFace(sanitizedMessages, opts.maxTokens) },
+    { name: "pollinations-fast", run: () => tryPollinations("openai-fast", sanitizedMessages, opts.maxTokens) },
+    { name: "pollinations", run: () => tryPollinations("openai", sanitizedMessages, opts.maxTokens) },
   ];
   for (const { name, run } of chain) {
     const text = await run();
-    if (text) return text;
+    if (text) {
+      const elapsed = Date.now() - startTime;
+      console.log(`[AI-Gateway] Success via provider='${name}' in ${elapsed}ms (${text.length} chars)`);
+      return text;
+    }
     outcomes.push(`${name}:${lastOutcome.get(name) ?? "err"}`);
   }
   throw new Error(`all AI providers failed [${outcomes.join(", ")}]`);

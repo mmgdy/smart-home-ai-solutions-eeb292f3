@@ -2,6 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 import { corsHeadersFor } from "../_shared/cors.ts";
 import { checkRate, getIp } from "../_shared/rate-limit.ts";
 import { chatComplete } from "../_shared/ai.ts";
+import { autoEnrichProductSpecifications } from "../_shared/product-enricher.ts";
 
 async function verifyAdminToken(supabase: any, token: string): Promise<boolean> {
   if (!token) return false;
@@ -73,18 +74,19 @@ Deno.serve(async (req) => {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      const slug = product.slug || product.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+      const enriched = autoEnrichProductSpecifications(product);
+      const slug = enriched.slug || enriched.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
       const { data, error } = await supabase
         .from("products")
         .insert({
-          name: product.name, slug,
-          description: product.description ?? null,
-          price: product.price ?? 0, original_price: product.original_price ?? null,
-          brand: product.brand ?? null, protocol: product.protocol ?? null,
-          image_url: product.image_url ?? null, stock: product.stock ?? 10,
-          featured: product.featured ?? false, video_url: product.video_url ?? null,
-          category_id: product.category_id ?? null,
-          images: product.images ?? null, specifications: product.specifications ?? null,
+          name: enriched.name, slug,
+          description: enriched.description ?? null,
+          price: enriched.price ?? 0, original_price: enriched.original_price ?? null,
+          brand: enriched.brand ?? null, protocol: enriched.protocol ?? null,
+          image_url: enriched.image_url ?? null, stock: enriched.stock ?? 10,
+          featured: enriched.featured ?? false, video_url: enriched.video_url ?? null,
+          category_id: enriched.category_id ?? null,
+          images: enriched.images ?? null, specifications: enriched.specifications ?? null,
         })
         .select().single();
       if (error) throw error;
@@ -100,14 +102,40 @@ Deno.serve(async (req) => {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+      const enriched = autoEnrichProductSpecifications(updates);
       const { data, error } = await supabase
         .from("products")
-        .update({ ...filterProductFields(updates), updated_at: new Date().toISOString() })
+        .update({ ...filterProductFields(enriched), updated_at: new Date().toISOString() })
         .eq("id", id)
         .select()
         .single();
       if (error) throw error;
       return new Response(JSON.stringify({ success: true, data }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "enrich-all-catalog") {
+      const { data: allProds, error: fetchErr } = await supabase
+        .from("products")
+        .select("id, name, description, brand, protocol, specifications");
+      if (fetchErr) throw fetchErr;
+
+      let updatedCount = 0;
+      for (const p of allProds || []) {
+        const enriched = autoEnrichProductSpecifications(p);
+        const { error: upErr } = await supabase
+          .from("products")
+          .update({
+            protocol: enriched.protocol,
+            specifications: enriched.specifications,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", p.id);
+        if (!upErr) updatedCount++;
+      }
+
+      return new Response(JSON.stringify({ success: true, count: updatedCount }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

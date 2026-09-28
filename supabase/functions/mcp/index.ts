@@ -13,7 +13,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 var search_products_default = defineTool({
   name: "search_products",
   title: "Search products",
-  description: "Search the AzkaSmart smart-home and art-furniture catalog. Returns matching products with name, price (EGP), brand, slug, and stock.",
+  description: "Search the AzkaSmart smart-home and access-control catalog. Returns matching products with name, price (EGP), brand, slug, and stock.",
   inputSchema: {
     query: z.string().describe("Free-text query matched against product name, brand, and description. Use an empty string to list featured items.").default(""),
     limit: z.number().int().min(1).max(30).default(10).describe("Max results (1-30)."),

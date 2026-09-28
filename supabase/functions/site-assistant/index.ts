@@ -1,15 +1,23 @@
-// Site assistant — bilingual AI search & site guide.
-// AI via the shared fallback gateway (_shared/ai.ts).
+// Site assistant — bilingual AI search & smart-home shopping guide for AzkaSmart.
+// 100% catalog-grounded, zero hallucination.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 import { corsHeadersFor } from "../_shared/cors.ts";
 import { checkRate, getIp } from "../_shared/rate-limit.ts";
 import { cleanString } from "../_shared/validate.ts";
 import { chatComplete, type ChatMessage } from "../_shared/ai.ts";
+import {
+  loadGroundedCatalog,
+  matchCatalogProducts,
+  formatCatalogPromptContext,
+  validateAndRepairAIOutput,
+  sanitizeUserInput,
+  INSTALLATION_POLICY,
+} from "../_shared/catalog-grounding.ts";
 
 function streamText(text: string, encoder: TextEncoder): ReadableStream {
   return new ReadableStream({
     start(controller) {
-      const chunkSize = 6;
+      const chunkSize = 8;
       let i = 0;
       const id = crypto.randomUUID();
       const send = () => {
@@ -22,12 +30,14 @@ function streamText(text: string, encoder: TextEncoder): ReadableStream {
         i += chunkSize;
         const payload = JSON.stringify({ choices: [{ delta: { content: chunk } }] });
         controller.enqueue(encoder.encode(`data: ${payload}\n\n`));
-        setTimeout(send, 18);
+        setTimeout(send, 16);
       };
-      controller.enqueue(encoder.encode(
-        `data: {"id":"${id}","object":"chat.completion.chunk","created":${Math.floor(Date.now() / 1000)},"model":"gpt-4","choices":[{"index":0,"delta":{"role":"assistant"},"finish_reason":null}]}\n\n`
-      ));
-      setTimeout(send, 30);
+      controller.enqueue(
+        encoder.encode(
+          `data: {"id":"${id}","object":"chat.completion.chunk","created":${Math.floor(Date.now() / 1000)},"model":"azka-assistant","choices":[{"index":0,"delta":{"role":"assistant"},"finish_reason":null}]}\n\n`
+        )
+      );
+      setTimeout(send, 25);
     },
   });
 }
@@ -37,7 +47,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   const ip = getIp(req);
-  const rate = checkRate(ip, { windowMs: 60_000, maxRequests: 10 });
+  const rate = checkRate(ip, { windowMs: 60_000, maxRequests: 20 });
   if (!rate.ok) {
     return new Response(JSON.stringify({ error: "Too many requests" }), {
       status: 429,
@@ -47,67 +57,65 @@ Deno.serve(async (req) => {
 
   try {
     const { query, language = "en", history = [] } = await req.json();
-    const cleanQuery = cleanString(query, 500);
-    if (!cleanQuery) {
+    const cleanQueryRaw = cleanString(query, 500);
+    if (!cleanQueryRaw) {
       return new Response(JSON.stringify({ error: "query is required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    const cleanQuery = sanitizeUserInput(cleanQueryRaw);
+
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_ANON_KEY")!
     );
 
-    const [{ data: products }, { data: categories }] = await Promise.all([
-      supabase.from("products").select("name, slug, price, brand, category_id, description").limit(80),
+    const [fullCatalog, { data: categories }] = await Promise.all([
+      loadGroundedCatalog(supabase, 250),
       supabase.from("categories").select("slug, name, description"),
     ]);
 
-    const q = cleanQuery.toLowerCase();
-    const words = q.split(/\s+/).filter((w) => w.length > 2);
-    const scored = (products ?? []).map((p: any) => {
-      const hay = `${p.name} ${p.brand ?? ""} ${p.description ?? ""}`.toLowerCase();
-      let score = 0;
-      words.forEach((w) => { if (hay.includes(w)) score += 1; });
-      return { p, score };
-    }).sort((a, b) => b.score - a.score);
-    const top = (scored.filter((s) => s.score > 0).slice(0, 8).length
-      ? scored.filter((s) => s.score > 0).slice(0, 8)
-      : scored.slice(0, 6)
-    ).map((s) => s.p);
-
-    const productLines = top.map((p: any) =>
-      `- ${p.name} — EGP ${p.price} — /products/${p.slug}${p.brand ? ` — ${p.brand}` : ""}`
-    ).join("\n");
+    const topProducts = matchCatalogProducts(cleanQuery, fullCatalog, 12);
+    const productContext = formatCatalogPromptContext(topProducts);
 
     const catLines = (categories ?? []).map((c: any) =>
       `- ${c.name}: /products?category=${c.slug}`
     ).join("\n");
 
-    const system = language === "ar"
-      ? `أنت مساعد AzkaSmart، متجر إلكتروني مصري للمنزل الذكي والأثاث الفني. أجب باختصار وبالعربية. اقترح منتجات من القائمة فقط، واذكر روابطها. الأسعار بالجنيه المصري.
+    const systemPrompt = language === "ar"
+      ? `أنت مساعد AzkaSmart، متجر إلكتروني مصري رائد في منتجات المنزل الذكي وأنظمة التحكم في الدخول (Smart Home & Access Control).
+أجب باختصار ولطف وباللغة العربية (اللهجة المصرية مقبولة ومرحب بها).
+قواعد أساسية:
+1. اقترح منتجات من القائمة المتاحة أدناه فقط مع ذكر روابطها الدقيقة بصيغة [اسم المنتج](/products/slug).
+2. الأسعار بالجنيه المصري (EGP) مع ضمان معتمد لمدة سنة في مصر.
+3. تتوفر خدمة المعاينة والتركيب الاحترافي بجميع المحافظات: ${INSTALLATION_POLICY.percentage * 100}٪ بحد أدنى ${INSTALLATION_POLICY.minVisitFeeEgp} ج.م للزيارة.
 
-المنتجات المتاحة:
-${productLines}
+المنتجات المتطابقة مع البحث:
+${productContext}
 
-الأقسام:
+الأقسام المتاحة:
 ${catLines}
 
-صفحات مفيدة: /bundles /ai-consultant /calculator /brands /services`
-      : `You are AzkaSmart's helpful shopping assistant — an Egyptian smart-home and art-furniture store. Reply concisely in English. Recommend ONLY products from the list, include their /products/<slug> links. Prices are in EGP.
+روابط سريعة: /bundles /calculator /ai-consultant`
+      : `You are AzkaSmart's smart shopping assistant — Egypt's leading smart-home automation and access-control store.
+Reply concisely and helpfully in English.
+Strict rules:
+1. Recommend ONLY products from the available verified list below with their exact markdown links: [Product Name](/products/slug).
+2. Prices are in EGP with official 1-year warranty in Egypt.
+3. Professional installation is available across Egypt: ${INSTALLATION_POLICY.percentage * 100}% of equipment total (min visit ${INSTALLATION_POLICY.minVisitFeeEgp} EGP).
 
-Available products:
-${productLines}
+Matching products:
+${productContext}
 
 Categories:
 ${catLines}
 
-Useful pages: /bundles /ai-consultant /calculator /brands /services`;
+Quick links: /bundles /calculator /ai-consultant`;
 
     const msgs = [
-      { role: "system", content: system },
-      ...(history ?? []).slice(-6),
+      { role: "system", content: systemPrompt },
+      ...(history ?? []).slice(-4),
       { role: "user", content: cleanQuery },
     ];
 
@@ -117,19 +125,22 @@ Useful pages: /bundles /ai-consultant /calculator /brands /services`;
     } catch (aiErr) {
       console.warn("site-assistant AI provider unavailable, using catalog fallback:", aiErr);
       const isArabic = language === "ar" || /[\u0600-\u06FF]/.test(cleanQuery);
-      const recList = top.slice(0, 4).map((p: any) =>
+      const recList = topProducts.slice(0, 4).map((p) =>
         `- **[${p.name}](/products/${p.slug})** — ${p.price} EGP`
       ).join("\n");
 
       if (isArabic) {
-        fullText = `أهلاً بك في AzkaSmart! لمساعدتك في "${cleanQuery}"، إليك أفضل المنتجات المتوفرة بضمان معتمد:\n\n${recList}\n\nيمكنك استكشاف المزيد عبر [جميع المنتجات](/products) أو التحدث مع [مستشار الذكاء الاصطناعي](/ai-consultant).`;
+        fullText = `أهلاً بك في **AzkaSmart**! إليك أفضل المنتجات المتوفرة لطلبك "${cleanQuery}" بضمان رسمي:\n\n${recList}\n\nيمكنك استكشاف المزيد عبر [جميع المنتجات](/products) أو استشارة [مستشار الذكاء الاصطناعي](/ai-consultant).`;
       } else {
-        fullText = `Welcome to AzkaSmart! For "${cleanQuery}", here are our top matching smart home products in Egypt:\n\n${recList}\n\nExplore more under [All Products](/products) or chat with our [AI Consultant](/ai-consultant).`;
+        fullText = `Welcome to **AzkaSmart**! For "${cleanQuery}", here are our top matching products in Egypt:\n\n${recList}\n\nExplore more under [All Products](/products) or chat with our [AI Consultant](/ai-consultant).`;
       }
     }
 
+    // Post-generation validation & repair gate
+    const { validText } = validateAndRepairAIOutput(fullText, fullCatalog);
+
     const encoder = new TextEncoder();
-    return new Response(streamText(fullText, encoder), {
+    return new Response(streamText(validText, encoder), {
       headers: {
         ...corsHeaders,
         "Content-Type": "text/event-stream",

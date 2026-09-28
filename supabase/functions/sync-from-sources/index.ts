@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 import { corsHeadersFor } from "../_shared/cors.ts";
 import { chatCompleteRaw, chatComplete } from "../_shared/ai.ts";
+import { autoEnrichProductSpecifications } from "../_shared/product-enricher.ts";
 
 async function verifyAdminToken(supabase: any, token: string): Promise<boolean> {
   if (!token) return false;
@@ -605,7 +606,7 @@ async function upsertProduct(supabase: any, productData: any, catMap: Map<string
       return "skipped";
     }
 
-    const { error } = await supabase.from("products").insert({
+    const enriched = autoEnrichProductSpecifications({
       name: productData.name,
       slug,
       brand: productData.brand || null,
@@ -621,6 +622,8 @@ async function upsertProduct(supabase: any, productData: any, catMap: Map<string
       featured: false,
       is_published: true,
     });
+
+    const { error } = await supabase.from("products").insert(enriched);
     return error ? "error" : "added";
   } catch { return "error"; }
 }

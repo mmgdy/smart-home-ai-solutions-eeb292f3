@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeadersFor } from "../_shared/cors.ts";
 import { checkRate, getIp } from "../_shared/rate-limit.ts";
+import { chatComplete } from "../_shared/ai.ts";
 
 async function verifyAdminToken(supabase: any, token: string): Promise<boolean> {
   if (!token) return false;
@@ -546,7 +547,7 @@ Deno.serve(async (req) => {
     if (action === 'generate-descriptions') {
       const { data: products, error } = await supabase
         .from('products')
-        .select('id, name, brand, description, protocol')
+        .select('id, name, brand, description, protocol, specifications')
         .limit(batchSize);
 
       if (error) throw error;
@@ -555,21 +556,33 @@ Deno.serve(async (req) => {
 
       for (const product of products || []) {
         try {
-          const descriptionPrompt = `Write a compelling smart-home ecommerce description in English (30-60 words).
+          const specsStr = product.specifications ? JSON.stringify(product.specifications) : '';
+          const descriptionPrompt = `You are a smart home copywriter for azkasmart.com (Egypt).
+Write a professional, catalog-grounded product description (50-80 words).
+Product: ${product.name}
+Brand: ${product.brand || 'AzkaSmart'}
+Protocol: ${product.protocol || 'Smart Home'}
+Specifications: ${specsStr || 'Official Egyptian Specs'}
 
-Product: ${product.name}${product.brand ? ` | Brand: ${product.brand}` : ''}${product.protocol ? ` | Protocol: ${product.protocol}` : ''}
+Requirements:
+- Highlight practical everyday benefits for home automation or access control.
+- Mention compatibility and official 1-year warranty in Egypt.
+- Return plain text only with NO fabricated claims or unlisted features.`;
 
-Focus on practical value, compatibility, and user benefit. Return plain text only.`;
-
-          const newDescription = await generateWithHuggingFace(descriptionPrompt, 140);
+          let newDescription = '';
+          try {
+            newDescription = await chatComplete([{ role: 'user', content: descriptionPrompt }], { maxTokens: 180 });
+          } catch {
+            newDescription = await generateWithHuggingFace(descriptionPrompt, 140);
+          }
 
           if (newDescription && newDescription.length > 20) {
-            await supabase.from('products').update({ description: newDescription }).eq('id', product.id);
-            results.push({ id: product.id, name: product.name, status: 'updated', description: newDescription });
+            await supabase.from('products').update({ description: newDescription.trim() }).eq('id', product.id);
+            results.push({ id: product.id, name: product.name, status: 'updated', description: newDescription.trim() });
           } else {
             results.push({ id: product.id, name: product.name, status: 'generation_failed' });
           }
-          await delay(700);
+          await delay(500);
         } catch (err) {
           results.push({ id: product.id, name: product.name, status: 'error', error: String(err) });
         }
