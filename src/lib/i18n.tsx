@@ -277,10 +277,11 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   const formatPrice = (price: number): string => {
     // Format price in Egyptian Pounds
+    const safePrice = Number.isFinite(Number(price)) ? Number(price) : 0;
     if (language === 'ar') {
-      return `${price.toLocaleString('ar-EG')} ${translations.ar.egp}`;
+      return `${safePrice.toLocaleString('ar-EG')} ${translations.ar.egp}`;
     }
-    return `${translations.en.egp} ${price.toLocaleString('en-EG')}`;
+    return `${translations.en.egp} ${safePrice.toLocaleString('en-EG')}`;
   };
 
   const isRTL = language === 'ar';

@@ -1,0 +1,104 @@
+{
+  "_note": "Single source of truth for the /company-profile page AND the PDF brochure (scripts/build-company-profile-pdf.cjs). Edit here, then run: node scripts/build-company-profile-pdf.cjs",
+  "brand": {
+    "name": { "en": "Azka Smart", "ar": "أزكا سمارت" },
+    "tagline": { "en": "Intelligent Living, Engineered for the Middle East", "ar": "حياة ذكية، مصمّمة للشرق الأوسط" },
+    "intro": {
+      "en": "Azka Smart is a smart-home and AI solutions company that designs, supplies, installs and supports intelligent homes and buildings across Egypt, Saudi Arabia and the UAE. We combine an AI-driven design platform with certified engineering teams to deliver homes that are safer, more comfortable and dramatically more energy-efficient.",
+      "ar": "أزكا سمارت شركة متخصصة في حلول المنازل الذكية والذكاء الاصطناعي، نصمّم ونورّد ونركّب وندعم المنازل والمباني الذكية في مصر والسعودية والإمارات. نجمع بين منصة تصميم مدعومة بالذكاء الاصطناعي وفرق هندسية معتمدة لنقدّم منازل أكثر أماناً وراحة وكفاءة في استهلاك الطاقة."
+    },
+    "pdf": "/company-profile/Azka-Smart-Company-Profile.pdf",
+    "email": "info@azkasmart.com",
+    "phone": "+20 150 189 6456",
+    "website": "azkasmart.com"
+  },
+  "stats": [
+    { "value": "3", "label": { "en": "Countries", "ar": "دول" } },
+    { "value": "1,200+", "label": { "en": "Homes Automated", "ar": "منزل ذكي" } },
+    { "value": "40+", "label": { "en": "Global Brands", "ar": "علامة عالمية" } },
+    { "value": "24/7", "label": { "en": "Support & Monitoring", "ar": "دعم ومتابعة" } }
+  ],
+  "mission": {
+    "en": "To make intelligent, energy-efficient and secure living accessible to every home in the region — simple to plan, effortless to use.",
+    "ar": "أن نجعل الحياة الذكية الآمنة والموفّرة للطاقة في متناول كل منزل في المنطقة — سهلة التخطيط وبسيطة الاستخدام."
+  },
+  "vision": {
+    "en": "To be the Middle East's most trusted name in AI-powered living spaces.",
+    "ar": "أن نكون الاسم الأكثر ثقة في الشرق الأوسط للمساحات المعيشية المدعومة بالذكاء الاصطناعي."
+  },
+  "values": [
+    { "icon": "Sparkles", "title": { "en": "AI-First", "ar": "الذكاء الاصطناعي أولاً" }, "desc": { "en": "AI removes the complexity from planning, quoting and operating a smart home.", "ar": "الذكاء الاصطناعي يزيل التعقيد من التخطيط والتسعير وتشغيل المنزل الذكي." } },
+    { "icon": "ShieldCheck", "title": { "en": "Engineering Excellence", "ar": "تميّز هندسي" }, "desc": { "en": "Certified engineers, tested products and installation standards built for regional climate and voltage.", "ar": "مهندسون معتمدون ومنتجات مختبرة ومعايير تركيب تناسب مناخ وجهد المنطقة." } },
+    { "icon": "HeartHandshake", "title": { "en": "End-to-End Care", "ar": "رعاية متكاملة" }, "desc": { "en": "One partner from first consultation to lifetime support.", "ar": "شريك واحد من أول استشارة وحتى الدعم مدى الحياة." } },
+    { "icon": "Leaf", "title": { "en": "Sustainable by Design", "ar": "استدامة من التصميم" }, "desc": { "en": "Every system is designed to measurably cut energy consumption.", "ar": "كل نظام مصمم لخفض استهلاك الطاقة بشكل ملموس." } }
+  ],
+  "solutions": [
+    { "icon": "Lightbulb", "title": { "en": "Smart Lighting", "ar": "الإضاءة الذكية" }, "desc": { "en": "Scenes, dimming, circadian lighting and motion automation.", "ar": "مشاهد وتعتيم وإضاءة حيوية وتشغيل تلقائي بالحركة." } },
+    { "icon": "Thermometer", "title": { "en": "Climate Control", "ar": "التحكم في التكييف" }, "desc": { "en": "AC and HVAC scheduling, zoning and remote control.", "ar": "جدولة وتقسيم وتحكم عن بُعد في التكييف والتهوية." } },
+    { "icon": "Shield", "title": { "en": "Security & Access", "ar": "الأمن والدخول" }, "desc": { "en": "AI cameras, smart locks, video intercoms and alarms.", "ar": "كاميرات ذكية وأقفال وإنتركم مرئي وأنظمة إنذار." } },
+    { "icon": "Zap", "title": { "en": "Energy Management", "ar": "إدارة الطاقة" }, "desc": { "en": "Real-time metering, solar integration and load optimisation.", "ar": "قياس لحظي وربط بالطاقة الشمسية وتحسين الأحمال." } },
+    { "icon": "Blinds", "title": { "en": "Curtains & Shading", "ar": "الستائر الذكية" }, "desc": { "en": "Motorised curtains and blinds synced to sun and schedule.", "ar": "ستائر آلية متزامنة مع الشمس والجدول اليومي." } },
+    { "icon": "Speaker", "title": { "en": "Entertainment", "ar": "الترفيه" }, "desc": { "en": "Multi-room audio, home cinema and media distribution.", "ar": "صوت متعدد الغرف وسينما منزلية وتوزيع وسائط." } },
+    { "icon": "Mic", "title": { "en": "Voice & AI Assistants", "ar": "التحكم الصوتي" }, "desc": { "en": "Arabic and English voice control across every system.", "ar": "تحكم صوتي بالعربية والإنجليزية في كل الأنظمة." } },
+    { "icon": "Wifi", "title": { "en": "Networking", "ar": "الشبكات" }, "desc": { "en": "Enterprise-grade Wi-Fi and structured cabling backbone.", "ar": "شبكات واي فاي احترافية وبنية كابلات متكاملة." } }
+  ],
+  "platform": [
+    { "icon": "Bot", "title": { "en": "AI Consultant", "ar": "المستشار الذكي" }, "desc": { "en": "Describe your home and lifestyle; get a tailored system design in minutes.", "ar": "صف منزلك وأسلوب حياتك واحصل على تصميم مخصص في دقائق." } },
+    { "icon": "Calculator", "title": { "en": "Instant Cost Calculator", "ar": "حاسبة التكلفة الفورية" }, "desc": { "en": "Transparent room-by-room pricing before you commit.", "ar": "تسعير شفاف لكل غرفة قبل أن تقرر." } },
+    { "icon": "LayoutDashboard", "title": { "en": "Home Designer", "ar": "مصمم المنزل" }, "desc": { "en": "Visualise device placement on your floor plan.", "ar": "تصوّر أماكن الأجهزة على مخطط منزلك." } },
+    { "icon": "Smartphone", "title": { "en": "One Unified App", "ar": "تطبيق موحّد" }, "desc": { "en": "Control every brand and room from a single bilingual app.", "ar": "تحكم في كل العلامات والغرف من تطبيق واحد ثنائي اللغة." } }
+  ],
+  "process": [
+    { "title": { "en": "Consult", "ar": "استشارة" }, "desc": { "en": "AI-assisted needs analysis and site survey.", "ar": "تحليل الاحتياجات بالذكاء الاصطناعي ومعاينة الموقع." } },
+    { "title": { "en": "Design", "ar": "تصميم" }, "desc": { "en": "Engineered system design, bill of materials and fixed quote.", "ar": "تصميم هندسي وقائمة مواد وعرض سعر ثابت." } },
+    { "title": { "en": "Install", "ar": "تركيب" }, "desc": { "en": "Certified technicians, clean installation, full commissioning.", "ar": "فنيون معتمدون وتركيب نظيف وتشغيل كامل." } },
+    { "title": { "en": "Support", "ar": "دعم" }, "desc": { "en": "Training, warranty, remote monitoring and upgrades.", "ar": "تدريب وضمان ومتابعة عن بُعد وتحديثات." } }
+  ],
+  "sectors": [
+    { "en": "Luxury Villas", "ar": "الفلل الفاخرة" },
+    { "en": "Apartments & Penthouses", "ar": "الشقق والبنتهاوس" },
+    { "en": "Real-Estate Developers", "ar": "المطورون العقاريون" },
+    { "en": "Hospitality", "ar": "الفنادق والضيافة" },
+    { "en": "Corporate Offices", "ar": "المكاتب والشركات" },
+    { "en": "Retail & Showrooms", "ar": "المتاجر والمعارض" }
+  ],
+  "offices": [
+    {
+      "id": "cairo",
+      "image": "/company-profile/office-cairo.jpg",
+      "city": { "en": "Cairo", "ar": "القاهرة" },
+      "country": { "en": "Egypt", "ar": "مصر" },
+      "role": { "en": "Headquarters & Engineering Hub", "ar": "المقر الرئيسي ومركز الهندسة" },
+      "desc": { "en": "Group headquarters, R&D, AI platform team and central warehouse serving Egypt.", "ar": "المقر الرئيسي للمجموعة والبحث والتطوير وفريق المنصة الذكية والمستودع المركزي لمصر." },
+      "phone": "+20 150 189 6456",
+      "email": "info@azkasmart.com"
+    },
+    {
+      "id": "riyadh",
+      "image": "/company-profile/office-riyadh.jpg",
+      "city": { "en": "Riyadh", "ar": "الرياض" },
+      "country": { "en": "Saudi Arabia", "ar": "المملكة العربية السعودية" },
+      "role": { "en": "KSA Regional Office", "ar": "المكتب الإقليمي بالمملكة" },
+      "desc": { "en": "Project delivery for villas, compounds and Vision 2030 developments across the Kingdom.", "ar": "تنفيذ مشاريع الفلل والمجمعات ومشاريع رؤية 2030 في أنحاء المملكة." },
+      "phone": "",
+      "email": "info@azkasmart.com"
+    },
+    {
+      "id": "dubai",
+      "image": "/company-profile/office-dubai.jpg",
+      "city": { "en": "Dubai", "ar": "دبي" },
+      "country": { "en": "United Arab Emirates", "ar": "الإمارات العربية المتحدة" },
+      "role": { "en": "GCC Experience Center", "ar": "مركز التجربة الخليجي" },
+      "desc": { "en": "Live smart-home showroom and partnerships hub for the UAE and wider GCC.", "ar": "صالة عرض حيّة للمنزل الذكي ومركز شراكات للإمارات والخليج." },
+      "phone": "",
+      "email": "info@azkasmart.com"
+    }
+  ],
+  "images": {
+    "hero": "/company-profile/hero.jpg",
+    "products": "/company-profile/products.jpg",
+    "appUi": "/company-profile/app-ui.jpg",
+    "installation": "/company-profile/installation.jpg",
+    "team": "/company-profile/team.jpg"
+  }
+}

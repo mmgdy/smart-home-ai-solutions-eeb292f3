@@ -468,14 +468,14 @@ Deno.serve(async (req) => {
             !currentImage.includes('baytzaki.com/wp-content')
           );
 
-          const perItem = new Promise<string | null>(async (resolve) => {
+          const perItem = (async (): Promise<string | null> => {
             try {
               const url = shouldMirrorCurrent ? currentImage! : await findImageCandidate(product);
-              resolve(url);
+              return url;
             } catch {
-              resolve(null);
+              return null;
             }
-          });
+          })();
           const timeoutP = new Promise<null>((resolve) => setTimeout(() => resolve(null), 18_000));
           const sourceUrl = await Promise.race([perItem, timeoutP]);
           if (!sourceUrl) {

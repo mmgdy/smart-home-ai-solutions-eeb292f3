@@ -1,13 +1,26 @@
-import http from 'http';
-const key = '7c53d4ce8d5539a1170d74cf75154480ea4bd409418bccd1170866907f2d15f6';
+const https = require('https');
+const key = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+if (!key) {
+  console.error('SUPABASE_SERVICE_ROLE_KEY environment variable is required');
+  process.exit(1);
+}
+
+const email = process.env.ADMIN_EMAIL;
+const password = process.env.ADMIN_PASSWORD;
+if (!email || !password) {
+  console.error('ADMIN_EMAIL and ADMIN_PASSWORD environment variables are required');
+  process.exit(1);
+}
+
 const payload = JSON.stringify({
-  email: 'baytzaki@gmail.com',
-  password: 'Baytzaki@Admin2026!',
+  email,
+  password,
   email_confirm: true,
   app_metadata: { role: 'admin' },
-  user_metadata: { name: 'Baytzaki Admin' }
+  user_metadata: { name: process.env.ADMIN_NAME || 'AzkaSmart Admin' }
 });
-const req = http.request('https://djsibxhkfvwtjzvnjmhp.supabase.co/auth/v1/admin/users', {
+
+const req = https.request('https://djsibxhkfvwtjzvnjmhp.supabase.co/auth/v1/admin/users', {
   method: 'POST',
   headers: {
     'apikey': key,

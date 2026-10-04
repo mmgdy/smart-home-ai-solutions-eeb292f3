@@ -205,7 +205,7 @@ export function AISearchDialog() {
 function MessageBubble({ msg, isRTL }: { msg: Msg; isRTL: boolean }) {
   const isUser = msg.role === 'user';
   // Linkify /products/slug and /paths
-  const parts = msg.content.split(/(\/(?:products|bundles|brands|services|ai-consultant|calculator|profile)[a-zA-Z0-9\/\-\_?=&]*)/g);
+  const parts = msg.content.split(/(\/(?:products|bundles|brands|services|ai-consultant|calculator|profile)[a-zA-Z0-9/\-_?=&]*)/g);
   return (
     <div className={cn('flex', isUser ? 'justify-end' : 'justify-start')}>
       <div className={cn(

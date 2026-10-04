@@ -37,7 +37,7 @@ const ProductDetail = () => {
     queryKey: ['product', slug],
     queryFn: async () => {
       try {
-        let { data, error } = await supabase
+        let { data } = await supabase
           .from('products')
           .select('*, categories(*)')
           .eq('slug', slug)

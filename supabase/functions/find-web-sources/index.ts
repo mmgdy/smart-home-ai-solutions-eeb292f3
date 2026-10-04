@@ -270,7 +270,7 @@ Deno.serve(async (req) => {
       searchBing(query),
     ]);
 
-    let hits = [...ddgHits, ...liteHits, ...bingHits].filter((h) => isRelevant(h, tokens));
+    const hits = [...ddgHits, ...liteHits, ...bingHits].filter((h) => isRelevant(h, tokens));
     const sources = rankSources(hits);
 
     return new Response(

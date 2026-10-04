@@ -474,8 +474,8 @@ Deno.serve(async (req) => {
 
     // ─── ACTION 4: test-google-drive ────────────────────────────────────────
     if (action === "test-google-drive") {
-      let testSa = (body as any).serviceAccountJson;
-      let testFolder = (body as any).folderId;
+      const testSa = (body as any).serviceAccountJson;
+      const testFolder = (body as any).folderId;
 
       let saJson: any = null;
       if (typeof testSa === "string" && testSa.trim()) {

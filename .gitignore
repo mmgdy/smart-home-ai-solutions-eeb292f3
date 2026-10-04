@@ -36,3 +36,5 @@ scripts/
 *.sln
 *.sw?
 .vercel
+.agents/
+ORIGINAL_REQUEST.md

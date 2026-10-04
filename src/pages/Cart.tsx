@@ -5,7 +5,7 @@ import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { useCart } from '@/hooks/useCart';
 import { useLanguage } from '@/lib/i18n';
-import { cn } from '@/lib/utils';
+import { CompatibilityCheck } from '@/components/checkout/CompatibilityCheck';
 
 const Cart = () => {
   const { items, updateQuantity, removeItem, getTotal, clearCart } = useCart();
@@ -65,92 +65,98 @@ const Cart = () => {
           </h1>
 
           <div className="grid gap-8 lg:grid-cols-[1fr_400px]">
-            {/* Cart Items */}
-            <div className="space-y-4">
-              {items.map((item) => (
-                <div
-                  key={item.product.id}
-                  className="flex gap-4 rounded-xl border border-border bg-card p-4"
+            {/* Cart Items Column with AI Compatibility Check */}
+            <div className="space-y-6">
+              {/* AI Compatibility Advisory Box */}
+              <CompatibilityCheck items={items} />
+
+              {/* Items List */}
+              <div className="space-y-4">
+                {items.map((item) => (
+                  <div
+                    key={item.product.id}
+                    className="flex gap-4 rounded-xl border border-border bg-card p-4"
+                  >
+                    {/* Image */}
+                    <div className="h-24 w-24 shrink-0 overflow-hidden rounded-xl bg-muted/20 border border-border/40 p-2 flex items-center justify-center">
+                      {item.product.image_url ? (
+                        <img
+                          src={item.product.image_url}
+                          alt={item.product.name}
+                          className="h-full w-full object-contain"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center">
+                          <ShoppingBag className="h-8 w-8 text-muted-foreground" />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Details */}
+                    <div className="flex flex-1 flex-col">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <Link to={`/products/${item.product.slug}`}>
+                            <h3 className="font-display font-semibold text-foreground hover:text-primary transition-colors">
+                              {item.product.name}
+                            </h3>
+                          </Link>
+                          {item.product.brand && (
+                            <p className="text-sm text-muted-foreground">{item.product.brand}</p>
+                          )}
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-muted-foreground hover:text-destructive"
+                          onClick={() => removeItem(item.product.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+
+                      <div className="mt-auto flex items-center justify-between">
+                        {/* Quantity */}
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+                          >
+                            <Minus className="h-3 w-3" />
+                          </Button>
+                          <span className="w-8 text-center font-medium">{item.quantity}</span>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
+                          >
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                        </div>
+
+                        {/* Price */}
+                        <span className="font-display text-lg font-semibold text-foreground">
+                          {formatPrice(item.product.price * item.quantity)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                <Button
+                  variant="ghost"
+                  className="text-muted-foreground"
+                  onClick={clearCart}
                 >
-                  {/* Image */}
-                  <div className="h-24 w-24 shrink-0 overflow-hidden rounded-xl bg-muted/20 border border-border/40 p-2 flex items-center justify-center">
-                    {item.product.image_url ? (
-                      <img
-                        src={item.product.image_url}
-                        alt={item.product.name}
-                        className="h-full w-full object-contain"
-                      />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center">
-                        <ShoppingBag className="h-8 w-8 text-muted-foreground" />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Details */}
-                  <div className="flex flex-1 flex-col">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <Link to={`/products/${item.product.slug}`}>
-                          <h3 className="font-display font-semibold text-foreground hover:text-primary transition-colors">
-                            {item.product.name}
-                          </h3>
-                        </Link>
-                        {item.product.brand && (
-                          <p className="text-sm text-muted-foreground">{item.product.brand}</p>
-                        )}
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-muted-foreground hover:text-destructive"
-                        onClick={() => removeItem(item.product.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-
-                    <div className="mt-auto flex items-center justify-between">
-                      {/* Quantity */}
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
-                        >
-                          <Minus className="h-3 w-3" />
-                        </Button>
-                        <span className="w-8 text-center font-medium">{item.quantity}</span>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
-                        >
-                          <Plus className="h-3 w-3" />
-                        </Button>
-                      </div>
-
-                      {/* Price */}
-                      <span className="font-display text-lg font-semibold text-foreground">
-                        {formatPrice(item.product.price * item.quantity)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-
-              <Button
-                variant="ghost"
-                className="text-muted-foreground"
-                onClick={clearCart}
-              >
-                {t('clearCart')}
-              </Button>
+                  {t('clearCart')}
+                </Button>
+              </div>
             </div>
 
-            {/* Order Summary */}
+            {/* Order Summary Column */}
             <div className="h-fit rounded-xl border border-border bg-card p-6">
               <h2 className="mb-6 font-display text-xl font-semibold text-foreground">
                 {t('orderSummary')}

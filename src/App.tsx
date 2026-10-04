@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -11,31 +11,40 @@ import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { supabase } from "@/integrations/supabase/client";
+import { applyFavicon } from '@/lib/favicon';
+
+// Core shopping funnel is eagerly loaded for instant navigation (no suspense delay)
 import Index from "./pages/Index";
 import Products from "./pages/Products";
 import ProductDetail from "./pages/ProductDetail";
 import Cart from "./pages/Cart";
 import Checkout from "./pages/Checkout";
 import OrderConfirmation from "./pages/OrderConfirmation";
-import AIConsultant from "./pages/AIConsultant";
-import Services from "./pages/Services";
-import Loyalty from "./pages/Loyalty";
-import NotFound from "./pages/NotFound";
-import Admin from "./pages/Admin";
-import Calculator from "./pages/Calculator";
-import Profile from "./pages/Profile";
-import Legal from "./pages/Legal";
-import Bundles from "./pages/Bundles";
-import About from "./pages/About";
-import Brands from "./pages/Brands";
-import HomeDesigner from "./pages/HomeDesigner";
-import AppSimulator from "./pages/AppSimulator";
 import Login from "./pages/Login";
-import OAuthConsent from "./pages/OAuthConsent";
+import NotFound from "./pages/NotFound";
+
+// Heavy tools, calculators, and administrative dashboards are lazy-loaded
+const AIConsultant = lazy(() => import("./pages/AIConsultant"));
+const Services = lazy(() => import("./pages/Services"));
+const Loyalty = lazy(() => import("./pages/Loyalty"));
+const Admin = lazy(() => import("./pages/Admin"));
+const Calculator = lazy(() => import("./pages/Calculator"));
+const Profile = lazy(() => import("./pages/Profile"));
+const Legal = lazy(() => import("./pages/Legal"));
+const Bundles = lazy(() => import("./pages/Bundles"));
+const About = lazy(() => import("./pages/About"));
+const Brands = lazy(() => import("./pages/Brands"));
+const HomeDesigner = lazy(() => import("./pages/HomeDesigner"));
+const AppSimulator = lazy(() => import("./pages/AppSimulator"));
+const OAuthConsent = lazy(() => import("./pages/OAuthConsent"));
+
+const PageLoader = () => (
+  <div className="min-h-[50vh] flex items-center justify-center">
+    <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+  </div>
+);
 
 const queryClient = new QueryClient();
-
-import { applyFavicon } from '@/lib/favicon';
 
 // Reads favicon_url / app_icon_url from admin_settings and applies them to the
 // document head + dynamic web app manifest.
@@ -45,7 +54,9 @@ export function FaviconUpdater() {
     try {
       const cachedFav = localStorage.getItem('azka_favicon_url');
       if (cachedFav) applyFavicon(cachedFav);
-    } catch {}
+    } catch {
+      // Best-effort cached favicon
+    }
 
     const syncFavicon = async () => {
       const { data } = await supabase
@@ -107,29 +118,31 @@ const App = () => (
               <Toaster />
               <Sonner />
               <BrowserRouter>
-                <Routes>
-                  <Route path="/" element={<Index />} />
-                  <Route path="/products" element={<Products />} />
-                  <Route path="/products/:slug" element={<ProductDetail />} />
-                  <Route path="/cart" element={<Cart />} />
-                  <Route path="/checkout" element={<Checkout />} />
-                  <Route path="/order-confirmation" element={<OrderConfirmation />} />
-                  <Route path="/ai-consultant" element={<AIConsultant />} />
-                  <Route path="/calculator" element={<Calculator />} />
-                  <Route path="/services" element={<Services />} />
-                  <Route path="/loyalty" element={<Loyalty />} />
-                  <Route path="/bundles" element={<Bundles />} />
-                  <Route path="/about" element={<About />} />
-                  <Route path="/brands" element={<Brands />} />
-                  <Route path="/home-designer" element={<HomeDesigner />} />
-                  <Route path="/app-simulator" element={<AppSimulator />} />
-                  <Route path="/admin" element={<Admin />} />
-                  <Route path="/profile" element={<Profile />} />
-                  <Route path="/legal/:page" element={<Legal />} />
-                  <Route path="/login" element={<Login />} />
-                  <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
+                <Suspense fallback={<PageLoader />}>
+                  <Routes>
+                    <Route path="/" element={<Index />} />
+                    <Route path="/products" element={<Products />} />
+                    <Route path="/products/:slug" element={<ProductDetail />} />
+                    <Route path="/cart" element={<Cart />} />
+                    <Route path="/checkout" element={<Checkout />} />
+                    <Route path="/order-confirmation" element={<OrderConfirmation />} />
+                    <Route path="/ai-consultant" element={<AIConsultant />} />
+                    <Route path="/calculator" element={<Calculator />} />
+                    <Route path="/services" element={<Services />} />
+                    <Route path="/loyalty" element={<Loyalty />} />
+                    <Route path="/bundles" element={<Bundles />} />
+                    <Route path="/about" element={<About />} />
+                    <Route path="/brands" element={<Brands />} />
+                    <Route path="/home-designer" element={<HomeDesigner />} />
+                    <Route path="/app-simulator" element={<AppSimulator />} />
+                    <Route path="/admin" element={<Admin />} />
+                    <Route path="/profile" element={<Profile />} />
+                    <Route path="/legal/:page" element={<Legal />} />
+                    <Route path="/login" element={<Login />} />
+                    <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </Suspense>
                 <Analytics />
                 <SpeedInsights />
               </BrowserRouter>

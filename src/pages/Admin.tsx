@@ -118,7 +118,7 @@ export default function Admin() {
   const handleExportCSV = async () => {
     setIsExporting(true);
     try {
-      let query = supabase
+      const query = supabase
         .from('products')
         .select('id, name, slug, brand, price, original_price, stock, protocol, description, image_url, featured, categories(name)')
         .order('brand')

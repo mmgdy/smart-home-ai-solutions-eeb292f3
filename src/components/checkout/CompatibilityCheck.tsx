@@ -5,6 +5,8 @@ import { useCart } from '@/hooks/useCart';
 import { useLanguage } from '@/lib/i18n';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { CartItem } from '@/types/store';
+import { cn } from '@/lib/utils';
 
 type Suggestion = {
   productId: string;
@@ -18,8 +20,14 @@ type Suggestion = {
 type Issue = { severity: 'warning' | 'info'; message: string };
 type Result = { summary: string; issues: Issue[]; suggestions: Suggestion[] };
 
-export function CompatibilityCheck() {
-  const { items, addItem } = useCart();
+export interface CompatibilityCheckProps {
+  items?: CartItem[];
+  className?: string;
+}
+
+export function CompatibilityCheck({ items: propItems, className }: CompatibilityCheckProps = {}) {
+  const { items: cartItems, addItem } = useCart();
+  const items = propItems ?? cartItems;
   const { language, isRTL, formatPrice } = useLanguage();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -89,7 +97,7 @@ export function CompatibilityCheck() {
   const hasSuggestions = (result?.suggestions?.length ?? 0) > 0;
 
   return (
-    <div className="rounded-xl border border-primary/30 bg-gradient-to-br from-primary/10 via-card to-card p-6">
+    <div className={cn("rounded-xl border border-primary/30 bg-gradient-to-br from-primary/10 via-card to-card p-6", className)}>
       <div className="flex items-center justify-between gap-3 mb-3">
         <div className="flex items-center gap-2">
           <div className="relative">

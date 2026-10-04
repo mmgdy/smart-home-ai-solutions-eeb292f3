@@ -56,7 +56,7 @@ export function PaymentSettings({ adminToken }: Props) {
   const [config, setConfig] = useState<PaymentConfig>({
     paysky_mid: '8386003528',
     paysky_tid: '93655786',
-    paysky_secret_key: '80814719f6d488f83e9c1f655423349a',
+    paysky_secret_key: '',
     paysky_enabled: true,
     instapay_address: 'azkasmart@instapay',
     instapay_phone: '01050627310',
@@ -400,21 +400,28 @@ export function PaymentSettings({ adminToken }: Props) {
               <Input
                 id="secretKey"
                 type={showSecret ? 'text' : 'password'}
+                autoComplete="new-password"
                 value={config.paysky_secret_key}
                 onChange={(e) => setConfig(prev => ({ ...prev, paysky_secret_key: e.target.value }))}
-                placeholder="Enter your PaySky HMAC secret key"
+                placeholder={config.paysky_secret_key ? "••••••••••••••••••••••••••••••••" : "Enter your PaySky HMAC secret key"}
                 className="font-mono text-sm pr-10"
               />
               <button
                 type="button"
                 onClick={() => setShowSecret(!showSecret)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                title={showSecret ? "Hide secret" : "Show secret"}
               >
                 {showSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
+            {config.paysky_secret_key && !showSecret && (
+              <p className="text-[11px] text-muted-foreground font-mono">
+                Masked value: ••••••••••••••••••••••••{config.paysky_secret_key.slice(-4)}
+              </p>
+            )}
             <p className="text-[11px] text-muted-foreground">
-              Used to generate SHA-256 HMAC signature for 3D Secure hosted checkout sessions.
+              Used to generate SHA-256 HMAC signature for 3D Secure hosted checkout sessions. Masked for security.
             </p>
           </div>
         </div>

@@ -334,7 +334,7 @@ serve(async (req) => {
       const egpSalePrice = salePrice ? convertToEgyptPrice(salePrice, name) : null;
 
       // Create unique slug
-      let baseSlug = createSlug(name);
+      const baseSlug = createSlug(name);
       const count = slugCount.get(baseSlug) || 0;
       slugCount.set(baseSlug, count + 1);
       const slug = count > 0 ? `${baseSlug}-${count}` : baseSlug;

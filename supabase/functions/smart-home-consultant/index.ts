@@ -144,10 +144,31 @@ ${productContext}
 Language: Answer in the customer's exact language (Egyptian Arabic / Modern Standard Arabic / English / Franco-Arab).
 Style: Friendly, concise (under 200 words), direct, and helpful.`;
 
-    const historyToPass = chatHistory.length > 0 ? chatHistory.slice(-6) : [{ role: "user", content: cleaned }];
+    // Sanitize all conversation history messages to prevent multi-turn prompt injection (SEC-09)
+    const sanitizedHistory = (chatHistory.length > 0 ? chatHistory.slice(-6) : [{ role: "user" as const, content: cleaned }]).map((m) => {
+      const role: "user" | "assistant" = m.role === "assistant" ? "assistant" : "user";
+      if (role === "user") {
+        const cleanedMsg = cleanString(m.content, 2000);
+        return {
+          role,
+          content: sanitizeUserInput(cleanedMsg),
+        };
+      }
+      return {
+        role,
+        content: cleanString(m.content, 4000),
+      };
+    });
+
+    // Ensure the last user query matches the fully sanitized cleaned input
+    const lastUserIdx = sanitizedHistory.map((m) => m.role).lastIndexOf("user");
+    if (lastUserIdx !== -1) {
+      sanitizedHistory[lastUserIdx].content = cleaned;
+    }
+
     const aiMessages = [
       { role: "system" as const, content: systemPrompt },
-      ...historyToPass.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
+      ...sanitizedHistory,
     ];
 
     let aiRawText = "";

@@ -10,7 +10,7 @@ import { auth, defineMcp } from "https://esm.sh/@lovable.dev/mcp-js@0.22.2";
 import { defineTool } from "https://esm.sh/@lovable.dev/mcp-js@0.22.2";
 import { z } from "https://esm.sh/zod@4.4.3";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
-var search_products_default = defineTool({
+const search_products_default = defineTool({
   name: "search_products",
   title: "Search products",
   description: "Search the AzkaSmart smart-home and access-control catalog. Returns matching products with name, price (EGP), brand, slug, and stock.",
@@ -63,7 +63,7 @@ var search_products_default = defineTool({
 import { defineTool as defineTool2 } from "https://esm.sh/@lovable.dev/mcp-js@0.22.2";
 import { z as z2 } from "https://esm.sh/zod@4.4.3";
 import { createClient as createClient2 } from "https://esm.sh/@supabase/supabase-js@2.89.0";
-var get_product_default = defineTool2({
+const get_product_default = defineTool2({
   name: "get_product",
   title: "Get product details",
   description: "Look up one AzkaSmart product by its slug. Returns full details, price in EGP, stock, and specifications.",
@@ -90,7 +90,7 @@ var get_product_default = defineTool2({
 // src/lib/mcp/tools/list-categories.ts
 import { defineTool as defineTool3 } from "https://esm.sh/@lovable.dev/mcp-js@0.22.2";
 import { createClient as createClient3 } from "https://esm.sh/@supabase/supabase-js@2.89.0";
-var list_categories_default = defineTool3({
+const list_categories_default = defineTool3({
   name: "list_categories",
   title: "List categories",
   description: "List the AzkaSmart product categories (lighting, security, climate, etc.) with their store URLs.",
@@ -122,7 +122,7 @@ function userClient(ctx: any) {
     auth: { persistSession: false, autoRefreshToken: false }
   });
 }
-var list_my_orders_default = defineTool4({
+const list_my_orders_default = defineTool4({
   name: "list_my_orders",
   title: "List my orders",
   description: "List the signed-in AzkaSmart customer's orders (id, total EGP, status, date).",
@@ -152,7 +152,7 @@ function userClient2(ctx: any) {
     auth: { persistSession: false, autoRefreshToken: false }
   });
 }
-var get_my_loyalty_default = defineTool5({
+const get_my_loyalty_default = defineTool5({
   name: "get_my_loyalty",
   title: "Get my loyalty balance",
   description: "Return the signed-in AzkaSmart customer's loyalty points balance, lifetime points, and tier (bronze/silver/gold/platinum).",
@@ -177,12 +177,12 @@ var get_my_loyalty_default = defineTool5({
 });
 
 // src/lib/mcp/index.ts
-var projectRef = (() => {
+const projectRef = (() => {
   const url = Deno.env.get("SUPABASE_URL") ?? "";
   const match = url.match(/^https:\/\/([^.]+)\.supabase\.co/);
   return match?.[1] ?? "djsibxhkfvwtjzvnjmhp";
 })();
-var mcp_default = defineMcp({
+const mcp_default = defineMcp({
   name: "baytzaki-mcp",
   title: "Baytzaki",
   version: "0.1.0",

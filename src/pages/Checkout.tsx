@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { ArrowLeft, ArrowRight, CreditCard, Banknote, Truck, Shield, Loader2, Gift, CheckCircle, LogIn, Wrench, Tag, X as XIcon, Copy, Check, Smartphone, UploadCloud, MessageCircle, Info } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CreditCard, Banknote, Truck, Shield, Loader2, Gift, CheckCircle, LogIn, Wrench, Tag, X as XIcon, Copy, Check, Smartphone, UploadCloud, MessageCircle } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -65,6 +65,27 @@ const checkoutSchema = z.object({
 });
 
 type CheckoutFormData = z.infer<typeof checkoutSchema>;
+
+const ARABIC_FIELD_ERRORS: Record<string, string> = {
+  firstName: 'الاسم الأول مطلوب (حرفان على الأقل)',
+  lastName: 'اسم العائلة مطلوب (حرفان على الأقل)',
+  email: 'يرجى إدخال بريد إلكتروني صحيح',
+  phone: 'رقم الهاتف مطلوب (١٠ أرقام على الأقل)',
+  address: 'العنوان مطلوب (٥ أحرف على الأقل)',
+  city: 'المدينة مطلوبة (حرفان على الأقل)',
+  governorate: 'المحافظة مطلوبة',
+};
+
+const safeUUID = (): string => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
 
 
 const DEFAULT_PAYSKY_SCRIPT_URL = 'https://cube.paysky.io:6006/js/LightBox.js';
@@ -157,18 +178,21 @@ const Checkout = () => {
   const instapayEnabled = getInfo('payment', 'instapay_enabled', 'true') !== 'false';
   const codEnabled = getInfo('payment', 'cod_enabled', 'true') !== 'false';
 
+  // Only auto-select an available payment method if the current method is disabled
   useEffect(() => {
-    if (paymentMethod === 'card' && !payskyEnabled) {
-      if (instapayEnabled) setPaymentMethod('instapay');
-      else if (codEnabled) setPaymentMethod('cod');
-    } else if (paymentMethod === 'instapay' && !instapayEnabled) {
-      if (payskyEnabled) setPaymentMethod('card');
-      else if (codEnabled) setPaymentMethod('cod');
-    } else if (paymentMethod === 'cod' && !codEnabled) {
-      if (payskyEnabled) setPaymentMethod('card');
-      else if (instapayEnabled) setPaymentMethod('instapay');
-    }
-  }, [payskyEnabled, instapayEnabled, codEnabled, paymentMethod]);
+    setPaymentMethod((current) => {
+      if (current === 'card' && !payskyEnabled) {
+        return instapayEnabled ? 'instapay' : codEnabled ? 'cod' : current;
+      }
+      if (current === 'instapay' && !instapayEnabled) {
+        return payskyEnabled ? 'card' : codEnabled ? 'cod' : current;
+      }
+      if (current === 'cod' && !codEnabled) {
+        return payskyEnabled ? 'card' : instapayEnabled ? 'instapay' : current;
+      }
+      return current;
+    });
+  }, [payskyEnabled, instapayEnabled, codEnabled]);
 
   const [formData, setFormData] = useState<CheckoutFormData>({
     firstName: '',
@@ -312,8 +336,9 @@ const Checkout = () => {
   const createOrder = async (status: string = 'pending', extraShippingData: Record<string, any> = {}) => {
     const { data: { session } } = await supabase.auth.getSession();
     const authenticatedUserId = session?.user?.id ?? null;
-    const orderId = crypto.randomUUID();
-    const paymentToken = crypto.randomUUID();
+    const orderId = safeUUID();
+    const paymentToken = safeUUID();
+    const deviceCount = items.reduce((count, item) => count + (item.quantity || 1), 0);
 
     // Create order in database
     const orderData = {
@@ -351,8 +376,8 @@ const Checkout = () => {
     // Resolve which product IDs actually exist — guards against stale carts after
     // backend migrations where a product UUID may no longer be in the catalog.
     const candidateIds = items
-      .map((i) => i.product.id)
-      .filter((id) => typeof id === 'string' && !id.startsWith('bundle-'));
+      .map((i) => i.product?.id)
+      .filter((id): id is string => typeof id === 'string' && !id.startsWith('bundle-'));
     let validIds = new Set<string>();
     if (candidateIds.length > 0) {
       const { data: existing } = await supabase
@@ -363,16 +388,17 @@ const Checkout = () => {
     }
 
     // Bundle items + unknown products are stored with product_id = null so the FK holds.
-    const orderItems = items.map((item) => ({
-      order_id: orderId,
-      product_id:
-        item.product.id.startsWith('bundle-') || !validIds.has(item.product.id)
-          ? null
-          : item.product.id,
-      product_name: item.product.name,
-      quantity: item.quantity,
-      price: item.product.price,
-    }));
+    const orderItems = items.map((item) => {
+      const pid = item.product?.id;
+      const isValid = typeof pid === 'string' && !pid.startsWith('bundle-') && validIds.has(pid);
+      return {
+        order_id: orderId,
+        product_id: isValid ? pid : null,
+        product_name: item.product?.name || 'Product',
+        quantity: item.quantity || 1,
+        price: Number(item.product?.price) || 0,
+      };
+    });
 
     const { error: itemsError } = await supabase
       .from('order_items')
@@ -425,18 +451,16 @@ const Checkout = () => {
         id: orderId,
         email: formData.email,
         total,
-        status: 'pending',
+        status: status || 'pending',
         created_at: new Date().toISOString(),
         shipping_address: {
-          ...shippingAddress,
-          paymentMethod,
-          notes: formData.notes,
+          ...orderData.shipping_address,
         },
-        items: items.map(i => ({
-          id: i.id,
-          product_name: i.title,
-          quantity: i.quantity,
-          price: i.price,
+        items: items.map((i, idx) => ({
+          id: i.product?.id || `item-${idx}`,
+          product_name: i.product?.name || 'Product',
+          quantity: i.quantity || 1,
+          price: Number(i.product?.price) || 0,
         })),
       };
       sessionStorage.setItem('last_order_receipt', JSON.stringify(receiptData));
@@ -451,23 +475,15 @@ const Checkout = () => {
     try {
       const order = await createOrder('pending');
 
-      // Read PaySky credentials directly from site_info (configured in admin settings)
+      // Read optional custom PaySky Lightbox script URL from site_info (never secret keys)
       const { data: rows } = await supabase
         .from('site_info')
         .select('key, value')
         .eq('section', 'payment')
-        .in('key', ['paysky_mid', 'paysky_tid', 'paysky_secret_key', 'paysky_lightbox_url']);
+        .in('key', ['paysky_lightbox_url']);
 
       const db: Record<string, string> = {};
       (rows || []).forEach((r: any) => { db[r.key] = r.value; });
-
-      const MID       = db['paysky_mid'] || '8386003528';
-      const TID       = db['paysky_tid'] || '93655786';
-      const secretKey = db['paysky_secret_key'] || '80814719f6d488f83e9c1f655423349a';
-
-      if (!MID || !TID || !secretKey) {
-        throw new Error(language === 'ar' ? 'بوابة الدفع غير مهيأة' : 'Payment gateway not configured');
-      }
 
       // Load official PaySky LightBox.js script with resilient fallback
       const configuredUrl = db['paysky_lightbox_url'];
@@ -482,30 +498,31 @@ const Checkout = () => {
         }
       }
 
-      // Build transaction params
-      const pad = (n: number) => n.toString().padStart(2, '0');
-      const now = new Date();
-      const dateTimeLocalTrxn = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
-      const merchantRef = `BZ_${order.id.replace(/-/g, '').slice(0, 8)}_${Date.now()}`;
-      // PaySky LightBox: AmountTrxn is piasters (100 piasters = 1 EGP)
-      const amountPiasters = Math.round(total * 100);
+      // Delegate payment authorization & HMAC calculation to paysky-checkout edge function (SEC-02, SEC-04)
+      const { data: edgeRes, error: edgeErr } = await supabase.functions.invoke('paysky-checkout', {
+        body: {
+          orderId: order.id,
+          returnUrl: `${window.location.origin}/order-confirmation?orderId=${order.id}`,
+          language,
+        },
+      });
 
-      // Compute SecureHash (HMAC-SHA256)
-      const hashParams: Record<string, string> = {
-        Amount: amountPiasters.toString(),
-        DateTimeLocalTrxn: dateTimeLocalTrxn,
-        MerchantId: MID,
-        MerchantReference: merchantRef,
-        TerminalId: TID,
-      };
-      const queryString = Object.keys(hashParams).sort().map(k => `${k}=${hashParams[k]}`).join('&');
-      const cleaned = secretKey.trim().replace(/\s+/g, '');
-      const keyBytes = /^[0-9a-fA-F]+$/.test(cleaned) && cleaned.length % 2 === 0
-        ? new Uint8Array(cleaned.match(/.{1,2}/g)!.map((b: string) => parseInt(b, 16)))
-        : new TextEncoder().encode(cleaned);
-      const cryptoKey = await crypto.subtle.importKey('raw', keyBytes, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-      const sig = await crypto.subtle.sign('HMAC', cryptoKey, new TextEncoder().encode(queryString));
-      const secureHash = Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+      if (edgeErr || !edgeRes?.success) {
+        const errorMsg = edgeRes?.error || edgeErr?.message;
+        throw new Error(errorMsg || (language === 'ar' ? 'تعذر تهيئة جلسة الدفع الآمنة' : 'Failed to initialize secure payment session'));
+      }
+
+      const checkoutData = edgeRes.checkoutData || {};
+      const secureHash = edgeRes.hash || edgeRes.secureHash || checkoutData.secureHash;
+      const MID = edgeRes.merchantId || checkoutData.merchantId;
+      const TID = edgeRes.terminalId || checkoutData.terminalId;
+      const amountPiasters = edgeRes.amount ?? checkoutData.amount;
+      const merchantRef = edgeRes.merchantReference || checkoutData.merchantReference;
+      const dateTimeLocalTrxn = edgeRes.transactionTime || checkoutData.transactionTime;
+
+      if (!secureHash || !MID || !TID || !amountPiasters) {
+        throw new Error(language === 'ar' ? 'بيانات بوابة الدفع غير مكتملة' : 'Incomplete payment gateway parameters');
+      }
 
       const lightbox = (window as any).Lightbox?.Checkout;
       if (!lightbox) {
@@ -534,7 +551,24 @@ const Checkout = () => {
               },
             }).eq('id', order.id);
           } catch (err) {
-            console.warn('Could not update order status:', err);
+            console.warn('Could not update order status in DB:', err);
+          }
+
+          // Keep cached receipt in sync so guest order confirmation displays 'processing'
+          try {
+            const cached = sessionStorage.getItem('last_order_receipt');
+            if (cached) {
+              const parsed = JSON.parse(cached);
+              if (parsed && parsed.id === order.id) {
+                parsed.status = 'processing';
+                if (parsed.shipping_address) {
+                  parsed.shipping_address.paymentDetails = paymentInfo;
+                }
+                sessionStorage.setItem('last_order_receipt', JSON.stringify(parsed));
+              }
+            }
+          } catch (cacheErr) {
+            console.warn('Could not update cached receipt on card payment:', cacheErr);
           }
 
           // Trigger email receipt and notification upon successful payment
@@ -623,8 +657,11 @@ const Checkout = () => {
     if (!result.success) {
       const fieldErrors: Partial<Record<keyof CheckoutFormData, string>> = {};
       result.error.errors.forEach((err) => {
-        if (err.path[0]) {
-          fieldErrors[err.path[0] as keyof CheckoutFormData] = err.message;
+        const field = err.path[0] as keyof CheckoutFormData;
+        if (field) {
+          fieldErrors[field] = language === 'ar'
+            ? (ARABIC_FIELD_ERRORS[field] || err.message)
+            : err.message;
         }
       });
       setErrors(fieldErrors);

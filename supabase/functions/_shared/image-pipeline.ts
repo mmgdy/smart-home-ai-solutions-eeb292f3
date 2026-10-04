@@ -43,6 +43,17 @@ export const BRAND_STYLE = {
   fontEnglish: "'Outfit', 'Inter', system-ui, sans-serif",
 };
 
+/** Sanitize strings interpolated into SVG XML templates against XML/SVG injection and XSS (SEC-07) */
+export function escapeXml(text: unknown): string {
+  if (text === null || text === undefined) return "";
+  return String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
 /** Generate a deterministic, high-fidelity SVG marketing graphic with verified product cutout and code typography */
 export function generateCompositeSvg(opts: ImageDesignOptions): string {
   const dim = CHANNEL_CONFIGS[opts.channel] || CHANNEL_CONFIGS.instagram_square;
@@ -58,6 +69,11 @@ export function generateCompositeSvg(opts: ImageDesignOptions): string {
   const ctaText = isAr ? "اطلب الآن عبر azkasmart.com" : "Shop now at azkasmart.com";
   const priceFormatted = `${opts.price.toLocaleString("en-US")} ${isAr ? "ج.م" : "EGP"}`;
   const oldPriceFormatted = opts.originalPrice ? `${opts.originalPrice.toLocaleString("en-US")} ${isAr ? "ج.م" : "EGP"}` : "";
+
+  const safeProductImageUrl = opts.productImageUrl &&
+    (opts.productImageUrl.startsWith("https://") || opts.productImageUrl.startsWith("http://") || opts.productImageUrl.startsWith("/"))
+      ? escapeXml(opts.productImageUrl)
+      : "";
 
   // Layout calculations based on channel
   let productImgX: number;
@@ -148,7 +164,7 @@ export function generateCompositeSvg(opts: ImageDesignOptions): string {
   <g id="productCutout" filter="url(#productShadow)">
     <!-- Radial pedestal glow underneath product -->
     <ellipse cx="${productImgX + productImgSize / 2}" cy="${productImgY + productImgSize - 20}" rx="${productImgSize * 0.45}" ry="35" fill="#000000" opacity="0.5" />
-    <image href="${opts.productImageUrl}" x="${productImgX}" y="${productImgY}" width="${productImgSize}" height="${productImgSize}" preserveAspectRatio="xMidYMid meet" />
+    <image href="${safeProductImageUrl || escapeXml(opts.productImageUrl)}" x="${productImgX}" y="${productImgY}" width="${productImgSize}" height="${productImgSize}" preserveAspectRatio="xMidYMid meet" />
   </g>
 
   <!-- Product Meta & Badges -->
@@ -161,30 +177,30 @@ export function generateCompositeSvg(opts: ImageDesignOptions): string {
       <!-- Brand & Protocol Pill -->
       <rect x="${isAr ? -280 : 0}" y="-35" width="280" height="38" rx="19" fill="#1E293B" stroke="#334155" />
       <text x="${isAr ? -140 : 140}" y="-10" font-size="18" font-weight="700" fill="#00E5FF" text-anchor="middle">
-        ${brandName.toUpperCase()}${protocolText}
+        ${escapeXml(brandName.toUpperCase())}${escapeXml(protocolText)}
       </text>
 
       <!-- Product Name -->
       <text x="0" y="60" font-size="44" font-weight="800" fill="#F8FAFC">
-        ${opts.productName.slice(0, 40)}
+        ${escapeXml(opts.productName.slice(0, 40))}
       </text>
 
       <!-- Warranty Badge -->
       <g transform="translate(0, 115)">
         <circle cx="${isAr ? -12 : 12}" cy="-6" r="8" fill="#F59E0B" />
         <text x="${isAr ? -32 : 32}" y="0" font-size="20" font-weight="600" fill="#F59E0B">
-          ★ ${warrantyBadge}
+          ★ ${escapeXml(warrantyBadge)}
         </text>
       </g>
 
       <!-- Pricing Block -->
       <g transform="translate(0, 200)">
         <text x="0" y="0" font-size="52" font-weight="900" fill="#00E5FF">
-          ${priceFormatted}
+          ${escapeXml(priceFormatted)}
         </text>
         ${
           oldPriceFormatted
-            ? `<text x="${isAr ? -240 : 240}" y="-8" font-size="28" font-weight="600" fill="#64748B" text-decoration="line-through">${oldPriceFormatted}</text>`
+            ? `<text x="${isAr ? -240 : 240}" y="-8" font-size="28" font-weight="600" fill="#64748B" text-decoration="line-through">${escapeXml(oldPriceFormatted)}</text>`
             : ""
         }
       </g>
@@ -193,7 +209,7 @@ export function generateCompositeSvg(opts: ImageDesignOptions): string {
       <g transform="translate(${isAr ? -340 : 0}, 240)">
         <rect width="340" height="60" rx="30" fill="url(#btnGrad)" />
         <text x="170" y="38" font-size="22" font-weight="700" fill="#060B14" text-anchor="middle">
-          ${ctaText}
+          ${escapeXml(ctaText)}
         </text>
       </g>
     </g>`
@@ -203,30 +219,30 @@ export function generateCompositeSvg(opts: ImageDesignOptions): string {
       <!-- Brand & Protocol Pill -->
       <rect x="${width / 2 - 140}" y="${opts.channel === 'story_reel' ? 360 : 740}" width="280" height="38" rx="19" fill="#1E293B" stroke="#334155" />
       <text x="${width / 2}" y="${opts.channel === 'story_reel' ? 385 : 765}" font-size="18" font-weight="700" fill="#00E5FF">
-        ${brandName.toUpperCase()}${protocolText}
+        ${escapeXml(brandName.toUpperCase())}${escapeXml(protocolText)}
       </text>
 
       <!-- Product Name -->
       <text x="${width / 2}" y="${opts.channel === 'story_reel' ? 445 : 825}" font-size="36" font-weight="800" fill="#F8FAFC">
-        ${opts.productName.slice(0, 36)}
+        ${escapeXml(opts.productName.slice(0, 36))}
       </text>
 
       <!-- Official Warranty Badge -->
       <text x="${width / 2}" y="${opts.channel === 'story_reel' ? 495 : 870}" font-size="20" font-weight="600" fill="#F59E0B">
-        ★ ${warrantyBadge}
+        ★ ${escapeXml(warrantyBadge)}
       </text>
 
       <!-- Price Block -->
       <text x="${width / 2}" y="${opts.channel === 'story_reel' ? 1280 : 940}" font-size="48" font-weight="900" fill="#00E5FF">
-        ${priceFormatted}
-        ${oldPriceFormatted ? `<tspan font-size="26" fill="#64748B" text-decoration="line-through" dx="15">${oldPriceFormatted}</tspan>` : ""}
+        ${escapeXml(priceFormatted)}
+        ${oldPriceFormatted ? `<tspan font-size="26" fill="#64748B" text-decoration="line-through" dx="15">${escapeXml(oldPriceFormatted)}</tspan>` : ""}
       </text>
 
       <!-- CTA Button -->
       <g transform="translate(${width / 2 - 170}, ${opts.channel === 'story_reel' ? 1340 : 975})">
         <rect width="340" height="60" rx="30" fill="url(#btnGrad)" />
         <text x="170" y="38" font-size="22" font-weight="700" fill="#060B14">
-          ${ctaText}
+          ${escapeXml(ctaText)}
         </text>
       </g>
     </g>`
