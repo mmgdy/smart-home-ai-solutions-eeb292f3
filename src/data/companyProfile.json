@@ -8,8 +8,8 @@
       "ar": "هندسة أنظمة التيار الخفيف والأتمتة الذكية المعتمدة | KNX • Zigbee 3.0 • Matter • Modbus VRF • DALI-2"
     },
     "intro": {
-      "en": "Azka Smart is a specialized smart-home engineering and AI technology firm operating across Cairo, Riyadh, and Dubai. We design, build, and commission industrial-grade residential automation: hybrid wired/wireless bus topologies, native VRF chiller gateways, enterprise VLAN network segregation, and proprietary AI-driven CAD floor plan analysis.",
-      "ar": "أزكا سمارت هي شركة متخصصة في هندسة المنازل الذكية وتطوير تقنيات الذكاء الاصطناعي، بمقرات مباشرة في القاهرة والرياض ودبي. نصمّم وننفّذ وندير أنظمة الأتمتة السكنية والتجارية بمواصفات صناعية: طوبولوجيا هجينة تجمع بين النواقل السلكية وشبكات الميش اللاسلكية، بوابات ربط أجهزة التكييف المركزي VRF، عزل شبكي متقدم، ومحرك ذكاء اصطناعي لتحليل المخططات الهندسية."
+      "en": "Azka Smart is a specialized smart-home engineering and AI technology firm operating across Cairo and Dubai. We design, build, and commission industrial-grade residential automation: hybrid wired/wireless bus topologies, native VRF chiller gateways, enterprise VLAN network segregation, and proprietary AI-driven CAD floor plan analysis.",
+      "ar": "أزكا سمارت هي شركة متخصصة في هندسة المنازل الذكية وتطوير تقنيات الذكاء الاصطناعي، بمقرات مباشرة في القاهرة ودبي. نصمّم وننفّذ وندير أنظمة الأتمتة السكنية والتجارية بمواصفات صناعية: طوبولوجيا هجينة تجمع بين النواقل السلكية وشبكات الميش اللاسلكية، بوابات ربط أجهزة التكييف المركزي VRF، عزل شبكي متقدم، ومحرك ذكاء اصطناعي لتحليل المخططات الهندسية."
     },
     "pdf": "/company-profile/Azka-Smart-Company-Profile.pdf",
     "email": "engineering@azkasmart.com",
@@ -103,13 +103,6 @@
       "thermalFocus": "High summer dust resistance (IP54+ on perimeter sensors), dust-proof switch membranes"
     },
     {
-      "country": { "en": "Saudi Arabia", "ar": "المملكة العربية السعودية" },
-      "grid": "230V AC ± 10%, 60 Hz (3-Phase 400V)",
-      "standards": "SASO Compliant & SEC Technical Guidelines",
-      "neutralStrategy": "Compulsory neutral conductors at all switch backboxes, Type G BS 1363 sockets",
-      "thermalFocus": "Extreme 55°C heat rating, heavy-duty VRF Modbus zoning, Najdi thick-wall RF repeaters"
-    },
-    {
       "country": { "en": "United Arab Emirates", "ar": "الإمارات العربية المتحدة" },
       "grid": "230V AC ± 6%, 50 Hz",
       "standards": "DEWA / ADDC Green Building Regulations",
@@ -124,7 +117,7 @@
       "location": { "en": "New Cairo, Egypt", "ar": "القاهرة الجديدة، مصر" },
       "type": { "en": "Residential Villa (1,450 m² BUU - 3 Floors)", "ar": "فيلا سكنية (1,450 م² مساحة مبنية - 3 أدوار)" },
       "scope": {
-        "en": "148 KNX DALI-2 dimming circuits, 14 VRF AC zones via Modbus RTU, 24 automated roller curtains, solar inverter RS485 telemetry, biometric facial entry, 100% local automation rack.",
+        "en": "148 DALI-2 digital dimming circuits, 14 VRF AC zones via Modbus RTU, 24 automated roller curtains via Zigbee 3.0, solar inverter RS485 telemetry, biometric facial entry, 100% local automation rack.",
         "ar": "148 خط إضاءة DALI-2 خافت، 14 منطقة تكييف VRF عبر Modbus، 24 ستارة كهربائية، مراقبة محطة طاقة شمسية عبر RS485، دخول ببصمة الوجه، كابينة تحكم محلية 100%."
       },
       "metrics": [
@@ -135,29 +128,13 @@
       ]
     },
     {
-      "id": "riyadh-compound",
-      "title": { "en": "Executive Villa - Al-Malqa District", "ar": "فيلا تنفيذية - حي الملقا، الرياض" },
-      "location": { "en": "Riyadh, Saudi Arabia", "ar": "الرياض، المملكة العربية السعودية" },
-      "type": { "en": "Contemporary Residence (880 m² BUU)", "ar": "مسكن حديث (880 م² مساحة مبنية)" },
-      "scope": {
-        "en": "Full Matter-over-Thread and Zigbee 3.0 mesh with zero conduit demolition in finished Najdi stone masonry. DIN-rail multi-channel power meters with 60Hz grid filtering, automated smart irrigation tied to meteorological evapotranspiration sensors.",
-        "ar": "شبكة متكاملة Matter over Thread و Zigbee 3.0 بدون تكسير في الحجر النجدي، عدادات ذكية داخل لوحة التوزيع بتردد 60Hz، ونظام ري ذكي متصل بمحطة أرصاد جوية محلية."
-      },
-      "metrics": [
-        { "label": { "en": "Mesh Nodes", "ar": "عقد الشبكة" }, "val": "86 Devices" },
-        { "label": { "en": "Water Saving", "ar": "توفير المياه" }, "val": "42%" },
-        { "label": { "en": "Grid Frequency", "ar": "تردد الشبكة" }, "val": "60 Hz SASO" },
-        { "label": { "en": "Install Time", "ar": "مدة التركيب" }, "val": "6 Days (No Masonry Work)" }
-      ]
-    },
-    {
       "id": "dubai-penthouse",
       "title": { "en": "Skyline Penthouse - Palm Jumeirah", "ar": "بنتهاوس فاخر - نخلة جميرا، دبي" },
       "location": { "en": "Dubai, UAE", "ar": "دبي، الإمارات العربية المتحدة" },
       "type": { "en": "High-Rise Penthouse (620 m²)", "ar": "بنتهاوس برج سكني (620 م²)" },
       "scope": {
-        "en": "Dual-bus KNX & Lutron Palladiom keypad integration. 10-zone multi-room high-resolution audio over IP (Dante), electrochromic smart privacy glass synchronized with solar tracking, building management system (BMS) BACnet bridge.",
-        "ar": "تكامل بناقلين KNX مع مفاتيح Lutron Palladiom. نظام صوتي عالي الدقة بـ 10 مناطق عبر بروتوكول IP Dante، زجاج ذكي يتغير مع زاوية أشعة الشمس، وجسر ربط بأنظمة إدارة المبنى BMS."
+        "en": "Matter-over-Thread & Lutron Palladiom architectural keypad integration. 10-zone multi-room high-resolution audio over IP (Dante), electrochromic smart privacy glass synchronized with solar tracking, building management system (BMS) BACnet bridge.",
+        "ar": "تكامل بروتوكول Matter مع مفاتيح Lutron Palladiom المعمارية. نظام صوتي عالي الدقة بـ 10 مناطق عبر بروتوكول IP Dante، زجاج ذكي يتغير مع زاوية أشعة الشمس، وجسر ربط بأنظمة إدارة المبنى BMS."
       },
       "metrics": [
         { "label": { "en": "Audio Zones", "ar": "مناطق الصوت" }, "val": "10 Zones IP" },
@@ -184,8 +161,8 @@
       {
         "name": { "en": "Live Regional Supplier Grounding", "ar": "التسعير المباشر من الموردين الإقليميين" },
         "detail": {
-          "en": "Integrated directly with official component catalogs in Cairo (EGP) and Riyadh (SAR), ensuring exact real-time component availability, warranty tiers, and contractor pricing.",
-          "ar": "ربط فوري مع كتالوجات الموردين المعتمدين في القاهرة والرياض لضمان توافر القطع بالأسعار الحقيقية وفترات الضمان الدقيقة للمقاولين والملاك."
+          "en": "Integrated directly with official component catalogs in Cairo (EGP) and Dubai (AED), ensuring exact real-time component availability, warranty tiers, and contractor pricing.",
+          "ar": "ربط فوري مع كتالوجات الموردين المعتمدين في القاهرة ودبي لضمان توافر القطع بالأسعار الحقيقية وفترات الضمان الدقيقة للمقاولين والملاك."
         }
       },
       {
@@ -218,20 +195,6 @@
       },
       "phone": "+20 150 189 6456",
       "email": "cairo@azkasmart.com"
-    },
-    {
-      "id": "riyadh",
-      "image": "/company-profile/office-riyadh.jpg",
-      "city": { "en": "Riyadh", "ar": "الرياض" },
-      "country": { "en": "Saudi Arabia", "ar": "المملكة العربية السعودية" },
-      "address": { "en": "King Fahd Road, Al-Sahafa District, Riyadh", "ar": "طريق الملك فهد، حي الصحافة، الرياض" },
-      "role": { "en": "KSA Operations & Vision 2030 Project Delivery", "ar": "المكتب الإقليمي بالمملكة وإدارة مشاريع رؤية 2030" },
-      "desc": {
-        "en": "Dedicated engineering field bureau delivering large-scale villa developments, private estates, and luxury compound projects fully compliant with Saudi Building Code (SBC) and SASO standards.",
-        "ar": "مكتب هندسي متخصص لتسليم مشاريع الفلل السكنية والقصور والمجمعات الراقية بالمملكة وفق كود البناء السعودي (SBC) والمواصفات القياسية لهيئة ساسو."
-      },
-      "phone": "+966 50 000 0000",
-      "email": "riyadh@azkasmart.com"
     },
     {
       "id": "dubai",

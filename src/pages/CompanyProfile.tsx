@@ -68,14 +68,14 @@ export default function CompanyProfile() {
           name="description"
           content={
             langKey === 'ar'
-              ? 'الملف الفني والهندسي الرسمي لشركة أزكا سمارت: مواصفات طوبولوجيا النواقل السلكية واللاسلكية KNX و Matter و Modbus، معايير التوافق مع شبكات الكهرباء في مصر والسعودية والإمارات، ودراسات حالة واقعية.'
-              : 'Official technical engineering profile of Azka Smart: Fieldbus topology (KNX, Matter, Modbus VRF), regional electrical compliance (Egypt, KSA, UAE), real-world residential case studies, and proprietary AI engineering pipelines.'
+              ? 'الملف الفني والهندسي الرسمي لشركة أزكا سمارت: مواصفات طوبولوجيا النواقل السلكية واللاسلكية KNX و Matter و Modbus، معايير التوافق مع شبكات الكهرباء في مصر والإمارات، ودراسات حالة واقعية.'
+              : 'Official technical engineering profile of Azka Smart: Fieldbus topology (KNX, Matter, Modbus VRF), regional electrical compliance (Egypt, UAE), real-world residential case studies, and proprietary AI engineering pipelines.'
           }
         />
         <meta property="og:title" content="Azka Smart - Systems Engineering & Technical Architecture" />
         <meta
           property="og:description"
-          content="Certified Low-Voltage & AI Automation Engineering. Operating across Cairo, Riyadh, and Dubai."
+          content="Certified Low-Voltage & AI Automation Engineering. Operating across Cairo and Dubai."
         />
         <meta property="og:image" content="/company-profile/hero.jpg" />
       </Helmet>
@@ -269,8 +269,8 @@ export default function CompanyProfile() {
               </h2>
               <p className="text-[#9aa8bf] text-sm sm:text-base leading-relaxed">
                 {langKey === 'ar'
-                  ? 'فوارق التردد (50Hz مقابل 60Hz)، غياب خط المحايد في العلب القديمة، ودرجات حرارة الصيف التي تتجاوز 50 درجة مئوية تتطلب معالجة هندسية متخصصة لكل بلد.'
-                  : 'Frequency discrepancies (50Hz vs 60Hz SASO), legacy switch backboxes without neutral conductors, and severe summer ambient thermals require strict localized engineering.'}
+                  ? 'فوارق شبكات التوزيع وجهود التشغيل، غياب خط المحايد في العلب القديمة، ودرجات حرارة الصيف التي تتجاوز 50 درجة مئوية تتطلب معالجة هندسية متخصصة لكل بلد.'
+                  : 'Voltage tolerances, legacy switch backboxes without neutral conductors, and severe summer ambient thermals require strict localized engineering.'}
               </p>
             </div>
 
@@ -323,7 +323,7 @@ export default function CompanyProfile() {
               </h2>
               <p className="text-[#9aa8bf] text-sm sm:text-base leading-relaxed">
                 {langKey === 'ar'
-                  ? 'نظرة تفصيلية على مشاريع حقيقية تم تسليمها في القاهرة والرياض ودبي مع مقايسات الدوائر، نسبة خفض استهلاك الطاقة، وزمن الاستجابة.'
+                  ? 'نظرة تفصيلية على مشاريع حقيقية تم تسليمها في القاهرة ودبي مع مقايسات الدوائر، نسبة خفض استهلاك الطاقة، وزمن الاستجابة.'
                   : 'Granular project breakdown: circuit counts, HVAC gateways, energy reductions, and bus response latencies measured post-commissioning.'}
               </p>
             </div>
@@ -485,7 +485,7 @@ export default function CompanyProfile() {
                 {langKey === 'ar' ? 'المقرات الإقليمية المباشرة' : 'Direct Regional Presence'}
               </span>
               <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
-                {langKey === 'ar' ? 'ثلاثة مكاتب وورش تجميع هندسية في المنطقة' : 'Local Engineering Bureaus in Cairo, Riyadh & Dubai'}
+                {langKey === 'ar' ? 'مكاتب وورش تجميع هندسية في القاهرة ودبي' : 'Local Engineering Bureaus in Cairo & Dubai'}
               </h2>
               <p className="text-[#9aa8bf] text-sm sm:text-base leading-relaxed">
                 {langKey === 'ar'
@@ -494,7 +494,7 @@ export default function CompanyProfile() {
               </p>
             </div>
 
-            <div className="grid md:grid-cols-3 gap-8">
+            <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
               {profileData.offices.map((office) => (
                 <div key={office.id} className="cp-card overflow-hidden flex flex-col justify-between">
                   <div>

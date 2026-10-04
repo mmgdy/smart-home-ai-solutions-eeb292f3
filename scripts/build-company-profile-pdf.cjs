@@ -65,7 +65,7 @@ function drawBackground(isCover = false) {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.5);
     doc.setTextColor(...MUTED);
-    doc.text('Azka Smart Engineering Bureau | Cairo • Riyadh • Dubai | www.azkasmart.com', margin, pageHeight - 7);
+    doc.text('Azka Smart Engineering Bureau | Cairo • Dubai | www.azkasmart.com', margin, pageHeight - 7);
   }
 }
 
@@ -122,7 +122,7 @@ doc.setFont('helvetica', 'normal');
 doc.setFontSize(9.5);
 doc.setTextColor(...MUTED);
 const introLines = doc.splitTextToSize(
-  'Azka Smart is a specialized smart-home engineering and AI technology firm operating across Cairo, Riyadh, and Dubai. We design, build, and commission industrial-grade residential automation: hybrid wired/wireless bus topologies, native VRF chiller gateways, enterprise VLAN network segregation, and proprietary AI-driven CAD floor plan analysis.',
+  'Azka Smart is a specialized smart-home engineering and AI technology firm operating across Cairo and Dubai. We design, build, and commission industrial-grade residential automation: hybrid wired/wireless bus topologies, native VRF chiller gateways, enterprise VLAN network segregation, and proprietary AI-driven CAD floor plan analysis.',
   contentWidth
 );
 doc.text(introLines, margin, 166);
@@ -168,7 +168,7 @@ profile.stats.forEach((st, idx) => {
 doc.setFont('helvetica', 'normal');
 doc.setFontSize(8.5);
 doc.setTextColor(...MUTED);
-doc.text('REGIONAL BUREAUS: Cairo (Tower 4, 90th St) • Riyadh (King Fahd Rd) • Dubai (Marina Plaza L24)', margin, 264);
+doc.text('REGIONAL BUREAUS: Cairo (Tower 4, 90th St) • Dubai (Marina Plaza L24)', margin, 264);
 
 doc.setFont('courier', 'normal');
 doc.setFontSize(8);
@@ -281,10 +281,10 @@ doc.setTextColor(...MUTED);
 doc.text('Comprehensive technical accommodation for grid frequency variations, neutral wiring, and ambient thermals.', margin, curY);
 
 curY += 10;
-// Compliance Cards for Egypt, KSA, UAE
-const compCardH = 68;
+// Compliance Cards for Egypt and UAE
+const compCardH = 92;
 profile.regionalCompliance.forEach((rc, i) => {
-  const cy = curY + i * (compCardH + 6);
+  const cy = curY + i * (compCardH + 10);
 
   doc.setFillColor(...NAVY_900);
   doc.setDrawColor(...GOLD);
@@ -293,44 +293,44 @@ profile.regionalCompliance.forEach((rc, i) => {
 
   // Country Header
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(13);
+  doc.setFontSize(14);
   doc.setTextColor(...GOLD_LIGHT);
-  doc.text(rc.country.en.toUpperCase(), margin + 8, cy + 9);
+  doc.text(rc.country.en.toUpperCase(), margin + 8, cy + 11);
 
   // Grid frequency pill
   doc.setFont('courier', 'bold');
-  doc.setFontSize(8);
+  doc.setFontSize(8.5);
   doc.setTextColor(...TEAL);
-  doc.text(`GRID: ${rc.grid}`, margin + 8, cy + 17);
+  doc.text(`GRID: ${rc.grid}`, margin + 8, cy + 20);
 
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8.5);
+  doc.setFontSize(9);
   doc.setTextColor(...INK_LIGHT);
-  doc.text(`STANDARDS: ${rc.standards}`, margin + 8, cy + 24);
+  doc.text(`STANDARDS: ${rc.standards}`, margin + 8, cy + 28);
 
   // Neutral strategy
   doc.setFont('courier', 'bold');
-  doc.setFontSize(7.5);
+  doc.setFontSize(8);
   doc.setTextColor(...GOLD);
-  doc.text('NEUTRAL CONDUCTOR STRATEGY:', margin + 8, cy + 33);
+  doc.text('NEUTRAL CONDUCTOR STRATEGY:', margin + 8, cy + 39);
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
+  doc.setFontSize(8.5);
   doc.setTextColor(...INK_LIGHT);
   const nLines = doc.splitTextToSize(rc.neutralStrategy, contentWidth - 16);
-  doc.text(nLines, margin + 8, cy + 39);
+  doc.text(nLines, margin + 8, cy + 46);
 
   // Thermal focus
   doc.setFont('courier', 'bold');
-  doc.setFontSize(7.5);
+  doc.setFontSize(8);
   doc.setTextColor(...TEAL);
-  doc.text('THERMAL & ENVIRONMENTAL SAFEGUARDS:', margin + 8, cy + 51);
+  doc.text('THERMAL & ENVIRONMENTAL SAFEGUARDS:', margin + 8, cy + 64);
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
+  doc.setFontSize(8.5);
   doc.setTextColor(...MUTED);
   const tLines = doc.splitTextToSize(rc.thermalFocus, contentWidth - 16);
-  doc.text(tLines, margin + 8, cy + 57);
+  doc.text(tLines, margin + 8, cy + 71);
 });
 
 
@@ -356,13 +356,13 @@ curY += 7;
 doc.setFont('helvetica', 'normal');
 doc.setFontSize(8.5);
 doc.setTextColor(...MUTED);
-doc.text('Empirical data from live residential installations in New Cairo, Riyadh, and Palm Jumeirah.', margin, curY);
+doc.text('Empirical data from live residential installations in New Cairo and Palm Jumeirah.', margin, curY);
 
 curY += 10;
-// Case study cards
-const csCardH = 68;
+// Case study cards (2 verified non-KNX deployments)
+const csCardH = 88;
 profile.caseStudies.forEach((cs, idx) => {
-  const csY = curY + idx * (csCardH + 6);
+  const csY = curY + idx * (csCardH + 10);
 
   doc.setFillColor(...NAVY_900);
   doc.setDrawColor(...NAVY_700);
@@ -370,42 +370,56 @@ profile.caseStudies.forEach((cs, idx) => {
 
   // Title
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11.5);
+  doc.setFontSize(12.5);
   doc.setTextColor(...GOLD_LIGHT);
-  doc.text(cs.title.en, margin + 8, csY + 8);
+  doc.text(cs.title.en, margin + 8, csY + 10);
 
   // Subtitle / Type
   doc.setFont('courier', 'bold');
-  doc.setFontSize(7.5);
+  doc.setFontSize(8);
   doc.setTextColor(...TEAL);
-  doc.text(`${cs.location.en.toUpperCase()}  |  ${cs.type.en}`, margin + 8, csY + 15);
+  doc.text(`${cs.location.en.toUpperCase()}  |  ${cs.type.en}`, margin + 8, csY + 18);
 
   // Scope
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
+  doc.setFontSize(8.5);
   doc.setTextColor(...INK_LIGHT);
   const scopeLines = doc.splitTextToSize(cs.scope.en, contentWidth - 16);
-  doc.text(scopeLines, margin + 8, csY + 22);
+  doc.text(scopeLines, margin + 8, csY + 26);
 
   // 4 Metrics Grid inside card
-  const mBoxY = csY + 41;
+  const mBoxY = csY + 54;
   const mW = (contentWidth - 16 - 9) / 4;
   cs.metrics.forEach((m, mIdx) => {
     const mx = margin + 8 + mIdx * (mW + 3);
     doc.setFillColor(...NAVY_800);
-    doc.roundedRect(mx, mBoxY, mW, 20, 2, 2, 'F');
+    doc.roundedRect(mx, mBoxY, mW, 24, 2, 2, 'F');
 
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(6.5);
+    doc.setFontSize(7);
     doc.setTextColor(...MUTED);
-    doc.text(m.label.en.toUpperCase(), mx + 3, mBoxY + 6);
+    doc.text(m.label.en.toUpperCase(), mx + 3, mBoxY + 8);
 
     doc.setFont('courier', 'bold');
-    doc.setFontSize(9);
+    doc.setFontSize(10);
     doc.setTextColor(...GOLD);
-    doc.text(m.val, mx + 3, mBoxY + 14);
+    doc.text(m.val, mx + 3, mBoxY + 18);
   });
 });
+
+// Protocol survivability banner
+doc.setFillColor(...NAVY_900);
+doc.setDrawColor(...GOLD);
+doc.setLineWidth(0.3);
+doc.roundedRect(margin, 246, contentWidth, 18, 2, 2, 'FD');
+doc.setFont('courier', 'bold');
+doc.setFontSize(7.5);
+doc.setTextColor(...TEAL);
+doc.text('FIELD PROTOCOL VERIFICATION & SURVIVABILITY GUARANTEE', margin + 6, 252.5);
+doc.setFont('helvetica', 'normal');
+doc.setFontSize(7.5);
+doc.setTextColor(...INK_LIGHT);
+doc.text('All deployments engineered for 100% offline local survivability with zero external cloud dependencies.', margin + 6, 258.5);
 
 
 // -------------------------------------------------------------
@@ -517,57 +531,57 @@ curY += 7;
 doc.setFont('helvetica', 'normal');
 doc.setFontSize(8.5);
 doc.setTextColor(...MUTED);
-doc.text('Certified panel pre-wiring workshops and central distribution hubs in Egypt, KSA, and UAE.', margin, curY);
+doc.text('Certified panel pre-wiring workshops and central distribution hubs in Egypt and UAE.', margin, curY);
 
 curY += 10;
-// 3 Offices
-const offH = 50;
+// 2 Offices
+const offH = 58;
 profile.offices.forEach((off, idx) => {
-  const oy = curY + idx * (offH + 5);
+  const oy = curY + idx * (offH + 8);
 
   doc.setFillColor(...NAVY_900);
   doc.setDrawColor(...NAVY_700);
   doc.roundedRect(margin, oy, contentWidth, offH, 2.5, 2.5, 'FD');
 
-  // Office image on left (45mm)
+  // Office image on left (48mm)
   const oImgBase64 = getImageBase64(path.basename(off.image));
   if (oImgBase64) {
-    doc.addImage(oImgBase64, 'JPEG', margin + 2.5, oy + 2.5, 46, offH - 5);
+    doc.addImage(oImgBase64, 'JPEG', margin + 2.5, oy + 2.5, 48, offH - 5);
     doc.setDrawColor(...GOLD);
     doc.setLineWidth(0.3);
-    doc.rect(margin + 2.5, oy + 2.5, 46, offH - 5);
+    doc.rect(margin + 2.5, oy + 2.5, 48, offH - 5);
   }
 
   // Office details on right
-  const ox = margin + 53;
+  const ox = margin + 55;
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
+  doc.setFontSize(11.5);
   doc.setTextColor(...GOLD_LIGHT);
-  doc.text(`${off.city.en}, ${off.country.en}`, ox, oy + 8);
+  doc.text(`${off.city.en}, ${off.country.en}`, ox, oy + 9);
 
   doc.setFont('courier', 'bold');
   doc.setFontSize(7.5);
   doc.setTextColor(...TEAL);
-  doc.text(off.role.en.toUpperCase(), ox, oy + 14);
+  doc.text(off.role.en.toUpperCase(), ox, oy + 16);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
   doc.setTextColor(...MUTED);
-  doc.text(`Address: ${off.address.en}`, ox, oy + 20);
+  doc.text(`Address: ${off.address.en}`, ox, oy + 22);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.2);
   doc.setTextColor(...INK_LIGHT);
-  const offDesc = doc.splitTextToSize(off.desc.en, contentWidth - 58);
-  doc.text(offDesc, ox, oy + 26);
+  const offDesc = doc.splitTextToSize(off.desc.en, contentWidth - 60);
+  doc.text(offDesc, ox, oy + 28);
 
   doc.setFont('courier', 'normal');
   doc.setFontSize(7.5);
   doc.setTextColor(...GOLD);
-  doc.text(`Email: ${off.email}  |  Direct: ${off.phone}`, ox, oy + 44);
+  doc.text(`Email: ${off.email}  |  Direct: ${off.phone}`, ox, oy + 50);
 });
 
-curY += (offH + 5) * 3 + 6;
+curY += (offH + 8) * profile.offices.length + 8;
 
 // Direct Engineering Submission Box
 doc.setFillColor(...NAVY_800);
