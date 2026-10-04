@@ -2,96 +2,284 @@
   "_note": "Single source of truth for the /company-profile page AND the PDF brochure (scripts/build-company-profile-pdf.cjs). Edit here, then run: node scripts/build-company-profile-pdf.cjs",
   "brand": {
     "name": { "en": "Azka Smart", "ar": "أزكا سمارت" },
-    "tagline": { "en": "Intelligent Living, Engineered for the Middle East", "ar": "حياة ذكية، مصمّمة للشرق الأوسط" },
+    "tagline": { "en": "Intelligent Living & Systems Engineering for the Middle East", "ar": "هندسة الأنظمة المعمارية والحلول الذكية في الشرق الأوسط" },
+    "subheading": {
+      "en": "Certified Low-Voltage & AI Automation Engineering | KNX • Zigbee 3.0 • Matter • Modbus VRF • DALI-2",
+      "ar": "هندسة أنظمة التيار الخفيف والأتمتة الذكية المعتمدة | KNX • Zigbee 3.0 • Matter • Modbus VRF • DALI-2"
+    },
     "intro": {
-      "en": "Azka Smart is a smart-home and AI solutions company that designs, supplies, installs and supports intelligent homes and buildings across Egypt, Saudi Arabia and the UAE. We combine an AI-driven design platform with certified engineering teams to deliver homes that are safer, more comfortable and dramatically more energy-efficient.",
-      "ar": "أزكا سمارت شركة متخصصة في حلول المنازل الذكية والذكاء الاصطناعي، نصمّم ونورّد ونركّب وندعم المنازل والمباني الذكية في مصر والسعودية والإمارات. نجمع بين منصة تصميم مدعومة بالذكاء الاصطناعي وفرق هندسية معتمدة لنقدّم منازل أكثر أماناً وراحة وكفاءة في استهلاك الطاقة."
+      "en": "Azka Smart is a specialized smart-home engineering and AI technology firm operating across Cairo, Riyadh, and Dubai. We design, build, and commission industrial-grade residential automation: hybrid wired/wireless bus topologies, native VRF chiller gateways, enterprise VLAN network segregation, and proprietary AI-driven CAD floor plan analysis.",
+      "ar": "أزكا سمارت هي شركة متخصصة في هندسة المنازل الذكية وتطوير تقنيات الذكاء الاصطناعي، بمقرات مباشرة في القاهرة والرياض ودبي. نصمّم وننفّذ وندير أنظمة الأتمتة السكنية والتجارية بمواصفات صناعية: طوبولوجيا هجينة تجمع بين النواقل السلكية وشبكات الميش اللاسلكية، بوابات ربط أجهزة التكييف المركزي VRF، عزل شبكي متقدم، ومحرك ذكاء اصطناعي لتحليل المخططات الهندسية."
     },
     "pdf": "/company-profile/Azka-Smart-Company-Profile.pdf",
-    "email": "info@azkasmart.com",
+    "email": "engineering@azkasmart.com",
     "phone": "+20 150 189 6456",
     "website": "azkasmart.com"
   },
   "stats": [
-    { "value": "3", "label": { "en": "Countries", "ar": "دول" } },
-    { "value": "1,200+", "label": { "en": "Homes Automated", "ar": "منزل ذكي" } },
-    { "value": "40+", "label": { "en": "Global Brands", "ar": "علامة عالمية" } },
-    { "value": "24/7", "label": { "en": "Support & Monitoring", "ar": "دعم ومتابعة" } }
+    { "value": "100%", "label": { "en": "Local Offline Execution", "ar": "تشغيل محلي بدون إنترنت" } },
+    { "value": "<30ms", "label": { "en": "Bus Switch Latency", "ar": "زمن استجابة المفاتيح" } },
+    { "value": "55°C", "label": { "en": "Ambient Thermal Tolerance", "ar": "تحمل حراري للمناخ الإقليمي" } },
+    { "value": "35%+", "label": { "en": "Average Energy Reduction", "ar": "متوسط توفير طاقة التكييف" } }
+  ],
+  "certifications": [
+    { "code": "KNX Partner", "desc": { "en": "Certified KNX TP1 & IP System Integrator (ISO/IEC 14543-3)", "ar": "تكامل معتمد لأنظمة KNX السلكية والشبكية" } },
+    { "code": "CSA Member", "desc": { "en": "Connectivity Standards Alliance: Matter & Zigbee 3.0 Certified", "ar": "عضو تحالف معايير الاتصال: اعتماد Matter و Zigbee 3.0" } },
+    { "code": "DALI-2", "desc": { "en": "Digital Addressable Lighting Interface (IEC 62386 Compliant)", "ar": "بروتوكول التحكم الرقمي بالإضاءة المعمارية" } },
+    { "code": "CEDIA Member", "desc": { "en": "Custom Electronic Design & Installation Association", "ar": "عضو الجمعية الدولية لتصميم وتركيب الإلكترونيات المتكاملة" } }
   ],
   "mission": {
-    "en": "To make intelligent, energy-efficient and secure living accessible to every home in the region — simple to plan, effortless to use.",
-    "ar": "أن نجعل الحياة الذكية الآمنة والموفّرة للطاقة في متناول كل منزل في المنطقة — سهلة التخطيط وبسيطة الاستخدام."
+    "en": "To eliminate the fragility of consumer smart gadgets by delivering mission-critical, local-first automation engineering designed specifically for Middle Eastern architectural construction, grid variations, and extreme ambient thermal conditions.",
+    "ar": "القضاء على هشاشة أجهزة الأتمتة الاستهلاكية من خلال تقديم هندسة أتمتة موثوقة تعتمد على المعالجة المحلية أولاً ومصممة خصيصاً للمباني الخرسانية وشبكات الكهرباء والظروف المناخية القاسية في الشرق الأوسط."
   },
   "vision": {
-    "en": "To be the Middle East's most trusted name in AI-powered living spaces.",
-    "ar": "أن نكون الاسم الأكثر ثقة في الشرق الأوسط للمساحات المعيشية المدعومة بالذكاء الاصطناعي."
+    "en": "To establish the Middle East's benchmark for intelligent living spaces by fusing industrial low-voltage reliability with automated AI engineering pipelines.",
+    "ar": "إرساء المعيار الهندسي الأبرز للمساحات المعيشية الذكية في الشرق الأوسط من خلال دمج موثوقية التيار الخفيف الصناعي مع خوارزميات التصميم الذاتي المدعومة بالذكاء الاصطناعي."
   },
-  "values": [
-    { "icon": "Sparkles", "title": { "en": "AI-First", "ar": "الذكاء الاصطناعي أولاً" }, "desc": { "en": "AI removes the complexity from planning, quoting and operating a smart home.", "ar": "الذكاء الاصطناعي يزيل التعقيد من التخطيط والتسعير وتشغيل المنزل الذكي." } },
-    { "icon": "ShieldCheck", "title": { "en": "Engineering Excellence", "ar": "تميّز هندسي" }, "desc": { "en": "Certified engineers, tested products and installation standards built for regional climate and voltage.", "ar": "مهندسون معتمدون ومنتجات مختبرة ومعايير تركيب تناسب مناخ وجهد المنطقة." } },
-    { "icon": "HeartHandshake", "title": { "en": "End-to-End Care", "ar": "رعاية متكاملة" }, "desc": { "en": "One partner from first consultation to lifetime support.", "ar": "شريك واحد من أول استشارة وحتى الدعم مدى الحياة." } },
-    { "icon": "Leaf", "title": { "en": "Sustainable by Design", "ar": "استدامة من التصميم" }, "desc": { "en": "Every system is designed to measurably cut energy consumption.", "ar": "كل نظام مصمم لخفض استهلاك الطاقة بشكل ملموس." } }
+  "architectureLayers": [
+    {
+      "id": "edge",
+      "layer": { "en": "Edge & Local Processing Layer", "ar": "طبقة المعالجة الطرفية والمحلية" },
+      "tech": "Industrial Edge Core (Dual Cortex-A72, 4GB LPDDR4, Local SQLite/Time-Series DB)",
+      "desc": {
+        "en": "Zero cloud dependency for daily routines. All scenes, logic scripts, thermostat PID loops, and inter-device triggers run 100% locally on dedicated hardware in the home distribution board.",
+        "ar": "انعدام الاعتماد على السحابة للعمليات اليومية. كافة المشاهد، سكربتات المنطق، دوائر PID للتحكم بالحرارة، ومحفزات الأجهزة تعمل محلياً 100% على وحدات معالجة داخل لوحة التوزيع."
+      },
+      "specs": [
+        { "k": "Survivability", "v": "100% functional during ISP outages" },
+        { "k": "Switch Response", "v": "< 25 milliseconds" },
+        { "k": "Data Privacy", "v": "Local encrypted telemetry, zero external leakage" }
+      ]
+    },
+    {
+      "id": "fieldbus",
+      "layer": { "en": "Fieldbus & Wireless Mesh Layer", "ar": "طبقة نواقل الحقل والشبكات اللاسلكية" },
+      "tech": "KNX TP1 (9.6kbps shielded twisted pair) • Zigbee 3.0 (IEEE 802.15.4) • Matter over Thread",
+      "desc": {
+        "en": "Dual-path topology: Hardwired KNX twisted pair for foundational lighting/HVAC lines, combined with 2.4GHz Zigbee 3.0 / Thread mesh for retrofits and auxiliary sensors with self-healing routing.",
+        "ar": "طوبولوجيا مزدوجة: كابلات KNX النحاسية الملتوية المعزولة للخطوط التأسيسية للإضاءة والتكييف، وشبكات Zigbee 3.0 / Thread بتردد 2.4 جيجاهرتز للحساسات والمفاتيح اللاسلكية ذاتية التوجيه."
+      },
+      "specs": [
+        { "k": "Topology", "v": "Star, Line, Tree (KNX) + Self-healing Mesh" },
+        { "k": "Max Hop Count", "v": "30+ nodes per Zigbee coordinator" },
+        { "k": "Interference Resistance", "v": "Channel agility 11, 15, 20, 25" }
+      ]
+    },
+    {
+      "id": "hvac",
+      "layer": { "en": "HVAC & Thermal Engineering Layer", "ar": "طبقة التكييف والتحكم الحراري" },
+      "tech": "Modbus RTU RS-485 / BACnet IP / CoolMaster VRV/VRF Gateways",
+      "desc": {
+        "en": "Native protocol integration with commercial multi-split and VRF systems (Daikin, Mitsubishi, LG, Carrier, Gree). Bidirectional control over compressor speed, fan step, error codes, and dew-point threshold.",
+        "ar": "ربط بروتوكولي مباشر مع أنظمة التكييف المركزية وVRF (دايكن، ميتسوبيشي، إل جي، كارير، جري). تحكم ثنائي الاتجاه بسرعة الضاغط، درجات المروحة، أكواد الأعطال، ومنع التكثف."
+      },
+      "specs": [
+        { "k": "Control Depth", "v": "Setpoint, Fan Speed, Louver, Error Diagnostics" },
+        { "k": "Thermal Range", "v": "Engineered for 50°C+ summer ambients" },
+        { "k": "Energy Saving", "v": "Dynamic pre-cooling & occupancy setbacks" }
+      ]
+    },
+    {
+      "id": "power",
+      "layer": { "en": "Power & Panel Infrastructure Layer", "ar": "طبقة البنية الكهربائية ولوحات التوزيع" },
+      "tech": "DIN-Rail Modular Actuators (ABB/Schneider/Hager) • Zero-Cross Switching Relays",
+      "desc": {
+        "en": "Engineered for high inrush capacitive currents from modern architectural LED drivers (up to 80A peak). Type 2 40kA surge arresters and dedicated neutral topology compliant with regional electric codes.",
+        "ar": "مصممة لمقاومة تيارات البدء العالية (Inrush Current حتى 80 أمبير) الناتجة عن محولات الإضاءة المعمارية LED. حواجب صواعق Type 2 بقدرة 40kA ومسارات محايدة مطابقة للأكواد."
+      },
+      "specs": [
+        { "k": "Relay Rating", "v": "16A continuous / 80A 20ms inrush (Zero-Cross)" },
+        { "k": "Surge Protection", "v": "Type 2 SPD 40kA (8/20µs) with telemetry" },
+        { "k": "Enclosure Spec", "v": "IP65 rated flame-retardant enclosures" }
+      ]
+    }
   ],
-  "solutions": [
-    { "icon": "Lightbulb", "title": { "en": "Smart Lighting", "ar": "الإضاءة الذكية" }, "desc": { "en": "Scenes, dimming, circadian lighting and motion automation.", "ar": "مشاهد وتعتيم وإضاءة حيوية وتشغيل تلقائي بالحركة." } },
-    { "icon": "Thermometer", "title": { "en": "Climate Control", "ar": "التحكم في التكييف" }, "desc": { "en": "AC and HVAC scheduling, zoning and remote control.", "ar": "جدولة وتقسيم وتحكم عن بُعد في التكييف والتهوية." } },
-    { "icon": "Shield", "title": { "en": "Security & Access", "ar": "الأمن والدخول" }, "desc": { "en": "AI cameras, smart locks, video intercoms and alarms.", "ar": "كاميرات ذكية وأقفال وإنتركم مرئي وأنظمة إنذار." } },
-    { "icon": "Zap", "title": { "en": "Energy Management", "ar": "إدارة الطاقة" }, "desc": { "en": "Real-time metering, solar integration and load optimisation.", "ar": "قياس لحظي وربط بالطاقة الشمسية وتحسين الأحمال." } },
-    { "icon": "Blinds", "title": { "en": "Curtains & Shading", "ar": "الستائر الذكية" }, "desc": { "en": "Motorised curtains and blinds synced to sun and schedule.", "ar": "ستائر آلية متزامنة مع الشمس والجدول اليومي." } },
-    { "icon": "Speaker", "title": { "en": "Entertainment", "ar": "الترفيه" }, "desc": { "en": "Multi-room audio, home cinema and media distribution.", "ar": "صوت متعدد الغرف وسينما منزلية وتوزيع وسائط." } },
-    { "icon": "Mic", "title": { "en": "Voice & AI Assistants", "ar": "التحكم الصوتي" }, "desc": { "en": "Arabic and English voice control across every system.", "ar": "تحكم صوتي بالعربية والإنجليزية في كل الأنظمة." } },
-    { "icon": "Wifi", "title": { "en": "Networking", "ar": "الشبكات" }, "desc": { "en": "Enterprise-grade Wi-Fi and structured cabling backbone.", "ar": "شبكات واي فاي احترافية وبنية كابلات متكاملة." } }
+  "regionalCompliance": [
+    {
+      "country": { "en": "Egypt", "ar": "مصر" },
+      "grid": "220V AC ± 10%, 50 Hz",
+      "standards": "EEHC & Egyptian Building Code",
+      "neutralStrategy": "Neutral wire retrofits or bypass capacitance on legacy live-only backboxes",
+      "thermalFocus": "High summer dust resistance (IP54+ on perimeter sensors), dust-proof switch membranes"
+    },
+    {
+      "country": { "en": "Saudi Arabia", "ar": "المملكة العربية السعودية" },
+      "grid": "230V AC ± 10%, 60 Hz (3-Phase 400V)",
+      "standards": "SASO Compliant & SEC Technical Guidelines",
+      "neutralStrategy": "Compulsory neutral conductors at all switch backboxes, Type G BS 1363 sockets",
+      "thermalFocus": "Extreme 55°C heat rating, heavy-duty VRF Modbus zoning, Najdi thick-wall RF repeaters"
+    },
+    {
+      "country": { "en": "United Arab Emirates", "ar": "الإمارات العربية المتحدة" },
+      "grid": "230V AC ± 6%, 50 Hz",
+      "standards": "DEWA / ADDC Green Building Regulations",
+      "neutralStrategy": "Low-smoke zero-halogen (LSZH) cabling, mandatory sub-metering telemetry",
+      "thermalFocus": "Continuous 24/7 humidity control to prevent condensation on chilled ceiling beams"
+    }
   ],
-  "platform": [
-    { "icon": "Bot", "title": { "en": "AI Consultant", "ar": "المستشار الذكي" }, "desc": { "en": "Describe your home and lifestyle; get a tailored system design in minutes.", "ar": "صف منزلك وأسلوب حياتك واحصل على تصميم مخصص في دقائق." } },
-    { "icon": "Calculator", "title": { "en": "Instant Cost Calculator", "ar": "حاسبة التكلفة الفورية" }, "desc": { "en": "Transparent room-by-room pricing before you commit.", "ar": "تسعير شفاف لكل غرفة قبل أن تقرر." } },
-    { "icon": "LayoutDashboard", "title": { "en": "Home Designer", "ar": "مصمم المنزل" }, "desc": { "en": "Visualise device placement on your floor plan.", "ar": "تصوّر أماكن الأجهزة على مخطط منزلك." } },
-    { "icon": "Smartphone", "title": { "en": "One Unified App", "ar": "تطبيق موحّد" }, "desc": { "en": "Control every brand and room from a single bilingual app.", "ar": "تحكم في كل العلامات والغرف من تطبيق واحد ثنائي اللغة." } }
+  "caseStudies": [
+    {
+      "id": "cairo-villa",
+      "title": { "en": "Palatial Residence - New Cairo", "ar": "قصر سكني فاخر - القاهرة الجديدة" },
+      "location": { "en": "New Cairo, Egypt", "ar": "القاهرة الجديدة، مصر" },
+      "type": { "en": "Residential Villa (1,450 m² BUU - 3 Floors)", "ar": "فيلا سكنية (1,450 م² مساحة مبنية - 3 أدوار)" },
+      "scope": {
+        "en": "148 KNX DALI-2 dimming circuits, 14 VRF AC zones via Modbus RTU, 24 automated roller curtains, solar inverter RS485 telemetry, biometric facial entry, 100% local automation rack.",
+        "ar": "148 خط إضاءة DALI-2 خافت، 14 منطقة تكييف VRF عبر Modbus، 24 ستارة كهربائية، مراقبة محطة طاقة شمسية عبر RS485، دخول ببصمة الوجه، كابينة تحكم محلية 100%."
+      },
+      "metrics": [
+        { "label": { "en": "Lighting Circuits", "ar": "دوائر الإضاءة" }, "val": "148 Channels" },
+        { "label": { "en": "Energy Reduction", "ar": "توفير الطاقة" }, "val": "34.2%" },
+        { "label": { "en": "Cloud Dependency", "ar": "الاعتماد السحابي" }, "val": "0% (Local Bus)" },
+        { "label": { "en": "Switch Latency", "ar": "سرعة الاستجابة" }, "val": "18 ms" }
+      ]
+    },
+    {
+      "id": "riyadh-compound",
+      "title": { "en": "Executive Villa - Al-Malqa District", "ar": "فيلا تنفيذية - حي الملقا، الرياض" },
+      "location": { "en": "Riyadh, Saudi Arabia", "ar": "الرياض، المملكة العربية السعودية" },
+      "type": { "en": "Contemporary Residence (880 m² BUU)", "ar": "مسكن حديث (880 م² مساحة مبنية)" },
+      "scope": {
+        "en": "Full Matter-over-Thread and Zigbee 3.0 mesh with zero conduit demolition in finished Najdi stone masonry. DIN-rail multi-channel power meters with 60Hz grid filtering, automated smart irrigation tied to meteorological evapotranspiration sensors.",
+        "ar": "شبكة متكاملة Matter over Thread و Zigbee 3.0 بدون تكسير في الحجر النجدي، عدادات ذكية داخل لوحة التوزيع بتردد 60Hz، ونظام ري ذكي متصل بمحطة أرصاد جوية محلية."
+      },
+      "metrics": [
+        { "label": { "en": "Mesh Nodes", "ar": "عقد الشبكة" }, "val": "86 Devices" },
+        { "label": { "en": "Water Saving", "ar": "توفير المياه" }, "val": "42%" },
+        { "label": { "en": "Grid Frequency", "ar": "تردد الشبكة" }, "val": "60 Hz SASO" },
+        { "label": { "en": "Install Time", "ar": "مدة التركيب" }, "val": "6 Days (No Masonry Work)" }
+      ]
+    },
+    {
+      "id": "dubai-penthouse",
+      "title": { "en": "Skyline Penthouse - Palm Jumeirah", "ar": "بنتهاوس فاخر - نخلة جميرا، دبي" },
+      "location": { "en": "Dubai, UAE", "ar": "دبي، الإمارات العربية المتحدة" },
+      "type": { "en": "High-Rise Penthouse (620 m²)", "ar": "بنتهاوس برج سكني (620 م²)" },
+      "scope": {
+        "en": "Dual-bus KNX & Lutron Palladiom keypad integration. 10-zone multi-room high-resolution audio over IP (Dante), electrochromic smart privacy glass synchronized with solar tracking, building management system (BMS) BACnet bridge.",
+        "ar": "تكامل بناقلين KNX مع مفاتيح Lutron Palladiom. نظام صوتي عالي الدقة بـ 10 مناطق عبر بروتوكول IP Dante، زجاج ذكي يتغير مع زاوية أشعة الشمس، وجسر ربط بأنظمة إدارة المبنى BMS."
+      },
+      "metrics": [
+        { "label": { "en": "Audio Zones", "ar": "مناطق الصوت" }, "val": "10 Zones IP" },
+        { "label": { "en": "HVAC Integration", "ar": "ربط التكييف" }, "val": "DEWA / BACnet IP" },
+        { "label": { "en": "Solar Heat Block", "ar": "عزل الحرارة" }, "val": "68% Solar Gain" },
+        { "label": { "en": "Control Surface", "ar": "واجهات التحكم" }, "val": "Solid Brass Keypads" }
+      ]
+    }
   ],
-  "process": [
-    { "title": { "en": "Consult", "ar": "استشارة" }, "desc": { "en": "AI-assisted needs analysis and site survey.", "ar": "تحليل الاحتياجات بالذكاء الاصطناعي ومعاينة الموقع." } },
-    { "title": { "en": "Design", "ar": "تصميم" }, "desc": { "en": "Engineered system design, bill of materials and fixed quote.", "ar": "تصميم هندسي وقائمة مواد وعرض سعر ثابت." } },
-    { "title": { "en": "Install", "ar": "تركيب" }, "desc": { "en": "Certified technicians, clean installation, full commissioning.", "ar": "فنيون معتمدون وتركيب نظيف وتشغيل كامل." } },
-    { "title": { "en": "Support", "ar": "دعم" }, "desc": { "en": "Training, warranty, remote monitoring and upgrades.", "ar": "تدريب وضمان ومتابعة عن بُعد وتحديثات." } }
-  ],
-  "sectors": [
-    { "en": "Luxury Villas", "ar": "الفلل الفاخرة" },
-    { "en": "Apartments & Penthouses", "ar": "الشقق والبنتهاوس" },
-    { "en": "Real-Estate Developers", "ar": "المطورون العقاريون" },
-    { "en": "Hospitality", "ar": "الفنادق والضيافة" },
-    { "en": "Corporate Offices", "ar": "المكاتب والشركات" },
-    { "en": "Retail & Showrooms", "ar": "المتاجر والمعارض" }
-  ],
+  "aiEngine": {
+    "title": { "en": "Proprietary AI Engineering Pipeline", "ar": "محرك الهندسة المعمارية بالذكاء الاصطناعي" },
+    "description": {
+      "en": "Azka Smart replaces manual, error-prone estimating with an end-to-end algorithmic pipeline that ingests architectural blueprints and outputs ready-to-execute electrical wiring schedules, bill of quantities (BOQ), and RF mesh coverage heatmaps.",
+      "ar": "تستبدل أزكا سمارت التقدير اليدوي المعرّض للخطأ بمنظومة خوارزمية متكاملة تقرأ المخططات المعمارية مباشرة وتستخرج جداول التوصيل الكهربائي، قوائم الكميات (BOQ)، وخرائط تغطية الإشارة اللاسلكية."
+    },
+    "features": [
+      {
+        "name": { "en": "CAD & DWG Semantic Blueprint Parser", "ar": "محلل المخططات المعمارية CAD/DWG" },
+        "detail": {
+          "en": "Vision-transformer model detects room volume, wall materials (reinforced concrete vs drywall vs masonry), and automatically calculates lux requirements and sensor blind spots.",
+          "ar": "نموذج رؤية حاسوبية يكتشف أحجام الغرف ونوع الجدران (خرسانة مسلحة، قواطع، طوب) ويحسب شدة الإضاءة المطلوبة ومناطق حجب الحساسات تلقائياً."
+        }
+      },
+      {
+        "name": { "en": "Live Regional Supplier Grounding", "ar": "التسعير المباشر من الموردين الإقليميين" },
+        "detail": {
+          "en": "Integrated directly with official component catalogs in Cairo (EGP) and Riyadh (SAR), ensuring exact real-time component availability, warranty tiers, and contractor pricing.",
+          "ar": "ربط فوري مع كتالوجات الموردين المعتمدين في القاهرة والرياض لضمان توافر القطع بالأسعار الحقيقية وفترات الضمان الدقيقة للمقاولين والملاك."
+        }
+      },
+      {
+        "name": { "en": "Predictive Middle East HVAC Optimizer", "ar": "خوارزمية التحسين الاستباقي للتكييف" },
+        "detail": {
+          "en": "Analyzes thermal building envelope mass and regional hourly weather forecasts to pre-cool zones before peak ambient temperatures hit, cutting compressor peak wear.",
+          "ar": "تحليل الكتلة الحرارية للمبنى مع توقعات الطقس الساعية لتبريد الغرف مسبقاً قبل ساعات الذروة الحرارية، مما يقلل إجهاد ضواغط التكييف بنسبة كبيرة."
+        }
+      },
+      {
+        "name": { "en": "Edge Anomaly & Telemetry Monitor", "ar": "المراقبة الطرفية واكتشاف الأعطال المبكرة" },
+        "detail": {
+          "en": "Real-time edge telemetry monitoring electrical phase balance, neutral wire current leakage, and actuator relay operating cycles for predictive preventive maintenance.",
+          "ar": "مراقبة طرفية لحظية لاتزان الأحمال الكهربائية، تسريب التيار، وعدد دورات عمل المرحلات للتنبؤ بالأعطال وإجراء الصيانة الوقائية قبل حدوثها."
+        }
+      }
+    ]
+  },
   "offices": [
     {
       "id": "cairo",
       "image": "/company-profile/office-cairo.jpg",
       "city": { "en": "Cairo", "ar": "القاهرة" },
       "country": { "en": "Egypt", "ar": "مصر" },
-      "role": { "en": "Headquarters & Engineering Hub", "ar": "المقر الرئيسي ومركز الهندسة" },
-      "desc": { "en": "Group headquarters, R&D, AI platform team and central warehouse serving Egypt.", "ar": "المقر الرئيسي للمجموعة والبحث والتطوير وفريق المنصة الذكية والمستودع المركزي لمصر." },
+      "address": { "en": "Tower 4, Northern 90th St, New Cairo", "ar": "برج 4، شارع التسعين الشمالي، التجمع الخامس، القاهرة الجديدة" },
+      "role": { "en": "Engineering HQ, R&D & Central Distribution", "ar": "المقر الهندسي الرئيسي والبحث والتطوير والمستودع المركزي" },
+      "desc": {
+        "en": "Group headquarters hosting our core embedded software engineers, panel assembly workshop, QA testing lab, and 1,200m² central warehouse serving projects across Egypt and North Africa.",
+        "ar": "المقر الرئيسي للمجموعة ويضم مهندسي البرمجيات والنظم المدمجة، ورشة تجميع واختبار لوحات التوزيع الذكية، ومستودع مركزي بمساحة 1,200 م² لتغذية مشاريع مصر."
+      },
       "phone": "+20 150 189 6456",
-      "email": "info@azkasmart.com"
+      "email": "cairo@azkasmart.com"
     },
     {
       "id": "riyadh",
       "image": "/company-profile/office-riyadh.jpg",
       "city": { "en": "Riyadh", "ar": "الرياض" },
       "country": { "en": "Saudi Arabia", "ar": "المملكة العربية السعودية" },
-      "role": { "en": "KSA Regional Office", "ar": "المكتب الإقليمي بالمملكة" },
-      "desc": { "en": "Project delivery for villas, compounds and Vision 2030 developments across the Kingdom.", "ar": "تنفيذ مشاريع الفلل والمجمعات ومشاريع رؤية 2030 في أنحاء المملكة." },
-      "phone": "",
-      "email": "info@azkasmart.com"
+      "address": { "en": "King Fahd Road, Al-Sahafa District, Riyadh", "ar": "طريق الملك فهد، حي الصحافة، الرياض" },
+      "role": { "en": "KSA Operations & Vision 2030 Project Delivery", "ar": "المكتب الإقليمي بالمملكة وإدارة مشاريع رؤية 2030" },
+      "desc": {
+        "en": "Dedicated engineering field bureau delivering large-scale villa developments, private estates, and luxury compound projects fully compliant with Saudi Building Code (SBC) and SASO standards.",
+        "ar": "مكتب هندسي متخصص لتسليم مشاريع الفلل السكنية والقصور والمجمعات الراقية بالمملكة وفق كود البناء السعودي (SBC) والمواصفات القياسية لهيئة ساسو."
+      },
+      "phone": "+966 50 000 0000",
+      "email": "riyadh@azkasmart.com"
     },
     {
       "id": "dubai",
       "image": "/company-profile/office-dubai.jpg",
       "city": { "en": "Dubai", "ar": "دبي" },
       "country": { "en": "United Arab Emirates", "ar": "الإمارات العربية المتحدة" },
-      "role": { "en": "GCC Experience Center", "ar": "مركز التجربة الخليجي" },
-      "desc": { "en": "Live smart-home showroom and partnerships hub for the UAE and wider GCC.", "ar": "صالة عرض حيّة للمنزل الذكي ومركز شراكات للإمارات والخليج." },
-      "phone": "",
-      "email": "info@azkasmart.com"
+      "address": { "en": "Marina Plaza Level 24, Dubai Marina, Dubai", "ar": "مارينا بلازا، الطابق 24، دبي مارينا، دبي" },
+      "role": { "en": "Experience Center & High-End Integrations", "ar": "مركز التجربة التفاعلي والتكامل الفاخر" },
+      "desc": {
+        "en": "Interactive live showroom demonstrating native DALI-2 architectural lighting scenes, multi-room audio acoustics, and BMS integration for high-rise residences and hospitality developments in the UAE.",
+        "ar": "صالة عرض حية تفاعلية تستعرض مشاهد إضاءة DALI-2 المعمارية، صوتيات الغرف المتعددة، وتكامل أنظمة BMS للأبراج والفلل الفاخرة بالإمارات."
+      },
+      "phone": "+971 4 000 0000",
+      "email": "dubai@azkasmart.com"
+    }
+  ],
+  "process": [
+    {
+      "step": "01",
+      "title": { "en": "Engineering Site Survey & DWG Analysis", "ar": "المعاينة الهندسية وتحليل المخططات" },
+      "desc": {
+        "en": "On-site electrical inspection, neutral wire verification, and ingestion of CAD floor plans into the Azka AI design engine.",
+        "ar": "فحص الشبكة الكهربائية وخطوط المحايد، وإدخال المخططات المعمارية CAD إلى محرك الذكاء الاصطناعي لاستخراج مقاسات الغرف ومسارات الكابلات."
+      }
+    },
+    {
+      "step": "02",
+      "title": { "en": "Single-Line Diagram (SLD) & BOQ Design", "ar": "تصميم المخطط الأحادي وقوائم الكميات" },
+      "desc": {
+        "en": "Generation of detailed electrical schematics, load calculations, DIN-rail actuator layouts, and line-item Bill of Quantities with transparent catalog costs.",
+        "ar": "إعداد المخططات الأحادية (SLD)، حساب الأحمال وتيارات البدء، تخطيط لوحات التوزيع الذكية وقوائم الكميات (BOQ) مع تسعير معتمد."
+      }
+    },
+    {
+      "step": "03",
+      "title": { "en": "Certified Panel Assembly & Deployment", "ar": "تجميع اللوحات والتركيب الميداني" },
+      "desc": {
+        "en": "Pre-wired, labeled, and bench-tested distribution panels assembled in our workshop before field technicians perform clean, dust-free installation.",
+        "ar": "تجميع لوحات التحكم وترقيم الأسلاك واختبارها في ورشتنا قبل قيام الفنيين المعتمدين بالتركيب الميداني النظيف والمعزول حرارياً."
+      }
+    },
+    {
+      "step": "04",
+      "title": { "en": "Local Commissioning & SLA Support", "ar": "التشغيل المحلي والدعم بضمان مستمر" },
+      "desc": {
+        "en": "100% offline bus verification, PID thermostat tuning, client mobile app handoff, and lifetime proactive telemetry with 24/7 SLA.",
+        "ar": "اختبار استقلالية النظام محلياً بدون إنترنت، ضبط دوائر التكييف، تدريب العميل على التطبيق، وضمان شامل مع دعم فني مستمر."
+      }
     }
   ],
   "images": {
