@@ -82,6 +82,7 @@ export function Footer() {
     { label: isRTL ? 'خدمات التركيب' : 'Installation Services', href: '/services' },
     { label: isRTL ? 'الماركات' : 'Brands', href: '/brands' },
     { label: isRTL ? 'عن أزكاسمارت' : 'About AzkaSmart', href: '/about' },
+    { label: isRTL ? 'الملف التعريفي للشركة' : 'Company Profile', href: '/company-profile' },
   ];
 
   const legalLinks = [

@@ -37,6 +37,7 @@ const Brands = lazy(() => import("./pages/Brands"));
 const HomeDesigner = lazy(() => import("./pages/HomeDesigner"));
 const AppSimulator = lazy(() => import("./pages/AppSimulator"));
 const OAuthConsent = lazy(() => import("./pages/OAuthConsent"));
+const CompanyProfile = lazy(() => import("./pages/CompanyProfile"));
 
 const PageLoader = () => (
   <div className="min-h-[50vh] flex items-center justify-center">
@@ -132,6 +133,7 @@ const App = () => (
                     <Route path="/loyalty" element={<Loyalty />} />
                     <Route path="/bundles" element={<Bundles />} />
                     <Route path="/about" element={<About />} />
+                    <Route path="/company-profile" element={<CompanyProfile />} />
                     <Route path="/brands" element={<Brands />} />
                     <Route path="/home-designer" element={<HomeDesigner />} />
                     <Route path="/app-simulator" element={<AppSimulator />} />
