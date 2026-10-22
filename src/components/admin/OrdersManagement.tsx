@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Package, Eye, Truck, CheckCircle, Clock, CreditCard, Banknote, Loader2, X, RefreshCcw, Trash2, Smartphone, ExternalLink } from 'lucide-react';
+import { Package, Eye, Truck, CheckCircle, Clock, CreditCard, Banknote, Loader2, X, RefreshCcw, Trash2, Smartphone, ExternalLink, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -61,6 +61,7 @@ export const OrdersManagement = ({ adminToken }: Props) => {
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [loadingItems, setLoadingItems] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
+  const [resendingEmailId, setResendingEmailId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const { toast } = useToast();
 
@@ -103,10 +104,42 @@ export const OrdersManagement = ({ adminToken }: Props) => {
     if (error || !data?.success) {
       toast({ variant: 'destructive', title: 'Error', description: data?.error || error?.message || 'Failed to update order status' });
     } else {
-      toast({ title: 'Success', description: `Order status updated to ${newStatus}` });
+      const emailSent = data?.notification?.emailSent || data?.notification?.customerDelivered;
+      toast({
+        title: 'Status Updated',
+        description: `Order #${orderId.slice(0, 8).toUpperCase()} updated to ${newStatus}${emailSent ? ' (Customer notified by email)' : ''}`,
+      });
       fetchOrders();
+      if (selectedOrder?.id === orderId) {
+        setSelectedOrder((prev) => (prev ? { ...prev, status: newStatus } : null));
+      }
     }
     setUpdatingStatus(null);
+  };
+
+  const resendStatusEmail = async (order: Order) => {
+    setResendingEmailId(order.id);
+    const { data, error } = await supabase.functions.invoke('send-order-notification', {
+      body: {
+        orderId: order.id,
+        action: 'status_update',
+        status: order.status,
+        forceResend: true,
+      },
+    });
+    if (error || !data?.success) {
+      toast({
+        variant: 'destructive',
+        title: 'Email failed',
+        description: data?.error || error?.message || 'Failed to send notification email',
+      });
+    } else {
+      toast({
+        title: 'Email Sent',
+        description: `Status notification for "${order.status}" was sent to ${order.email}`,
+      });
+    }
+    setResendingEmailId(null);
   };
 
   const deleteOrder = async (order: Order) => {
@@ -258,13 +291,51 @@ export const OrdersManagement = ({ adminToken }: Props) => {
 
           {selectedOrder && (
             <div className="space-y-6">
-              <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-muted/50 rounded-lg">
                 <div>
-                  <p className="text-sm text-muted-foreground">Status</p>
-                  <p className="font-medium capitalize">{selectedOrder.status}</p>
+                  <p className="text-xs font-semibold text-muted-foreground mb-1.5 uppercase tracking-wide">
+                    Status (Notifies customer on change)
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Select
+                      value={selectedOrder.status}
+                      onValueChange={(val) => updateOrderStatus(selectedOrder.id, val)}
+                      disabled={updatingStatus === selectedOrder.id}
+                    >
+                      <SelectTrigger className="w-[140px] h-9">
+                        {updatingStatus === selectedOrder.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <SelectValue />
+                        )}
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="processing">Processing</SelectItem>
+                        <SelectItem value="shipped">Shipped</SelectItem>
+                        <SelectItem value="delivered">Delivered</SelectItem>
+                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-9 gap-1 text-xs"
+                      onClick={() => resendStatusEmail(selectedOrder)}
+                      disabled={resendingEmailId === selectedOrder.id}
+                      title="Resend status notification email to customer"
+                    >
+                      {resendingEmailId === selectedOrder.id ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Mail className="w-3.5 h-3.5 text-primary" />
+                      )}
+                      Resend Email
+                    </Button>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm text-muted-foreground">Total</p>
+                <div className="text-left sm:text-right">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Total</p>
                   <p className="text-xl font-bold text-primary">{selectedOrder.total.toLocaleString()} EGP</p>
                 </div>
               </div>

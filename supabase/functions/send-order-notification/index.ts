@@ -1,7 +1,7 @@
-// Order confirmation / notification — sends Resend emails to admin + customer,
-// updates card order status safely via service_role (including PaySky 3DS redirects),
-// enforces idempotency so duplicate calls never send duplicate emails,
-// and triggers a best-effort push notification.
+// Order confirmation & status notification — sends Resend emails to admin + customer,
+// updates card order status safely via service_role, enforces idempotency,
+// notifies customers on status changes (processing, shipped, delivered, cancelled),
+// and triggers best-effort push notifications.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { Resend } from "https://esm.sh/resend@2.0.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -11,8 +11,6 @@ import { sendPushToEmail } from "../_shared/fcm.ts";
 
 const ADMIN_EMAIL = "info@azkasmart.com";
 const ADMIN_FALLBACK_EMAIL = "mmgdy20xx@gmail.com";
-// Use orders@azkasmart.com first so admin notifications to info@azkasmart.com
-// are not dropped or quarantined as self-addressed (From == To) by email forwarders/Gmail.
 const PRIMARY_FROM_EMAIL = Deno.env.get("RESEND_FROM_EMAIL") || "orders@azkasmart.com";
 const SECONDARY_FROM_EMAIL = "info@azkasmart.com";
 const FALLBACK_FROM_EMAIL = "onboarding@resend.dev";
@@ -60,6 +58,396 @@ async function resolveResendApiKey(supabase: any): Promise<string | null> {
   return null;
 }
 
+interface StatusMeta {
+  badgeAr: string;
+  badgeEn: string;
+  headerTitleAr: string;
+  headerTitleEn: string;
+  headlineAr: string;
+  headlineEn: string;
+  themeColor: string;
+  lightBg: string;
+  borderColor: string;
+  icon: string;
+  pushTitle: string;
+  pushMessage: string;
+}
+
+function getStatusMeta(status: string): StatusMeta {
+  const norm = (status || "").toLowerCase().trim();
+  switch (norm) {
+    case "processing":
+    case "processed":
+      return {
+        badgeAr: "قيد التجهيز",
+        badgeEn: "Processing",
+        headerTitleAr: "طلبك قيد التجهيز 📦",
+        headerTitleEn: "Your order is being processed",
+        headlineAr: "تم تأكيد طلبك والبدء في تجهيز وتغليف المنتجات بعناية في مستودعاتنا استعداداً لتسليمها لشركة الشحن.",
+        headlineEn: "Your order has been confirmed and is currently being packed in our fulfillment center.",
+        themeColor: "#2563eb",
+        lightBg: "#eff6ff",
+        borderColor: "#bfdbfe",
+        icon: "📦",
+        pushTitle: "طلبك قيد التجهيز 📦",
+        pushMessage: "بدأنا بتجهيز طلبك وتغليفه في مستودعاتنا.",
+      };
+    case "shipped":
+      return {
+        badgeAr: "تم الشحن",
+        badgeEn: "Shipped",
+        headerTitleAr: "تم شحن طلبك وهو في الطريق إليك 🚚",
+        headerTitleEn: "Your order has been shipped",
+        headlineAr: "تم تسليم شحنتك لشركة التوصيل وهي الآن في طريقها إلى عنوانك. سيتواصل معك المندوب على هاتفك قريباً لتنسيق موعد الاستلام.",
+        headlineEn: "Your package is on its way with our courier. You will be contacted prior to delivery.",
+        themeColor: "#7c3aed",
+        lightBg: "#f5f3ff",
+        borderColor: "#ddd6fe",
+        icon: "🚚",
+        pushTitle: "تم شحن طلبك 🚚",
+        pushMessage: "شحنتك في الطريق إليك الآن مع مندوب التوصيل.",
+      };
+    case "delivered":
+      return {
+        badgeAr: "تم التسليم بنجاح",
+        badgeEn: "Delivered",
+        headerTitleAr: "تم تسليم طلبك بنجاح 🎉",
+        headerTitleEn: "Your order has been delivered",
+        headlineAr: "تم تسليم طلبك بنجاح! نأمل أن تنال منتجاتنا إعجابك وتضيف الراحة والذكاء لمنزلك. يسعدنا دائماً خدمتك.",
+        headlineEn: "Your order has been successfully delivered. Thank you for choosing AzkaSmart!",
+        themeColor: "#059669",
+        lightBg: "#ecfdf5",
+        borderColor: "#a7f3d0",
+        icon: "🎉",
+        pushTitle: "تم تسليم طلبك بنجاح 🎉",
+        pushMessage: "تم تسليم طلبك بنجاح. شكراً لثقتك بأزكاسمارت!",
+      };
+    case "cancelled":
+      return {
+        badgeAr: "تم الإلغاء",
+        badgeEn: "Cancelled",
+        headerTitleAr: "تم إلغاء الطلب ✕",
+        headerTitleEn: "Your order has been cancelled",
+        headlineAr: "نود إعلامك بأنه تم إلغاء هذا الطلب. إذا كان لديك أي استفسار أو كنت قد قمت بالسداد بالبطاقة البنكية، يرجى التواصل معنا لاسترداد المبلغ فوراً.",
+        headlineEn: "Your order has been cancelled. If you already made an online payment, it will be fully refunded to your card.",
+        themeColor: "#dc2626",
+        lightBg: "#fef2f2",
+        borderColor: "#fecaca",
+        icon: "✕",
+        pushTitle: "تم إلغاء الطلب",
+        pushMessage: "تم إلغاء طلبك. تواصل مع الدعم الفني لأي استفسار.",
+      };
+    case "pending":
+    default:
+      return {
+        badgeAr: "قيد المراجعة",
+        badgeEn: "Pending",
+        headerTitleAr: "طلبك قيد المراجعة ⏳",
+        headerTitleEn: "Your order is pending review",
+        headlineAr: "طلبك مسجل لدينا وهو قيد المراجعة والتأكيد من فريق المبيعات.",
+        headlineEn: "Your order is currently being reviewed by our operations team.",
+        themeColor: "#d97706",
+        lightBg: "#fffbeb",
+        borderColor: "#fde68a",
+        icon: "⏳",
+        pushTitle: "طلبك قيد المراجعة ⏳",
+        pushMessage: "طلبك قيد المراجعة والتأكيد من فريق العمل.",
+      };
+  }
+}
+
+function getStatusEmailSubject(status: string, orderId: string): string {
+  const shortId = orderId.slice(0, 8).toUpperCase();
+  const norm = (status || "").toLowerCase().trim();
+  switch (norm) {
+    case "processing":
+    case "processed":
+      return `تحديث الطلب #${shortId} | طلبك قيد التجهيز 📦 (AzkaSmart)`;
+    case "shipped":
+      return `تم الشحن #${shortId} | طلبك في الطريق إليك 🚚 (AzkaSmart)`;
+    case "delivered":
+      return `تم التسليم بنجاح #${shortId} 🎉 شكراً لاختيارك أزكاسمارت`;
+    case "cancelled":
+      return `تحديث بشأن طلبك #${shortId} | تم إلغاء الطلب`;
+    default:
+      return `تحديث حالة طلبك #${shortId} | AzkaSmart`;
+  }
+}
+
+const sharedEmailStyles = `
+  body, p, h1, h2, h3, h4, table, td, div, a, span {
+    -webkit-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
+    box-sizing: border-box;
+  }
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    background-color: #f1f5f9;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    color: #0f172a;
+  }
+  table {
+    border-collapse: collapse !important;
+    mso-table-lspace: 0pt;
+    mso-table-rspace: 0pt;
+  }
+  img {
+    border: 0;
+    outline: none;
+    text-decoration: none;
+  }
+  @media only screen and (max-width: 600px) {
+    .email-shell {
+      padding: 8px 4px !important;
+    }
+    .email-container {
+      width: 100% !important;
+      max-width: 100% !important;
+    }
+    .email-header {
+      padding: 22px 16px !important;
+      border-radius: 10px 10px 0 0 !important;
+    }
+    .email-card {
+      padding: 18px 14px !important;
+      border-radius: 0 0 10px 10px !important;
+    }
+    .order-meta-cell {
+      display: block !important;
+      width: 100% !important;
+      text-align: right !important;
+      padding: 4px 0 !important;
+    }
+    .total-row-td {
+      padding: 14px 14px !important;
+    }
+    .total-amount-large {
+      font-size: 20px !important;
+    }
+    .mobile-stack-btn {
+      display: block !important;
+      width: 100% !important;
+      margin: 8px 0 !important;
+      text-align: center !important;
+      padding: 14px 16px !important;
+      font-size: 15px !important;
+      box-sizing: border-box !important;
+    }
+  }
+`;
+
+function renderStatusUpdateHtml(params: {
+  orderId: string;
+  status: string;
+  meta: StatusMeta;
+  orderDateFormatted: string;
+  itemsListHtml: string;
+  total: number;
+  paymentLabel: string;
+  shippingAddress: any;
+  sharedEmailStyles: string;
+  cleanWhatsapp: string;
+  displayWhatsapp: string;
+  contactEmail: string;
+  trackingNumber?: string;
+  trackingCarrier?: string;
+  note?: string;
+}): string {
+  const {
+    orderId,
+    meta,
+    orderDateFormatted,
+    itemsListHtml,
+    total,
+    paymentLabel,
+    shippingAddress,
+    cleanWhatsapp,
+    displayWhatsapp,
+    contactEmail,
+    trackingNumber,
+    trackingCarrier,
+    note,
+  } = params;
+
+  const shortId = orderId.slice(0, 8).toUpperCase();
+
+  return `
+    <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+    <html xmlns="http://www.w3.org/1999/xhtml" dir="rtl" lang="ar">
+    <head>
+      <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+      <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+      <meta name="x-apple-disable-message-reformatting" />
+      <title>تحديث حالة الطلب #${shortId} - AzkaSmart</title>
+      <style type="text/css">
+        ${sharedEmailStyles}
+      </style>
+    </head>
+    <body style="margin:0;padding:0;background-color:#f1f5f9;direction:rtl;text-align:right;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f1f5f9;">
+        <tr>
+          <td align="center" class="email-shell" style="padding:20px 10px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="email-container" style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 16px rgba(15,23,42,0.06);border:1px solid #e2e8f0;">
+              
+              <!-- Brand Header -->
+              <tr>
+                <td class="email-header" style="background:#0f172a;padding:26px 22px;text-align:center;">
+                  <div style="color:#00d2b4;font-size:24px;font-weight:bold;letter-spacing:-0.5px;margin-bottom:6px;">
+                    AzkaSmart | أزكاسمارت
+                  </div>
+                  <div style="color:#94a3b8;font-size:13px;">
+                    أنظمة وحلول المنازل الذكية في مصر • Smart Home Solutions
+                  </div>
+                </td>
+              </tr>
+
+              <!-- Status Banner -->
+              <tr>
+                <td style="background:${meta.lightBg};border-bottom:2px solid ${meta.borderColor};padding:24px 22px;text-align:center;">
+                  <div style="display:inline-block;background:#ffffff;border:1px solid ${meta.borderColor};border-radius:20px;padding:4px 14px;font-size:12px;font-weight:bold;color:${meta.themeColor};margin-bottom:10px;text-transform:uppercase;">
+                    ${meta.icon} ${meta.badgeAr} / ${meta.badgeEn}
+                  </div>
+                  <div style="color:#0f172a;font-size:20px;font-weight:bold;margin-bottom:4px;line-height:1.4;">
+                    ${meta.headerTitleAr}
+                  </div>
+                  <div style="color:#64748b;font-size:13px;margin-bottom:12px;">
+                    ${meta.headerTitleEn}
+                  </div>
+                  <div style="color:#334155;font-size:14px;line-height:1.6;max-width:500px;margin:0 auto;padding-top:10px;border-top:1px dashed ${meta.borderColor};">
+                    ${meta.headlineAr}
+                  </div>
+                  <div style="color:#64748b;font-size:12px;line-height:1.5;margin-top:4px;" dir="ltr">
+                    ${meta.headlineEn}
+                  </div>
+                </td>
+              </tr>
+
+              <!-- Body Card -->
+              <tr>
+                <td class="email-card" style="padding:24px 20px;background:#ffffff;">
+                  
+                  <!-- Order Meta Table -->
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:20px;">
+                    <tr>
+                      <td style="padding:14px 16px;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                          <tr>
+                            <td align="right" valign="top" class="order-meta-cell">
+                              <div style="font-size:11px;color:#64748b;text-transform:uppercase;">رقم الطلب / Order ID</div>
+                              <div style="font-size:16px;font-weight:bold;color:#0f766e;font-family:monospace;margin-top:2px;">#${shortId}</div>
+                            </td>
+                            <td align="left" valign="top" class="order-meta-cell" dir="ltr" style="text-align:left;">
+                              <div style="font-size:11px;color:#64748b;">تاريخ الطلب / Date</div>
+                              <div style="font-size:12px;font-weight:600;color:#0f172a;margin-top:2px;">${orderDateFormatted}</div>
+                            </td>
+                          </tr>
+                        </table>
+                        <div style="margin-top:10px;padding-top:10px;border-top:1px dashed #cbd5e1;font-size:13px;color:#334155;">
+                          <strong>طريقة الدفع: </strong>${escapeHtml(paymentLabel)}
+                        </div>
+                      </td>
+                    </tr>
+                  </table>
+
+                  ${trackingNumber || note || trackingCarrier ? `
+                    <div style="margin-bottom:20px;background:#f5f3ff;border:1px solid #ddd6fe;border-radius:10px;padding:14px 16px;">
+                      <div style="font-size:14px;font-weight:bold;color:#6b21a8;margin-bottom:6px;">
+                        🚚 معلومات الشحن والتتبع / Shipment Details
+                      </div>
+                      <div style="font-size:13px;color:#3b0764;line-height:1.7;">
+                        ${trackingCarrier ? `<div><strong>شركة الشحن: </strong>${escapeHtml(trackingCarrier)}</div>` : ''}
+                        ${trackingNumber ? `<div><strong>رقم التتبع: </strong><span style="font-family:monospace;font-weight:bold;">${escapeHtml(trackingNumber)}</span></div>` : ''}
+                        ${note ? `<div style="margin-top:4px;color:#701a75;"><strong>ملاحظات التوصيل: </strong>${escapeHtml(note)}</div>` : ''}
+                      </div>
+                    </div>
+                  ` : ''}
+
+                  <!-- Customer / Delivery Details -->
+                  <div style="margin-bottom:20px;">
+                    <div style="font-size:14px;font-weight:bold;color:#0f172a;border-bottom:2px solid #00d2b4;padding-bottom:6px;margin-bottom:10px;">
+                      بيانات المستلم والتوصيل / Delivery Address
+                    </div>
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">
+                      <tr>
+                        <td style="padding:12px 14px;font-size:13px;color:#334155;line-height:1.7;">
+                          <div><strong>المستلم: </strong>${escapeHtml(shippingAddress.firstName)} ${escapeHtml(shippingAddress.lastName)}</div>
+                          <div><strong>رقم الهاتف: </strong><span dir="ltr"><strong>${escapeHtml(shippingAddress.phone)}</strong></span></div>
+                          <div><strong>العنوان: </strong>${escapeHtml(shippingAddress.address)}, ${escapeHtml(shippingAddress.city)}, ${escapeHtml(shippingAddress.governorate)}</div>
+                        </td>
+                      </tr>
+                    </table>
+                  </div>
+
+                  <!-- Order Items -->
+                  <div style="font-size:14px;font-weight:bold;color:#0f172a;border-bottom:2px solid #00d2b4;padding-bottom:6px;margin-bottom:4px;">
+                    المنتجات / Order Items
+                  </div>
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;margin-bottom:16px;">
+                    ${itemsListHtml}
+                  </table>
+
+                  <!-- Total -->
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#0f172a;border-radius:10px;margin:16px 0 24px 0;">
+                    <tr>
+                      <td align="right" valign="middle" class="total-row-td" style="padding:16px 20px;color:#94a3b8;font-size:15px;font-weight:600;">
+                        المبلغ الإجمالي / Total:
+                      </td>
+                      <td align="left" valign="middle" class="total-row-td" style="padding:16px 20px;color:#00d2b4;text-align:left;white-space:nowrap;" dir="ltr">
+                        <strong class="total-amount-large" style="font-size:22px;color:#00d2b4;">${total.toLocaleString()}</strong> <span style="font-size:14px;color:#00d2b4;">ج.م</span>
+                      </td>
+                    </tr>
+                  </table>
+
+                  <!-- Actions / Links -->
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:20px;padding-top:20px;border-top:1px solid #e2e8f0;text-align:center;">
+                    <tr>
+                      <td align="center" style="padding:0;">
+                        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;width:100%;max-width:440px;">
+                          <tr>
+                            <td align="center" style="padding:5px 0;">
+                              <a href="https://wa.me/${cleanWhatsapp}?text=${encodeURIComponent(`مرحباً أزكاسمارت، أستفسر عن تحديث طلبي رقم #${shortId}`)}"
+                                 target="_blank"
+                                 class="mobile-stack-btn"
+                                 style="display:inline-block;background:#25d366;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:8px;font-size:14px;font-weight:bold;box-shadow:0 2px 8px rgba(37,211,102,0.3);text-align:center;">
+                                 💬 محادثة واتساب (${displayWhatsapp})
+                              </a>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td align="center" style="padding:5px 0;">
+                              <a href="https://azkasmart.com/profile"
+                                 target="_blank"
+                                 class="mobile-stack-btn"
+                                 style="display:inline-block;background:#0f172a;color:#00d2b4;text-decoration:none;padding:12px 24px;border-radius:8px;font-size:14px;font-weight:bold;border:1px solid #00d2b4;text-align:center;">
+                                 👤 تتبع الطلبات في حسابك
+                              </a>
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>
+                  </table>
+
+                  <!-- Footer Notice -->
+                  <div style="color:#94a3b8;font-size:12px;text-align:center;margin-top:20px;line-height:1.6;">
+                    إذا كان لديك أي سؤال، يمكنك الرد على هذه الرسالة أو مراسلتنا على <a href="mailto:${contactEmail}" style="color:#008b76;text-decoration:none;">${contactEmail}</a>.
+                  </div>
+
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>
+  `;
+}
+
 const handler = async (req: Request): Promise<Response> => {
   const corsHeaders = corsHeadersFor(req);
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -81,6 +469,13 @@ const handler = async (req: Request): Promise<Response> => {
     const body = await req.json().catch(() => ({}));
     const {
       orderId,
+      action: rawAction,
+      status: rawStatus,
+      newStatus: rawNewStatus,
+      oldStatus,
+      note,
+      trackingNumber,
+      trackingCarrier,
       paymentMethod,
       isPaid: rawIsPaid,
       paymentDetails,
@@ -126,67 +521,17 @@ const handler = async (req: Request): Promise<Response> => {
       (isCardOrder && isOrderConfirmationPage)
     );
 
-    // Check idempotency so calling from both Checkout.tsx and OrderConfirmation.tsx
-    // never sends duplicate emails for the same order state.
-    const alreadySentInitial = Boolean(sa.emailNotificationSentAt);
-    const alreadySentPaid = Boolean(sa.paidNotificationSentAt);
+    const isStatusUpdate =
+      rawAction === "status_update" ||
+      rawAction === "order_status_update" ||
+      (Boolean(rawNewStatus || rawStatus) && (rawNewStatus || rawStatus) !== "pending" && !isPaid);
 
-    if (!forceResend) {
-      if (isPaid && alreadySentPaid) {
-        return new Response(
-          JSON.stringify({
-            success: true,
-            alreadySent: true,
-            emailSent: true,
-            status: order.status,
-          }),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      if (!isPaid && alreadySentInitial) {
-        return new Response(
-          JSON.stringify({
-            success: true,
-            alreadySent: true,
-            emailSent: true,
-            status: order.status,
-          }),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-    }
-
-    // If this is a paid card order (via Lightbox callback or 3DS redirect to OrderConfirmation),
-    // update the order status to 'processing' using service_role (since client UPDATE is blocked by RLS).
-    let updatedShippingAddress = { ...sa };
-    let currentStatus = order.status;
-    if (paymentDetails) {
-      updatedShippingAddress.paymentDetails = paymentDetails;
-    } else if (queryParams && Object.keys(queryParams).length > 1 && !updatedShippingAddress.paymentDetails) {
-      updatedShippingAddress.paymentDetails = queryParams;
-    }
-    if (isPaid) {
-      updatedShippingAddress.isPaid = true;
-    }
-
-    if (isPaid && currentStatus === "pending") {
-      currentStatus = "processing";
-      await supabase
-        .from("orders")
-        .update({
-          status: "processing",
-          shipping_address: updatedShippingAddress,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", orderId);
-    }
-
+    // Fetch order items & store contact info (shared by both flows)
     const { data: rawItems } = await supabase
       .from("order_items")
       .select("product_name, quantity, price")
       .eq("order_id", orderId);
 
-    // Fetch site_info for contact details (WhatsApp, phone, email)
     const { data: contactRows } = await supabase
       .from("site_info")
       .select("key, value")
@@ -248,18 +593,6 @@ const handler = async (req: Request): Promise<Response> => {
       minute: "2-digit",
     });
 
-    const rawCustomerPhone = shippingAddress.phone.replace(/[^0-9]/g, "");
-    const customerWaNumber = rawCustomerPhone.startsWith("0")
-      ? "2" + rawCustomerPhone
-      : rawCustomerPhone.startsWith("20")
-      ? rawCustomerPhone
-      : rawCustomerPhone
-      ? "2" + rawCustomerPhone
-      : "";
-    const adminCustomerWaUrl = customerWaNumber
-      ? `https://wa.me/${customerWaNumber}?text=${encodeURIComponent(`مرحباً ${shippingAddress.firstName}، بخصوص طلبك رقم #${orderId.slice(0, 8).toUpperCase()} من متجر AzkaSmart...`)}`
-      : null;
-
     const itemsListHtml = items
       .map(
         (item) => `
@@ -291,70 +624,224 @@ const handler = async (req: Request): Promise<Response> => {
       )
       .join("");
 
-    const sharedEmailStyles = `
-      body, p, h1, h2, h3, h4, table, td, div, a, span {
-        -webkit-text-size-adjust: 100%;
-        -ms-text-size-adjust: 100%;
-        box-sizing: border-box;
-      }
-      body {
-        margin: 0 !important;
-        padding: 0 !important;
-        width: 100% !important;
-        height: 100% !important;
-        background-color: #f1f5f9;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-        color: #0f172a;
-      }
-      table {
-        border-collapse: collapse !important;
-        mso-table-lspace: 0pt;
-        mso-table-rspace: 0pt;
-      }
-      img {
-        border: 0;
-        outline: none;
-        text-decoration: none;
-      }
-      @media only screen and (max-width: 600px) {
-        .email-shell {
-          padding: 8px 4px !important;
-        }
-        .email-container {
-          width: 100% !important;
-          max-width: 100% !important;
-        }
-        .email-header {
-          padding: 22px 16px !important;
-          border-radius: 10px 10px 0 0 !important;
-        }
-        .email-card {
-          padding: 18px 14px !important;
-          border-radius: 0 0 10px 10px !important;
-        }
-        .order-meta-cell {
-          display: block !important;
-          width: 100% !important;
-          text-align: right !important;
-          padding: 4px 0 !important;
-        }
-        .total-row-td {
-          padding: 14px 14px !important;
-        }
-        .total-amount-large {
-          font-size: 20px !important;
-        }
-        .mobile-stack-btn {
-          display: block !important;
-          width: 100% !important;
-          margin: 8px 0 !important;
-          text-align: center !important;
-          padding: 14px 16px !important;
-          font-size: 15px !important;
-          box-sizing: border-box !important;
+    const RESEND_API_KEY = await resolveResendApiKey(supabase);
+    const emailErrors: string[] = [];
+
+    // Helper: multi-stage sender chain
+    const sendWithSenderChain = async (
+      resendInstance: any,
+      toList: string[],
+      subject: string,
+      html: string,
+      replyTo?: string
+    ) => {
+      const senders = Array.from(
+        new Set([PRIMARY_FROM_EMAIL, SECONDARY_FROM_EMAIL, FALLBACK_FROM_EMAIL])
+      );
+      let lastRes: any = null;
+
+      for (const sender of senders) {
+        const effectiveRecipients =
+          sender === FALLBACK_FROM_EMAIL && toList.includes(ADMIN_FALLBACK_EMAIL)
+            ? [ADMIN_FALLBACK_EMAIL]
+            : toList;
+
+        try {
+          const res = await resendInstance.emails.send({
+            from: `AzkaSmart <${sender}>`,
+            to: effectiveRecipients,
+            ...(replyTo ? { reply_to: replyTo } : {}),
+            subject,
+            html,
+          });
+          lastRes = res;
+          if (!res.error && res.data?.id) {
+            return res;
+          }
+          console.warn(`Resend sender ${sender} -> ${effectiveRecipients.join(",")} error:`, res.error);
+          emailErrors.push(`${sender}: ${res.error?.message || JSON.stringify(res.error)}`);
+        } catch (err: any) {
+          console.warn(`Resend sender ${sender} threw exception:`, err);
+          emailErrors.push(`${sender}: ${err?.message || String(err)}`);
         }
       }
-    `;
+      return lastRes;
+    };
+
+    // ─────────────────────────────────────────────────────────────────
+    // FLOW 1: ORDER STATUS UPDATE NOTIFICATION
+    // ─────────────────────────────────────────────────────────────────
+    if (isStatusUpdate) {
+      const targetStatus = (rawNewStatus || rawStatus || order.status || "").toLowerCase().trim();
+      const statusEmailsSent = (sa.statusEmailsSent || {}) as Record<string, string>;
+
+      // Idempotency check for status updates
+      if (!forceResend && statusEmailsSent[targetStatus]) {
+        return new Response(
+          JSON.stringify({
+            success: true,
+            alreadySent: true,
+            emailSent: true,
+            status: targetStatus,
+            message: `Status notification for "${targetStatus}" already sent on ${statusEmailsSent[targetStatus]}`,
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const meta = getStatusMeta(targetStatus);
+      const subject = getStatusEmailSubject(targetStatus, orderId);
+      const statusHtml = renderStatusUpdateHtml({
+        orderId,
+        status: targetStatus,
+        meta,
+        orderDateFormatted,
+        itemsListHtml,
+        total,
+        paymentLabel,
+        shippingAddress,
+        sharedEmailStyles,
+        cleanWhatsapp,
+        displayWhatsapp,
+        contactEmail,
+        trackingNumber: trackingNumber || sa.trackingNumber,
+        trackingCarrier: trackingCarrier || sa.trackingCarrier,
+        note: note || sa.deliveryNote,
+      });
+
+      let customerEmailResponse: any = null;
+
+      if (RESEND_API_KEY) {
+        const resend = new Resend(RESEND_API_KEY);
+        if (email) {
+          customerEmailResponse = await sendWithSenderChain(
+            resend,
+            [email],
+            subject,
+            statusHtml,
+            contactEmail
+          );
+        }
+      } else {
+        console.warn("RESEND_API_KEY not configured for status notification.");
+        emailErrors.push("RESEND_API_KEY is missing in Supabase Edge Function secrets.");
+      }
+
+      const customerDelivered = Boolean(
+        customerEmailResponse?.data?.id && !customerEmailResponse?.error
+      );
+
+      // Persist status email timestamp in database
+      const nowIso = new Date().toISOString();
+      const updatedSa = {
+        ...sa,
+        statusEmailsSent: {
+          ...statusEmailsSent,
+          [targetStatus]: nowIso,
+        },
+        lastStatusNotified: targetStatus,
+        lastStatusNotifiedAt: nowIso,
+      };
+
+      await supabase
+        .from("orders")
+        .update({
+          status: targetStatus,
+          shipping_address: updatedSa,
+          updated_at: nowIso,
+        })
+        .eq("id", orderId);
+
+      // Best effort push notification
+      try {
+        await sendPushToEmail(supabase, email, {
+          title: meta.pushTitle,
+          message: `${meta.pushMessage} (طلب #${orderId.slice(0, 8).toUpperCase()})`,
+          url: `/profile`,
+        });
+      } catch (e) {
+        console.warn("Push notification for status update failed (non-fatal):", e);
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          emailSent: customerDelivered,
+          customerDelivered,
+          status: targetStatus,
+          customerEmail: customerEmailResponse,
+          emailConfigured: !!RESEND_API_KEY,
+          errors: emailErrors.length ? emailErrors : undefined,
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // FLOW 2: INITIAL ORDER CONFIRMATION / PAYMENT NOTIFICATION
+    // ─────────────────────────────────────────────────────────────────
+    const alreadySentInitial = Boolean(sa.emailNotificationSentAt);
+    const alreadySentPaid = Boolean(sa.paidNotificationSentAt);
+
+    if (!forceResend) {
+      if (isPaid && alreadySentPaid) {
+        return new Response(
+          JSON.stringify({
+            success: true,
+            alreadySent: true,
+            emailSent: true,
+            status: order.status,
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (!isPaid && alreadySentInitial) {
+        return new Response(
+          JSON.stringify({
+            success: true,
+            alreadySent: true,
+            emailSent: true,
+            status: order.status,
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    let updatedShippingAddress = { ...sa };
+    let currentStatus = order.status;
+    if (paymentDetails) {
+      updatedShippingAddress.paymentDetails = paymentDetails;
+    } else if (queryParams && Object.keys(queryParams).length > 1 && !updatedShippingAddress.paymentDetails) {
+      updatedShippingAddress.paymentDetails = queryParams;
+    }
+    if (isPaid) {
+      updatedShippingAddress.isPaid = true;
+    }
+
+    if (isPaid && currentStatus === "pending") {
+      currentStatus = "processing";
+      await supabase
+        .from("orders")
+        .update({
+          status: "processing",
+          shipping_address: updatedShippingAddress,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", orderId);
+    }
+
+    const rawCustomerPhone = shippingAddress.phone.replace(/[^0-9]/g, "");
+    const customerWaNumber = rawCustomerPhone.startsWith("0")
+      ? "2" + rawCustomerPhone
+      : rawCustomerPhone.startsWith("20")
+      ? rawCustomerPhone
+      : rawCustomerPhone
+      ? "2" + rawCustomerPhone
+      : "";
+    const adminCustomerWaUrl = customerWaNumber
+      ? `https://wa.me/${customerWaNumber}?text=${encodeURIComponent(`مرحباً ${shippingAddress.firstName}، بخصوص طلبك رقم #${orderId.slice(0, 8).toUpperCase()} من متجر AzkaSmart...`)}`
+      : null;
 
     const adminEmailHtml = `
       <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
@@ -569,8 +1056,8 @@ const handler = async (req: Request): Promise<Response> => {
                               <td align="center" style="padding:4px 0;">
                                 <a href="mailto:${contactEmail}"
                                    class="mobile-stack-btn"
-                                   style="display:inline-block;background:#0f172a;color:#ffffff;text-decoration:none;padding:11px 22px;border-radius:8px;font-size:13px;font-weight:600;text-align:center;">
-                                   ✉️ ${contactEmail}
+                                   style="display:inline-block;background:#0f172a;color:#ffffff;text-decoration:none;padding:12px 26px;border-radius:8px;font-size:14px;font-weight:600;border:1px solid #334155;text-align:center;">
+                                   ✉️ راسلنا عبر البريد: ${contactEmail}
                                 </a>
                               </td>
                             </tr>
@@ -578,9 +1065,9 @@ const handler = async (req: Request): Promise<Response> => {
                         </td>
                       </tr>
                     </table>
-                    <div style="color:#94a3b8;font-size:11px;text-align:center;margin-top:24px;line-height:1.6;border-top:1px dashed #e2e8f0;padding-top:16px;">
-                      AzkaSmart — حلول المنازل الذكية والأنظمة المتطورة في مصر<br>
-                      Smart Home AI Solutions & Automation • Cairo, Egypt
+                    <div style="color:#94a3b8;font-size:12px;text-align:center;margin-top:20px;line-height:1.6;">
+                      AzkaSmart Egypt • شركة أزكاسمارت لحلول المنازل الذكية وأنظمة الأمان<br />
+                      القاهرة، جمهورية مصر العربية • <a href="https://azkasmart.com" style="color:#008b76;text-decoration:none;">azkasmart.com</a>
                     </div>
                   </td>
                 </tr>
@@ -594,67 +1081,25 @@ const handler = async (req: Request): Promise<Response> => {
 
     let adminEmailResponse: any = null;
     let customerEmailResponse: any = null;
-    const emailErrors: string[] = [];
 
-    const RESEND_API_KEY = await resolveResendApiKey(supabase);
     if (RESEND_API_KEY) {
       const resend = new Resend(RESEND_API_KEY);
-
-      // Multi-stage sender: tries orders@azkasmart.com -> info@azkasmart.com -> onboarding@resend.dev
-      const sendWithSenderChain = async (
-        toList: string[],
-        subject: string,
-        html: string,
-        replyTo?: string
-      ) => {
-        const senders = Array.from(
-          new Set([PRIMARY_FROM_EMAIL, SECONDARY_FROM_EMAIL, FALLBACK_FROM_EMAIL])
-        );
-        let lastRes: any = null;
-
-        for (const sender of senders) {
-          // Resend's onboarding@resend.dev only permits sending to the account owner email (mmgdy20xx@gmail.com)
-          const effectiveRecipients =
-            sender === FALLBACK_FROM_EMAIL && toList.includes(ADMIN_FALLBACK_EMAIL)
-              ? [ADMIN_FALLBACK_EMAIL]
-              : toList;
-
-          try {
-            const res = await resend.emails.send({
-              from: `AzkaSmart <${sender}>`,
-              to: effectiveRecipients,
-              ...(replyTo ? { reply_to: replyTo } : {}),
-              subject,
-              html,
-            });
-            lastRes = res;
-            if (!res.error && res.data?.id) {
-              return res;
-            }
-            console.warn(`Resend sender ${sender} -> ${effectiveRecipients.join(",")} error:`, res.error);
-            emailErrors.push(`${sender}: ${res.error?.message || JSON.stringify(res.error)}`);
-          } catch (err: any) {
-            console.warn(`Resend sender ${sender} threw exception:`, err);
-            emailErrors.push(`${sender}: ${err?.message || String(err)}`);
-          }
-        }
-        return lastRes;
-      };
 
       const adminSubject = `🛒 طلب جديد #${orderId.slice(0, 8).toUpperCase()} - ${total.toLocaleString()} ج.م (${paymentLabel})`;
       const adminRecipients = Array.from(new Set([contactEmail, ADMIN_EMAIL, ADMIN_FALLBACK_EMAIL].filter(Boolean)));
 
-      // 1. Send Admin Notification (to info@azkasmart.com + mmgdy20xx@gmail.com so forwarder/alias issues never lose an order)
+      // 1. Send Admin Notification
       adminEmailResponse = await sendWithSenderChain(
+        resend,
         adminRecipients,
         adminSubject,
         adminEmailHtml,
         email || undefined
       );
 
-      // If sending to multiple recipients at once was rejected by Resend sandbox mode, retry owner Gmail directly
       if (adminEmailResponse?.error && ADMIN_FALLBACK_EMAIL) {
         const retryOwner = await sendWithSenderChain(
+          resend,
           [ADMIN_FALLBACK_EMAIL],
           adminSubject,
           adminEmailHtml,
@@ -668,6 +1113,7 @@ const handler = async (req: Request): Promise<Response> => {
       // 2. Send Customer Order Confirmation
       if (email) {
         customerEmailResponse = await sendWithSenderChain(
+          resend,
           [email],
           `تأكيد طلبك من أزكاسمارت #${orderId.slice(0, 8).toUpperCase()} | Order Confirmed!`,
           customerEmailHtml,
@@ -683,7 +1129,6 @@ const handler = async (req: Request): Promise<Response> => {
     const customerDelivered = Boolean(customerEmailResponse?.data?.id && !customerEmailResponse?.error);
     const anyEmailSent = adminDelivered || customerDelivered;
 
-    // Persist notification timestamps in shipping_address for idempotency
     if (anyEmailSent) {
       const nowIso = new Date().toISOString();
       updatedShippingAddress = {

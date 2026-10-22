@@ -527,13 +527,61 @@ JSON: {"seo_title":"<=60 chars","seo_description":"<=155 chars","seo_keywords":[
     }
 
     if (action === "update-order-status") {
-      const { id, status } = body;
-      const { error } = await supabase
+      const { id, status, sendNotification = true, note, trackingNumber, trackingCarrier, forceResend } = body;
+
+      const { data: currentOrder, error: fetchErr } = await supabase
+        .from("orders")
+        .select("id, status, email, total, shipping_address")
+        .eq("id", id)
+        .maybeSingle();
+
+      if (fetchErr || !currentOrder) {
+        throw new Error("Order not found");
+      }
+
+      const oldStatus = currentOrder.status;
+
+      const { error: updateErr } = await supabase
         .from("orders")
         .update({ status, updated_at: new Date().toISOString() })
         .eq("id", id);
-      if (error) throw error;
-      return new Response(JSON.stringify({ success: true }), {
+      if (updateErr) throw updateErr;
+
+      let notification: any = null;
+      if (sendNotification && currentOrder.email && (oldStatus !== status || forceResend)) {
+        try {
+          const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+          const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+          if (supabaseUrl && serviceRoleKey) {
+            const notifyRes = await fetch(`${supabaseUrl}/functions/v1/send-order-notification`, {
+              method: "POST",
+              headers: {
+                "Authorization": `Bearer ${serviceRoleKey}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                orderId: id,
+                action: "status_update",
+                status,
+                oldStatus,
+                note,
+                trackingNumber,
+                trackingCarrier,
+                forceResend: Boolean(forceResend),
+              }),
+            });
+            if (notifyRes.ok) {
+              notification = await notifyRes.json().catch(() => null);
+            } else {
+              console.warn("send-order-notification returned status:", notifyRes.status);
+            }
+          }
+        } catch (notifyErr) {
+          console.warn("Failed to invoke send-order-notification:", notifyErr);
+        }
+      }
+
+      return new Response(JSON.stringify({ success: true, oldStatus, newStatus: status, notification }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
