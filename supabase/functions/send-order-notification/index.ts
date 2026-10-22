@@ -1,5 +1,7 @@
 // Order confirmation / notification — sends Resend emails to admin + customer,
-// plus a best-effort push notification.
+// updates card order status safely via service_role (including PaySky 3DS redirects),
+// enforces idempotency so duplicate calls never send duplicate emails,
+// and triggers a best-effort push notification.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { Resend } from "https://esm.sh/resend@2.0.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -8,7 +10,11 @@ import { checkRate, getIp } from "../_shared/rate-limit.ts";
 import { sendPushToEmail } from "../_shared/fcm.ts";
 
 const ADMIN_EMAIL = "info@azkasmart.com";
-const PRIMARY_FROM_EMAIL = "info@azkasmart.com";
+const ADMIN_FALLBACK_EMAIL = "mmgdy20xx@gmail.com";
+// Use orders@azkasmart.com first so admin notifications to info@azkasmart.com
+// are not dropped or quarantined as self-addressed (From == To) by email forwarders/Gmail.
+const PRIMARY_FROM_EMAIL = Deno.env.get("RESEND_FROM_EMAIL") || "orders@azkasmart.com";
+const SECONDARY_FROM_EMAIL = "info@azkasmart.com";
 const FALLBACK_FROM_EMAIL = "onboarding@resend.dev";
 
 function escapeHtml(value: unknown): string {
@@ -20,21 +26,69 @@ function escapeHtml(value: unknown): string {
     .replace(/'/g, "&#39;");
 }
 
+async function resolveResendApiKey(supabase: any): Promise<string | null> {
+  const envKey = Deno.env.get("RESEND_API_KEY");
+  if (envKey && envKey.trim()) return envKey.trim();
+
+  try {
+    const { data: siteRow } = await supabase
+      .from("site_info")
+      .select("value")
+      .in("section", ["email", "admin", "secrets"])
+      .eq("key", "resend_api_key")
+      .maybeSingle();
+    if (siteRow?.value && String(siteRow.value).trim()) {
+      return String(siteRow.value).trim();
+    }
+  } catch (e) {
+    console.warn("Could not read resend_api_key from site_info:", e);
+  }
+
+  try {
+    const { data: adminRow } = await supabase
+      .from("admin_settings")
+      .select("value")
+      .eq("key", "resend_api_key")
+      .maybeSingle();
+    if (adminRow?.value && String(adminRow.value).trim()) {
+      return String(adminRow.value).trim();
+    }
+  } catch (e) {
+    console.warn("Could not read resend_api_key from admin_settings:", e);
+  }
+
+  return null;
+}
+
 const handler = async (req: Request): Promise<Response> => {
   const corsHeaders = corsHeadersFor(req);
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   const ip = getIp(req);
-  const rate = checkRate(ip, { windowMs: 60_000, maxRequests: 20 });
+  const rate = checkRate(ip, { windowMs: 60_000, maxRequests: 25 });
   if (!rate.ok) {
     return new Response(JSON.stringify({ error: "Too many requests" }), {
       status: 429,
-      headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": String(Math.ceil(rate.retryAfterMs / 1000)) },
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "application/json",
+        "Retry-After": String(Math.ceil(rate.retryAfterMs / 1000)),
+      },
     });
   }
 
   try {
-    const { orderId, paymentMethod, isPaid } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const {
+      orderId,
+      paymentMethod,
+      isPaid: rawIsPaid,
+      paymentDetails,
+      forceResend = false,
+      isOrderConfirmationPage = false,
+      queryParams = {},
+    } = body;
+
     if (!orderId || typeof orderId !== "string") {
       return new Response(JSON.stringify({ error: "orderId required" }), {
         status: 400,
@@ -60,12 +114,79 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
+    const sa = ((order.shipping_address ?? {}) as Record<string, any>);
+    const effectiveMethod = paymentMethod || sa.paymentMethod || "card";
+
+    // Detect if a card order returned from PaySky 3D Secure redirect to /order-confirmation
+    const isCardOrder = effectiveMethod === "card";
+    const isPaid = Boolean(
+      rawIsPaid ||
+      sa.isPaid ||
+      order.status === "processing" ||
+      (isCardOrder && isOrderConfirmationPage)
+    );
+
+    // Check idempotency so calling from both Checkout.tsx and OrderConfirmation.tsx
+    // never sends duplicate emails for the same order state.
+    const alreadySentInitial = Boolean(sa.emailNotificationSentAt);
+    const alreadySentPaid = Boolean(sa.paidNotificationSentAt);
+
+    if (!forceResend) {
+      if (isPaid && alreadySentPaid) {
+        return new Response(
+          JSON.stringify({
+            success: true,
+            alreadySent: true,
+            emailSent: true,
+            status: order.status,
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (!isPaid && alreadySentInitial) {
+        return new Response(
+          JSON.stringify({
+            success: true,
+            alreadySent: true,
+            emailSent: true,
+            status: order.status,
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    // If this is a paid card order (via Lightbox callback or 3DS redirect to OrderConfirmation),
+    // update the order status to 'processing' using service_role (since client UPDATE is blocked by RLS).
+    let updatedShippingAddress = { ...sa };
+    let currentStatus = order.status;
+    if (paymentDetails) {
+      updatedShippingAddress.paymentDetails = paymentDetails;
+    } else if (queryParams && Object.keys(queryParams).length > 1 && !updatedShippingAddress.paymentDetails) {
+      updatedShippingAddress.paymentDetails = queryParams;
+    }
+    if (isPaid) {
+      updatedShippingAddress.isPaid = true;
+    }
+
+    if (isPaid && currentStatus === "pending") {
+      currentStatus = "processing";
+      await supabase
+        .from("orders")
+        .update({
+          status: "processing",
+          shipping_address: updatedShippingAddress,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", orderId);
+    }
+
     const { data: rawItems } = await supabase
       .from("order_items")
       .select("product_name, quantity, price")
       .eq("order_id", orderId);
 
-    // Fetch site_info for contact details (WhatsApp, phone, email) so values stay 100% in sync with admin dashboard
+    // Fetch site_info for contact details (WhatsApp, phone, email)
     const { data: contactRows } = await supabase
       .from("site_info")
       .select("key, value")
@@ -85,7 +206,6 @@ const handler = async (req: Request): Promise<Response> => {
     }
     const cleanWhatsapp = digits || "201501896456";
 
-    // Format for display: 01501896456
     let displayWhatsapp = rawWhatsapp || "01501896456";
     if (displayWhatsapp.startsWith("+20")) {
       displayWhatsapp = "0" + displayWhatsapp.slice(3);
@@ -102,7 +222,6 @@ const handler = async (req: Request): Promise<Response> => {
       price: Number(i.price) || 0,
     }));
 
-    const sa = (order.shipping_address ?? {}) as Record<string, any>;
     const shippingAddress = {
       firstName: String(sa.firstName ?? ""),
       lastName: String(sa.lastName ?? ""),
@@ -114,10 +233,9 @@ const handler = async (req: Request): Promise<Response> => {
       instapayReference: String(sa.instapayReference ?? ""),
     };
 
-    const effectiveMethod = paymentMethod || sa.paymentMethod || "card";
-    const paymentLabel = 
-      effectiveMethod === "cod" || effectiveMethod === "cash" 
-        ? "الدفع عند الاستلام (Cash on Delivery)" 
+    const paymentLabel =
+      effectiveMethod === "cod" || effectiveMethod === "cash"
+        ? "الدفع عند الاستلام (Cash on Delivery)"
         : effectiveMethod === "instapay"
         ? "إنستاباي (InstaPay Transfer)"
         : "بطاقة بنكية عبر PaySky (Online Card)";
@@ -130,19 +248,21 @@ const handler = async (req: Request): Promise<Response> => {
       minute: "2-digit",
     });
 
-    // Customer WhatsApp direct link for admin notification
     const rawCustomerPhone = shippingAddress.phone.replace(/[^0-9]/g, "");
-    const customerWaNumber = rawCustomerPhone.startsWith("0") 
-      ? "2" + rawCustomerPhone 
-      : rawCustomerPhone.startsWith("20") 
-      ? rawCustomerPhone 
-      : rawCustomerPhone ? "2" + rawCustomerPhone : "";
+    const customerWaNumber = rawCustomerPhone.startsWith("0")
+      ? "2" + rawCustomerPhone
+      : rawCustomerPhone.startsWith("20")
+      ? rawCustomerPhone
+      : rawCustomerPhone
+      ? "2" + rawCustomerPhone
+      : "";
     const adminCustomerWaUrl = customerWaNumber
       ? `https://wa.me/${customerWaNumber}?text=${encodeURIComponent(`مرحباً ${shippingAddress.firstName}، بخصوص طلبك رقم #${orderId.slice(0, 8).toUpperCase()} من متجر AzkaSmart...`)}`
       : null;
 
-    // Mobile-optimized item rows (never overflows regardless of screen width)
-    const itemsListHtml = items.map((item) => `
+    const itemsListHtml = items
+      .map(
+        (item) => `
       <tr>
         <td style="padding:14px 0;border-bottom:1px solid #e2e8f0;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%;">
@@ -167,9 +287,10 @@ const handler = async (req: Request): Promise<Response> => {
           </table>
         </td>
       </tr>
-    `).join("");
+    `
+      )
+      .join("");
 
-    // Shared CSS reset + Mobile responsive styles
     const sharedEmailStyles = `
       body, p, h1, h2, h3, h4, table, td, div, a, span {
         -webkit-text-size-adjust: 100%;
@@ -235,7 +356,6 @@ const handler = async (req: Request): Promise<Response> => {
       }
     `;
 
-    // Admin notification email HTML (100% responsive on phone & desktop)
     const adminEmailHtml = `
       <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
       <html xmlns="http://www.w3.org/1999/xhtml" dir="rtl" lang="ar">
@@ -255,8 +375,6 @@ const handler = async (req: Request): Promise<Response> => {
           <tr>
             <td align="center" class="email-shell" style="padding:20px 10px;">
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="email-container" style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 16px rgba(15,23,42,0.06);border:1px solid #e2e8f0;">
-                
-                <!-- Admin Header -->
                 <tr>
                   <td class="email-header" style="background:#0f172a;padding:26px 20px;text-align:center;">
                     <div style="color:#00d2b4;font-size:22px;font-weight:bold;margin-bottom:6px;">
@@ -267,12 +385,8 @@ const handler = async (req: Request): Promise<Response> => {
                     </div>
                   </td>
                 </tr>
-
-                <!-- Admin Body -->
                 <tr>
                   <td class="email-card" style="padding:24px 20px;background:#ffffff;">
-
-                    <!-- Payment status badge -->
                     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f0fdfa;border:1px solid #ccfbf1;border-radius:10px;margin-bottom:20px;">
                       <tr>
                         <td style="padding:14px 16px;">
@@ -284,8 +398,6 @@ const handler = async (req: Request): Promise<Response> => {
                         </td>
                       </tr>
                     </table>
-
-                    <!-- Customer Details -->
                     <div style="margin-bottom:20px;">
                       <div style="font-size:14px;font-weight:bold;color:#0f172a;border-bottom:2px solid #00d2b4;padding-bottom:6px;margin-bottom:10px;">
                         بيانات العميل والتوصيل
@@ -302,9 +414,7 @@ const handler = async (req: Request): Promise<Response> => {
                         </tr>
                       </table>
                     </div>
-
                     ${adminCustomerWaUrl ? `
-                      <!-- Quick WhatsApp Customer Contact Button -->
                       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:20px;">
                         <tr>
                           <td align="center">
@@ -318,18 +428,12 @@ const handler = async (req: Request): Promise<Response> => {
                         </tr>
                       </table>
                     ` : ''}
-
-                    <!-- Products Header -->
                     <div style="font-size:14px;font-weight:bold;color:#0f172a;border-bottom:2px solid #00d2b4;padding-bottom:6px;margin-bottom:4px;">
                       المنتجات المطلوبة (${items.reduce((s, it) => s + it.quantity, 0)})
                     </div>
-
-                    <!-- Products List -->
                     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;margin-bottom:16px;">
                       ${itemsListHtml}
                     </table>
-
-                    <!-- Total Block -->
                     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#0f172a;border-radius:10px;margin:16px 0 20px 0;">
                       <tr>
                         <td align="right" valign="middle" class="total-row-td" style="padding:16px 18px;color:#94a3b8;font-size:15px;font-weight:600;">
@@ -340,14 +444,11 @@ const handler = async (req: Request): Promise<Response> => {
                         </td>
                       </tr>
                     </table>
-
                     <div style="color:#94a3b8;font-size:12px;text-align:center;margin-top:16px;">
                       تم تسجيل هذا الطلب في ${orderDateFormatted}
                     </div>
-
                   </td>
                 </tr>
-
               </table>
             </td>
           </tr>
@@ -356,7 +457,6 @@ const handler = async (req: Request): Promise<Response> => {
       </html>
     `;
 
-    // Customer receipt email HTML (Bilingual: Arabic & English, 100% mobile-friendly)
     const customerEmailHtml = `
       <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
       <html xmlns="http://www.w3.org/1999/xhtml" dir="rtl" lang="ar">
@@ -376,8 +476,6 @@ const handler = async (req: Request): Promise<Response> => {
           <tr>
             <td align="center" class="email-shell" style="padding:20px 10px;">
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="email-container" style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 16px rgba(15,23,42,0.06);border:1px solid #e2e8f0;">
-                
-                <!-- Header Banner -->
                 <tr>
                   <td class="email-header" style="background:#0f172a;padding:28px 24px;text-align:center;">
                     <div style="color:#00d2b4;font-size:24px;font-weight:bold;letter-spacing:-0.5px;margin-bottom:8px;">
@@ -391,12 +489,8 @@ const handler = async (req: Request): Promise<Response> => {
                     </div>
                   </td>
                 </tr>
-
-                <!-- Body Card -->
                 <tr>
                   <td class="email-card" style="padding:24px 20px;background:#ffffff;">
-
-                    <!-- Order ID & Date Box -->
                     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f0fdfa;border:1px solid #ccfbf1;border-radius:10px;margin-bottom:20px;">
                       <tr>
                         <td style="padding:14px 16px;">
@@ -420,8 +514,6 @@ const handler = async (req: Request): Promise<Response> => {
                         </td>
                       </tr>
                     </table>
-
-                    <!-- Shipping Details -->
                     <div style="margin-bottom:20px;">
                       <div style="font-size:14px;font-weight:bold;color:#0f172a;border-bottom:2px solid #00d2b4;padding-bottom:6px;margin-bottom:10px;">
                         تفاصيل الشحن والتوصيل / Shipping Details
@@ -437,18 +529,12 @@ const handler = async (req: Request): Promise<Response> => {
                         </tr>
                       </table>
                     </div>
-
-                    <!-- Items Header -->
                     <div style="font-size:14px;font-weight:bold;color:#0f172a;border-bottom:2px solid #00d2b4;padding-bottom:6px;margin-bottom:4px;">
                       المنتجات المطلوبة / Order Items (${items.reduce((s, it) => s + it.quantity, 0)})
                     </div>
-
-                    <!-- Items List (Responsive fluid table) -->
                     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;margin-bottom:16px;">
                       ${itemsListHtml}
                     </table>
-
-                    <!-- Total Block -->
                     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#0f172a;border-radius:10px;margin:16px 0 24px 0;">
                       <tr>
                         <td align="right" valign="middle" class="total-row-td" style="padding:16px 20px;color:#94a3b8;font-size:15px;font-weight:600;">
@@ -459,8 +545,6 @@ const handler = async (req: Request): Promise<Response> => {
                         </td>
                       </tr>
                     </table>
-
-                    <!-- Support & WhatsApp Section -->
                     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:20px;padding-top:20px;border-top:1px solid #e2e8f0;text-align:center;">
                       <tr>
                         <td align="center" style="padding:0;">
@@ -470,8 +554,6 @@ const handler = async (req: Request): Promise<Response> => {
                           <div style="font-size:13px;color:#64748b;margin-bottom:14px;line-height:1.5;">
                             فريق خدمة العملاء والدعم الفني متاح دائماً لمساعدتك عبر واتساب
                           </div>
-                          
-                          <!-- Buttons -->
                           <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;width:100%;max-width:440px;">
                             <tr>
                               <td align="center" style="padding:4px 0;">
@@ -496,16 +578,12 @@ const handler = async (req: Request): Promise<Response> => {
                         </td>
                       </tr>
                     </table>
-
-                    <!-- Footer Info -->
                     <div style="color:#94a3b8;font-size:11px;text-align:center;margin-top:24px;line-height:1.6;border-top:1px dashed #e2e8f0;padding-top:16px;">
                       AzkaSmart — حلول المنازل الذكية والأنظمة المتطورة في مصر<br>
                       Smart Home AI Solutions & Automation • Cairo, Egypt
                     </div>
-
                   </td>
                 </tr>
-
               </table>
             </td>
           </tr>
@@ -514,77 +592,115 @@ const handler = async (req: Request): Promise<Response> => {
       </html>
     `;
 
-    let adminEmailResponse = null;
-    let customerEmailResponse = null;
+    let adminEmailResponse: any = null;
+    let customerEmailResponse: any = null;
+    const emailErrors: string[] = [];
 
-    const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+    const RESEND_API_KEY = await resolveResendApiKey(supabase);
     if (RESEND_API_KEY) {
       const resend = new Resend(RESEND_API_KEY);
 
-      // Safe sender function with automatic fallback to onboarding@resend.dev
-      // if the custom domain isn't verified yet on Resend.
-      const sendEmail = async (to: string[], subject: string, html: string) => {
-        try {
-          const primaryRes = await resend.emails.send({
-            from: `Azkasmart <${PRIMARY_FROM_EMAIL}>`,
-            to,
-            subject,
-            html,
-          });
+      // Multi-stage sender: tries orders@azkasmart.com -> info@azkasmart.com -> onboarding@resend.dev
+      const sendWithSenderChain = async (
+        toList: string[],
+        subject: string,
+        html: string,
+        replyTo?: string
+      ) => {
+        const senders = Array.from(
+          new Set([PRIMARY_FROM_EMAIL, SECONDARY_FROM_EMAIL, FALLBACK_FROM_EMAIL])
+        );
+        let lastRes: any = null;
 
-          if (primaryRes.error) {
-            console.warn("Primary sender returned error, trying fallback sender:", primaryRes.error);
-            const fallbackRes = await resend.emails.send({
-              from: `Azkasmart <${FALLBACK_FROM_EMAIL}>`,
-              to,
-              subject,
-              html,
-            });
-            return fallbackRes;
-          }
-          return primaryRes;
-        } catch (sendErr) {
-          console.warn("Primary send threw exception, trying fallback:", sendErr);
+        for (const sender of senders) {
+          // Resend's onboarding@resend.dev only permits sending to the account owner email (mmgdy20xx@gmail.com)
+          const effectiveRecipients =
+            sender === FALLBACK_FROM_EMAIL && toList.includes(ADMIN_FALLBACK_EMAIL)
+              ? [ADMIN_FALLBACK_EMAIL]
+              : toList;
+
           try {
-            return await resend.emails.send({
-              from: `Azkasmart <${FALLBACK_FROM_EMAIL}>`,
-              to,
+            const res = await resend.emails.send({
+              from: `AzkaSmart <${sender}>`,
+              to: effectiveRecipients,
+              ...(replyTo ? { reply_to: replyTo } : {}),
               subject,
               html,
             });
-          } catch (fallbackErr) {
-            console.error("Fallback sender also failed:", fallbackErr);
-            return null;
+            lastRes = res;
+            if (!res.error && res.data?.id) {
+              return res;
+            }
+            console.warn(`Resend sender ${sender} -> ${effectiveRecipients.join(",")} error:`, res.error);
+            emailErrors.push(`${sender}: ${res.error?.message || JSON.stringify(res.error)}`);
+          } catch (err: any) {
+            console.warn(`Resend sender ${sender} threw exception:`, err);
+            emailErrors.push(`${sender}: ${err?.message || String(err)}`);
           }
         }
+        return lastRes;
       };
 
-      try {
-        adminEmailResponse = await sendEmail(
-          [ADMIN_EMAIL],
-          `🛒 طلب جديد #${orderId.slice(0, 8).toUpperCase()} - ${total.toLocaleString()} ج.م (${paymentLabel})`,
-          adminEmailHtml
-        );
-      } catch (adminMailErr) {
-        console.error("Failed to send admin order email:", adminMailErr);
-      }
+      const adminSubject = `🛒 طلب جديد #${orderId.slice(0, 8).toUpperCase()} - ${total.toLocaleString()} ج.م (${paymentLabel})`;
+      const adminRecipients = Array.from(new Set([contactEmail, ADMIN_EMAIL, ADMIN_FALLBACK_EMAIL].filter(Boolean)));
 
-      if (email) {
-        try {
-          customerEmailResponse = await sendEmail(
-            [email],
-            `تأكيد طلبك من أزكاسمارت #${orderId.slice(0, 8).toUpperCase()} | Order Confirmed!`,
-            customerEmailHtml
-          );
-        } catch (custMailErr) {
-          console.error("Failed to send customer order email:", custMailErr);
+      // 1. Send Admin Notification (to info@azkasmart.com + mmgdy20xx@gmail.com so forwarder/alias issues never lose an order)
+      adminEmailResponse = await sendWithSenderChain(
+        adminRecipients,
+        adminSubject,
+        adminEmailHtml,
+        email || undefined
+      );
+
+      // If sending to multiple recipients at once was rejected by Resend sandbox mode, retry owner Gmail directly
+      if (adminEmailResponse?.error && ADMIN_FALLBACK_EMAIL) {
+        const retryOwner = await sendWithSenderChain(
+          [ADMIN_FALLBACK_EMAIL],
+          adminSubject,
+          adminEmailHtml,
+          email || undefined
+        );
+        if (retryOwner && !retryOwner.error) {
+          adminEmailResponse = retryOwner;
         }
       }
+
+      // 2. Send Customer Order Confirmation
+      if (email) {
+        customerEmailResponse = await sendWithSenderChain(
+          [email],
+          `تأكيد طلبك من أزكاسمارت #${orderId.slice(0, 8).toUpperCase()} | Order Confirmed!`,
+          customerEmailHtml,
+          contactEmail
+        );
+      }
     } else {
-      console.warn("RESEND_API_KEY not configured in Supabase secrets.");
+      console.warn("RESEND_API_KEY not configured in Supabase secrets or site_info.");
+      emailErrors.push("RESEND_API_KEY is missing in Supabase Edge Function secrets.");
     }
 
-    // Best-effort push notification (don't block response)
+    const adminDelivered = Boolean(adminEmailResponse?.data?.id && !adminEmailResponse?.error);
+    const customerDelivered = Boolean(customerEmailResponse?.data?.id && !customerEmailResponse?.error);
+    const anyEmailSent = adminDelivered || customerDelivered;
+
+    // Persist notification timestamps in shipping_address for idempotency
+    if (anyEmailSent) {
+      const nowIso = new Date().toISOString();
+      updatedShippingAddress = {
+        ...updatedShippingAddress,
+        emailNotificationSentAt: updatedShippingAddress.emailNotificationSentAt || nowIso,
+        ...(isPaid ? { paidNotificationSentAt: nowIso } : {}),
+      };
+      await supabase
+        .from("orders")
+        .update({
+          shipping_address: updatedShippingAddress,
+          updated_at: nowIso,
+        })
+        .eq("id", orderId);
+    }
+
+    // Best-effort push notification
     try {
       await sendPushToEmail(supabase, email, {
         title: "تم تأكيد طلبك 🎉",
@@ -596,11 +712,16 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        adminEmail: adminEmailResponse, 
+      JSON.stringify({
+        success: true,
+        emailSent: anyEmailSent,
+        adminDelivered,
+        customerDelivered,
+        status: currentStatus,
+        adminEmail: adminEmailResponse,
         customerEmail: customerEmailResponse,
-        emailConfigured: !!RESEND_API_KEY 
+        emailConfigured: !!RESEND_API_KEY,
+        errors: emailErrors.length ? emailErrors : undefined,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

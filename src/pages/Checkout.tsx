@@ -434,14 +434,27 @@ const Checkout = () => {
     // Coupon usage tracking is handled via admin reports — public increment was removed
     // to prevent abuse (anyone could exhaust max_uses by replaying the request).
 
-    // Send order notification email for non-card orders immediately
-    // (Card orders send notification upon completeCallback)
+    // Send order notification email and wait (up to 6s) so navigation never aborts the request.
+    // For card orders, an initial pending notification is also sent if 3DS redirects away,
+    // and OrderConfirmation.tsx + completeCallback safely deduplicate via idempotency.
+    let notificationDelivered = false;
     if (paymentMethod !== 'card') {
-      supabase.functions.invoke('send-order-notification', {
-        body: { orderId, paymentMethod },
-      }).then(({ error }) => {
-        if (error) console.warn('Could not send order notification:', error);
-      }).catch((e) => console.warn('Could not send order notification:', e));
+      try {
+        const invokePromise = supabase.functions.invoke('send-order-notification', {
+          body: { orderId, paymentMethod, isPaid: false },
+        });
+        const timeoutPromise = new Promise<{ data: any; error: any }>((resolve) =>
+          setTimeout(() => resolve({ data: null, error: new Error('Notification timeout') }), 6000)
+        );
+        const { data: notifyRes, error: notifyErr } = await Promise.race([invokePromise, timeoutPromise]);
+        if (notifyErr) {
+          console.warn('Could not send order notification:', notifyErr);
+        } else if (notifyRes?.emailSent) {
+          notificationDelivered = true;
+        }
+      } catch (e) {
+        console.warn('Could not send order notification:', e);
+      }
     }
 
     // Store last order receipt in sessionStorage so OrderConfirmation page can display
@@ -455,6 +468,7 @@ const Checkout = () => {
         created_at: new Date().toISOString(),
         shipping_address: {
           ...orderData.shipping_address,
+          notificationDelivered,
         },
         items: items.map((i, idx) => ({
           id: i.product?.id || `item-${idx}`,
@@ -571,10 +585,22 @@ const Checkout = () => {
             console.warn('Could not update cached receipt on card payment:', cacheErr);
           }
 
-          // Trigger email receipt and notification upon successful payment
-          supabase.functions.invoke('send-order-notification', {
-            body: { orderId: order.id, paymentMethod: 'card', isPaid: true },
-          }).catch((e) => console.warn('Could not send order notification:', e));
+          // Trigger email receipt and update order status via service_role upon successful payment
+          try {
+            await Promise.race([
+              supabase.functions.invoke('send-order-notification', {
+                body: {
+                  orderId: order.id,
+                  paymentMethod: 'card',
+                  isPaid: true,
+                  paymentDetails: paymentInfo,
+                },
+              }),
+              new Promise((resolve) => setTimeout(resolve, 6000)),
+            ]);
+          } catch (e) {
+            console.warn('Could not send order notification:', e);
+          }
 
           toast({
             title: language === 'ar' ? 'تم الدفع بنجاح' : 'Payment Successful',

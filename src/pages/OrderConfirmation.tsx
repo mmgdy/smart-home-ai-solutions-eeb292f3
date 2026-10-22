@@ -63,6 +63,36 @@ const OrderConfirmation = () => {
 
       setOrderConfirmed(true);
 
+      // Guarantee order notification email is sent (handles PaySky 3DS bank redirects
+      // where Checkout.tsx unloaded, or any mobile navigation that aborted the checkout request).
+      // send-order-notification is idempotent and will skip if already delivered.
+      let cachedPaymentMethod: string | undefined;
+      try {
+        const cachedRaw = sessionStorage.getItem('last_order_receipt');
+        if (cachedRaw) {
+          const cachedParsed = JSON.parse(cachedRaw);
+          if (cachedParsed?.id === orderId) {
+            cachedPaymentMethod = cachedParsed?.shipping_address?.paymentMethod;
+          }
+        }
+      } catch {}
+
+      supabase.functions
+        .invoke('send-order-notification', {
+          body: {
+            orderId,
+            paymentMethod: cachedPaymentMethod,
+            isOrderConfirmationPage: true,
+            queryParams: Object.fromEntries(searchParams.entries()),
+          },
+        })
+        .then(({ data: notifyRes }) => {
+          if (notifyRes?.status === 'processing') {
+            setOrder((prev) => (prev ? { ...prev, status: 'processing' } : prev));
+          }
+        })
+        .catch((err) => console.warn('Order confirmation notification check:', err));
+
       try {
         const { data: orderData } = await supabase
           .from('orders')
