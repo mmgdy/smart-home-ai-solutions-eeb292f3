@@ -517,31 +517,70 @@ async function tryPollinations(
   opts: ChatCompleteOptions,
 ): Promise<string | null> {
   const providerKey = `pollinations-${model}`;
-  if (isProviderOnCooldown(providerKey)) return null;
+  const timeoutMs = Math.max(opts.timeoutMs ?? 11000, 10500);
   try {
+    // Note: Pollinations `openai-fast` (GPT-OSS 20B) is a reasoning model where `max_tokens`
+    // includes chain-of-thought reasoning tokens. Passing `reasoning_effort: "low"` and avoiding
+    // a small max_tokens cap prevents reasoning from starving `message.content`.
     const { ok, status, text } = await postJson(
       `https://text.pollinations.ai/openai?referrer=${POLLINATIONS_REFERRER}`,
       {
         model,
+        reasoning_effort: "low",
         messages,
+        temperature: opts.temperature ?? 0.25,
         stream: false,
-        ...(opts.maxTokens ? { max_tokens: opts.maxTokens } : {}),
       },
       {},
-      opts.timeoutMs ?? 6500,
+      timeoutMs,
     );
-    if (!ok) {
+    if (ok) {
+      const content = extractContent(text);
+      if (content) {
+        markProviderSuccess(providerKey);
+        return content;
+      }
+    } else {
       console.warn(`ai: pollinations(${model}) ${status}: ${text.slice(0, 140)}`);
-      markProviderFailure(providerKey, status === 408 ? "timeout" : status);
-      return null;
     }
-    const content = extractContent(text);
-    if (!content) {
-      lastOutcome.set(providerKey, "empty");
-      return null;
+
+    // If anonymous concurrent rate-limit (402/429) hit, wait briefly and retry via root endpoint
+    if (status === 402 || status === 429 || status === 503) {
+      await new Promise((r) => setTimeout(r, 1100));
+      const retry = await postJson(
+        "https://text.pollinations.ai/",
+        {
+          model: "openai-fast",
+          reasoning_effort: "low",
+          messages,
+          seed: Math.floor(Math.random() * 100000),
+        },
+        {},
+        timeoutMs,
+      );
+      if (retry.ok && retry.text.trim()) {
+        const parsedJson = extractContent(retry.text);
+        if (parsedJson) {
+          markProviderSuccess(`${providerKey}-retry`);
+          return parsedJson;
+        }
+        const raw = retry.text.trim();
+        const lower = raw.toLowerCase();
+        if (
+          !raw.startsWith("{") &&
+          !raw.startsWith("<!doctype") &&
+          !lower.includes("doesn't have enough credits") &&
+          !lower.includes("rate limit") &&
+          !lower.includes("bad gateway")
+        ) {
+          markProviderSuccess(`${providerKey}-text`);
+          return raw;
+        }
+      }
     }
-    markProviderSuccess(providerKey);
-    return content;
+
+    lastOutcome.set(providerKey, String(status || "empty"));
+    return null;
   } catch (e) {
     console.warn(`ai: pollinations(${model}) threw:`, e);
     lastOutcome.set(providerKey, "threw");
@@ -588,8 +627,8 @@ function buildOmniChain(
   // - reasoning_json: OmniRoute -> Gemini Flash (large context) -> Groq 70B -> OpenRouter DeepSeek/Qwen Free -> HF -> Pollinations
   let order =
     task === "reasoning_json"
-      ? ["omniroute", "gemini", "groq", "openrouter", "huggingface", "pollinations-fast", "pollinations"]
-      : ["omniroute", "groq", "gemini", "openrouter", "huggingface", "pollinations-fast", "pollinations"];
+      ? ["omniroute", "gemini", "groq", "openrouter", "huggingface", "pollinations-fast"]
+      : ["omniroute", "groq", "gemini", "openrouter", "huggingface", "pollinations-fast"];
 
   // Honor explicit primary_provider if set to a specific provider in Admin UI (and not "omni")
   if (cfg.primary_provider && cfg.primary_provider !== "omni" && adapters[cfg.primary_provider]) {

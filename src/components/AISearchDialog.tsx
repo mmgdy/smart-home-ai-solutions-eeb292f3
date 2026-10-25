@@ -1,12 +1,58 @@
 import { useEffect, useRef, useState } from 'react';
-import { Search, Sparkles, Loader2, X, ArrowRight } from 'lucide-react';
+import { Search, Sparkles, Loader2, X, ArrowRight, ExternalLink, Bot, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/lib/i18n';
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from '@/integrations/supabase/config';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import {
+  extractProductSlugsFromMarkdown,
+  generateSmartClientAdvice,
+  isLegacyFallbackResponse,
+  normalizeAssistantLinks,
+} from '@/lib/smartAdvisorClient';
 
 type Msg = { role: 'user' | 'assistant'; content: string };
+
+function SearchProductMiniCard({ slug, onNavigate }: { slug: string; onNavigate: () => void }) {
+  const { formatPrice } = useLanguage();
+  const { data: product } = useQuery({
+    queryKey: ['ai-product-card', slug],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('products')
+        .select('id, name, price, image_url, slug')
+        .eq('slug', slug)
+        .maybeSingle();
+      return data;
+    },
+    staleTime: 60_000,
+  });
+  if (!product) return null;
+  return (
+    <Link
+      to={`/products/${product.slug}`}
+      onClick={onNavigate}
+      className="flex items-center gap-3 p-2 rounded-xl border border-border bg-background hover:border-primary/50 transition-colors"
+    >
+      <img
+        src={product.image_url || '/placeholder.svg'}
+        alt={product.name}
+        className="w-12 h-12 rounded-lg object-contain p-1 flex-shrink-0 bg-muted/30 border border-border/40"
+        onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/placeholder.svg'; }}
+      />
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-semibold truncate">{product.name}</p>
+        <p className="text-xs font-bold text-primary">{formatPrice(product.price)}</p>
+      </div>
+      <ExternalLink className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+    </Link>
+  );
+}
 
 export function AISearchDialog() {
   const { isRTL } = useLanguage();
@@ -83,22 +129,41 @@ export function AISearchDialog() {
               acc += delta;
               setMessages((prev) => {
                 const arr = [...prev];
-                arr[arr.length - 1] = { role: 'assistant', content: acc };
+                arr[arr.length - 1] = { role: 'assistant', content: normalizeAssistantLinks(acc) };
                 return arr;
               });
             }
           } catch { /* ignore */ }
         }
       }
-    } catch (e: any) {
-      setMessages((prev) => {
-        const arr = [...prev];
-        arr[arr.length - 1] = {
-          role: 'assistant',
-          content: isRTL ? 'حدث خطأ. حاول مرة أخرى.' : 'Something went wrong. Please try again.',
-        };
-        return arr;
-      });
+
+      // If the remote edge function returned an older generic template, upgrade it with smart grounded advice
+      if (!acc.trim() || isLegacyFallbackResponse(acc)) {
+        const smartText = await generateSmartClientAdvice(text, isRTL);
+        setMessages((prev) => {
+          const arr = [...prev];
+          arr[arr.length - 1] = { role: 'assistant', content: smartText };
+          return arr;
+        });
+      }
+    } catch {
+      try {
+        const smartText = await generateSmartClientAdvice(text, isRTL);
+        setMessages((prev) => {
+          const arr = [...prev];
+          arr[arr.length - 1] = { role: 'assistant', content: smartText };
+          return arr;
+        });
+      } catch {
+        setMessages((prev) => {
+          const arr = [...prev];
+          arr[arr.length - 1] = {
+            role: 'assistant',
+            content: isRTL ? 'حدث خطأ. حاول مرة أخرى.' : 'Something went wrong. Please try again.',
+          };
+          return arr;
+        });
+      }
     } finally {
       setBusy(false);
     }
@@ -135,7 +200,7 @@ export function AISearchDialog() {
               <div className="flex items-center gap-1.5 text-primary">
                 <Sparkles className="h-4 w-4" />
                 <span className="text-xs font-semibold uppercase tracking-wider">
-                  {isRTL ? 'بحث بالذكاء الاصطناعي' : 'AI Search'}
+                  {isRTL ? 'بحث ومستشار بالذكاء الاصطناعي' : 'AI Smart Search'}
                 </span>
               </div>
               <div className="flex-1" />
@@ -158,7 +223,7 @@ export function AISearchDialog() {
                   ref={inputRef}
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder={isRTL ? 'اسأل عن أي منتج أو باقة...' : 'Ask about any product or bundle...'}
+                  placeholder={isRTL ? 'اسأل عن أي منتج أو باقة أو ميزانية...' : 'Ask about any product, bundle, or budget...'}
                   className="flex-1 bg-transparent outline-none text-sm placeholder:text-muted-foreground"
                   disabled={busy}
                 />
@@ -191,7 +256,12 @@ export function AISearchDialog() {
                 </div>
               ) : (
                 messages.map((m, i) => (
-                  <MessageBubble key={i} msg={m} isRTL={isRTL} />
+                  <MessageBubble
+                    key={i}
+                    msg={m}
+                    isStreaming={busy && i === messages.length - 1}
+                    onClose={() => setOpen(false)}
+                  />
                 ))
               )}
             </div>
@@ -202,26 +272,81 @@ export function AISearchDialog() {
   );
 }
 
-function MessageBubble({ msg, isRTL }: { msg: Msg; isRTL: boolean }) {
+function MessageBubble({
+  msg,
+  isStreaming,
+  onClose,
+}: {
+  msg: Msg;
+  isStreaming: boolean;
+  onClose: () => void;
+}) {
   const isUser = msg.role === 'user';
-  // Linkify /products/slug and /paths
-  const parts = msg.content.split(/(\/(?:products|bundles|brands|services|ai-consultant|calculator|profile)[a-zA-Z0-9/\-_?=&]*)/g);
+  const normalizedContent = normalizeAssistantLinks(msg.content);
+  const slugs = !isUser && !isStreaming ? extractProductSlugsFromMarkdown(normalizedContent) : [];
+
   return (
-    <div className={cn('flex', isUser ? 'justify-end' : 'justify-start')}>
-      <div className={cn(
-        'max-w-[85%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap',
-        isUser ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'
-      )}>
-        {parts.map((p, i) =>
-          p.startsWith('/') ? (
-            <a key={i} href={p} className="underline underline-offset-2 font-medium">
-              {p}
-            </a>
-          ) : (
-            <span key={i}>{p}</span>
-          )
+    <div className={cn('flex gap-2.5', isUser ? 'justify-end' : 'justify-start')}>
+      {!isUser && (
+        <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+          <Bot className="h-3.5 w-3.5 text-primary" />
+        </div>
+      )}
+      <div
+        className={cn(
+          'max-w-[88%] rounded-2xl px-4 py-3 text-sm shadow-sm',
+          isUser
+            ? 'bg-primary text-primary-foreground whitespace-pre-wrap'
+            : 'bg-muted/80 border border-border/50 text-foreground',
+        )}
+      >
+        {isUser ? (
+          <span>{msg.content}</span>
+        ) : (
+          <>
+            <div className="prose prose-sm dark:prose-invert max-w-none font-body text-[13.5px] leading-relaxed [&_p]:my-1.5 [&_ul]:my-1.5 [&_ul]:ps-5 [&_li]:my-0.5 [&_h3]:font-display [&_h3]:text-sm [&_h3]:font-bold [&_h3]:mt-2.5 [&_h3]:mb-1 [&_strong]:text-primary">
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  a: ({ href, children }) => {
+                    const cleanHref = href?.replace(/^https?:\/\/(?:www\.)?azkasmart\.com/i, '') || '';
+                    if (cleanHref.startsWith('/')) {
+                      return (
+                        <Link
+                          to={cleanHref}
+                          onClick={onClose}
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-primary/10 hover:bg-primary/20 text-primary font-semibold no-underline transition-colors"
+                        >
+                          🛒 {children}
+                        </Link>
+                      );
+                    }
+                    return (
+                      <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary underline">
+                        {children}
+                      </a>
+                    );
+                  },
+                }}
+              >
+                {normalizedContent}
+              </ReactMarkdown>
+            </div>
+            {slugs.length > 0 && (
+              <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {slugs.slice(0, 4).map((slug) => (
+                  <SearchProductMiniCard key={slug} slug={slug} onNavigate={onClose} />
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
+      {isUser && (
+        <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center flex-shrink-0 mt-0.5">
+          <User className="h-3.5 w-3.5 text-primary-foreground" />
+        </div>
+      )}
     </div>
   );
 }

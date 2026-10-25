@@ -16,19 +16,16 @@ import { Link, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from '@/integrations/supabase/config';
+import {
+  extractProductSlugsFromMarkdown,
+  generateSmartClientAdvice,
+  isLegacyFallbackResponse,
+  normalizeAssistantLinks,
+} from '@/lib/smartAdvisorClient';
 
 type Message = { role: 'user' | 'assistant'; content: string };
 
 const CHAT_URL = `${SUPABASE_URL}/functions/v1/smart-home-consultant`;
-
-function extractProductSlugs(content: string): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const [, slug] of content.matchAll(/\[[^\]]*\]\(\/products\/([^)]+)\)/g)) {
-    if (!seen.has(slug)) { seen.add(slug); out.push(slug); }
-  }
-  return out;
-}
 
 function ProductMiniCard({ slug }: { slug: string }) {
   const { formatPrice } = useLanguage();
@@ -80,7 +77,7 @@ const SUGGESTED_AR = [
 ];
 
 const AIConsultant = () => {
-  const { t, isRTL } = useLanguage();
+  const { isRTL } = useLanguage();
   const { get: getInfo } = useSiteInfo();
   const rawWa = (getInfo('contact', 'whatsapp', '01501896456') || '01501896456').replace(/\D/g, '');
   const whatsappNumber = rawWa.startsWith('0') ? '2' + rawWa : rawWa;
@@ -112,74 +109,84 @@ const AIConsultant = () => {
 
   const streamChat = useCallback(async (userMessages: Message[]) => {
     const lastUser = [...userMessages].reverse().find((m) => m.role === "user");
-    const resp = await fetch(CHAT_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "apikey": SUPABASE_PUBLISHABLE_KEY,
-        "Authorization": `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
-      },
-      body: JSON.stringify({
-        message: lastUser?.content ?? "",
-        messages: userMessages,
-      }),
-    });
+    const userPrompt = lastUser?.content ?? "";
 
-    if (!resp.ok) {
-      const errorData = await resp.json().catch(() => ({}));
-      throw new Error(errorData.error || "Failed to connect");
-    }
-    if (!resp.body) throw new Error("No response body");
-
-    const reader = resp.body.getReader();
-    const decoder = new TextDecoder();
-    let textBuffer = "";
     let assistantContent = "";
+    try {
+      const resp = await fetch(CHAT_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": SUPABASE_PUBLISHABLE_KEY,
+          "Authorization": `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({
+          message: userPrompt,
+          messages: userMessages,
+        }),
+      });
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      textBuffer += decoder.decode(value, { stream: true });
+      if (!resp.ok || !resp.body) {
+        throw new Error("Edge function error");
+      }
 
-      let newlineIndex: number;
-      while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
-        let line = textBuffer.slice(0, newlineIndex);
-        textBuffer = textBuffer.slice(newlineIndex + 1);
-        if (line.endsWith("\r")) line = line.slice(0, -1);
-        if (line.startsWith(":") || line.trim() === "") continue;
-        if (!line.startsWith("data: ")) continue;
-        const jsonStr = line.slice(6).trim();
-        if (jsonStr === "[DONE]") break;
-        try {
-          const parsed = JSON.parse(jsonStr);
-          const content = parsed.choices?.[0]?.delta?.content as string | undefined;
-          if (content) {
-            assistantContent += content;
-            setMessages(prev => {
-              const last = prev[prev.length - 1];
-              if (last?.role === "assistant") {
-                return prev.map((m, i) => (i === prev.length - 1 ? { ...m, content: assistantContent } : m));
-              }
-              return [...prev, { role: "assistant", content: assistantContent }];
-            });
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let textBuffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        textBuffer += decoder.decode(value, { stream: true });
+
+        let newlineIndex: number;
+        while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
+          let line = textBuffer.slice(0, newlineIndex);
+          textBuffer = textBuffer.slice(newlineIndex + 1);
+          if (line.endsWith("\r")) line = line.slice(0, -1);
+          if (line.startsWith(":") || line.trim() === "") continue;
+          if (!line.startsWith("data: ")) continue;
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === "[DONE]") break;
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+            if (content) {
+              assistantContent += content;
+              const normalized = normalizeAssistantLinks(assistantContent);
+              setMessages(prev => {
+                const last = prev[prev.length - 1];
+                if (last?.role === "assistant") {
+                  return prev.map((m, i) => (i === prev.length - 1 ? { ...m, content: normalized } : m));
+                }
+                return [...prev, { role: "assistant", content: normalized }];
+              });
+            }
+          } catch {
+            textBuffer = line + "\n" + textBuffer;
+            break;
           }
-        } catch {
-          textBuffer = line + "\n" + textBuffer;
-          break;
         }
       }
+    } catch {
+      // Handled below via smart client advisor fallback
     }
 
     const lower = assistantContent.toLowerCase();
-    if (
+    const hasProviderBanner =
       lower.includes("doesn't have enough credits") ||
       lower.includes("pollinations.ai") ||
       lower.includes("top up") ||
-      lower.includes("complete a quest")
-    ) {
-      assistantContent = isRTL
-        ? `أهلاً بك في **AzkaSmart**! لمساعدتك في اختيار أفضل الأجهزة الذكية لمنزلك، يمكنك تصفح [كتالوج المنتجات الذكية](/products) أو [باقات التوفير المتكاملة](/bundles)، أو التحدث مباشرة مع خبرائنا عبر [واتساب](https://wa.me/${whatsappNumber}).`
-        : `Welcome to **AzkaSmart**! We are here to help you choose the best smart devices for your home. You can explore our [Product Catalog](/products) or [Smart Bundles](/bundles), or chat directly with our specialists on [WhatsApp](https://wa.me/${whatsappNumber}).`;
+      lower.includes("complete a quest");
+
+    if (!assistantContent.trim() || hasProviderBanner || isLegacyFallbackResponse(assistantContent)) {
+      try {
+        assistantContent = await generateSmartClientAdvice(userPrompt, isRTL);
+      } catch {
+        assistantContent = isRTL
+          ? `أهلاً بك في **AzkaSmart**! لمساعدتك في اختيار أفضل الأجهزة الذكية لمنزلك، يمكنك تصفح [كتالوج المنتجات الذكية](/products) أو [باقات التوفير المتكاملة](/bundles)، أو التحدث مباشرة مع خبرائنا عبر [واتساب](https://wa.me/${whatsappNumber}).`
+          : `Welcome to **AzkaSmart**! We are here to help you choose the best smart devices for your home. You can explore our [Product Catalog](/products) or [Smart Bundles](/bundles), or chat directly with our specialists on [WhatsApp](https://wa.me/${whatsappNumber}).`;
+      }
 
       setMessages(prev => {
         const last = prev[prev.length - 1];
@@ -188,10 +195,12 @@ const AIConsultant = () => {
         }
         return [...prev, { role: "assistant", content: assistantContent }];
       });
+    } else {
+      assistantContent = normalizeAssistantLinks(assistantContent);
     }
 
     return assistantContent;
-  }, [isRTL]);
+  }, [isRTL, whatsappNumber]);
 
   const handleSend = async (text?: string) => {
     const messageText = text || input.trim();
@@ -306,10 +315,10 @@ const AIConsultant = () => {
                                   remarkPlugins={[remarkGfm]}
                                   components={{
                                     a: ({ href, children }) => {
-                                      const isInternal = href?.startsWith('/');
-                                      if (isInternal) {
+                                      const cleanHref = href?.replace(/^https?:\/\/(?:www\.)?azkasmart\.com/i, '') || '';
+                                      if (cleanHref.startsWith('/')) {
                                         return (
-                                          <Link to={href!} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-primary/10 hover:bg-primary/20 text-primary font-semibold no-underline transition-colors">
+                                          <Link to={cleanHref} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-primary/10 hover:bg-primary/20 text-primary font-semibold no-underline transition-colors">
                                             🛒 {children}
                                           </Link>
                                         );
@@ -318,7 +327,7 @@ const AIConsultant = () => {
                                     },
                                   }}
                                 >
-                                  {message.content}
+                                  {normalizeAssistantLinks(message.content)}
                                 </ReactMarkdown>
                               </div>
                             ) : (
@@ -338,14 +347,14 @@ const AIConsultant = () => {
                             )}
                             {/* Product image cards for /products/slug links in completed messages */}
                             {message.role === 'assistant' && !(isLoading && i === messages.length - 1) && (() => {
-                              const slugs = extractProductSlugs(message.content);
+                              const slugs = extractProductSlugsFromMarkdown(message.content);
                               if (!slugs.length) return null;
                               return (
                                 <div className="mt-3 grid grid-cols-1 gap-2">
-                                  {slugs.map(slug => <ProductMiniCard key={slug} slug={slug} />)}
+                                  {slugs.slice(0, 5).map(slug => <ProductMiniCard key={slug} slug={slug} />)}
                                 </div>
                               );
-            })()}
+                            })()}
                           </div>
                           {message.role === 'user' && (
                             <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0">

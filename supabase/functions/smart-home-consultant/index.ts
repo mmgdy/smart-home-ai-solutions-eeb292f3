@@ -9,7 +9,10 @@ import { chatComplete, getLastSuccessfulProvider } from "../_shared/ai.ts";
 import {
   loadGroundedCatalog,
   matchCatalogProducts,
+  matchOfficialBundles,
+  extractPriceFilter,
   formatCatalogPromptContext,
+  buildSmartGroundedResponse,
   OFFICIAL_BUNDLES,
   INSTALLATION_POLICY,
   validateAndRepairAIOutput,
@@ -109,24 +112,35 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_ANON_KEY")!
     );
 
-    const fullCatalog = await loadGroundedCatalog(supabase, 300);
+    const fullCatalog = await loadGroundedCatalog(supabase, 500);
     const matchedProducts = matchCatalogProducts(cleaned, fullCatalog, 20);
     const productContext = formatCatalogPromptContext(matchedProducts);
+    const priceFilter = extractPriceFilter(cleaned);
+    const matchedBundles = matchOfficialBundles(cleaned);
 
-    // 3. Format Official Bundles Summary
+    // 3. Format Official Bundles Summary with full device lists
     const bundleSummary = OFFICIAL_BUNDLES.map(
-      (b) => `- ${b.nameAr} (${b.nameEn}): EGP ${b.priceEgp} (was ${b.originalPriceEgp}) — /bundles?bundle=${b.id} — ${b.descAr}`
+      (b) =>
+        `- [${b.nameAr} / ${b.nameEn}](/bundles?bundle=${b.id}): EGP ${b.priceEgp} (was ${b.originalPriceEgp}) | ${b.savingsAr} | يشمل: ${b.devicesAr.join(" + ")}`
     ).join("\n");
 
+    const bundleHint = matchedBundles.length > 0
+      ? `\nRECOMMENDED BUNDLES FOR THIS QUERY: Prioritize ${matchedBundles.map((b) => `${b.nameAr} (${b.nameEn} - ${b.priceEgp} EGP)`).join(" and ")}, explain its included devices & savings, and also link 3-4 individual products from VERIFIED CATALOG CONTEXT below so product cards appear.`
+      : "";
+
+    const priceHint = priceFilter.maxPrice
+      ? `\nBUDGET FILTER ACTIVE (Max ${priceFilter.maxPrice} EGP): First list the matching products priced <= ${priceFilter.maxPrice} EGP. Then list the most affordable options above ${priceFilter.maxPrice} EGP as premium upgrades.`
+      : "";
+
     // 4. Build Strict Grounded System Prompt
-    const systemPrompt = `You are AzkaSmart Consultant — the official AI expert for azkasmart.com (Egypt's premier Smart Home and Access Control store).
+    const systemPrompt = `You are AzkaSmart Consultant — the official AI smart-home & access-control engineer for AzkaSmart (Egypt's premier Smart Home and Access Control store).
 
 CRITICAL GROUNDING RULES:
 1. ONLY recommend products listed in the VERIFIED CATALOG below. NEVER invent products, model numbers, or specifications.
-2. When recommending products, ALWAYS link using the EXACT slug provided: [Product Name](/products/slug).
+2. When recommending products, ALWAYS link using the EXACT relative path: [Product Name](/products/slug). For bundles, use [Bundle Name](/bundles?bundle=id). Do NOT prepend https://azkasmart.com.
 3. If an item is not in the catalog (e.g. Philips Hue, Nest, Apple HomePod), state politely that AzkaSmart does not sell it, and suggest the closest catalog alternative (e.g. Sonoff, Tuya).
 4. Prices are in EGP with official 1-year Egyptian warranty.
-5. Installation terms: Certified professional installation is available across all Egyptian governorates: ${INSTALLATION_POLICY.percentage * 100}% of equipment total (minimum visit fee ${INSTALLATION_POLICY.minVisitFeeEgp} EGP).
+5. Installation terms: Certified professional installation is available across all Egyptian governorates: EXACTLY ${INSTALLATION_POLICY.percentage * 100}% of equipment total (minimum visit fee ${INSTALLATION_POLICY.minVisitFeeEgp} EGP). Never say 15%.
 6. Smart Home Compatibility Rules:
    - Zigbee devices REQUIRE a Zigbee Bridge/Hub to connect to phone/Alexa/Google.
    - Wi-Fi devices connect directly to 2.4GHz home Wi-Fi (no hub required).
@@ -136,13 +150,13 @@ CRITICAL GROUNDING RULES:
    - Glass doors require U-Brackets; inward-opening doors require ZL-Brackets.
    - 12V DC locks & keypads require a 12V 5A power supply box with battery backup.
 8. Official Bundles Available:
-${bundleSummary}
+${bundleSummary}${bundleHint}${priceHint}
 
 VERIFIED CATALOG CONTEXT:
 ${productContext}
 
-Language: Answer in the customer's exact language (Egyptian Arabic / Modern Standard Arabic / English / Franco-Arab).
-Style: Friendly, concise (under 200 words), direct, and helpful.`;
+Language: Answer in the customer's exact language (Egyptian Arabic / Modern Standard Arabic / English).
+Style: Expert, structured with clear bullet points, exact EGP prices, and clickable product links.`;
 
     // Sanitize all conversation history messages to prevent multi-turn prompt injection (SEC-09)
     const sanitizedHistory = (chatHistory.length > 0 ? chatHistory.slice(-6) : [{ role: "user" as const, content: cleaned }]).map((m) => {
@@ -160,7 +174,6 @@ Style: Friendly, concise (under 200 words), direct, and helpful.`;
       };
     });
 
-    // Ensure the last user query matches the fully sanitized cleaned input
     const lastUserIdx = sanitizedHistory.map((m) => m.role).lastIndexOf("user");
     if (lastUserIdx !== -1) {
       sanitizedHistory[lastUserIdx].content = cleaned;
@@ -175,23 +188,14 @@ Style: Friendly, concise (under 200 words), direct, and helpful.`;
     let providerUsed = "local-catalog-rules";
     try {
       aiRawText = await chatComplete(aiMessages, {
-        maxTokens: 450,
+        maxTokens: 700,
         task: "fast_chat",
-        timeoutMs: 5000,
+        timeoutMs: 9500,
       });
       providerUsed = getLastSuccessfulProvider();
     } catch (aiErr) {
-      console.warn("smart-home-consultant: AI provider unavailable, using verified fallback:", aiErr);
-      const isArabic = /[\u0600-\u06FF]/.test(cleaned);
-      const topList = matchedProducts.slice(0, 4).map((p) =>
-        `- **[${p.name}](/products/${p.slug})**${p.brand ? ` (${p.brand})` : ""}: ${p.price} EGP`
-      ).join("\n");
-
-      if (isArabic) {
-        aiRawText = `أهلاً بك في **AzkaSmart**! لمساعدتك بخصوص "${cleaned}"، إليك أفضل الأجهزة المتوافقة والمتاحة لدينا في مصر بضمان رسمي:\n\n${topList}\n\nنوفر أيضاً خدمات المعاينة والتركيب المعتمد في جميع محافظات مصر (٢٠٪ من قيمة الأجهزة بحد أدنى ١,٥٠٠ ج.م للزيارة). يمكنك استكشاف [باقات التوفير الذكية](/bundles) أو مراسلة فني الدعم مباشرة عبر [واتساب](${INSTALLATION_POLICY.whatsappUrl}).`;
-      } else {
-        aiRawText = `Welcome to **AzkaSmart**! Regarding your request for "${cleaned}", here are our top verified smart home devices available in Egypt with official 1-year warranty:\n\n${topList}\n\nCertified installation is available across Egypt (20% of equipment total, minimum 1,500 EGP per visit). You can explore [Smart Bundles](/bundles) or reach our team directly via [WhatsApp](${INSTALLATION_POLICY.whatsappUrl}).`;
-      }
+      console.warn("smart-home-consultant: AI provider unavailable, using smart grounded advisor:", aiErr);
+      aiRawText = buildSmartGroundedResponse(cleaned, matchedProducts, fullCatalog);
     }
 
     // 5. Post-Generation Verification Gate
