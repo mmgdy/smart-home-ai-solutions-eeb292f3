@@ -376,9 +376,47 @@ JSON: {"seo_title":"<=60 chars","seo_description":"<=155 chars","seo_keywords":[
     }
 
     if (action === "test-ai-provider") {
-      const { provider, key, model } = body as { provider?: string; key?: string; model?: string };
+      const { provider, key, model, baseUrl } = body as { provider?: string; key?: string; model?: string; baseUrl?: string };
       const start = performance.now();
       try {
+        if (provider === "omniroute") {
+          let endpointUrl = (typeof baseUrl === "string" && baseUrl.trim()) ? baseUrl.trim() : Deno.env.get("OMNIROUTE_BASE_URL") || "";
+          let apiKey = (typeof key === "string" && key.trim()) ? key.trim() : Deno.env.get("OMNIROUTE_API_KEY") || "";
+          if (!endpointUrl) {
+            const { data } = await supabase.from("site_info").select("value").eq("section", "ai").eq("key", "omniroute_base_url").maybeSingle();
+            if (data?.value) endpointUrl = data.value.trim();
+          }
+          if (!apiKey) {
+            const { data } = await supabase.from("site_info").select("value").eq("section", "ai").eq("key", "omniroute_api_key").maybeSingle();
+            if (data?.value) apiKey = data.value.trim();
+          }
+          if (!endpointUrl) throw new Error("No OmniRoute Base URL provided or configured");
+          const cleanBase = endpointUrl.replace(/\/+$/, "");
+          const targetUrl = cleanBase.endsWith("/chat/completions")
+            ? cleanBase
+            : cleanBase.endsWith("/v1")
+            ? `${cleanBase}/chat/completions`
+            : `${cleanBase}/v1/chat/completions`;
+          const m = (typeof model === "string" && model.trim()) ? model.trim() : "auto/best-free";
+          const headers: Record<string, string> = { "Content-Type": "application/json" };
+          if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
+          const res = await fetch(targetUrl, {
+            method: "POST",
+            headers,
+            body: JSON.stringify({
+              model: m,
+              messages: [{ role: "user", content: "Reply with OK" }],
+              max_tokens: 10,
+            }),
+            signal: AbortSignal.timeout(6000),
+          });
+          const text = await res.text();
+          if (!res.ok) throw new Error(`HTTP ${res.status}: ${text.slice(0, 160)}`);
+          return new Response(JSON.stringify({
+            success: true, provider, model: m, latencyMs: Math.round(performance.now() - start),
+          }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+
         if (provider === "gemini") {
           let apiKey = (typeof key === "string" && key.trim()) ? key.trim() : Deno.env.get("GEMINI_API_KEY");
           if (!apiKey) {

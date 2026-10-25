@@ -5,9 +5,7 @@ import { corsHeadersFor } from "../_shared/cors.ts";
 import { checkRate, getIp } from "../_shared/rate-limit.ts";
 import { checkBodySize } from "../_shared/validate.ts";
 import { loadGroundedCatalog } from "../_shared/catalog-grounding.ts";
-
-const GEMINI_ENDPOINT =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent";
+import { visionComplete } from "../_shared/ai.ts";
 
 const STORE_BRANDS = ["SONOFF", "Tuya", "Lezn", "Panda", "Bosch", "SIB", "ZKTeco", "Dahua", "Hikvision"];
 
@@ -50,14 +48,6 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_ANON_KEY")!
     );
 
-    let apiKey = Deno.env.get("GEMINI_API_KEY");
-    if (!apiKey) {
-      try {
-        const { data } = await supabase.from("site_info").select("value").eq("section", "ai").eq("key", "gemini_api_key").maybeSingle();
-        if (data?.value?.trim()) apiKey = data.value.trim();
-      } catch {}
-    }
-
     const prompt = `You are a smart home hardware expert for azkasmart.com.
 Analyze this photo and identify any smart home devices, switches, locks, cameras, or electronics visible.
 Our store stocks: Sonoff, Tuya, Lezn, Panda, ZKTeco (Smart Switches, Smart Plugs, Smart Locks, Cameras, Zigbee Hubs, Sensors, Smart Curtains).
@@ -71,38 +61,22 @@ Return ONLY valid JSON with no markdown formatting.`;
       keywords: ["Smart Switch", "SONOFF", "Smart Home"],
       description: "Smart home automation device",
     };
+    let visionProvider = "local-fallback";
 
-    if (apiKey) {
-      try {
-        const response = await fetch(`${GEMINI_ENDPOINT}?key=${apiKey}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [
-                  { text: prompt },
-                  {
-                    inline_data: {
-                      mime_type: cleanMime,
-                      data: imageBase64,
-                    },
-                  },
-                ],
-              },
-            ],
-          }),
-        });
-
-        const data = await response.json();
-        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-        const jsonMatch = text.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          parsed = JSON.parse(jsonMatch[0]);
-        }
-      } catch (err) {
-        console.warn("Vision search API error:", err);
+    try {
+      const { text, provider } = await visionComplete({
+        prompt,
+        imageBase64,
+        mimeType: cleanMime,
+        maxTokens: 400,
+      });
+      visionProvider = provider;
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        parsed = JSON.parse(jsonMatch[0]);
       }
+    } catch (err) {
+      console.warn("Vision search Omni-Router fallback:", err);
     }
 
     // Filter out banned/unstocked brands
@@ -116,7 +90,12 @@ Return ONLY valid JSON with no markdown formatting.`;
     }
 
     return new Response(
-      JSON.stringify({ success: true, keywords: validKeywords, description: parsed.description || "" }),
+      JSON.stringify({
+        success: true,
+        provider: visionProvider,
+        keywords: validKeywords,
+        description: parsed.description || "",
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {

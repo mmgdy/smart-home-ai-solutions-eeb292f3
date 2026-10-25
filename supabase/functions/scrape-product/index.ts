@@ -442,7 +442,7 @@ serve(async (req) => {
         const text = await chatComplete([
           { role: "system", content: "Extract product info from HTML. Return ONLY valid JSON: {\"name\": \"...\", \"price\": 1234, \"description\": \"...\", \"brand\": \"...\", \"protocol\": \"...\", \"category\": \"...\"}" },
           { role: "user", content: `URL: ${url}\n\nHTML:\n${truncatedHtml}` }
-        ]);
+        ], { task: "reasoning_json", jsonMode: true });
         const m = text.match(/\{[\s\S]*\}/);
         if (m) productData = JSON.parse(m[0]);
       } catch {}

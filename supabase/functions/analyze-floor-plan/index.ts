@@ -5,9 +5,7 @@ import { corsHeadersFor } from "../_shared/cors.ts";
 import { checkRate, getIp } from "../_shared/rate-limit.ts";
 import { checkBodySize } from "../_shared/validate.ts";
 import { loadGroundedCatalog } from "../_shared/catalog-grounding.ts";
-
-const GEMINI_ENDPOINT =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent";
+import { visionComplete } from "../_shared/ai.ts";
 
 interface DevicePlacement {
   type: string;
@@ -88,69 +86,34 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_ANON_KEY")!
     );
 
-    // Retrieve Gemini API Key from site_info or env
-    let apiKey = Deno.env.get("GEMINI_API_KEY");
-    if (!apiKey) {
-      try {
-        const { data } = await supabase.from("site_info").select("value").eq("section", "ai").eq("key", "gemini_api_key").maybeSingle();
-        if (data?.value?.trim()) apiKey = data.value.trim();
-      } catch {}
-    }
-
     let parsed: FloorPlanAnalysis;
+    let visionProvider = "local-fallback";
 
-    if (apiKey) {
-      try {
-        const response = await fetch(`${GEMINI_ENDPOINT}?key=${apiKey}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [
-                  { text: PHOTO_SYSTEM_PROMPT },
-                  {
-                    inline_data: {
-                      mime_type: cleanMime,
-                      data: imageBase64,
-                    },
-                  },
-                ],
-              },
-            ],
-          }),
-        });
-
-        const data = await response.json();
-        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-        const jsonMatch = text.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          parsed = JSON.parse(jsonMatch[0]) as FloorPlanAnalysis;
-        } else {
-          throw new Error("Invalid model JSON response");
-        }
-      } catch (err) {
-        console.warn("Vision API failed, using intelligent room fallback:", err);
-        parsed = {
-          roomsDetected: [{ type: "living_room", name: "Main Living Space", count: 1 }],
-          suggestedFeatures: [{ roomType: "living_room", features: ["smart_lighting", "climate_control", "security"] }],
-          devicePlacements: [
-            { type: "smart_switch", emoji: "💡", x: 25, y: 50, room: "Living Room", label: "Smart Light Switch" },
-            { type: "ir_remote", emoji: "❄️", x: 50, y: 30, room: "Living Room", label: "Smart AC Remote" },
-            { type: "motion_sensor", emoji: "🚶", x: 75, y: 35, room: "Living Room", label: "Motion Sensor" },
-          ],
-          notes: "Analyzed space with verified smart home layout",
-        };
+    try {
+      const { text, provider } = await visionComplete({
+        prompt: PHOTO_SYSTEM_PROMPT,
+        imageBase64,
+        mimeType: cleanMime,
+        maxTokens: 700,
+      });
+      visionProvider = provider;
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        parsed = JSON.parse(jsonMatch[0]) as FloorPlanAnalysis;
+      } else {
+        throw new Error("Invalid model JSON response");
       }
-    } else {
+    } catch (err) {
+      console.warn("Vision Omni-Router fallback used:", err);
       parsed = {
-        roomsDetected: [{ type: "living_room", name: "Living Room", count: 1 }],
-        suggestedFeatures: [{ roomType: "living_room", features: ["smart_lighting", "motion_sensor"] }],
+        roomsDetected: [{ type: "living_room", name: "Main Living Space", count: 1 }],
+        suggestedFeatures: [{ roomType: "living_room", features: ["smart_lighting", "climate_control", "security"] }],
         devicePlacements: [
-          { type: "smart_switch", emoji: "💡", x: 30, y: 45, room: "Living Room", label: "Smart Light Switch" },
-          { type: "motion_sensor", emoji: "🚶", x: 70, y: 30, room: "Living Room", label: "Smart Motion Sensor" },
+          { type: "smart_switch", emoji: "💡", x: 25, y: 50, room: "Living Room", label: "Smart Light Switch" },
+          { type: "ir_remote", emoji: "❄️", x: 50, y: 30, room: "Living Room", label: "Smart AC Remote" },
+          { type: "motion_sensor", emoji: "🚶", x: 75, y: 35, room: "Living Room", label: "Motion Sensor" },
         ],
-        notes: "Smart home automation layout",
+        notes: "Analyzed space with verified smart home layout",
       };
     }
 
@@ -177,7 +140,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true, analysis: parsed }),
+      JSON.stringify({ success: true, provider: visionProvider, analysis: parsed }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {

@@ -17,7 +17,7 @@ import {
 function streamText(text: string, encoder: TextEncoder): ReadableStream {
   return new ReadableStream({
     start(controller) {
-      const chunkSize = 8;
+      const chunkSize = 32;
       let i = 0;
       const id = crypto.randomUUID();
       const send = () => {
@@ -30,14 +30,14 @@ function streamText(text: string, encoder: TextEncoder): ReadableStream {
         i += chunkSize;
         const payload = JSON.stringify({ choices: [{ delta: { content: chunk } }] });
         controller.enqueue(encoder.encode(`data: ${payload}\n\n`));
-        setTimeout(send, 16);
+        setTimeout(send, 8);
       };
       controller.enqueue(
         encoder.encode(
-          `data: {"id":"${id}","object":"chat.completion.chunk","created":${Math.floor(Date.now() / 1000)},"model":"azka-assistant","choices":[{"index":0,"delta":{"role":"assistant"},"finish_reason":null}]}\n\n`
+          `data: {"id":"${id}","object":"chat.completion.chunk","created":${Math.floor(Date.now() / 1000)},"model":"azka-omni-free","choices":[{"index":0,"delta":{"role":"assistant"},"finish_reason":null}]}\n\n`
         )
       );
-      setTimeout(send, 25);
+      setTimeout(send, 10);
     },
   });
 }
@@ -121,7 +121,11 @@ Quick links: /bundles /calculator /ai-consultant`;
 
     let fullText: string;
     try {
-      fullText = await chatComplete(msgs as ChatMessage[], { maxTokens: 400 });
+      fullText = await chatComplete(msgs as ChatMessage[], {
+        maxTokens: 400,
+        task: "fast_chat",
+        timeoutMs: 4500,
+      });
     } catch (aiErr) {
       console.warn("site-assistant AI provider unavailable, using catalog fallback:", aiErr);
       const isArabic = language === "ar" || /[\u0600-\u06FF]/.test(cleanQuery);

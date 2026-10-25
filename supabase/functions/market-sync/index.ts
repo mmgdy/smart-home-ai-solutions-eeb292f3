@@ -25,7 +25,7 @@ const callAI = async (systemPrompt: string, userPrompt: string): Promise<string>
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt },
     ],
-    { maxTokens: 900 },
+    { maxTokens: 900, task: "reasoning_json" },
   );
 };
 

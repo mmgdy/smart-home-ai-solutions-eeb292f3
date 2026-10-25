@@ -51,6 +51,9 @@ interface Props {
 }
 
 interface AIKeysConfig {
+  omniroute_base_url: string;
+  omniroute_api_key: string;
+  omniroute_model: string;
   gemini_api_key: string;
   groq_api_key: string;
   openrouter_api_key: string;
@@ -78,6 +81,7 @@ export function AdminAISettings({ adminToken }: Props) {
 
   // Key Visibility states
   const [showKeys, setShowKeys] = useState<Record<string, boolean>>({
+    omniroute: false,
     gemini: false,
     groq: false,
     openrouter: false,
@@ -88,20 +92,24 @@ export function AdminAISettings({ adminToken }: Props) {
 
   // Form State
   const [config, setConfig] = useState<AIKeysConfig>({
+    omniroute_base_url: '',
+    omniroute_api_key: '',
+    omniroute_model: 'auto/best-free',
     gemini_api_key: '',
     groq_api_key: '',
     openrouter_api_key: '',
     huggingface_api_key: '',
-    gemini_model: 'gemini-1.5-flash',
+    gemini_model: 'gemini-2.0-flash',
     groq_model: 'llama-3.3-70b-versatile',
     openrouter_model: 'google/gemini-2.0-flash-exp:free',
-    huggingface_model: 'meta-llama/Llama-3.1-8B-Instruct',
-    primary_provider: 'gemini',
+    huggingface_model: 'Qwen/Qwen2.5-72B-Instruct',
+    primary_provider: 'omni',
     fallback_enabled: true,
   });
 
   // Test Results per provider
   const [testResults, setTestResults] = useState<Record<string, ProviderTestResult>>({
+    omniroute: { status: 'idle' },
     gemini: { status: 'idle' },
     groq: { status: 'idle' },
     openrouter: { status: 'idle' },
@@ -137,6 +145,9 @@ export function AdminAISettings({ adminToken }: Props) {
 
           setConfig(prev => ({
             ...prev,
+            omniroute_base_url: map['omniroute_base_url'] ?? prev.omniroute_base_url,
+            omniroute_api_key: map['omniroute_api_key'] ?? prev.omniroute_api_key,
+            omniroute_model: map['omniroute_model'] ?? prev.omniroute_model,
             gemini_api_key: map['gemini_api_key'] ?? prev.gemini_api_key,
             groq_api_key: map['groq_api_key'] ?? prev.groq_api_key,
             openrouter_api_key: map['openrouter_api_key'] ?? prev.openrouter_api_key,
@@ -175,6 +186,9 @@ export function AdminAISettings({ adminToken }: Props) {
     setSaving(true);
     try {
       const entries = [
+        { section: 'ai', key: 'omniroute_base_url', value: config.omniroute_base_url.trim() },
+        { section: 'ai', key: 'omniroute_api_key', value: config.omniroute_api_key.trim() },
+        { section: 'ai', key: 'omniroute_model', value: config.omniroute_model.trim() },
         { section: 'ai', key: 'gemini_api_key', value: config.gemini_api_key.trim() },
         { section: 'ai', key: 'groq_api_key', value: config.groq_api_key.trim() },
         { section: 'ai', key: 'openrouter_api_key', value: config.openrouter_api_key.trim() },
@@ -223,7 +237,7 @@ export function AdminAISettings({ adminToken }: Props) {
   };
 
   // Test an individual provider
-  const handleTestProvider = async (provider: 'gemini' | 'groq' | 'openrouter' | 'huggingface' | 'pollinations') => {
+  const handleTestProvider = async (provider: 'omniroute' | 'gemini' | 'groq' | 'openrouter' | 'huggingface' | 'pollinations') => {
     setTestResults(prev => ({
       ...prev,
       [provider]: { status: 'testing', message: 'Pinging API...' },
@@ -235,6 +249,7 @@ export function AdminAISettings({ adminToken }: Props) {
     if (adminToken) {
       try {
         const currentKey = 
+          provider === 'omniroute' ? config.omniroute_api_key :
           provider === 'gemini' ? config.gemini_api_key :
           provider === 'groq' ? config.groq_api_key :
           provider === 'openrouter' ? config.openrouter_api_key :
@@ -246,8 +261,10 @@ export function AdminAISettings({ adminToken }: Props) {
             action: 'test-ai-provider',
             token: adminToken,
             provider,
+            baseUrl: provider === 'omniroute' ? config.omniroute_base_url : undefined,
             key: currentKey || undefined,
             model: 
+              provider === 'omniroute' ? config.omniroute_model :
               provider === 'gemini' ? config.gemini_model :
               provider === 'groq' ? config.groq_model :
               provider === 'openrouter' ? config.openrouter_model :
@@ -275,7 +292,44 @@ export function AdminAISettings({ adminToken }: Props) {
 
     // 2. Direct browser test fallback
     try {
-      if (provider === 'gemini') {
+      if (provider === 'omniroute') {
+        const baseUrl = config.omniroute_base_url.trim().replace(/\/+$/, '');
+        if (!baseUrl) {
+          throw new Error('Please enter an OmniRoute Base URL to test');
+        }
+        const endpoint = baseUrl.endsWith('/chat/completions')
+          ? baseUrl
+          : baseUrl.endsWith('/v1')
+          ? `${baseUrl}/chat/completions`
+          : `${baseUrl}/v1/chat/completions`;
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (config.omniroute_api_key.trim()) {
+          headers.Authorization = `Bearer ${config.omniroute_api_key.trim()}`;
+        }
+        const resp = await fetch(endpoint, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            model: config.omniroute_model || 'auto/best-free',
+            messages: [{ role: 'user', content: 'Reply with the word "OK"' }],
+            max_tokens: 10,
+          }),
+        });
+        const elapsed = Math.round(performance.now() - startTime);
+        if (!resp.ok) {
+          const errText = await resp.text();
+          throw new Error(`HTTP ${resp.status}: ${errText.slice(0, 120)}`);
+        }
+        setTestResults(prev => ({
+          ...prev,
+          omniroute: {
+            status: 'success',
+            latencyMs: elapsed,
+            model: config.omniroute_model || 'auto/best-free',
+            message: `Verified OmniRoute (${elapsed}ms)`,
+          },
+        }));
+      } else if (provider === 'gemini') {
         const key = config.gemini_api_key.trim();
         if (!key) {
           throw new Error('Please enter a Gemini API Key to test');
@@ -433,10 +487,11 @@ export function AdminAISettings({ adminToken }: Props) {
   // Test all providers sequentially
   const handleTestAll = async () => {
     toast({
-      title: 'Testing AI Gateway',
-      description: 'Running diagnostics on all configured providers and fallbacks...',
+      title: 'Testing AI Omni-Router',
+      description: 'Running diagnostics on all configured free providers and fallbacks...',
     });
-    const providers: Array<'gemini' | 'groq' | 'openrouter' | 'huggingface' | 'pollinations'> = [
+    const providers: Array<'omniroute' | 'gemini' | 'groq' | 'openrouter' | 'huggingface' | 'pollinations'> = [
+      ...(config.omniroute_base_url ? (['omniroute'] as const) : []),
       'gemini',
       'groq',
       'openrouter',
@@ -467,9 +522,13 @@ export function AdminAISettings({ adminToken }: Props) {
       }
 
       const text = resp.data?.response || JSON.stringify(resp.data);
-      // Determine if fallback or AI answered
+      const reportedProvider = resp.data?.provider;
       const isCatalogFallback = text.includes('أهلاً بك في **AzkaSmart**!') || text.includes('Welcome to **AzkaSmart**!');
-      const providerUsed = isCatalogFallback ? 'Tier 6: Local Catalog Rule Engine (Offline Fallback)' : 'Remote AI Gateway (Tier 1-5)';
+      const providerUsed = reportedProvider && reportedProvider !== 'none'
+        ? `Omni-Router Free (${reportedProvider})`
+        : isCatalogFallback
+        ? 'Tier 6: Local Catalog Rule Engine (Offline Fallback)'
+        : 'Omni-Router Free Gateway (Tier 1-5)';
 
       setSimResult({
         text,
@@ -490,6 +549,7 @@ export function AdminAISettings({ adminToken }: Props) {
   };
 
   const configuredCount = [
+    config.omniroute_base_url,
     config.gemini_api_key,
     config.groq_api_key,
     config.openrouter_api_key,
@@ -580,21 +640,25 @@ export function AdminAISettings({ adminToken }: Props) {
               <Cpu className="w-4 h-4 text-primary" />
             </CardDescription>
             <CardTitle className="text-xl font-bold capitalize text-foreground">
-              {config.primary_provider === 'gemini' ? 'Google Gemini' :
+              {config.primary_provider === 'omni' ? 'Omni-Router (Auto Free)' :
+               config.primary_provider === 'omniroute' ? 'OmniRoute Gateway' :
+               config.primary_provider === 'gemini' ? 'Google Gemini' :
                config.primary_provider === 'groq' ? 'Groq Llama 3.3' :
-               config.primary_provider === 'openrouter' ? 'OpenRouter' : 'Hugging Face'}
+               config.primary_provider === 'openrouter' ? 'OpenRouter Free' : 'Hugging Face'}
             </CardTitle>
           </CardHeader>
           <CardContent className="text-xs text-muted-foreground space-y-1">
             <p>
               Model: <code className="bg-muted px-1 py-0.5 rounded font-mono text-[11px]">
-                {config.primary_provider === 'gemini' ? config.gemini_model :
+                {config.primary_provider === 'omni' ? 'Task-Aware Free Pool' :
+                 config.primary_provider === 'omniroute' ? config.omniroute_model :
+                 config.primary_provider === 'gemini' ? config.gemini_model :
                  config.primary_provider === 'groq' ? config.groq_model :
                  config.primary_provider === 'openrouter' ? config.openrouter_model : config.huggingface_model}
               </code>
             </p>
             <div className="text-muted-foreground">
-              Tier 1 Priority in conversation pipeline
+              100% Free Models + Circuit Breaker
             </div>
           </CardContent>
         </Card>
@@ -681,14 +745,16 @@ export function AdminAISettings({ adminToken }: Props) {
                     <SelectValue placeholder="Select primary provider" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="gemini">Google Gemini (Recommended for Vision & Context)</SelectItem>
-                    <SelectItem value="groq">Groq Cloud (Recommended for Speed & Llama 3.3)</SelectItem>
-                    <SelectItem value="openrouter">OpenRouter (Universal Aggregator)</SelectItem>
-                    <SelectItem value="huggingface">Hugging Face Router</SelectItem>
+                    <SelectItem value="omni">⚡ Omni-Router Auto (Task-Aware Free Pool — Recommended)</SelectItem>
+                    <SelectItem value="omniroute">OmniRoute Gateway (Self-Hosted / Cloud Free Proxy)</SelectItem>
+                    <SelectItem value="groq">Groq Cloud Free LPU (Fastest Chat &amp; Llama 3.3 70B)</SelectItem>
+                    <SelectItem value="gemini">Google Gemini Free (Best Vision &amp; Large Context)</SelectItem>
+                    <SelectItem value="openrouter">OpenRouter Free Pool (Multi-Model :free Array)</SelectItem>
+                    <SelectItem value="huggingface">Hugging Face Free Router</SelectItem>
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
-                  The gateway calls this provider first. If it returns 429, 500, or times out, the next tier takes over.
+                  In <strong>Omni-Router Auto</strong> mode, fast chats route to Groq LPU (&lt;300ms), JSON/scraping routes to Gemini 2.0 Flash, and Vision routes across all free multimodal models.
                 </p>
               </div>
 
@@ -709,6 +775,118 @@ export function AdminAISettings({ adminToken }: Props) {
                   <ShieldCheck className="w-3.5 h-3.5" />
                   Guarantees smooth user experience even during major third-party AI outages.
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Provider 0: OmniRoute Open-Source Gateway */}
+          <Card className="border-primary/30 bg-primary/5">
+            <CardHeader className="pb-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Badge className="bg-primary text-primary-foreground">Tier 0 Omni-Gateway</Badge>
+                  <CardTitle className="text-lg font-bold">OmniRoute Free Gateway</CardTitle>
+                  <Badge variant="outline" className="text-xs border-primary/40 text-primary">100% Free Models Router</Badge>
+                </div>
+                <span className="text-xs text-muted-foreground font-mono">
+                  auto/best-free • openrouter/free
+                </span>
+              </div>
+              <CardDescription>
+                Optional self-hosted or cloud OmniRoute OpenAI-compatible endpoint. Automatically aggregates free quotas, compresses prompts, and cascades across free LLM/Vision models. Even without an external URL, AzkaSmart's built-in Omni-Router automatically routes across all free providers below.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="omniroute_url">OmniRoute Base URL (Optional)</Label>
+                  <Input
+                    id="omniroute_url"
+                    value={config.omniroute_base_url}
+                    onChange={(e) => setConfig(prev => ({ ...prev, omniroute_base_url: e.target.value }))}
+                    placeholder="https://your-omniroute-host/v1"
+                    className="font-mono text-xs"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="omniroute_key">OmniRoute API Key (Optional)</Label>
+                  <div className="relative">
+                    <Input
+                      id="omniroute_key"
+                      type={showKeys.omniroute ? 'text' : 'password'}
+                      value={config.omniroute_api_key}
+                      onChange={(e) => setConfig(prev => ({ ...prev, omniroute_api_key: e.target.value }))}
+                      placeholder="sk-omni-..."
+                      className="pr-20 font-mono text-xs"
+                    />
+                    <div className="absolute inset-y-0 right-0 flex items-center pr-1.5 gap-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={() => toggleShowKey('omniroute')}
+                      >
+                        {showKeys.omniroute ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={() => copyToClipboard(config.omniroute_api_key, 'omniroute')}
+                      >
+                        {copiedKey === 'omniroute' ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="omniroute_model">Routing Alias</Label>
+                  <Select
+                    value={config.omniroute_model}
+                    onValueChange={(val) => setConfig(prev => ({ ...prev, omniroute_model: val }))}
+                  >
+                    <SelectTrigger id="omniroute_model" className="font-mono text-xs">
+                      <SelectValue placeholder="Routing Alias" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="auto/best-free">auto/best-free (Smart Free Pool)</SelectItem>
+                      <SelectItem value="openrouter/free">openrouter/free (Free Auto-Router)</SelectItem>
+                      <SelectItem value="auto/fast-free">auto/fast-free (Lowest Latency Free)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-border/50 text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">Status:</span>
+                  {testResults.omniroute?.status === 'testing' ? (
+                    <Badge variant="outline" className="gap-1 animate-pulse"><Loader2 className="w-3 h-3 animate-spin" /> Verifying...</Badge>
+                  ) : testResults.omniroute?.status === 'success' ? (
+                    <Badge className="bg-emerald-500 text-white gap-1"><CheckCircle2 className="w-3 h-3" /> Ready ({testResults.omniroute.latencyMs}ms)</Badge>
+                  ) : testResults.omniroute?.status === 'error' ? (
+                    <Badge variant="destructive" className="gap-1"><XCircle className="w-3 h-3" /> Error: {testResults.omniroute.message}</Badge>
+                  ) : config.omniroute_base_url ? (
+                    <Badge variant="outline" className="text-emerald-600 border-emerald-500/40">Endpoint Configured</Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-primary border-primary/40">Built-In Free Omni-Router Active</Badge>
+                  )}
+                </div>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleTestProvider('omniroute')}
+                  disabled={testResults.omniroute?.status === 'testing' || !config.omniroute_base_url}
+                  className="gap-1 h-8 text-xs"
+                >
+                  <Play className="w-3 h-3" /> Test OmniRoute
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -781,9 +959,9 @@ export function AdminAISettings({ adminToken }: Props) {
                       <SelectValue placeholder="Model" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="gemini-1.5-flash">gemini-1.5-flash (Fast & Free)</SelectItem>
-                      <SelectItem value="gemini-1.5-pro">gemini-1.5-pro (High Reasoning)</SelectItem>
-                      <SelectItem value="gemini-2.0-flash-exp">gemini-2.0-flash-exp (Next Gen)</SelectItem>
+                      <SelectItem value="gemini-2.0-flash">gemini-2.0-flash (Fastest &amp; Smartest Free)</SelectItem>
+                      <SelectItem value="gemini-1.5-flash">gemini-1.5-flash (1,500 req/day Free)</SelectItem>
+                      <SelectItem value="gemini-2.0-flash-exp">gemini-2.0-flash-exp (Experimental Free)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -888,9 +1066,9 @@ export function AdminAISettings({ adminToken }: Props) {
                       <SelectValue placeholder="Model" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="llama-3.3-70b-versatile">llama-3.3-70b-versatile (Flagship)</SelectItem>
-                      <SelectItem value="llama-3.1-8b-instant">llama-3.1-8b-instant (Fastest)</SelectItem>
-                      <SelectItem value="mixtral-8x7b-32768">mixtral-8x7b-32768 (MoE)</SelectItem>
+                      <SelectItem value="llama-3.3-70b-versatile">llama-3.3-70b-versatile (Flagship 70B Free)</SelectItem>
+                      <SelectItem value="llama-3.1-8b-instant">llama-3.1-8b-instant (Ultra-Fast Free Backup)</SelectItem>
+                      <SelectItem value="meta-llama/llama-4-scout-17b-16e-instruct">llama-4-scout-17b (Multimodal Vision Free)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -995,9 +1173,11 @@ export function AdminAISettings({ adminToken }: Props) {
                       <SelectValue placeholder="Model" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="google/gemini-2.0-flash-exp:free">gemini-2.0-flash-exp:free</SelectItem>
-                      <SelectItem value="meta-llama/llama-3.3-70b-instruct:free">llama-3.3-70b-instruct:free</SelectItem>
-                      <SelectItem value="mistralai/mistral-7b-instruct:free">mistral-7b-instruct:free</SelectItem>
+                      <SelectItem value="openrouter/free">openrouter/free (Auto Free Omni-Router)</SelectItem>
+                      <SelectItem value="google/gemini-2.0-flash-exp:free">gemini-2.0-flash-exp:free (Fast + Vision)</SelectItem>
+                      <SelectItem value="deepseek/deepseek-chat-v3-0324:free">deepseek-chat-v3-0324:free (High Intelligence)</SelectItem>
+                      <SelectItem value="qwen/qwen-2.5-72b-instruct:free">qwen-2.5-72b-instruct:free (Arabic + JSON)</SelectItem>
+                      <SelectItem value="meta-llama/llama-3.3-70b-instruct:free">llama-3.3-70b-instruct:free (70B Versatile)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1265,11 +1445,7 @@ export function AdminAISettings({ adminToken }: Props) {
                       <CardDescription className="text-xs">Home Designer (/home-designer)</CardDescription>
                     </div>
                   </div>
-                  {config.gemini_api_key ? (
-                    <Badge className="bg-emerald-500 text-white">Vision Ready</Badge>
-                  ) : (
-                    <Badge variant="outline" className="border-amber-500/50 text-amber-600">Needs Gemini Key</Badge>
-                  )}
+                  <Badge className="bg-emerald-500 text-white">Vision Omni-Router Ready</Badge>
                 </div>
               </CardHeader>
               <CardContent className="text-xs text-muted-foreground space-y-2">
@@ -1278,7 +1454,7 @@ export function AdminAISettings({ adminToken }: Props) {
                   and automatically overlays recommended smart switches, motorized curtains, and motion sensors.
                 </p>
                 <div className="text-[11px] font-medium text-purple-600 dark:text-purple-400">
-                  {config.gemini_api_key ? '✓ Gemini Multimodal Vision connected' : '⚠ Requires Gemini API Key to enable photo uploads'}
+                  ✓ 5-Tier Free Vision Router (OmniRoute ➔ Gemini Flash ➔ Groq Llama-4 Scout ➔ OpenRouter Vision :free ➔ Pollinations)
                 </div>
               </CardContent>
             </Card>

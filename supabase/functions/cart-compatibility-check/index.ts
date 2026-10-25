@@ -54,7 +54,10 @@ ${audit.issues.map((i) => `- [${i.severity}] ${i.messageEn}`).join("\n")}
 
 Write ONE short, friendly, reassuring sentence in ${isArabic ? "Egyptian Arabic" : "English"} explaining how to make their setup 100% complete and safe. Return plain text only.`;
 
-        const aiSummary = await chatComplete([{ role: "user", content: prompt }], { maxTokens: 80 });
+        const aiSummary = await chatComplete(
+          [{ role: "user", content: prompt }],
+          { maxTokens: 80, task: "fast_chat", timeoutMs: 3500 }
+        );
         if (aiSummary && aiSummary.trim().length > 10) {
           summary = aiSummary.trim();
         }

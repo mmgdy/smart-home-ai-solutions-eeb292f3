@@ -5,7 +5,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 import { corsHeadersFor } from "../_shared/cors.ts";
 import { checkRate, getIp } from "../_shared/rate-limit.ts";
 import { cleanString } from "../_shared/validate.ts";
-import { chatComplete } from "../_shared/ai.ts";
+import { chatComplete, getLastSuccessfulProvider } from "../_shared/ai.ts";
 import {
   loadGroundedCatalog,
   matchCatalogProducts,
@@ -20,7 +20,7 @@ import {
 function streamText(text: string, encoder: TextEncoder): ReadableStream {
   return new ReadableStream({
     start(controller) {
-      const chunkSize = 8;
+      const chunkSize = 32;
       let i = 0;
       const id = crypto.randomUUID();
       const send = () => {
@@ -33,14 +33,14 @@ function streamText(text: string, encoder: TextEncoder): ReadableStream {
         i += chunkSize;
         const payload = JSON.stringify({ choices: [{ delta: { content: chunk } }] });
         controller.enqueue(encoder.encode(`data: ${payload}\n\n`));
-        setTimeout(send, 16);
+        setTimeout(send, 8);
       };
       controller.enqueue(
         encoder.encode(
-          `data: {"id":"${id}","object":"chat.completion.chunk","created":${Math.floor(Date.now() / 1000)},"model":"azka-grounded","choices":[{"index":0,"delta":{"role":"assistant"},"finish_reason":null}]}\n\n`
+          `data: {"id":"${id}","object":"chat.completion.chunk","created":${Math.floor(Date.now() / 1000)},"model":"azka-omni-free","choices":[{"index":0,"delta":{"role":"assistant"},"finish_reason":null}]}\n\n`
         )
       );
-      setTimeout(send, 25);
+      setTimeout(send, 10);
     },
   });
 }
@@ -172,8 +172,14 @@ Style: Friendly, concise (under 200 words), direct, and helpful.`;
     ];
 
     let aiRawText = "";
+    let providerUsed = "local-catalog-rules";
     try {
-      aiRawText = await chatComplete(aiMessages, { maxTokens: 450 });
+      aiRawText = await chatComplete(aiMessages, {
+        maxTokens: 450,
+        task: "fast_chat",
+        timeoutMs: 5000,
+      });
+      providerUsed = getLastSuccessfulProvider();
     } catch (aiErr) {
       console.warn("smart-home-consultant: AI provider unavailable, using verified fallback:", aiErr);
       const isArabic = /[\u0600-\u06FF]/.test(cleaned);
@@ -192,7 +198,7 @@ Style: Friendly, concise (under 200 words), direct, and helpful.`;
     const { validText } = validateAndRepairAIOutput(aiRawText, fullCatalog, OFFICIAL_BUNDLES);
 
     if (!stream) {
-      return new Response(JSON.stringify({ response: validText }), {
+      return new Response(JSON.stringify({ response: validText, provider: providerUsed }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

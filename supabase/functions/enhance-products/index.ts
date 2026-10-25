@@ -571,7 +571,7 @@ Requirements:
 
           let newDescription = '';
           try {
-            newDescription = await chatComplete([{ role: 'user', content: descriptionPrompt }], { maxTokens: 180 });
+            newDescription = await chatComplete([{ role: 'user', content: descriptionPrompt }], { maxTokens: 180, task: 'reasoning_json' });
           } catch {
             newDescription = await generateWithHuggingFace(descriptionPrompt, 140);
           }
