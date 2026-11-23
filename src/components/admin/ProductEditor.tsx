@@ -68,6 +68,8 @@ export function ProductEditor({ adminToken }: Props) {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
+  const descImageInputRef = useRef<HTMLInputElement>(null);
+  const descTextareaRef = useRef<HTMLTextAreaElement>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [hiddenIds, setHiddenIds] = useState<string[]>([]);
@@ -78,6 +80,7 @@ export function ProductEditor({ adminToken }: Props) {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [videoUploading, setVideoUploading] = useState(false);
+  const [descImageUploading, setDescImageUploading] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [brandFilter, setBrandFilter] = useState<string>("all");
@@ -388,6 +391,44 @@ export function ProductEditor({ adminToken }: Props) {
       toast({ title: "Video upload failed", description: e.message, variant: "destructive" });
     } finally {
       setVideoUploading(false);
+    }
+  };
+
+  const handleDescriptionImageUpload = async (file: File) => {
+    setDescImageUploading(true);
+    try {
+      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+      const path = `manual/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const base64 = await fileToBase64(file);
+      const { data, error } = await supabase.functions.invoke("admin-write", {
+        headers: { Authorization: "Bearer " + adminToken },
+        body: { action: "upload-file", bucket: "product-images", filename: path, base64, mimeType: file.type },
+      });
+      if (error || !data?.success) throw new Error(data?.error || error?.message || "Upload failed");
+
+      const tag = `<img src="${data.publicUrl}" alt="">`;
+      const ta = descTextareaRef.current;
+
+      setEditing((prev) => {
+        const cur = prev.description ?? "";
+        const start = ta && typeof ta.selectionStart === "number" ? ta.selectionStart : cur.length;
+        const end = ta && typeof ta.selectionEnd === "number" ? ta.selectionEnd : cur.length;
+        const nextDesc = cur.slice(0, start) + tag + cur.slice(end);
+        setTimeout(() => {
+          if (ta) {
+            ta.focus();
+            const newPos = start + tag.length;
+            ta.setSelectionRange(newPos, newPos);
+          }
+        }, 0);
+        return { ...prev, description: nextDesc };
+      });
+
+      toast({ title: "Image inserted into description" });
+    } catch (e: any) {
+      toast({ title: "Upload failed", description: e.message, variant: "destructive" });
+    } finally {
+      setDescImageUploading(false);
     }
   };
 
@@ -882,8 +923,42 @@ export function ProductEditor({ adminToken }: Props) {
             </div>
 
             <div className="space-y-2 md:col-span-2">
-              <Label>Description</Label>
-              <Textarea rows={4} value={editing.description ?? ""} onChange={(e) => setEditing({ ...editing, description: e.target.value })} />
+              <div className="flex items-center justify-between gap-2">
+                <Label>Description</Label>
+                <div>
+                  <input
+                    ref={descImageInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/gif,image/webp,.jpg,.jpeg,.png,.gif,.webp"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      e.target.value = "";
+                      if (f) handleDescriptionImageUpload(f);
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => descImageInputRef.current?.click()}
+                    disabled={descImageUploading}
+                  >
+                    {descImageUploading ? (
+                      <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                    ) : (
+                      <ImageIcon className="h-4 w-4 mr-1.5" />
+                    )}
+                    Insert image / GIF
+                  </Button>
+                </div>
+              </div>
+              <Textarea
+                ref={descTextareaRef}
+                rows={12}
+                value={editing.description ?? ""}
+                onChange={(e) => setEditing({ ...editing, description: e.target.value })}
+              />
             </div>
 
             <div className="flex items-center gap-3 md:col-span-2">

@@ -16,6 +16,7 @@ import { useLanguage } from '@/lib/i18n';
 import { parseProtocols } from '@/lib/protocolIcon';
 import { getProductImage, productPlaceholder } from '@/lib/productImage';
 import { normalizeBrand } from '@/lib/brands';
+import { sanitizeProductDescription, stripDescriptionHtml } from '@/lib/sanitizeDescription';
 import { cairoSupplierService } from '@/data/cairoSupplierService';
 import { cn } from '@/lib/utils';
 
@@ -399,6 +400,8 @@ const ProductDetail = () => {
 
   const worksWithPlatforms = getWorksWithPlatforms(product);
   const formattedSpecs = getFormattedSpecifications(product);
+  const sanitizedDescriptionHtml = sanitizeProductDescription(product.description);
+  const plainDescriptionText = stripDescriptionHtml(product.description);
 
   return (
     <>
@@ -406,7 +409,7 @@ const ProductDetail = () => {
         <title>{product.seo_title || `${product.name} | AzkaSmart`}</title>
         <meta
           name="description"
-          content={product.seo_description || product.description || `Buy ${product.name} at AzkaSmart — Smart Home Egypt. Fast nationwide delivery.`}
+          content={product.seo_description || plainDescriptionText || `Buy ${product.name} at AzkaSmart — Smart Home Egypt. Fast nationwide delivery.`}
         />
         {product.seo_keywords && product.seo_keywords.length > 0 && (
           <meta name="keywords" content={product.seo_keywords.join(", ")} />
@@ -415,7 +418,7 @@ const ProductDetail = () => {
         {/* Open Graph */}
         <meta property="og:type" content="product" />
         <meta property="og:title" content={product.seo_title || product.name} />
-        <meta property="og:description" content={product.seo_description || product.description || `Buy ${product.name} at AzkaSmart`} />
+        <meta property="og:description" content={product.seo_description || plainDescriptionText || `Buy ${product.name} at AzkaSmart`} />
         {product.image_url && <meta property="og:image" content={product.image_url} />}
         {/* Twitter */}
         <meta name="twitter:card" content="summary_large_image" />
@@ -424,7 +427,7 @@ const ProductDetail = () => {
           "@context": "https://schema.org",
           "@type": "Product",
           name: product.name,
-          description: product.seo_description || product.description || undefined,
+          description: product.seo_description || plainDescriptionText || undefined,
           image: product.image_url || undefined,
           brand: product.brand ? { "@type": "Brand", name: product.brand } : undefined,
           sku: (product as any).sku || product.id,
@@ -600,8 +603,21 @@ const ProductDetail = () => {
 
               <h1 className="mb-3 font-display text-2xl font-bold text-foreground md:text-3xl">{product.name}</h1>
 
-              {product.description && (
-                <p className="mb-4 text-base text-muted-foreground">{product.description}</p>
+              {sanitizedDescriptionHtml && (
+                <div
+                  dir="auto"
+                  className={cn(
+                    "product-description mb-4 text-base text-muted-foreground whitespace-pre-line break-words leading-relaxed",
+                    "[&_p]:mb-3 [&_p:last-child]:mb-0",
+                    "[&_h3]:text-lg [&_h3]:font-semibold [&_h3]:text-foreground [&_h3]:mt-4 [&_h3]:mb-2",
+                    "[&_h4]:text-base [&_h4]:font-semibold [&_h4]:text-foreground [&_h4]:mt-3 [&_h4]:mb-1.5",
+                    "[&_ul]:list-disc [&_ul]:ps-5 [&_ul]:my-2 [&_ol]:list-decimal [&_ol]:ps-5 [&_ol]:my-2 [&_li]:my-1",
+                    "[&_strong]:font-semibold [&_strong]:text-foreground [&_b]:font-semibold [&_b]:text-foreground",
+                    "[&_a]:text-primary [&_a]:underline [&_a:hover]:opacity-80",
+                    "[&_img]:max-w-full [&_img]:h-auto [&_img]:my-3 [&_img]:rounded-xl [&_img]:block"
+                  )}
+                  dangerouslySetInnerHTML={{ __html: sanitizedDescriptionHtml }}
+                />
               )}
 
               {/* Price */}
