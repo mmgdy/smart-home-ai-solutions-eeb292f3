@@ -88,6 +88,11 @@ export function ProductEditor({ adminToken }: Props) {
   const [discountPct, setDiscountPct] = useState("");
   const [aiBusy, setAiBusy] = useState(false);
   const [photoBusy, setPhotoBusy] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(50);
+
+  useEffect(() => {
+    setVisibleCount(50);
+  }, [search, brandFilter, statusFilter, protocolFilter]);
 
   const fetchAllProducts = async () => {
     const pageSize = 1000;
@@ -605,7 +610,7 @@ export function ProductEditor({ adminToken }: Props) {
       ) : (
         <div className="border border-border rounded-xl overflow-hidden">
           <div className="max-h-[600px] overflow-y-auto divide-y divide-border">
-            {visibleSlice.map((p) => {
+            {filtered.slice(0, visibleCount).map((p) => {
               const isHidden = hiddenIds.includes(p.id);
               const isSelected = selectedIds.has(p.id);
               const audit = cairoSupplierService.getProductAudit(p.id);
@@ -623,6 +628,8 @@ export function ProductEditor({ adminToken }: Props) {
                   <img
                     src={getProductImage(p as any)}
                     alt={p.name}
+                    loading="lazy"
+                    decoding="async"
                     className="w-14 h-14 rounded-lg object-contain p-1 bg-muted/30 border border-border/40 flex-shrink-0 cursor-pointer"
                     onClick={() => openEdit(p)}
                     onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/placeholder.svg"; }}
@@ -744,6 +751,18 @@ export function ProductEditor({ adminToken }: Props) {
               );
             })}
             {filtered.length === 0 && <p className="p-8 text-center text-muted-foreground">No products match.</p>}
+            {visibleCount < filtered.length && (
+              <div className="p-3 text-center bg-muted/20">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setVisibleCount((prev) => prev + 50)}
+                >
+                  Load More ({filtered.length - visibleCount} remaining)
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -769,7 +788,7 @@ export function ProductEditor({ adminToken }: Props) {
               <div className="flex items-center gap-3">
                 <div className="w-24 h-24 rounded-lg bg-muted flex items-center justify-center overflow-hidden border border-border">
                   {editing.image_url ? (
-                    <img src={editing.image_url} alt="" className="w-full h-full object-contain p-1"
+                    <img src={editing.image_url} alt="" loading="lazy" decoding="async" className="w-full h-full object-contain p-1"
                       onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
                   ) : (
                     <ImageIcon className="h-8 w-8 text-muted-foreground" />

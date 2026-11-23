@@ -175,7 +175,7 @@ export const translations = {
     save: 'وفر',
     inStock: 'متوفر',
     available: 'متاح',
-    outOfStock: 'غير متوفر',
+    outOfStock: 'نفدت الكمية',
     addToCart: 'أضف للسلة',
     specifications: 'المواصفات',
     productNotFound: 'المنتج غير موجود',

@@ -239,7 +239,7 @@ Deno.serve(async (req) => {
       });
       const decoded = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
       const { data: upData, error: e1 } = await supabase.storage.from(bucket).upload(filename, decoded, {
-        contentType: mimeType || "application/octet-stream", cacheControl: "3600", upsert: false,
+        contentType: mimeType || "application/octet-stream", cacheControl: "31536000", upsert: false,
       });
       if (e1) throw e1;
       const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filename);

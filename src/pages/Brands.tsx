@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { Layout } from "@/components/layout/Layout";
 import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/lib/i18n";
+import { normalizeBrand, brandToSlug } from "@/lib/brands";
 import { ProductCard } from "@/components/products/ProductCard";
 import type { Product } from "@/types/store";
 import { Loader2, ArrowLeft } from "lucide-react";
@@ -15,52 +16,101 @@ interface Brand { id: string; name: string; slug: string; logo_url: string | nul
 export default function BrandsPage() {
   const { isRTL } = useLanguage();
   const [params, setParams] = useSearchParams();
-  const activeSlug = params.get("brand");
+  const rawActiveSlug = params.get("brand");
+  const activeSlug = rawActiveSlug === "k-zosar" || rawActiveSlug === "k.zosar" ? "zosar" : rawActiveSlug;
 
   const [brands, setBrands] = useState<Brand[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
+  const [allVisibleProducts, setAllVisibleProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const { data: b } = await supabase
-        .from("brands")
-        .select("id, name, slug, logo_url, description")
-        .order("display_order", { ascending: true })
-        .order("name");
-      setBrands((b as any) ?? []);
+      const [{ data: b }, { data: hiddenData }, { data: prods }] = await Promise.all([
+        supabase
+          .from("brands")
+          .select("id, name, slug, logo_url, description")
+          .order("display_order", { ascending: true })
+          .order("name"),
+        supabase
+          .from("site_info")
+          .select("value")
+          .eq("section", "products")
+          .eq("key", "hidden_ids")
+          .maybeSingle(),
+        supabase
+          .from("products")
+          .select("*")
+          .is("parent_id", null)
+          .order("featured", { ascending: false }),
+      ]);
 
-      // Also derive brands from product table for any brand not yet in `brands`
-      const { data: distinct } = await supabase
-        .from("products").select("brand").not("brand", "is", null).limit(2000);
-      const inDb = new Set((b ?? []).map((x: any) => x.name.toLowerCase()));
-      const fromProducts = Array.from(new Set((distinct ?? []).map((r: any) => r.brand).filter(Boolean)))
-        .filter((name: string) => !inDb.has(name.toLowerCase()))
-        .map((name: string) => ({
-          id: `derived-${name}`,
-          name,
-          slug: name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-          logo_url: null,
-          description: null,
-        }));
-      setBrands((prev) => [...prev, ...fromProducts]);
+      let hiddenIds = new Set<string>();
+      if (hiddenData?.value) {
+        try {
+          hiddenIds = new Set(JSON.parse(hiddenData.value) as string[]);
+        } catch {}
+      }
+
+      const visibleProds = ((prods as any[]) ?? [])
+        .filter((p) => !hiddenIds.has(p.id))
+        .map((p) => ({
+          ...p,
+          brand: normalizeBrand(p.brand),
+        })) as Product[];
+
+      setAllVisibleProducts(visibleProds);
+
+      const brandMap = new Map<string, Brand>();
+      for (const row of (b as any[]) ?? []) {
+        const canonical = normalizeBrand(row.name);
+        if (!canonical) continue;
+        const key = canonical.toLowerCase();
+        if (!brandMap.has(key)) {
+          brandMap.set(key, {
+            id: row.id,
+            name: canonical,
+            slug: brandToSlug(canonical),
+            logo_url: row.logo_url ?? null,
+            description: row.description ?? null,
+          });
+        }
+      }
+
+      for (const p of visibleProds) {
+        const canonical = normalizeBrand(p.brand);
+        if (!canonical) continue;
+        const key = canonical.toLowerCase();
+        if (!brandMap.has(key)) {
+          brandMap.set(key, {
+            id: `derived-${canonical}`,
+            name: canonical,
+            slug: brandToSlug(canonical),
+            logo_url: null,
+            description: null,
+          });
+        }
+      }
+
+      const mergedList = Array.from(brandMap.values()).sort((a, b) =>
+        a.name.localeCompare(b.name)
+      );
+      setBrands(mergedList);
       setLoading(false);
     })();
   }, []);
 
-  useEffect(() => {
-    if (!activeSlug) { setProducts([]); return; }
-    (async () => {
-      const brand = brands.find((b) => b.slug === activeSlug);
-      if (!brand) return;
-      const { data } = await supabase
-        .from("products").select("*").ilike("brand", brand.name).order("featured", { ascending: false }).limit(120);
-      setProducts((data as any) ?? []);
-    })();
-  }, [activeSlug, brands]);
+  const activeBrand = useMemo(
+    () => brands.find((b) => b.slug === activeSlug),
+    [brands, activeSlug]
+  );
 
-  const activeBrand = useMemo(() => brands.find((b) => b.slug === activeSlug), [brands, activeSlug]);
+  const products = useMemo(() => {
+    if (!activeBrand) return [];
+    return allVisibleProducts.filter(
+      (p) => normalizeBrand(p.brand)?.toLowerCase() === activeBrand.name.toLowerCase()
+    );
+  }, [allVisibleProducts, activeBrand]);
 
   return (
     <Layout>
@@ -99,6 +149,8 @@ export default function BrandsPage() {
                   >
                     {b.logo_url ? (
                       <img src={b.logo_url} alt={b.name}
+                        loading="lazy"
+                        decoding="async"
                         className="max-h-20 max-w-full object-contain grayscale group-hover:grayscale-0 transition-all"
                         onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
                     ) : (
@@ -119,7 +171,7 @@ export default function BrandsPage() {
             </Button>
             <div className="text-center mb-10">
               {activeBrand?.logo_url && (
-                <img src={activeBrand.logo_url} alt={activeBrand.name} className="h-20 mx-auto mb-4 object-contain" />
+                <img src={activeBrand.logo_url} alt={activeBrand.name} loading="lazy" decoding="async" className="h-20 mx-auto mb-4 object-contain" />
               )}
               <h1 className="font-display text-4xl font-bold mb-2">{activeBrand?.name}</h1>
               {activeBrand?.description && (

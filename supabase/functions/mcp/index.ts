@@ -183,10 +183,10 @@ const projectRef = (() => {
   return match?.[1] ?? "djsibxhkfvwtjzvnjmhp";
 })();
 const mcp_default = defineMcp({
-  name: "baytzaki-mcp",
-  title: "Baytzaki",
+  name: "azkasmart-mcp",
+  title: "AzkaSmart",
   version: "0.1.0",
-  instructions: "Tools for the Baytzaki Egyptian smart-home and art-furniture store. Use `search_products` and `get_product` to browse the catalog (prices in EGP), `list_categories` for sections, and `list_my_orders` / `get_my_loyalty` for the signed-in customer's own data.",
+  instructions: "Tools for the AzkaSmart Egyptian smart-home store. Use `search_products` and `get_product` to browse the catalog (prices in EGP), `list_categories` for sections, and `list_my_orders` / `get_my_loyalty` for the signed-in customer's own data.",
   auth: auth.oauth.issuer({
     issuer: `https://${projectRef}.supabase.co/auth/v1`,
     acceptedAudiences: "authenticated"

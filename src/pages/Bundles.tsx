@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Check, Wifi, ShoppingCart, Sparkles, Settings2, Loader2 } from 'lucide-react';
+import { Check, Wifi, ShoppingCart, Sparkles, Settings2, Loader2, Wrench } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -12,13 +12,13 @@ import { useLanguage } from '@/lib/i18n';
 import { useCart } from '@/hooks/useCart';
 import { useToast } from '@/hooks/use-toast';
 import type { Product } from '@/types/store';
-import { defaultBundles, normalizeBundles } from '@/lib/bundles';
+import { defaultBundles, matchProductsForBundle, normalizeBundles, syncBundlesWithCatalog } from '@/lib/bundles';
 import { supabase } from '@/integrations/supabase/client';
 
 const Bundles = () => {
   const { isRTL, formatPrice } = useLanguage();
   const navigate = useNavigate();
-  const { addItem } = useCart();
+  const { addItem, clearCart, setActiveBundle: setCartBundle } = useCart();
   const { toast } = useToast();
   const [bundles, setBundles] = useState(normalizeBundles(defaultBundles));
   const [customizeOpen, setCustomizeOpen] = useState(false);
@@ -27,46 +27,6 @@ const Bundles = () => {
   const [productsLoading, setProductsLoading] = useState(false);
   const [selectedProducts, setSelectedProducts] = useState<Record<string, number>>({});
   const [search, setSearch] = useState('');
-
-  // Match device labels / configured bundle items to real catalog products
-  const matchProductsForBundle = (bundle: any, products: Product[]): Record<string, number> => {
-    const sel: Record<string, number> = {};
-
-    // 1. Direct match by configured items if available
-    if (Array.isArray(bundle.items) && bundle.items.length) {
-      bundle.items.forEach((item: any) => {
-        const found = products.find((p) =>
-          (item.productId && p.id === item.productId) ||
-          (item.nameMatch && p.name.toLowerCase().includes(item.nameMatch.toLowerCase()))
-        );
-        if (found) {
-          sel[found.id] = (sel[found.id] || 0) + item.qty;
-        }
-      });
-      if (Object.keys(sel).length > 0) return sel;
-    }
-
-    // 2. Fallback: match by line parsing on devicesEn
-    const devices: string[] = Array.isArray(bundle.devicesEn)
-      ? bundle.devicesEn
-      : (bundle.devicesEn || '').split('\n').map((s: string) => s.trim()).filter(Boolean);
-
-    devices.forEach((d) => {
-      const m = d.match(/^(\d+)\s*x?\s*(.+)$/i);
-      const qty = m ? parseInt(m[1], 10) : 1;
-      const term = (m ? m[2] : d).toLowerCase();
-      const tokens = term.split(/[\s,/-]+/).filter((t) => t.length > 2);
-      const found =
-        products.find((p) => p.name.toLowerCase().includes(term)) ||
-        products.find((p) => tokens.length >= 2 && tokens.every((t) => p.name.toLowerCase().includes(t))) ||
-        products.find((p) =>
-          tokens.every((t) => (p.name + ' ' + (p.description || '') + ' ' + (p.brand || '')).toLowerCase().includes(t))
-        ) ||
-        products.find((p) => tokens.some((t) => p.name.toLowerCase().includes(t)));
-      if (found) sel[found.id] = (sel[found.id] || 0) + qty;
-    });
-    return sel;
-  };
 
   const ensureProductsLoaded = async () => {
     if (allProducts.length) return allProducts;
@@ -92,6 +52,7 @@ const Bundles = () => {
 
   const addCustomizedToCart = () => {
     let added = 0;
+    clearCart();
     Object.entries(selectedProducts).forEach(([id, qty]) => {
       if (qty <= 0) return;
       const p = allProducts.find((x) => x.id === id);
@@ -101,8 +62,11 @@ const Bundles = () => {
       toast({ title: isRTL ? 'لم يتم اختيار أي منتج' : 'No products selected', variant: 'destructive' });
       return;
     }
+    if (activeBundle?.id) {
+      setCartBundle(activeBundle.id);
+    }
     toast({
-      title: isRTL ? 'تمت الإضافة للسلة' : 'Added to cart',
+      title: isRTL ? 'تمت الإضافة للسلة (شامل التركيب مجاناً)' : 'Added to cart (Free Installation included)',
       description: isRTL ? `${added} منتج من ${activeBundle.nameAr}` : `${added} items from ${activeBundle.nameEn}`,
     });
     setCustomizeOpen(false);
@@ -122,34 +86,56 @@ const Bundles = () => {
       openCustomize(bundle);
       return;
     }
+    clearCart();
     let total = 0;
     ids.forEach((id) => {
       const p = products.find((x) => x.id === id);
       const qty = matched[id];
       if (p) { addItem(p as any, qty); total += qty; }
     });
+    setCartBundle(bundle.id);
     toast({
-      title: isRTL ? 'تمت إضافة الباقة' : 'Bundle added to cart',
-      description: isRTL ? `${total} منتج من ${bundle.nameAr}` : `${total} items from ${bundle.nameEn}`,
+      title: isRTL ? 'تمت إضافة الباقة (شامل التركيب مجاناً)' : 'Bundle added to cart (Free Installation)',
+      description: isRTL ? `${total} جهاز من ${bundle.nameAr}` : `${total} devices from ${bundle.nameEn}`,
     });
     navigate('/cart');
   };
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
-        .from('site_info')
-        .select('value')
-        .eq('section', 'bundles')
-        .eq('key', 'list')
-        .maybeSingle();
-      if (!data?.value) return;
-      try {
-        const parsed = JSON.parse(data.value);
-        if (Array.isArray(parsed) && parsed.length) setBundles(normalizeBundles(parsed));
-      } catch {
-        // Keep built-in bundles as fallback.
+      const [{ data: infoData }, { data: prodData }] = await Promise.all([
+        supabase
+          .from('site_info')
+          .select('value')
+          .eq('section', 'bundles')
+          .eq('key', 'list')
+          .maybeSingle(),
+        supabase
+          .from('products')
+          .select('*')
+          .gt('stock', 0)
+          .order('name')
+          .limit(500),
+      ]);
+
+      const prodList = (prodData ?? []) as any as Product[];
+      if (prodList.length) {
+        setAllProducts(prodList);
       }
+
+      let baseBundles = normalizeBundles(defaultBundles);
+      if (infoData?.value) {
+        try {
+          const parsed = JSON.parse(infoData.value);
+          if (Array.isArray(parsed) && parsed.length) {
+            baseBundles = normalizeBundles(parsed);
+          }
+        } catch {
+          // Keep built-in bundles as fallback.
+        }
+      }
+
+      setBundles(syncBundlesWithCatalog(baseBundles, prodList));
     })();
   }, []);
 
@@ -157,7 +143,7 @@ const Bundles = () => {
     <>
       <Helmet>
         <title>{isRTL ? 'باقات المنزل الذكي | أزكاسمارت' : 'Smart Home Bundles | AzkaSmart'}</title>
-        <meta name="description" content="Ready-made smart home bundles with real catalog prices for Egyptian homes. Studio, apartment, and villa kits with certified installation and official warranty." />
+        <meta name="description" content="Ready-made smart home bundles with exact catalog prices and FREE certified installation for Egyptian homes." />
       </Helmet>
       <Layout>
         <div className="pt-24 pb-20">
@@ -170,7 +156,7 @@ const Bundles = () => {
             >
               <Sparkles className="h-4 w-4 text-primary" />
               <span className="text-sm font-medium text-primary">
-                {isRTL ? 'تركيب احترافي معتمد + ضمان سنتين' : 'Certified Pro Installation + 2-Year Warranty'}
+                {isRTL ? 'تركيب احترافي مجاناً + ضمان رسمي' : 'FREE Certified Pro Installation + Official Warranty'}
               </span>
             </motion.div>
             <motion.h1
@@ -188,8 +174,8 @@ const Bundles = () => {
               className="text-muted-foreground max-w-2xl mx-auto"
             >
               {isRTL
-                ? 'باقات ذكية مصممة بأسعار الأجهزة الحقيقية وخصومات مدروسة للمنازل المصرية. تشمل أجهزة أصلية معتمدة مع خيار التركيب الاحترافي (٢٠٪، بحد أدنى ١٥٠٠ ج.م للزيارة).'
-                : 'Smart bundles configured with real catalog prices and authentic savings for Egyptian homes. Genuine devices with optional certified installation (20%, min. 1,500 EGP per visit).'}
+                ? 'باقات ذكية متكاملة بأسعار الأجهزة الفعلية في الكتالوج مع تركيب احترافي وبرمجة مجانية بالكامل (وفّر رسوم التركيب ٢٠٪).'
+                : 'Complete smart home bundles priced at the exact sum of their catalog devices — with FREE certified installation & setup (save the 20% installation fee).'}
             </motion.p>
           </div>
 
@@ -197,7 +183,7 @@ const Bundles = () => {
           <div className="container px-6 md:px-12">
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
               {bundles.map((bundle, index) => {
-                const discount = Math.round(((bundle.originalPrice - bundle.priceEgp) / bundle.originalPrice) * 100);
+                const freeInstallValue = Math.max(0, bundle.originalPrice - bundle.priceEgp);
                 return (
                   <motion.div
                     key={bundle.id}
@@ -207,12 +193,12 @@ const Bundles = () => {
                     transition={{ delay: index * 0.05 }}
                     className="rounded-2xl border border-border bg-card p-6 hover:border-primary/40 transition-all flex flex-col"
                   >
-                    <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-start justify-between mb-3 gap-2">
                       <h3 className="font-display text-lg font-bold text-foreground">
                         {isRTL ? bundle.nameAr : bundle.nameEn}
                       </h3>
-                      <span className="text-xs font-bold text-success bg-success/10 px-2 py-1 rounded-full">
-                        -{discount}%
+                      <span className="text-xs font-bold text-success bg-success/10 px-2.5 py-1 rounded-full shrink-0">
+                        {isRTL ? 'تركيب مجاني' : 'FREE Install'}
                       </span>
                     </div>
 
@@ -221,9 +207,19 @@ const Bundles = () => {
                     </p>
 
                     {/* Price */}
-                    <div className="flex items-center gap-3 mb-4">
-                      <span className="font-display text-2xl font-bold text-foreground">{formatPrice(bundle.priceEgp)}</span>
-                      <span className="text-sm text-muted-foreground line-through">{formatPrice(bundle.originalPrice)}</span>
+                    <div className="mb-4">
+                      <div className="flex items-baseline gap-3">
+                        <span className="font-display text-2xl font-bold text-foreground">{formatPrice(bundle.priceEgp)}</span>
+                        <span className="text-sm text-muted-foreground line-through">{formatPrice(bundle.originalPrice)}</span>
+                      </div>
+                      <div className="mt-1 inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                        <Wrench className="h-3 w-3" />
+                        <span>
+                          {isRTL
+                            ? `شامل التركيب الاحترافي مجاناً (بقيمة ${formatPrice(freeInstallValue)})`
+                            : `Includes FREE Pro Installation (worth ${formatPrice(freeInstallValue)})`}
+                        </span>
+                      </div>
                     </div>
 
                     {/* Devices */}
@@ -246,7 +242,7 @@ const Bundles = () => {
 
                     <div className="flex items-center justify-between text-xs text-muted-foreground mb-4">
                       <span>⏱ {isRTL ? bundle.installTimeAr : bundle.installTimeEn}</span>
-                      <div className="flex gap-1">
+                      <div className="flex gap-1 flex-wrap justify-end">
                         {bundle.badges.map((b) => (
                           <span key={b} className="px-1.5 py-0.5 rounded bg-secondary text-[10px] font-medium">{b}</span>
                         ))}
@@ -260,7 +256,7 @@ const Bundles = () => {
                         onClick={() => handleOrderBundle(bundle)}
                       >
                         <ShoppingCart className="mr-1.5 h-3.5 w-3.5" />
-                        {isRTL ? 'اطلب الآن' : 'Order Now'}
+                        {isRTL ? 'اطلب الباقة الآن' : 'Order Bundle Now'}
                       </Button>
                       <Button
                         variant="outline"
@@ -325,7 +321,7 @@ const Bundles = () => {
                       checked={qty > 0}
                       onCheckedChange={(v) => setSelectedProducts((s) => ({ ...s, [p.id]: v ? Math.max(1, qty) : 0 }))}
                     />
-                    <img src={(p as any).image_url || '/placeholder.svg'} alt={p.name} className="w-10 h-10 rounded-lg object-contain p-0.5 bg-muted/30 border border-border/40 shrink-0" onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/placeholder.svg'; }} />
+                    <img src={(p as any).image_url || '/placeholder.svg'} alt={p.name} loading="lazy" decoding="async" className="w-10 h-10 rounded-lg object-contain p-0.5 bg-muted/30 border border-border/40 shrink-0" onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/placeholder.svg'; }} />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{p.name}</p>
                       <p className="text-xs text-muted-foreground">{formatPrice(p.price)}</p>
@@ -341,14 +337,27 @@ const Bundles = () => {
                 );
               })}
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCustomizeOpen(false)}>
-              {isRTL ? 'إلغاء' : 'Cancel'}
-            </Button>
-            <Button onClick={addCustomizedToCart}>
-              <ShoppingCart className="mr-2 h-4 w-4" />
-              {isRTL ? 'أضف المختار للسلة' : 'Add selected to cart'}
-            </Button>
+          <DialogFooter className="flex items-center justify-between sm:justify-between gap-2">
+            <div className="text-xs font-semibold text-foreground">
+              {isRTL ? 'إجمالي المختار: ' : 'Selected Total: '}
+              <span className="text-primary text-sm">
+                {formatPrice(
+                  Object.entries(selectedProducts).reduce((sum, [id, q]) => {
+                    const p = allProducts.find((x) => x.id === id);
+                    return sum + (p ? Number(p.price) * q : 0);
+                  }, 0)
+                )}
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setCustomizeOpen(false)}>
+                {isRTL ? 'إلغاء' : 'Cancel'}
+              </Button>
+              <Button onClick={addCustomizedToCart}>
+                <ShoppingCart className="mr-2 h-4 w-4" />
+                {isRTL ? 'أضف المختار للسلة' : 'Add selected to cart'}
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>

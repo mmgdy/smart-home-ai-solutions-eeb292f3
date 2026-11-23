@@ -120,7 +120,7 @@ const resp = await fetch(imageUrl, { headers: { "User-Agent": "Mozilla/5.0 AzkaS
     if (!contentType.startsWith("image/")) return imageUrl;
     const ext = contentType.includes("png") ? "png" : contentType.includes("webp") ? "webp" : contentType.includes("svg") ? "svg" : "jpg";
     const path = `refreshed/${productId}/${crypto.randomUUID()}.${ext}`;
-    const { error } = await supabase.storage.from("product-images").upload(path, await resp.blob(), { contentType, upsert: true });
+    const { error } = await supabase.storage.from("product-images").upload(path, await resp.blob(), { contentType, cacheControl: "31536000", upsert: true });
     if (error) return imageUrl;
     return supabase.storage.from("product-images").getPublicUrl(path).data.publicUrl;
   } catch {

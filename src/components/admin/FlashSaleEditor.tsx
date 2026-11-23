@@ -48,11 +48,15 @@ export function FlashSaleEditor({ adminToken }: Props) {
 
   // Selection
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [visibleCount, setVisibleCount] = useState(60);
 
   // Action
   const [discountPct, setDiscountPct] = useState('');
 
   useEffect(() => { loadProducts(); }, []);
+  useEffect(() => {
+    setVisibleCount(60);
+  }, [search, brandFilter, categoryFilter, priceRange, showDiscountedOnly]);
 
   const loadProducts = async () => {
     setLoading(true);
@@ -345,7 +349,7 @@ export function FlashSaleEditor({ adminToken }: Props) {
           <div className="text-center py-8 text-muted-foreground text-sm">No products match the filters</div>
         ) : (
           <div className="divide-y divide-border max-h-[480px] overflow-y-auto">
-            {filtered.map(p => {
+            {filtered.slice(0, visibleCount).map(p => {
               const discount = p.original_price
                 ? Math.round(((p.original_price - p.price) / p.original_price) * 100)
                 : null;
@@ -364,7 +368,7 @@ export function FlashSaleEditor({ adminToken }: Props) {
                   {/* Image */}
                   <div className="w-8 h-8 rounded bg-muted flex-shrink-0 overflow-hidden">
                     {p.image_url
-                      ? <img src={p.image_url} alt="" className="w-full h-full object-cover" />
+                      ? <img src={p.image_url} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                       : <div className="w-full h-full bg-muted" />
                     }
                   </div>
@@ -391,6 +395,18 @@ export function FlashSaleEditor({ adminToken }: Props) {
                 </label>
               );
             })}
+            {visibleCount < filtered.length && (
+              <div className="p-3 text-center bg-muted/20">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setVisibleCount((prev) => prev + 60)}
+                >
+                  Load More ({filtered.length - visibleCount} remaining)
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </div>

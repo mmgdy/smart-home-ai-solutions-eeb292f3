@@ -10,8 +10,7 @@ import { ThemeProvider } from "@/lib/theme";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { supabase } from "@/integrations/supabase/client";
-import { applyFavicon } from '@/lib/favicon';
+import { applyFavicon, loadBrandingSettings, resolveBrandingAssetUrl } from '@/lib/favicon';
 
 // Core shopping funnel is eagerly loaded for instant navigation (no suspense delay)
 import Index from "./pages/Index";
@@ -33,6 +32,7 @@ const Profile = lazy(() => import("./pages/Profile"));
 const Legal = lazy(() => import("./pages/Legal"));
 const Bundles = lazy(() => import("./pages/Bundles"));
 const About = lazy(() => import("./pages/About"));
+const Contact = lazy(() => import("./pages/Contact"));
 const Brands = lazy(() => import("./pages/Brands"));
 const HomeDesigner = lazy(() => import("./pages/HomeDesigner"));
 const AppSimulator = lazy(() => import("./pages/AppSimulator"));
@@ -60,12 +60,7 @@ export function FaviconUpdater() {
     }
 
     const syncFavicon = async () => {
-      const { data } = await supabase
-        .from('admin_settings')
-        .select('key, value')
-        .in('key', ['favicon_url', 'app_icon_url', 'logo_url']);
-      const map: Record<string, string> = {};
-      (data ?? []).forEach((r: any) => { if (r.value) map[r.key] = r.value; });
+      const map = await loadBrandingSettings();
 
       // Favicon
       if (map.favicon_url) {
@@ -74,28 +69,39 @@ export function FaviconUpdater() {
 
       // Apple touch icon (iOS home screen)
       if (map.app_icon_url) {
+        const resolvedApple = resolveBrandingAssetUrl(
+          map.app_icon_url,
+          'app-icon',
+          '/icons/apple-touch-icon.png',
+        );
         let apple = document.querySelector("link[rel='apple-touch-icon']") as HTMLLinkElement | null;
         if (!apple) { apple = document.createElement('link'); apple.rel = 'apple-touch-icon'; document.head.appendChild(apple); }
-        apple.href = map.app_icon_url;
+        const targetAppleHref = new URL(resolvedApple, window.location.origin).href;
+        if (apple.href !== targetAppleHref && apple.href.split('?')[0] !== targetAppleHref.split('?')[0]) {
+          apple.href = resolvedApple;
+        }
       }
 
-      // PWA manifest icons (update manifest.json at runtime)
+      // PWA manifest icons (only rewrite manifest.json if a non-local custom icon URL is configured)
       if (map.logo_url || map.app_icon_url) {
         try {
-          const manifestLink = document.querySelector("link[rel='manifest']") as HTMLLinkElement | null;
-          if (manifestLink) {
-            const resp = await fetch(manifestLink.href);
-            const manifest = await resp.json();
-            if (map.logo_url) manifest.short_name = "AzkaSmart";
-            if (map.app_icon_url) {
+          const resolvedAppIcon = map.app_icon_url
+            ? resolveBrandingAssetUrl(map.app_icon_url, 'app-icon', '/icons/icon-512.png')
+            : null;
+          if (resolvedAppIcon && resolvedAppIcon !== '/icons/icon-512.png') {
+            const manifestLink = document.querySelector("link[rel='manifest']") as HTMLLinkElement | null;
+            if (manifestLink) {
+              const resp = await fetch(manifestLink.href);
+              const manifest = await resp.json();
+              if (map.logo_url) manifest.short_name = "AzkaSmart";
               manifest.icons = [
-                { src: map.app_icon_url, sizes: "512x512", type: "image/png", purpose: "any" },
-                { src: map.app_icon_url, sizes: "512x512", type: "image/png", purpose: "maskable" },
+                { src: resolvedAppIcon, sizes: "512x512", type: "image/png", purpose: "any" },
+                { src: resolvedAppIcon, sizes: "512x512", type: "image/png", purpose: "maskable" },
               ];
+              const blob = new Blob([JSON.stringify(manifest)], { type: "application/manifest+json" });
+              const blobUrl = URL.createObjectURL(blob);
+              manifestLink.href = blobUrl;
             }
-            const blob = new Blob([JSON.stringify(manifest)], { type: "application/manifest+json" });
-            const blobUrl = URL.createObjectURL(blob);
-            manifestLink.href = blobUrl;
           }
         } catch { /* best-effort manifest update */ }
       }
@@ -133,6 +139,7 @@ const App = () => (
                     <Route path="/loyalty" element={<Loyalty />} />
                     <Route path="/bundles" element={<Bundles />} />
                     <Route path="/about" element={<About />} />
+                    <Route path="/contact" element={<Contact />} />
                     <Route path="/company-profile" element={<CompanyProfile />} />
                     <Route path="/brands" element={<Brands />} />
                     <Route path="/home-designer" element={<HomeDesigner />} />

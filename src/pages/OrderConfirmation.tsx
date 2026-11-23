@@ -49,8 +49,8 @@ const OrderConfirmation = () => {
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const { get: getInfo } = useSiteInfo();
-  const rawWaNum = getInfo('contact', 'whatsapp', '01501896456').replace(/[^0-9]/g, '');
-  const cleanWaNumber = rawWaNum.startsWith('0') ? '2' + rawWaNum : rawWaNum;
+  const rawWaNum = (getInfo('contact', 'whatsapp', '201501896456') || '201501896456').replace(/[^0-9]/g, '');
+  const cleanWaNumber = rawWaNum.startsWith('0') ? '2' + rawWaNum : (rawWaNum || '201501896456');
 
   const NextArrow = isRTL ? ArrowLeft : ArrowRight;
 

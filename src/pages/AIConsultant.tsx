@@ -79,8 +79,8 @@ const SUGGESTED_AR = [
 const AIConsultant = () => {
   const { isRTL } = useLanguage();
   const { get: getInfo } = useSiteInfo();
-  const rawWa = (getInfo('contact', 'whatsapp', '01501896456') || '01501896456').replace(/\D/g, '');
-  const whatsappNumber = rawWa.startsWith('0') ? '2' + rawWa : rawWa;
+  const rawWa = (getInfo('contact', 'whatsapp', '201501896456') || '201501896456').replace(/\D/g, '');
+  const whatsappNumber = rawWa.startsWith('0') ? '2' + rawWa : (rawWa || '201501896456');
   const { toast } = useToast();
   const location = useLocation();
   const [messages, setMessages] = useState<Message[]>([]);

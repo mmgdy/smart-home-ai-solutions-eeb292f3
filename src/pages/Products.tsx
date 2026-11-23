@@ -13,6 +13,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/co
 import { supabase } from '@/integrations/supabase/client';
 import { Product, Category } from '@/types/store';
 import { useLanguage } from '@/lib/i18n';
+import { normalizeBrand } from '@/lib/brands';
 import { cn } from '@/lib/utils';
 
 const Products = () => {
@@ -98,6 +99,7 @@ const Products = () => {
       .filter((p) => !hiddenSet.has(p.id))
       .map((p) => ({
         ...p,
+        brand: normalizeBrand(p.brand),
         category: p.categories || p.category,
         images: Array.isArray(p.images) && p.images.length > 0 ? p.images : p.image_url ? [p.image_url] : [],
       })) as Product[];
@@ -106,7 +108,9 @@ const Products = () => {
   // Derive available brands/protocols from loaded products
   const availableBrands = useMemo(() => {
     if (!products) return [];
-    return [...new Set(products.map((p) => p.brand).filter(Boolean))] as string[];
+    return [...new Set(products.map((p) => normalizeBrand(p.brand)).filter(Boolean))].sort((a, b) =>
+      String(a).localeCompare(String(b))
+    ) as string[];
   }, [products]);
 
   const availableProtocols = useMemo(() => {

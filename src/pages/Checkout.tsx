@@ -154,7 +154,7 @@ const loadPaySkyScript = (targetUrl?: string): Promise<void> => {
 
 const Checkout = () => {
   const navigate = useNavigate();
-  const { items, getTotal, clearCart } = useCart();
+  const { items, activeBundleId, getTotal, clearCart } = useCart();
   const { t, formatPrice, isRTL, language } = useLanguage();
   const { toast } = useToast();
   const { user } = useAuth();
@@ -231,12 +231,15 @@ const Checkout = () => {
   }, [items.length, navigate]);
 
   const subtotal = getTotal();
+  const isBundleOrder = Boolean(activeBundleId);
   const shippingFlat = Number(getInfo('service_prices', 'shipping_flat', '50')) || 0;
   const shippingThreshold = Number(getInfo('service_prices', 'shipping_free_threshold', '1000')) || 0;
   const shippingCost = shippingThreshold > 0 && subtotal >= shippingThreshold ? 0 : shippingFlat;
-  // Installation fee: 20% of subtotal, minimum 1500 EGP per visit.
+  // Regular installation fee: 20% of subtotal, minimum 1500 EGP per visit.
+  // For official bundles, certified installation is 100% FREE (0 EGP).
+  const regularInstallationFee = subtotal > 0 ? Math.max(1500, Math.round(subtotal * 0.20)) : 0;
   const installationFee = includeInstallation && subtotal > 0
-    ? Math.max(1500, Math.round(subtotal * 0.20))
+    ? (isBundleOrder ? 0 : regularInstallationFee)
     : 0;
   const couponDiscount = appliedCoupon
     ? appliedCoupon.discountType === 'percentage'
@@ -360,6 +363,8 @@ const Checkout = () => {
         installation: includeInstallation ? {
           requested: true,
           fee: installationFee,
+          freeWithBundle: isBundleOrder,
+          bundleId: activeBundleId || undefined,
           deviceCount,
         } : { requested: false },
         paymentToken,
@@ -1154,8 +1159,8 @@ const Checkout = () => {
                             <div className="pt-2 border-t border-purple-500/10">
                               <a
                                 href={`https://wa.me/${(() => {
-                                  const d = getInfo('contact', 'whatsapp', '01501896456').replace(/[^0-9]/g, '');
-                                  return d.startsWith('0') ? '2' + d : d;
+                                  const d = (getInfo('contact', 'whatsapp', '201501896456') || '201501896456').replace(/[^0-9]/g, '');
+                                  return d.startsWith('0') ? '2' + d : (d || '201501896456');
                                 })()}?text=${encodeURIComponent(
                                   `مرحباً أزكاسمارت، أود تأكيد الدفع عبر إنستاباي بمبلغ ${total} ج.م.\nالاسم: ${formData.firstName} ${formData.lastName}\nالهاتف: ${formData.phone}`
                                 )}`}
@@ -1207,31 +1212,63 @@ const Checkout = () => {
                 </div>
 
                 {/* Professional Installation */}
-                <div className="rounded-xl border border-primary/30 bg-gradient-to-br from-primary/10 to-card p-6">
+                <div className={cn(
+                  "rounded-xl border p-6",
+                  isBundleOrder
+                    ? "border-emerald-500/40 bg-gradient-to-br from-emerald-500/10 to-card"
+                    : "border-primary/30 bg-gradient-to-br from-primary/10 to-card"
+                )}>
                   <div className="flex items-start justify-between gap-4 mb-3">
-                    <div className="flex items-center gap-3">
-                      <Wrench className="h-5 w-5 text-primary" />
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <Wrench className={cn("h-5 w-5", isBundleOrder ? "text-emerald-500" : "text-primary")} />
                       <h2 className="font-display text-xl font-semibold text-foreground">
-                        {language === 'ar' ? 'التركيب الاحترافي' : 'Professional Installation'}
+                        {language === 'ar' ? 'التركيب الاحترافي المعتمد' : 'Certified Professional Installation'}
                       </h2>
+                      {isBundleOrder && (
+                        <span className="inline-flex items-center rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                          {language === 'ar' ? 'مجاناً مع الباقة' : 'FREE with Bundle'}
+                        </span>
+                      )}
                     </div>
                     <Switch checked={includeInstallation} onCheckedChange={setIncludeInstallation} />
                   </div>
                   <p className="text-sm text-muted-foreground mb-3">
-                    {language === 'ar'
-                      ? `فريقنا المعتمد يركّب أجهزتك ويهيئها لك بالكامل. رسوم التركيب: ٢٠٪ من إجمالي الأجهزة (الحد الأدنى للزيارة ١,٥٠٠ ج.م).`
-                      : `Our certified team installs and configures your devices. Fee: 20% of total (minimum 1,500 EGP per visit).`}
+                    {isBundleOrder
+                      ? (language === 'ar'
+                          ? `التركيب الاحترافي والبرمجة الكاملة للأجهزة والسيناريوهات مشمولان مجاناً بالكامل ضمن باقتك المختارة (توفر ${formatPrice(regularInstallationFee)} رسوم تركيب).`
+                          : `Certified installation and full smart scene programming are included 100% FREE with your selected bundle (saving you ${formatPrice(regularInstallationFee)} in installation fees).`)
+                      : (language === 'ar'
+                          ? `فريقنا المعتمد يركّب أجهزتك ويهيئها لك بالكامل. رسوم التركيب: ٢٠٪ من إجمالي الأجهزة (الحد الأدنى للزيارة ١,٥٠٠ ج.م).`
+                          : `Our certified team installs and configures your devices. Fee: 20% of total (minimum 1,500 EGP per visit).`)}
                   </p>
                   {includeInstallation && subtotal > 0 && (
-                    <div className="flex items-center justify-between rounded-lg bg-primary/10 px-4 py-3">
+                    <div className={cn(
+                      "flex items-center justify-between rounded-lg px-4 py-3",
+                      isBundleOrder ? "bg-emerald-500/15 border border-emerald-500/30" : "bg-primary/10"
+                    )}>
                       <span className="text-sm font-medium text-foreground">
-                        {language === 'ar'
-                          ? `٢٠٪ من الإجمالي (الحد الأدنى للزيارة ١,٥٠٠ ج.م)`
-                          : `20% of total (min. 1,500 EGP visit fee)`}
+                        {isBundleOrder
+                          ? (language === 'ar'
+                              ? 'شامل التركيب والبرمجة الميدانية المعتمدة ضمن الباقة'
+                              : 'Certified on-site installation & setup included in bundle')
+                          : (language === 'ar'
+                              ? `٢٠٪ من الإجمالي (الحد الأدنى للزيارة ١,٥٠٠ ج.م)`
+                              : `20% of total (min. 1,500 EGP visit fee)`)}
                       </span>
-                      <span className="font-display text-lg font-bold text-primary">
-                        {formatPrice(installationFee)}
-                      </span>
+                      {isBundleOrder ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-muted-foreground line-through">
+                            {formatPrice(regularInstallationFee)}
+                          </span>
+                          <span className="font-display text-lg font-bold text-emerald-600 dark:text-emerald-400">
+                            {language === 'ar' ? 'مجاناً' : 'FREE'}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="font-display text-lg font-bold text-primary">
+                          {formatPrice(installationFee)}
+                        </span>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1340,7 +1377,23 @@ const Checkout = () => {
                       {shippingCost === 0 ? labels.freeShipping : formatPrice(shippingCost)}
                     </span>
                   </div>
-                  {includeInstallation && installationFee > 0 && (
+                  {includeInstallation && isBundleOrder && (
+                    <div className="flex justify-between items-center text-sm rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-3 py-2">
+                      <span className="text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1.5">
+                        <Wrench className="h-3.5 w-3.5" />
+                        {language === 'ar' ? 'التركيب المعتمد (عرض الباقة)' : 'Installation (Bundle Offer)'}
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs text-muted-foreground line-through">
+                          {formatPrice(regularInstallationFee)}
+                        </span>
+                        <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                          {language === 'ar' ? 'مجاناً' : 'FREE'}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  {includeInstallation && !isBundleOrder && installationFee > 0 && (
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">
                         {language === 'ar' ? 'التركيب (٢٠٪، حد أدنى ١٥٠٠ ج.م)' : 'Installation (20%, min. 1,500 EGP)'}

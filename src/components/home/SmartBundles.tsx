@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowRight, Check, Wifi, Package } from 'lucide-react';
+import { ArrowRight, Check, Wifi, Wrench } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
-import { defaultBundles, normalizeBundles } from '@/lib/bundles';
+import { defaultBundles, normalizeBundles, syncBundlesWithCatalog } from '@/lib/bundles';
 import { supabase } from '@/integrations/supabase/client';
+import { Product } from '@/types/store';
 
 export function SmartBundles() {
   const { isRTL, formatPrice } = useLanguage();
@@ -14,19 +15,31 @@ export function SmartBundles() {
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
-        .from('site_info')
-        .select('value')
-        .eq('section', 'bundles')
-        .eq('key', 'list')
-        .maybeSingle();
-      if (!data?.value) return;
-      try {
-        const parsed = JSON.parse(data.value);
-        if (Array.isArray(parsed) && parsed.length) setDisplayBundles(normalizeBundles(parsed).slice(0, 4));
-      } catch {
-        // Keep built-in bundles as fallback.
+      const [{ data: bundleRow }, { data: prodData }] = await Promise.all([
+        supabase
+          .from('site_info')
+          .select('value')
+          .eq('section', 'bundles')
+          .eq('key', 'list')
+          .maybeSingle(),
+        supabase
+          .from('products')
+          .select('id, name, slug, price, original_price, image_url, brand, stock, featured, category, description, protocol, ratings')
+          .gt('stock', 0),
+      ]);
+
+      let baseBundles = normalizeBundles(defaultBundles);
+      if (bundleRow?.value) {
+        try {
+          const parsed = JSON.parse(bundleRow.value);
+          if (Array.isArray(parsed) && parsed.length) baseBundles = normalizeBundles(parsed);
+        } catch {
+          // Keep built-in bundles as fallback.
+        }
       }
+
+      const prodList = (prodData ?? []) as unknown as Product[];
+      setDisplayBundles(syncBundlesWithCatalog(baseBundles, prodList).slice(0, 4));
     })();
   }, []);
 
@@ -40,7 +53,7 @@ export function SmartBundles() {
             viewport={{ once: true }}
             className="text-primary font-medium text-sm uppercase tracking-wider"
           >
-            {isRTL ? 'وفّر أكثر مع الباقات' : 'Save More with Bundles'}
+            {isRTL ? 'وفّر أكثر مع الباقات — شامل التركيب مجاناً' : 'Save More with Bundles — Free Installation Included'}
           </motion.span>
           <motion.h2
             initial={{ opacity: 0, y: 20 }}
@@ -59,14 +72,14 @@ export function SmartBundles() {
             className="text-muted-foreground max-w-xl mx-auto"
           >
             {isRTL
-              ? 'باقات متكاملة بأسعار حقيقية مدروسة مع خيار التركيب المعتمد وضمان رسمي'
-              : 'Complete smart home bundles with real catalog prices, certified installation & warranty'}
+              ? 'باقات متكاملة بنفس أسعار الأجهزة الفعلية في الكتالوج + تركيب احترافي معتمد مجاناً بالكامل وضمان رسمي'
+              : 'Complete smart home bundles matching exact catalog device prices + FREE certified installation & official warranty'}
           </motion.p>
         </div>
 
         <div className="grid md:grid-cols-2 gap-6 max-w-5xl mx-auto">
           {displayBundles.map((bundle, index) => {
-            const discount = Math.round(((bundle.originalPrice - bundle.priceEgp) / bundle.originalPrice) * 100);
+            const installSaving = Math.max(0, bundle.originalPrice - bundle.priceEgp);
             return (
               <motion.div
                 key={bundle.id}
@@ -91,20 +104,10 @@ export function SmartBundles() {
                       {isRTL ? bundle.nameAr : bundle.nameEn}
                     </h3>
                     <div className="flex items-center gap-2 mt-1">
-                      <span className="text-xs text-muted-foreground">
-                        {isRTL ? 'صعوبة التركيب:' : 'Install difficulty:'}
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-500">
+                        <Wrench className="h-3 w-3" />
+                        {isRTL ? 'شامل التركيب مجاناً' : 'FREE Certified Install'}
                       </span>
-                      <div className="flex gap-0.5">
-                        {[1, 2, 3].map((level) => (
-                          <div
-                            key={level}
-                            className={cn(
-                              "w-4 h-1.5 rounded-full",
-                              level <= bundle.difficulty ? "bg-primary" : "bg-border"
-                            )}
-                          />
-                        ))}
-                      </div>
                     </div>
                   </div>
                   <div className="text-right">
@@ -114,7 +117,9 @@ export function SmartBundles() {
                     <div className="text-sm text-muted-foreground line-through">
                       {formatPrice(bundle.originalPrice)}
                     </div>
-                    <span className="text-xs font-semibold text-success">-{discount}%</span>
+                    <span className="text-xs font-semibold text-success">
+                      {isRTL ? `وفّر ${formatPrice(installSaving)} تركيب` : `Save ${formatPrice(installSaving)} install`}
+                    </span>
                   </div>
                 </div>
 

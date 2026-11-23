@@ -2,7 +2,7 @@ import { Helmet } from 'react-helmet-async';
 import { Layout } from '@/components/layout/Layout';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Sparkles, Users, Zap, Heart } from 'lucide-react';
+import { ArrowRight, Sparkles, Users, Zap, Heart, Facebook, Instagram, Youtube } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
@@ -12,9 +12,13 @@ import { useSiteInfo } from '@/hooks/useSiteInfo';
 const About = () => {
   const { isRTL } = useLanguage();
   const { get } = useSiteInfo();
+  const fb = get('social', 'facebook', 'https://www.facebook.com/azkasmartcom') || 'https://www.facebook.com/azkasmartcom';
+  const ig = get('social', 'instagram', 'https://www.instagram.com/azkasmart') || 'https://www.instagram.com/azkasmart';
+  const tt = get('social', 'tiktok', 'https://www.tiktok.com/@azkasmart.eg') || 'https://www.tiktok.com/@azkasmart.eg';
+  const yt = get('social', 'youtube', 'https://www.youtube.com/@azkasmart_eg') || 'https://www.youtube.com/@azkasmart_eg';
   const mission = get('about', isRTL ? 'mission_ar' : 'mission_en',
     isRTL
-      ? 'بيت زكي هي أول منصة مصرية تجمع بين الذكاء الاصطناعي ومنتجات المنزل الذكي وخدمات التركيب في مكان واحد. مهمتنا إن كل بيت مصري يبقى ذكي وموفر للطاقة وآمن.'
+      ? 'أزكاسمارت هي أول منصة مصرية تجمع بين الذكاء الاصطناعي ومنتجات المنزل الذكي وخدمات التركيب في مكان واحد. مهمتنا إن كل بيت مصري يبقى ذكي وموفر للطاقة وآمن.'
       : "AzkaSmart is Egypt's first platform combining AI advisory, smart home products, and professional installation in one place. Our mission is to make every Egyptian home intelligent, energy-efficient, and secure.");
   const story = get('about', isRTL ? 'story_ar' : 'story_en', '');
 
@@ -117,6 +121,62 @@ const About = () => {
                   : 'We dream of an Egypt where every home is smart and energy-efficient. We believe technology should be accessible and simple for everyone, not just tech experts.'}
               </p>
             </motion.div>
+          </div>
+
+          {/* Social Media Links */}
+          <div className="container px-6 md:px-12 max-w-3xl mx-auto mb-16 text-center">
+            <h2 className="font-display text-2xl font-bold mb-3">
+              {isRTL ? 'تابعنا على مواقع التواصل الاجتماعي' : 'Connect With Us'}
+            </h2>
+            <p className="text-sm text-muted-foreground mb-6">
+              {isRTL
+                ? 'تابع أحدث مشاريعنا ونصائح المنزل الذكي والعروض الحصرية.'
+                : 'Follow our latest smart home installations, tips, and exclusive offers.'}
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-4">
+              <a
+                href={fb}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Facebook"
+                className="inline-flex items-center gap-2.5 px-5 py-3 rounded-xl bg-card border border-border hover:border-primary/50 hover:text-primary transition-all text-sm font-medium"
+              >
+                <Facebook className="h-4 w-4 text-primary" />
+                <span>Facebook</span>
+              </a>
+              <a
+                href={ig}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Instagram"
+                className="inline-flex items-center gap-2.5 px-5 py-3 rounded-xl bg-card border border-border hover:border-primary/50 hover:text-primary transition-all text-sm font-medium"
+              >
+                <Instagram className="h-4 w-4 text-primary" />
+                <span>Instagram</span>
+              </a>
+              <a
+                href={tt}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="TikTok"
+                className="inline-flex items-center gap-2.5 px-5 py-3 rounded-xl bg-card border border-border hover:border-primary/50 hover:text-primary transition-all text-sm font-medium"
+              >
+                <svg className="h-4 w-4 fill-current text-primary" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
+                </svg>
+                <span>TikTok</span>
+              </a>
+              <a
+                href={yt}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="YouTube"
+                className="inline-flex items-center gap-2.5 px-5 py-3 rounded-xl bg-card border border-border hover:border-primary/50 hover:text-primary transition-all text-sm font-medium"
+              >
+                <Youtube className="h-4 w-4 text-primary" />
+                <span>YouTube</span>
+              </a>
+            </div>
           </div>
 
           {/* CTA */}

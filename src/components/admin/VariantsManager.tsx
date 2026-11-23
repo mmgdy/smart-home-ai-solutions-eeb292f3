@@ -179,7 +179,7 @@ export function VariantsManager({ adminToken }: { adminToken: string }) {
               <div className="grid sm:grid-cols-2 gap-2">
                 {s.items.map((it) => (
                   <div key={it.id} className="flex items-center gap-2 text-sm p-2 rounded-lg bg-muted/40">
-                    {it.image_url && <img src={it.image_url} alt="" className="w-8 h-8 rounded object-cover" />}
+                    {it.image_url && <img src={it.image_url} alt="" loading="lazy" decoding="async" className="w-8 h-8 rounded object-cover" />}
                     <div className="flex-1 truncate">{it.name}</div>
                     <span className="text-xs text-muted-foreground">{it.price} EGP</span>
                   </div>
@@ -224,7 +224,7 @@ export function VariantsManager({ adminToken }: { adminToken: string }) {
                 onClick={() => toggleSelect(p.id)}
                 className={`w-full flex items-center gap-2 p-2 rounded-lg text-left text-sm hover:bg-muted/60 ${selectedIds.includes(p.id) ? 'bg-primary/10' : ''}`}
               >
-                {p.image_url && <img src={p.image_url} alt="" className="w-8 h-8 rounded object-cover" />}
+                {p.image_url && <img src={p.image_url} alt="" loading="lazy" decoding="async" className="w-8 h-8 rounded object-cover" />}
                 <div className="flex-1 min-w-0">
                   <div className="truncate">{p.name}</div>
                   <div className="text-xs text-muted-foreground">{p.brand} · {p.price} EGP</div>
@@ -240,7 +240,7 @@ export function VariantsManager({ adminToken }: { adminToken: string }) {
             )}
             {selectedProducts.map((p) => (
               <div key={p.id} className="flex items-center gap-2 p-2 rounded-lg bg-muted/40 mb-1">
-                {p.image_url && <img src={p.image_url} alt="" className="w-8 h-8 rounded object-cover" />}
+                {p.image_url && <img src={p.image_url} alt="" loading="lazy" decoding="async" className="w-8 h-8 rounded object-cover" />}
                 <div className="flex-1 min-w-0">
                   <div className="text-sm truncate">{p.name}</div>
                   <div className="flex items-center gap-2 mt-1">
@@ -283,7 +283,7 @@ export function VariantsManager({ adminToken }: { adminToken: string }) {
         <div className="space-y-2">
           {existingGroups.map((p) => (
             <div key={p.id} className="flex items-center gap-3 p-2 rounded-lg bg-muted/40">
-              {p.image_url && <img src={p.image_url} alt="" className="w-8 h-8 rounded object-cover" />}
+              {p.image_url && <img src={p.image_url} alt="" loading="lazy" decoding="async" className="w-8 h-8 rounded object-cover" />}
               <div className="flex-1 min-w-0">
                 <div className="text-sm truncate">{p.name}</div>
                 <div className="text-xs text-muted-foreground">{p.variant_axis} · {p.variant_label}</div>

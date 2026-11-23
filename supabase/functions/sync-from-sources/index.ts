@@ -379,6 +379,25 @@ function extractImagesFromHtml(html: string): string[] {
   return images.filter((u) => u && u.startsWith("http")).slice(0, 5);
 }
 
+function resolveSmartZoomStock(p: any): number {
+  if (!p) return 0;
+  if (p.inStock === false || p.isAvailable === false) return 0;
+  if (typeof p.status === "string" && /out[_\s-]*of[_\s-]*stock/i.test(p.status)) return 0;
+
+  for (const c of [p.stockAvailable, p.effectiveStock, p.stockTotal, p.stock]) {
+    if (typeof c === "number" && !Number.isNaN(c)) {
+      return Math.max(0, Math.floor(c));
+    }
+  }
+  if (Array.isArray(p.variants) && p.variants.length > 0) {
+    return p.variants.reduce((sum: number, v: any) => {
+      const s = v?.stockAvailable ?? v?.stockTotal ?? v?.stock ?? 0;
+      return sum + (typeof s === "number" && !Number.isNaN(s) ? Math.max(0, Math.floor(s)) : 0);
+    }, 0);
+  }
+  return 0;
+}
+
 async function scrapeProductFromUrl(url: string): Promise<any | null> {
   try {
     // High-speed direct API extraction for SmartZoom Egypt
@@ -394,18 +413,21 @@ async function scrapeProductFromUrl(url: string): Promise<any | null> {
           if (res.ok) {
             const json = await res.json();
             const p = json.data?.[0];
-            if (p && (p.name || p.title) && p.price) {
+            const rawPrice = p?.effectivePrice ?? p?.price ?? p?.basePrice;
+            if (p && (p.name || p.title) && typeof rawPrice === "number") {
               return {
                 name: p.name || p.title,
                 description: (p.description || `${p.name || p.title} - Smart Home Solution`).slice(0, 400),
-                price: Math.round(p.price || p.basePrice || 0),
-                original_price: p.originalPrice ? Math.round(p.originalPrice) : Math.round((p.price || 0) * 1.15),
+                price: Math.round(rawPrice || 0),
+                original_price: p.originalPrice ? Math.round(p.originalPrice) : Math.round((rawPrice || 0) * 1.15),
                 brand: p.company?.name || "SmartZoom",
                 category: p.category?.name || "Smart Home",
                 protocol: "WiFi / Zigbee",
+                stock: resolveSmartZoomStock(p),
                 specifications: {
                   Model: p.code || p.slug || "",
                   Warranty: p.warrantyMonths ? `${p.warrantyMonths} Months` : "12 Months",
+                  smartzoom_slug: p.slug || slug,
                 },
                 image_url: p.images?.[0] || p.thumbnail || null,
                 images: Array.isArray(p.images) ? p.images : [],
@@ -583,7 +605,7 @@ async function upsertProduct(supabase: any, productData: any, catMap: Map<string
     const slug = (productData.name as string)
       .toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 80);
 
-    const { data: existing } = await supabase.from("products").select("id, price")
+    const { data: existing } = await supabase.from("products").select("id, price, stock")
       .or(`slug.eq.${slug},name.ilike.%${(productData.name as string).slice(0, 30).replace(/%/g, "")}%`)
       .limit(1);
 
@@ -594,13 +616,23 @@ async function upsertProduct(supabase: any, productData: any, catMap: Map<string
     if (existing?.length > 0) {
       const curr = existing[0];
       const newPrice = Math.round(productData.price);
+      const updates: Record<string, any> = {};
+
       if (newPrice > 0 && Math.abs(curr.price - newPrice) / curr.price > 0.05) {
-        await supabase.from("products").update({
-          price: newPrice,
-          original_price: Math.round(newPrice * 1.15),
-          updated_at: new Date().toISOString(),
-          ...(cleanImage ? { image_url: cleanImage, images: cleanImages } : {}),
-        }).eq("id", curr.id);
+        updates.price = newPrice;
+        updates.original_price = Math.round(newPrice * 1.15);
+      }
+      if (typeof productData.stock === "number" && productData.stock !== curr.stock) {
+        updates.stock = Math.max(0, Math.floor(productData.stock));
+      }
+      if (cleanImage) {
+        updates.image_url = cleanImage;
+        updates.images = cleanImages;
+      }
+
+      if (Object.keys(updates).length > 0) {
+        updates.updated_at = new Date().toISOString();
+        await supabase.from("products").update(updates).eq("id", curr.id);
         return "updated";
       }
       return "skipped";
@@ -618,7 +650,7 @@ async function upsertProduct(supabase: any, productData: any, catMap: Map<string
       specifications: productData.specifications || null,
       image_url: cleanImage,
       images: cleanImages,
-      stock: 15,
+      stock: typeof productData.stock === "number" ? Math.max(0, Math.floor(productData.stock)) : 15,
       featured: false,
       is_published: true,
     });
@@ -626,6 +658,180 @@ async function upsertProduct(supabase: any, productData: any, catMap: Map<string
     const { error } = await supabase.from("products").insert(enriched);
     return error ? "error" : "added";
   } catch { return "error"; }
+}
+
+async function runSmartzoomStockAndCatalogBot(supabase: any, catMap: Map<string, string>, dryRun = false) {
+  // 1. Fetch all products from SmartZoom API (paged)
+  const allSmartzoom: any[] = [];
+  let page = 1;
+  const limit = 100;
+  while (page <= 10) {
+    try {
+      const res = await fetch(`https://api.smartzoom.tech/api/products?page=${page}&limit=${limit}`, {
+        headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" },
+        signal: AbortSignal.timeout(15000),
+      });
+      if (!res.ok) break;
+      const json = await res.json();
+      const list = json?.data || [];
+      if (!Array.isArray(list) || list.length === 0) break;
+      allSmartzoom.push(...list);
+      if (list.length < limit) break;
+      page++;
+    } catch (e) {
+      console.warn(`SmartZoom page ${page} fetch error:`, e);
+      break;
+    }
+  }
+
+  // 2. Fetch all AzkaSmart products from Supabase
+  const { data: dbProducts, error: dbErr } = await supabase
+    .from("products")
+    .select("id, name, slug, price, original_price, stock, category_id, image_url, specifications");
+  if (dbErr) throw dbErr;
+
+  // Build lookup maps
+  const slugMap = new Map<string, any>();
+  const nameNormMap = new Map<string, any>();
+  const codeMap = new Map<string, any>();
+
+  const normalize = (s: string) => (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+
+  for (const p of dbProducts || []) {
+    if (p.slug) slugMap.set(p.slug.toLowerCase(), p);
+    if (p.name) nameNormMap.set(normalize(p.name), p);
+    const code = p.specifications?.Model || p.specifications?.code || p.specifications?.smartzoom_code;
+    if (code) codeMap.set(normalize(code), p);
+    const szSlug = p.specifications?.smartzoom_slug;
+    if (szSlug) slugMap.set(szSlug.toLowerCase(), p);
+  }
+
+  const fallbackCatId = catMap.values().next().value || null;
+
+  const results = {
+    totalSmartzoom: allSmartzoom.length,
+    matchedCount: 0,
+    outOfStockCount: 0,
+    restockedCount: 0,
+    stockChangedCount: 0,
+    createdCount: 0,
+    outOfStockNames: [] as string[],
+    restockedNames: [] as string[],
+    createdNames: [] as string[],
+    errors: [] as string[],
+  };
+
+  const toUpdate: { id: string; stock: number; name: string; oldStock: number }[] = [];
+  const toCreate: any[] = [];
+
+  for (const sz of allSmartzoom) {
+    const rawName = (sz.name || sz.title || "").trim();
+    if (!rawName) continue;
+
+    const szSlug = (sz.slug || "").toLowerCase();
+    const szCode = normalize(sz.code || "");
+    const szStock = resolveSmartZoomStock(sz);
+
+    // Matching logic
+    let matched = (szSlug && slugMap.get(szSlug)) ||
+                  (szCode && codeMap.get(szCode)) ||
+                  nameNormMap.get(normalize(rawName));
+
+    if (!matched) {
+      const normRaw = normalize(rawName);
+      if (normRaw.length >= 10) {
+        for (const p of dbProducts || []) {
+          const normP = normalize(p.name);
+          if (normP.includes(normRaw) || normRaw.includes(normP)) {
+            matched = p;
+            break;
+          }
+        }
+      }
+    }
+
+    if (matched) {
+      results.matchedCount++;
+      const currentStock = typeof matched.stock === "number" ? matched.stock : 0;
+      if (currentStock !== szStock) {
+        if (szStock === 0) {
+          results.outOfStockCount++;
+          results.outOfStockNames.push(matched.name);
+        } else if (currentStock === 0 && szStock > 0) {
+          results.restockedCount++;
+          results.restockedNames.push(matched.name);
+        }
+        results.stockChangedCount++;
+        toUpdate.push({ id: matched.id, stock: szStock, name: matched.name, oldStock: currentStock });
+      }
+    } else {
+      // Product in SmartZoom not found in Azka -> Create it
+      const rawPrice = sz.effectivePrice ?? sz.price ?? sz.basePrice ?? 0;
+      const price = Math.round(Number(rawPrice) || 0);
+      const catName = sz.category?.name || "Smart Home";
+      const catId = findCategoryId(catName, catMap) || fallbackCatId;
+
+      const slugBase = (sz.slug || rawName)
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "")
+        .slice(0, 80);
+
+      const cleanImg = sanitizeUrl(sz.images?.[0] || sz.thumbnail || null);
+      const cleanImgs = Array.isArray(sz.images) ? sz.images.map(sanitizeUrl).filter(Boolean) : [];
+
+      const newProd = autoEnrichProductSpecifications({
+        name: rawName,
+        slug: `${slugBase}-${Math.random().toString(36).slice(2, 6)}`,
+        price: price > 0 ? price : 999,
+        original_price: sz.originalPrice ? Math.round(sz.originalPrice) : Math.round((price > 0 ? price : 999) * 1.15),
+        description: (sz.description || `${rawName} - Smart Home Solution`).slice(0, 500),
+        brand: sz.company?.name || "SmartZoom",
+        category_id: catId,
+        protocol: "WiFi / Zigbee",
+        stock: szStock,
+        featured: false,
+        is_published: true,
+        image_url: cleanImg,
+        images: cleanImgs,
+        specifications: {
+          Model: sz.code || sz.slug || "",
+          Warranty: sz.warrantyMonths ? `${sz.warrantyMonths} Months` : "12 Months",
+          smartzoom_slug: sz.slug || "",
+          smartzoom_id: sz._id || sz.id || "",
+          sync_source: "smartzoom_stock_bot"
+        }
+      });
+
+      toCreate.push(newProd);
+      results.createdCount++;
+      results.createdNames.push(rawName);
+    }
+  }
+
+  // Execute updates and creates if not dryRun
+  if (!dryRun) {
+    for (const item of toUpdate) {
+      const { error: updErr } = await supabase
+        .from("products")
+        .update({ stock: item.stock, updated_at: new Date().toISOString() })
+        .eq("id", item.id);
+      if (updErr) {
+        results.errors.push(`Update error on ${item.name}: ${updErr.message}`);
+      }
+    }
+
+    const CHUNK_SIZE = 25;
+    for (let i = 0; i < toCreate.length; i += CHUNK_SIZE) {
+      const chunk = toCreate.slice(i, i + CHUNK_SIZE);
+      const { error: insErr } = await supabase.from("products").insert(chunk);
+      if (insErr) {
+        results.errors.push(`Insert chunk ${i / CHUNK_SIZE} error: ${insErr.message}`);
+      }
+    }
+  }
+
+  return results;
 }
 
 function sanitizeUrl(url: string | null | undefined): string | null {
@@ -823,6 +1029,20 @@ Deno.serve(async (req) => {
         await new Promise(res => setTimeout(res, 1000));
       }
       return json({ success: true, results: allResults });
+    }
+
+    // ── SmartZoom Stock & Catalog Bot ──────────────────────────────────────
+    if (action === "sync-smartzoom-bot") {
+      const dryRun = Boolean(body.dryRun);
+      const botResults = await runSmartzoomStockAndCatalogBot(supabase, catMap, dryRun);
+      return json({
+        success: true,
+        dryRun,
+        message: dryRun
+          ? `[DRY-RUN] SmartZoom Bot analyzed ${botResults.totalSmartzoom} items. ${botResults.outOfStockCount} out-of-stock updates, ${botResults.restockedCount} restocked, ${botResults.createdCount} new products to create.`
+          : `SmartZoom Bot sync complete: ${botResults.outOfStockCount} marked out-of-stock, ${botResults.restockedCount} restocked, ${botResults.createdCount} new products created.`,
+        data: botResults,
+      });
     }
 
     return json({ success: false, error: "Unknown action" }, 400);

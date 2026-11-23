@@ -612,7 +612,8 @@ export const CairoSourcesViewer: React.FC<Props> = ({
             {sources.map((s, idx) => {
               const diff = s.price_egp && currentPrice > 0 ? currentPrice - s.price_egp : null;
               const marginPct = diff !== null && currentPrice > 0 ? Math.round((diff / currentPrice) * 100) : null;
-              const cleanPhone = (s.whatsapp || s.phone || '').replace(/[^0-9]/g, '');
+              const rawCleanPhone = (s.whatsapp || s.phone || '').replace(/[^0-9]/g, '');
+              const cleanPhone = rawCleanPhone.startsWith('0') ? '2' + rawCleanPhone : rawCleanPhone;
               const waText = encodeURIComponent(`Hello, I am inquiring about availability of: ${productName}`);
 
               return (
@@ -797,7 +798,7 @@ export const CairoSourcesViewer: React.FC<Props> = ({
               <Input 
                 value={supplierName} 
                 onChange={e => setSupplierName(e.target.value)} 
-                placeholder="e.g. Sonoff Egypt, Baytzaki, Amazon.eg, El Badr" 
+                placeholder="e.g. Sonoff Egypt, AzkaSmart, Amazon.eg, El Badr" 
                 required 
               />
             </div>

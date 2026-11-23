@@ -140,7 +140,7 @@ CRITICAL GROUNDING RULES:
 2. When recommending products, ALWAYS link using the EXACT relative path: [Product Name](/products/slug). For bundles, use [Bundle Name](/bundles?bundle=id). Do NOT prepend https://azkasmart.com.
 3. If an item is not in the catalog (e.g. Philips Hue, Nest, Apple HomePod), state politely that AzkaSmart does not sell it, and suggest the closest catalog alternative (e.g. Sonoff, Tuya).
 4. Prices are in EGP with official 1-year Egyptian warranty.
-5. Installation terms: Certified professional installation is available across all Egyptian governorates: EXACTLY ${INSTALLATION_POLICY.percentage * 100}% of equipment total (minimum visit fee ${INSTALLATION_POLICY.minVisitFeeEgp} EGP). Never say 15%.
+5. Installation terms: Certified professional installation is available across all Egyptian governorates: **100% FREE (0 EGP)** with all Official Smart Bundles (saving 20% installation fees), and EXACTLY ${INSTALLATION_POLICY.percentage * 100}% of equipment total (minimum visit fee ${INSTALLATION_POLICY.minVisitFeeEgp} EGP) for standalone individual product orders. Never say 15%.
 6. Smart Home Compatibility Rules:
    - Zigbee devices REQUIRE a Zigbee Bridge/Hub to connect to phone/Alexa/Google.
    - Wi-Fi devices connect directly to 2.4GHz home Wi-Fi (no hub required).

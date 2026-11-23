@@ -15,8 +15,211 @@ import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/lib/i18n';
 import { parseProtocols } from '@/lib/protocolIcon';
 import { getProductImage, productPlaceholder } from '@/lib/productImage';
+import { normalizeBrand } from '@/lib/brands';
 import { cairoSupplierService } from '@/data/cairoSupplierService';
 import { cn } from '@/lib/utils';
+
+const SPEC_KEY_LABELS: Record<string, string> = {
+  warranty: 'Warranty',
+  installation: 'Installation Service',
+  installation_service: 'Installation Service',
+  mounting: 'Mounting Type',
+  stockstatus: 'Stock Status',
+  stock_status: 'Stock Status',
+  neutral_required: 'Neutral Wire Required',
+  neutral_wire_required: 'Neutral Wire Required',
+  neutral_note: 'Wiring Note',
+  wiring_note: 'Wiring Note',
+  lock_type: 'Lock Type',
+  door_thickness: 'Door Thickness',
+  emergency_power: 'Emergency Power',
+  rfid_frequency: 'RFID Frequency',
+  fail_safe: 'Fail-Safe',
+  bracket_required: 'Compatible Bracket',
+  compatible_bracket: 'Compatible Bracket',
+  power_supply_recommended: 'Recommended Power Supply',
+  recommended_power_supply: 'Recommended Power Supply',
+  voltage: 'Voltage',
+  protocol: 'Protocol',
+  brand: 'Brand',
+  model: 'Model',
+  categories: 'Categories',
+  variants: 'Available Variants',
+  antenna_gain: 'Antenna Gain',
+  firmware_flashing: 'Firmware Flashing',
+  usb_extension_cable: 'USB Extension Cable',
+  wifi: 'Wi-Fi',
+  'wi-fi': 'Wi-Fi',
+  'wi‑fi': 'Wi-Fi',
+  os: 'Operating System',
+  id: 'Card Standard',
+  ip_rating: 'IP Rating',
+  em_card_frequency: 'EM Card Frequency',
+};
+
+const SPEC_VALUE_LABELS: Record<string, string> = {
+  in_stock: 'In Stock',
+  out_of_stock: 'Out of Stock',
+  smart_biometric_lock: 'Smart Biometric Lock',
+  magnetic_lock: 'Magnetic Lock',
+  drop_bolt: 'Drop Bolt Lock',
+  electric_strike: 'Electric Strike Lock',
+  included: 'Included',
+};
+
+const HIDDEN_SPEC_KEYS = /^(source|sync_source|smartzoom_id|smartzoom_slug|cairo_sources|supplier_name|supplier_url|wholesale_price)$/i;
+
+function formatSpecKey(rawKey: string, rawVal?: unknown): string {
+  const trimmed = rawKey.trim();
+  if (trimmed === 'Installation' && String(rawVal).toLowerCase().includes('din rail')) {
+    return 'Mounting Type';
+  }
+  const lower = trimmed.toLowerCase();
+  if (SPEC_KEY_LABELS[lower]) return SPEC_KEY_LABELS[lower];
+
+  // Convert snake_case or camelCase/PascalCase into human-readable Title Case
+  const spaced = trimmed
+    .replace(/_/g, ' ')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return spaced
+    .split(' ')
+    .map((word) => {
+      if (/^(USB|RFID|IP|OS|RAM|ROM|EM|RJ45|RS485|DC|AC|LED|LCD|PoE|UHF|NFC|IR|RF)$/i.test(word)) {
+        return word.toUpperCase();
+      }
+      return word.charAt(0).toUpperCase() + word.slice(1);
+    })
+    .join(' ');
+}
+
+function formatSpecValue(rawKey: string, value: unknown, product: Product): string | null {
+  if (value === null || value === undefined || value === '') return null;
+  const lowerKey = rawKey.trim().toLowerCase();
+
+  if (lowerKey === 'brand') {
+    return normalizeBrand(String(value));
+  }
+
+  if (lowerKey === 'stockstatus' || lowerKey === 'stock_status' || lowerKey === 'stock status') {
+    return (product.stock ?? 0) > 0 ? 'In Stock' : 'Out of Stock';
+  }
+
+  if (typeof value === 'boolean') {
+    return value ? 'Yes' : 'No';
+  }
+
+  if (Array.isArray(value)) {
+    const cleaned = value
+      .map((item) => {
+        const s = String(item).trim();
+        if (s.toLowerCase() === 'sonoff') return 'SONOFF';
+        if (s.toLowerCase() === 'ewelink' || s.toLowerCase() === 'ewelink products') return 'eWeLink';
+        return s;
+      })
+      .filter(Boolean);
+    return cleaned.length > 0 ? cleaned.join(', ') : null;
+  }
+
+  const strVal = String(value).trim();
+  if (strVal === 'true') return 'Yes';
+  if (strVal === 'false') return 'No';
+  if (SPEC_VALUE_LABELS[strVal.toLowerCase()]) {
+    return SPEC_VALUE_LABELS[strVal.toLowerCase()];
+  }
+
+  // Clean up any corrupted UTF-8 replacement character in neutral_note
+  if (lowerKey === 'neutral_note' || lowerKey === 'wiring note') {
+    if (strVal.includes('لا يتطلب')) {
+      return 'لا يتطلب سلك محايد (نيوترال) - مثالي للمباني القديمة بدون نيوترال في العلب.';
+    }
+    if (strVal.includes('يتطلب سلك محايد')) {
+      return 'يتطلب سلك محايد (نيوترال) في العلبة الكهربائية لضمان التغذية المستقرة.';
+    }
+  }
+
+  return strVal;
+}
+
+function getFormattedSpecifications(product: Product): Array<[string, string]> {
+  if (!product.specifications || typeof product.specifications !== 'object') return [];
+  const map = new Map<string, string>();
+
+  for (const [rawKey, rawVal] of Object.entries(product.specifications)) {
+    if (HIDDEN_SPEC_KEYS.test(rawKey.trim())) continue;
+    const label = formatSpecKey(rawKey, rawVal);
+    const formattedVal = formatSpecValue(rawKey, rawVal, product);
+    if (!formattedVal) continue;
+
+    // If duplicate key (e.g. "warranty" and "Warranty"), prefer the more descriptive Official Warranty string
+    if (map.has(label)) {
+      const existing = map.get(label)!;
+      if (formattedVal.length > existing.length) {
+        map.set(label, formattedVal);
+      }
+    } else {
+      map.set(label, formattedVal);
+    }
+  }
+
+  return Array.from(map.entries());
+}
+
+function getProductWarrantyBadgeLabel(product: Product, isRTL: boolean): string {
+  const specs = (product.specifications ?? {}) as Record<string, unknown>;
+  const rawWarr = String(specs['Warranty'] || specs['warranty'] || '');
+
+  const yearMatch = rawWarr.match(/(\d+)\s*-?\s*year/i);
+  if (yearMatch) {
+    const yrs = parseInt(yearMatch[1], 10);
+    if (isRTL) {
+      return yrs === 1 ? 'ضمان سنة واحدة' : yrs === 2 ? 'ضمان سنتين' : `ضمان ${yrs} سنوات`;
+    }
+    return `${yrs}-Year Warranty`;
+  }
+
+  const monthMatch = rawWarr.match(/(\d+)\s*-?\s*month/i);
+  if (monthMatch) {
+    const mos = parseInt(monthMatch[1], 10);
+    if (mos % 12 === 0) {
+      const yrs = mos / 12;
+      if (isRTL) {
+        return yrs === 1 ? 'ضمان سنة واحدة' : yrs === 2 ? 'ضمان سنتين' : `ضمان ${yrs} سنوات`;
+      }
+      return `${yrs}-Year Warranty`;
+    }
+    return isRTL ? `ضمان ${mos} شهر` : `${mos}-Month Warranty`;
+  }
+
+  const brand = (normalizeBrand(product.brand) || '').toLowerCase();
+  if (brand === 'tp-link' || brand === 'akubela') {
+    return isRTL ? 'ضمان سنتين' : '2-Year Warranty';
+  }
+  return isRTL ? 'ضمان سنة واحدة' : '1-Year Warranty';
+}
+
+function getWorksWithPlatforms(product: Product): string[] {
+  const combined = `${product.name || ''} ${product.description || ''} ${product.protocol || ''} ${JSON.stringify(product.specifications ?? {})}`.toLowerCase();
+  const platforms: string[] = [];
+  const add = (p: string) => {
+    if (!platforms.includes(p)) platforms.push(p);
+  };
+
+  const isSmartConnected =
+    /\b(wi-?fi|zigbee|matter|z-wave|tuya|ewelink|sonoff|alexa|google home|homekit|home assistant|smartthings)\b/i.test(combined) &&
+    !/\b(bracket|enclosure|extension cable|stand|cover|windshield tag|white card|wristband)\b/i.test(product.name || '');
+
+  if (/\balexa\b/i.test(combined) || isSmartConnected) add('Alexa');
+  if (/\bgoogle (?:home|assistant)\b/i.test(combined) || isSmartConnected) add('Google Home');
+  if (/\b(?:apple home|homekit)\b/i.test(combined) || /\bmatter\b/i.test(combined)) add('Apple HomeKit');
+  if (/\bsmartthings\b/i.test(combined)) add('SmartThings');
+  if (/\b(?:home assistant|zigbee2mqtt|zbdongle|ihost|nspanel pro)\b/i.test(combined)) add('Home Assistant');
+  if (/\bmatter\b/i.test(combined) || /\bmatter\b/i.test(product.protocol || '')) add('Matter');
+
+  return platforms;
+}
 
 function getYouTubeEmbedUrl(url: string): string | null {
   const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([a-zA-Z0-9_-]{11})/);
@@ -186,16 +389,16 @@ const ProductDetail = () => {
     : null;
   const BackArrow = isRTL ? ArrowRight : ArrowLeft;
 
+  const displayBrand = normalizeBrand(product.brand);
+  const warrantyBadgeLabel = getProductWarrantyBadgeLabel(product, isRTL);
   const trustBadges = [
     { icon: CreditCard, label: isRTL ? 'دفع آمن بالبطاقة' : 'Secure Card Payment' },
-    { icon: Shield, label: isRTL ? 'ضمان ٢ سنة' : '2-Year Warranty' },
+    { icon: Shield, label: warrantyBadgeLabel },
     { icon: Award, label: isRTL ? 'منتج أصلي' : 'Genuine Product' },
   ];
 
-  const compatBadges = [
-    product.protocol && product.protocol,
-    product.specifications?.['connectivity'],
-  ].filter(Boolean);
+  const worksWithPlatforms = getWorksWithPlatforms(product);
+  const formattedSpecs = getFormattedSpecifications(product);
 
   return (
     <>
@@ -267,6 +470,11 @@ const ProductDetail = () => {
                 </button>
 
                 <div className={cn("absolute top-4 flex flex-col gap-2 pointer-events-none", isRTL ? "right-4" : "left-4")}>
+                  {product.stock <= 0 && (
+                    <span className="rounded-full bg-destructive px-3 py-1 text-sm font-semibold text-destructive-foreground shadow-sm">
+                      {t('outOfStock')}
+                    </span>
+                  )}
                   {discount && (
                     <span className="rounded-full bg-destructive px-3 py-1 text-sm font-medium text-destructive-foreground shadow-sm">
                       {t('save')} {discount}%
@@ -327,6 +535,8 @@ const ProductDetail = () => {
                         <img
                           src={img}
                           alt={`${product.name} - ${idx + 1}`}
+                          loading="lazy"
+                          decoding="async"
                           className="h-full w-full object-contain"
                           onError={(e) => { (e.currentTarget as HTMLImageElement).src = productPlaceholder; }}
                         />
@@ -369,8 +579,8 @@ const ProductDetail = () => {
             {/* Details */}
             <div className="flex flex-col">
               <div className="mb-3 flex flex-wrap items-center gap-2">
-                {product.brand && <span className="text-sm text-muted-foreground">{product.brand}</span>}
-                {product.brand && protocolTokens.length > 0 && <span className="text-muted-foreground">•</span>}
+                {displayBrand && <span className="text-sm text-muted-foreground">{displayBrand}</span>}
+                {displayBrand && protocolTokens.length > 0 && <span className="text-muted-foreground">•</span>}
                 {protocolTokens.map(({ name, icon: Icon, bg, fg, description }) => (
                   <span
                     key={name}
@@ -410,7 +620,9 @@ const ProductDetail = () => {
                     <span className="text-sm text-success">{t('inStock')} ({product.stock} {t('available')})</span>
                   </>
                 ) : (
-                  <span className="text-sm text-destructive">{t('outOfStock')}</span>
+                  <span className="inline-flex items-center rounded-full bg-destructive/15 border border-destructive/30 px-3 py-1 text-xs font-semibold text-destructive">
+                    {t('outOfStock')}
+                  </span>
                 )}
               </div>
 
@@ -453,12 +665,12 @@ const ProductDetail = () => {
               )}
 
               {/* Compatibility badges */}
-              {compatBadges.length > 0 && (
-                <div className="flex items-center gap-2 mb-4">
+              {worksWithPlatforms.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 mb-4">
                   <Wifi className="h-4 w-4 text-muted-foreground" />
                   <span className="text-xs text-muted-foreground">{isRTL ? 'متوافق مع:' : 'Works with:'}</span>
-                  {['Alexa', 'Google Home', product.protocol].filter(Boolean).map((badge) => (
-                    <span key={badge} className="text-xs px-2 py-0.5 rounded-full bg-secondary text-muted-foreground font-medium">{badge}</span>
+                  {worksWithPlatforms.map((platform) => (
+                    <span key={platform} className="text-xs px-2 py-0.5 rounded-full bg-secondary text-muted-foreground font-medium">{platform}</span>
                   ))}
                 </div>
               )}
@@ -493,21 +705,18 @@ const ProductDetail = () => {
               </div>
 
               {/* Specs */}
-              {product.specifications &&
-                Object.entries(product.specifications).filter(([k]) => !/source/i.test(k)).length > 0 && (
+              {formattedSpecs.length > 0 && (
                 <div className="rounded-xl border border-border bg-card p-5">
                   <h3 className="mb-3 font-display text-base font-semibold text-foreground">{t('specifications')}</h3>
                   <dl className="space-y-2">
-                    {Object.entries(product.specifications)
-                      .filter(([key]) => !/source/i.test(key))
-                      .map(([key, value]) => (
-                        <div key={key} className="flex justify-between text-sm">
-                          <dt className="text-muted-foreground">{key}</dt>
-                          <dd className="font-medium text-foreground">
-                            {Array.isArray(value) ? value.join(', ') : String(value)}
-                          </dd>
-                        </div>
-                      ))}
+                    {formattedSpecs.map(([label, val]) => (
+                      <div key={label} className="flex justify-between gap-4 text-sm">
+                        <dt className="text-muted-foreground shrink-0">{label}</dt>
+                        <dd className="font-medium text-foreground text-end">
+                          {val}
+                        </dd>
+                      </div>
+                    ))}
                   </dl>
                 </div>
               )}

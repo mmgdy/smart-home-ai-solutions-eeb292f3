@@ -484,17 +484,65 @@ const handler = async (req: Request): Promise<Response> => {
       queryParams = {},
     } = body;
 
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    if (rawAction === "contact_form") {
+      const contactName = String(body.name ?? "").trim();
+      const contactPhone = String(body.phone ?? "").trim();
+      const contactEmailAddr = String(body.email ?? "").trim();
+      const contactMessage = String(body.message ?? "").trim();
+      if (!contactName || !contactEmailAddr || !contactMessage) {
+        return new Response(JSON.stringify({ error: "name, email, and message are required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const RESEND_API_KEY = await resolveResendApiKey(supabase);
+      let emailSent = false;
+      if (RESEND_API_KEY) {
+        const resend = new Resend(RESEND_API_KEY);
+        const html = `
+          <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;">
+            <h2 style="color:#0f172a;margin-top:0;">New Contact Inquiry — AzkaSmart</h2>
+            <p><strong>Name:</strong> ${escapeHtml(contactName)}</p>
+            <p><strong>Phone:</strong> ${escapeHtml(contactPhone || "N/A")}</p>
+            <p><strong>Email:</strong> ${escapeHtml(contactEmailAddr)}</p>
+            <hr style="border:none;border-top:1px solid #cbd5e1;margin:16px 0;" />
+            <p style="white-space:pre-line;color:#334155;">${escapeHtml(contactMessage)}</p>
+          </div>
+        `;
+        for (const sender of [PRIMARY_FROM_EMAIL, SECONDARY_FROM_EMAIL, FALLBACK_FROM_EMAIL]) {
+          try {
+            const recipients = sender === FALLBACK_FROM_EMAIL ? [ADMIN_FALLBACK_EMAIL] : [ADMIN_EMAIL];
+            const res = await resend.emails.send({
+              from: `AzkaSmart Contact <${sender}>`,
+              to: recipients,
+              reply_to: contactEmailAddr,
+              subject: `[AzkaSmart Contact] ${contactName}`,
+              html,
+            });
+            if (!res.error && res.data?.id) {
+              emailSent = true;
+              break;
+            }
+          } catch {}
+        }
+      }
+      return new Response(JSON.stringify({ success: true, emailSent, deliveredTo: ADMIN_EMAIL }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (!orderId || typeof orderId !== "string") {
       return new Response(JSON.stringify({ error: "orderId required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
 
     const { data: order, error: orderErr } = await supabase
       .from("orders")

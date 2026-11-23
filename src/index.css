@@ -1,10 +1,10 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Noto+Sans+Arabic:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Noto+Sans+Arabic:wght@300;400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Baytzaki — Emerald Prestige Design System */
+/* AzkaSmart — Emerald Prestige Design System */
 
 @layer base {
   :root {
@@ -141,15 +141,15 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    font-family: 'Outfit', sans-serif;
+    font-family: 'Poppins', sans-serif;
   }
 
   html[lang="ar"] body {
-    font-family: 'Outfit', 'Noto Sans Arabic', sans-serif;
+    font-family: 'Poppins', 'Noto Sans Arabic', sans-serif;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Outfit', sans-serif;
+    font-family: 'Poppins', sans-serif;
     font-weight: 600;
     letter-spacing: -0.02em;
   }
@@ -160,19 +160,19 @@
   html[lang="ar"] h4,
   html[lang="ar"] h5,
   html[lang="ar"] h6 {
-    font-family: 'Outfit', 'Noto Sans Arabic', sans-serif;
+    font-family: 'Poppins', 'Noto Sans Arabic', sans-serif;
   }
 }
 
 @layer utilities {
   .font-display {
-    font-family: 'Outfit', sans-serif;
+    font-family: 'Poppins', sans-serif;
     font-weight: 600;
     letter-spacing: -0.02em;
   }
 
   .font-serif-italic {
-    font-family: 'Outfit', sans-serif;
+    font-family: 'Poppins', sans-serif;
     font-style: italic;
     font-weight: 400;
   }

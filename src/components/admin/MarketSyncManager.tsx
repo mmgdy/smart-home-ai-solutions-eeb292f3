@@ -35,7 +35,8 @@ import {
   Package,
   ArrowUpDown,
   FileSpreadsheet,
-  Trash2
+  Trash2,
+  Bot
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -103,6 +104,11 @@ export const MarketSyncManager: React.FC<Props> = ({ adminToken, onProductAdded 
   const [isMarketSyncing, setIsMarketSyncing] = useState(false);
   const [marketSyncProgress, setMarketSyncProgress] = useState(0);
   const [marketSyncResults, setMarketSyncResults] = useState<any[]>([]);
+
+  // SmartZoom Stock & Catalog Bot State
+  const [isSmartzoomBotRunning, setIsSmartzoomBotRunning] = useState(false);
+  const [smartzoomBotProgress, setSmartzoomBotProgress] = useState<string>('');
+  const [smartzoomBotReport, setSmartzoomBotReport] = useState<any>(null);
 
   // ─── My Sources API Calls ───────────────────────────────────────────────────
   const callSourcesApi = async (action: string, extra: Record<string, unknown> = {}) => {
@@ -248,6 +254,236 @@ export const MarketSyncManager: React.FC<Props> = ({ adminToken, onProductAdded 
     } finally {
       setIsSyncingAll(false);
       await loadSyncSources();
+    }
+  };
+
+  // ─── SmartZoom Stock & Catalog Bot Handler ──────────────────────────────────
+  const handleRunSmartzoomBot = async (dryRun = false) => {
+    setIsSmartzoomBotRunning(true);
+    setSmartzoomBotProgress(dryRun ? 'Analyzing SmartZoom inventory (Dry Run)...' : 'Connecting to SmartZoom API & Supabase...');
+    try {
+      let resultData: any = null;
+
+      // 1. Try Edge Function first if available
+      try {
+        const edgeRes = await callSourcesApi('sync-smartzoom-bot', { dryRun });
+        if (edgeRes?.success && edgeRes?.data) {
+          resultData = edgeRes.data;
+        }
+      } catch (edgeErr) {
+        console.warn('Edge function sync-smartzoom-bot call error, falling back to client-side run:', edgeErr);
+      }
+
+      // 2. Client-side execution fallback
+      if (!resultData) {
+        setSmartzoomBotProgress('Fetching SmartZoom catalog directly (300+ items)...');
+        const allSmartzoom: any[] = [];
+        let page = 1;
+        while (page <= 6) {
+          const res = await fetch(`https://api.smartzoom.tech/api/products?page=${page}&limit=100`, {
+            headers: { Accept: 'application/json' },
+          });
+          if (!res.ok) break;
+          const json = await res.json();
+          const items = json?.data || [];
+          if (!Array.isArray(items) || items.length === 0) break;
+          allSmartzoom.push(...items);
+          if (items.length < 100) break;
+          page++;
+        }
+
+        setSmartzoomBotProgress(`Cross-referencing ${allSmartzoom.length} products with AzkaSmart...`);
+        const { data: currentProducts } = await supabase
+          .from('products')
+          .select('id, name, slug, price, stock, specifications, category_id');
+
+        const { data: categories } = await supabase.from('categories').select('id, name, slug');
+        const defaultCatId = categories?.[0]?.id || null;
+
+        const normalize = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const slugMap = new Map<string, any>();
+        const nameMap = new Map<string, any>();
+        const codeMap = new Map<string, any>();
+
+        for (const p of currentProducts || []) {
+          if (p.slug) slugMap.set(p.slug.toLowerCase(), p);
+          if (p.name) nameMap.set(normalize(p.name), p);
+          const c = p.specifications?.Model || p.specifications?.code || p.specifications?.smartzoom_code;
+          if (c) codeMap.set(normalize(c), p);
+          const szSlug = p.specifications?.smartzoom_slug;
+          if (szSlug) slugMap.set(szSlug.toLowerCase(), p);
+        }
+
+        const resolveStock = (p: any): number => {
+          if (!p) return 0;
+          if (p.inStock === false || p.isAvailable === false) return 0;
+          if (typeof p.status === 'string' && /out[_\s-]*of[_\s-]*stock/i.test(p.status)) return 0;
+          for (const c of [p.stockAvailable, p.effectiveStock, p.stockTotal, p.stock]) {
+            if (typeof c === 'number' && !Number.isNaN(c)) return Math.max(0, Math.floor(c));
+          }
+          if (Array.isArray(p.variants) && p.variants.length > 0) {
+            return p.variants.reduce((sum: number, v: any) => {
+              const s = v?.stockAvailable ?? v?.stockTotal ?? v?.stock ?? 0;
+              return sum + (typeof s === 'number' && !Number.isNaN(s) ? Math.max(0, Math.floor(s)) : 0);
+            }, 0);
+          }
+          return 0;
+        };
+
+        const toUpdate: { id: string; stock: number; name: string; oldStock: number }[] = [];
+        const toCreate: any[] = [];
+        let matchedCount = 0;
+        let outOfStockCount = 0;
+        let restockedCount = 0;
+        let stockChangedCount = 0;
+        const outOfStockNames: string[] = [];
+        const restockedNames: string[] = [];
+        const createdNames: string[] = [];
+
+        for (const sz of allSmartzoom) {
+          const rawName = (sz.name || sz.title || '').trim();
+          if (!rawName) continue;
+          const szSlug = (sz.slug || '').toLowerCase();
+          const szCode = normalize(sz.code || '');
+          const szStock = resolveStock(sz);
+
+          let matched = (szSlug && slugMap.get(szSlug)) ||
+                        (szCode && codeMap.get(szCode)) ||
+                        nameMap.get(normalize(rawName));
+
+          if (!matched) {
+            const normRaw = normalize(rawName);
+            if (normRaw.length >= 10) {
+              for (const p of currentProducts || []) {
+                const normP = normalize(p.name);
+                if (normP.includes(normRaw) || normRaw.includes(normP)) {
+                  matched = p;
+                  break;
+                }
+              }
+            }
+          }
+
+          if (matched) {
+            matchedCount++;
+            const curStock = typeof matched.stock === 'number' ? matched.stock : 0;
+            if (curStock !== szStock) {
+              if (szStock === 0) {
+                outOfStockCount++;
+                outOfStockNames.push(matched.name);
+              } else if (curStock === 0 && szStock > 0) {
+                restockedCount++;
+                restockedNames.push(matched.name);
+              }
+              stockChangedCount++;
+              toUpdate.push({ id: matched.id, stock: szStock, name: matched.name, oldStock: curStock });
+            }
+          } else {
+            const rawPrice = sz.effectivePrice ?? sz.price ?? sz.basePrice ?? 0;
+            const price = Math.round(Number(rawPrice) || 0);
+            const slugBase = (sz.slug || rawName)
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, '-')
+              .replace(/^-|-$/g, '')
+              .slice(0, 80);
+
+            toCreate.push({
+              name: rawName,
+              slug: `${slugBase}-${Math.random().toString(36).slice(2, 6)}`,
+              price: price > 0 ? price : 999,
+              original_price: sz.originalPrice ? Math.round(sz.originalPrice) : Math.round((price > 0 ? price : 999) * 1.15),
+              description: (sz.description || `${rawName} - Egyptian Smart Home Solution`).slice(0, 500),
+              brand: sz.company?.name || 'SmartZoom',
+              category_id: defaultCatId,
+              protocol: 'WiFi / Zigbee',
+              stock: szStock,
+              featured: false,
+              is_published: true,
+              image_url: sz.images?.[0] || sz.thumbnail || null,
+              images: Array.isArray(sz.images) ? sz.images : [],
+              specifications: {
+                Model: sz.code || sz.slug || '',
+                Warranty: sz.warrantyMonths ? `${sz.warrantyMonths} Months` : '12 Months',
+                smartzoom_slug: sz.slug || '',
+                smartzoom_id: sz._id || sz.id || '',
+              },
+            });
+            createdNames.push(rawName);
+          }
+        }
+
+        if (!dryRun) {
+          if (!adminToken) {
+            throw new Error('Admin session required to update products. Please log in again.');
+          }
+          setSmartzoomBotProgress(`Updating ${toUpdate.length} product stock levels in database...`);
+          for (const item of toUpdate) {
+            const { data: updData, error: updErr } = await supabase.functions.invoke('admin-write', {
+              headers: { Authorization: `Bearer ${adminToken}` },
+              body: {
+                action: 'update-product',
+                token: adminToken,
+                id: item.id,
+                product: { stock: item.stock },
+              },
+            });
+            if (updErr || updData?.success === false) {
+              console.warn(`Failed to update stock for ${item.name}:`, updErr || updData?.error);
+            }
+          }
+
+          if (toCreate.length > 0) {
+            setSmartzoomBotProgress(`Inserting ${toCreate.length} missing products...`);
+            const BATCH = 40;
+            for (let i = 0; i < toCreate.length; i += BATCH) {
+              const chunk = toCreate.slice(i, i + BATCH);
+              await supabase.functions.invoke('backup-manager', {
+                headers: { Authorization: `Bearer ${adminToken}` },
+                body: {
+                  action: 'restore-backup',
+                  token: adminToken,
+                  selectedTables: ['products'],
+                  mode: 'merge',
+                  backupData: { tables: { products: chunk } },
+                },
+              });
+            }
+          }
+        }
+
+        resultData = {
+          totalSmartzoom: allSmartzoom.length,
+          matchedCount,
+          outOfStockCount,
+          restockedCount,
+          stockChangedCount,
+          createdCount: toCreate.length,
+          outOfStockNames,
+          restockedNames,
+          createdNames,
+          errors: [],
+        };
+      }
+
+      setSmartzoomBotReport(resultData);
+      toast({
+        title: dryRun ? 'SmartZoom Bot Test (Dry Run) Complete' : 'SmartZoom Stock & Catalog Sync Complete 🚀',
+        description: `${resultData.outOfStockCount} marked Out of Stock, ${resultData.restockedCount} restocked, ${resultData.createdCount} new products ${dryRun ? 'identified' : 'created'}.`,
+      });
+
+      if (!dryRun) {
+        await fetchDbProducts();
+        if (onProductAdded) onProductAdded();
+      }
+    } catch (err: any) {
+      toast({
+        title: 'SmartZoom Bot Error',
+        description: err.message || 'Failed to run SmartZoom bot',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSmartzoomBotRunning(false);
+      setSmartzoomBotProgress('');
     }
   };
 
@@ -665,24 +901,6 @@ export const MarketSyncManager: React.FC<Props> = ({ adminToken, onProductAdded 
               <RefreshCw className={`w-3.5 h-3.5 ${loadingDb ? 'animate-spin' : ''}`} />
               Refresh Data
             </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={handleFreshMarketSyncFromScratch}
-              disabled={isFreshSyncing}
-              className="gap-1.5 font-medium shadow-sm"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isFreshSyncing ? 'animate-spin' : ''}`} />
-              {isFreshSyncing ? 'Syncing...' : 'Fresh Sync From Scratch'}
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => setActiveTab('discovered')}
-              className="gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground font-medium"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-              New Products ({discoveredProducts.length})
-            </Button>
           </div>
         </div>
 
@@ -740,6 +958,92 @@ export const MarketSyncManager: React.FC<Props> = ({ adminToken, onProductAdded 
             </div>
           </div>
         </div>
+      </div>
+
+      {/* SmartZoom.tech Stock & Catalog Bot Card */}
+      <div className="bg-gradient-to-br from-card via-card to-primary/5 border border-primary/20 rounded-xl p-5 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-border/60">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center text-primary shrink-0">
+              <Bot className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-bold text-foreground">Sync Products from SmartZoom</h3>
+                <Badge variant="outline" className="text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 border-emerald-500/30">
+                  Live Supplier Bot
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Checks stock availability from SmartZoom Egypt API, marks out-of-stock items (stock = 0), restocks available products, and auto-creates missing catalog items.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              onClick={() => handleRunSmartzoomBot(false)}
+              disabled={isSmartzoomBotRunning}
+              className="h-10 px-5 gap-2 text-sm font-semibold bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
+            >
+              {isSmartzoomBotRunning ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <RefreshCw className="w-4 h-4" />
+              )}
+              {isSmartzoomBotRunning ? 'Syncing...' : 'Sync Now'}
+            </Button>
+          </div>
+        </div>
+
+        {/* Running state progress */}
+        {isSmartzoomBotRunning && (
+          <div className="mt-4 p-3 bg-muted/50 rounded-lg border border-border/60 flex items-center gap-3">
+            <Loader2 className="w-4 h-4 animate-spin text-primary shrink-0" />
+            <span className="text-xs font-medium text-foreground">{smartzoomBotProgress}</span>
+          </div>
+        )}
+
+        {/* Sync Report Results */}
+        {smartzoomBotReport && (
+          <div className="mt-4 pt-3 border-t border-border/50">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="p-3 bg-muted/40 rounded-lg border border-border/40">
+                <div className="text-[11px] text-muted-foreground font-medium">SmartZoom Products Scanned</div>
+                <div className="text-xl font-bold text-foreground mt-0.5">{smartzoomBotReport.totalSmartzoom}</div>
+              </div>
+              <div className="p-3 bg-red-500/10 rounded-lg border border-red-500/20">
+                <div className="text-[11px] text-red-600 dark:text-red-400 font-medium">Marked Out of Stock (0)</div>
+                <div className="text-xl font-bold text-red-600 dark:text-red-400 mt-0.5">{smartzoomBotReport.outOfStockCount}</div>
+              </div>
+              <div className="p-3 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
+                <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">Restocked (&gt;0)</div>
+                <div className="text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">{smartzoomBotReport.restockedCount}</div>
+              </div>
+              <div className="p-3 bg-blue-500/10 rounded-lg border border-blue-500/20">
+                <div className="text-[11px] text-blue-600 dark:text-blue-400 font-medium">Missing Products Created</div>
+                <div className="text-xl font-bold text-blue-600 dark:text-blue-400 mt-0.5">{smartzoomBotReport.createdCount}</div>
+              </div>
+            </div>
+
+            {(smartzoomBotReport.outOfStockNames?.length > 0 || smartzoomBotReport.createdNames?.length > 0) && (
+              <div className="mt-3 text-xs bg-muted/30 p-2.5 rounded-lg border border-border/40 space-y-1.5 max-h-36 overflow-y-auto">
+                {smartzoomBotReport.outOfStockNames?.length > 0 && (
+                  <div>
+                    <span className="font-semibold text-red-600 dark:text-red-400">Out of Stock ({smartzoomBotReport.outOfStockNames.length}): </span>
+                    <span className="text-muted-foreground">{smartzoomBotReport.outOfStockNames.slice(0, 10).join(', ')}{smartzoomBotReport.outOfStockNames.length > 10 ? ' ...' : ''}</span>
+                  </div>
+                )}
+                {smartzoomBotReport.createdNames?.length > 0 && (
+                  <div>
+                    <span className="font-semibold text-blue-600 dark:text-blue-400">Created in AzkaSmart ({smartzoomBotReport.createdNames.length}): </span>
+                    <span className="text-muted-foreground">{smartzoomBotReport.createdNames.slice(0, 10).join(', ')}{smartzoomBotReport.createdNames.length > 10 ? ' ...' : ''}</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Main Tabs Navigation */}
@@ -1386,7 +1690,10 @@ export const MarketSyncManager: React.FC<Props> = ({ adminToken, onProductAdded 
 
                       {s.whatsapp ? (
                         <a
-                          href={`https://wa.me/${s.whatsapp.replace(/[^0-9]/g, '')}`}
+                          href={`https://wa.me/${(() => {
+                            const d = s.whatsapp.replace(/[^0-9]/g, '');
+                            return d.startsWith('0') ? '2' + d : d;
+                          })()}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-xs font-medium text-emerald-600 transition-colors"

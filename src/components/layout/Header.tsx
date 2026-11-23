@@ -14,6 +14,7 @@ import {
   Calculator,
   Award,
   Info,
+  Phone,
   MessageCircle,
   Globe,
   Sparkles,
@@ -31,7 +32,7 @@ import { useCart } from '@/hooks/useCart';
 import { useLanguage } from '@/lib/i18n';
 import { LanguageToggle } from './LanguageToggle';
 import { cn } from '@/lib/utils';
-import { supabase } from '@/integrations/supabase/client';
+import { loadBrandingSettings, resolveBrandingAssetUrl } from '@/lib/favicon';
 import defaultLogoImage from '@/assets/logo.png';
 import defaultLogoDark from '@/assets/logo-dark.png';
 import { AuthButton } from '@/components/auth/AuthButton';
@@ -45,13 +46,13 @@ export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [logoDefault, setLogoDefault] = useState<string>(() => {
-    try { return localStorage.getItem('azka_logo_default') || defaultLogoImage; } catch { return defaultLogoImage; }
+    try { return resolveBrandingAssetUrl(localStorage.getItem('azka_logo_default'), 'logo-light', defaultLogoImage); } catch { return defaultLogoImage; }
   });
   const [logoLight, setLogoLight] = useState<string | null>(() => {
-    try { return localStorage.getItem('azka_logo_light') || defaultLogoImage; } catch { return defaultLogoImage; }
+    try { return resolveBrandingAssetUrl(localStorage.getItem('azka_logo_light'), 'logo-light', defaultLogoImage); } catch { return defaultLogoImage; }
   });
   const [logoDark, setLogoDark] = useState<string | null>(() => {
-    try { return localStorage.getItem('azka_logo_dark') || defaultLogoDark; } catch { return defaultLogoDark; }
+    try { return resolveBrandingAssetUrl(localStorage.getItem('azka_logo_dark'), 'logo-dark', defaultLogoDark); } catch { return defaultLogoDark; }
   });
   const [logoSize, setLogoSize] = useState(120);
   const { theme } = useTheme();
@@ -60,9 +61,9 @@ export function Header() {
   const { get: getSiteInfo } = useSiteInfo();
   const navigate = useNavigate();
 
-  const rawWhatsapp = getSiteInfo('contact', 'whatsapp', '01501896456') || '01501896456';
+  const rawWhatsapp = getSiteInfo('contact', 'whatsapp', '201501896456') || '201501896456';
   const digits = rawWhatsapp.replace(/\D/g, '');
-  const whatsappPhone = digits.startsWith('0') ? '2' + digits : digits;
+  const whatsappPhone = digits.startsWith('0') ? '2' + digits : (digits || '201501896456');
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50);
@@ -73,27 +74,23 @@ export function Header() {
   useEffect(() => {
     const loadLogoSettings = async () => {
       try {
-        const { data: settings } = await supabase
-          .from('admin_settings')
-          .select('key, value')
-          .in('key', ['logo_url', 'logo_light_url', 'logo_dark_url', 'logo_size']);
-        if (settings) {
-          settings.forEach(s => {
-            if (s.key === 'logo_url' && s.value) {
-              setLogoDefault(s.value);
-              try { localStorage.setItem('azka_logo_default', s.value); } catch {}
-            }
-            if (s.key === 'logo_light_url' && s.value) {
-              setLogoLight(s.value);
-              try { localStorage.setItem('azka_logo_light', s.value); } catch {}
-            }
-            if (s.key === 'logo_dark_url' && s.value) {
-              setLogoDark(s.value);
-              try { localStorage.setItem('azka_logo_dark', s.value); } catch {}
-            }
-            if (s.key === 'logo_size' && s.value) setLogoSize(parseInt(s.value));
-          });
+        const settings = await loadBrandingSettings();
+        if (settings.logo_url) {
+          const resolved = resolveBrandingAssetUrl(settings.logo_url, 'logo-light', defaultLogoImage);
+          setLogoDefault(resolved);
+          try { localStorage.setItem('azka_logo_default', resolved); } catch {}
         }
+        if (settings.logo_light_url) {
+          const resolved = resolveBrandingAssetUrl(settings.logo_light_url, 'logo-light', defaultLogoImage);
+          setLogoLight(resolved);
+          try { localStorage.setItem('azka_logo_light', resolved); } catch {}
+        }
+        if (settings.logo_dark_url) {
+          const resolved = resolveBrandingAssetUrl(settings.logo_dark_url, 'logo-dark', defaultLogoDark);
+          setLogoDark(resolved);
+          try { localStorage.setItem('azka_logo_dark', resolved); } catch {}
+        }
+        if (settings.logo_size) setLogoSize(parseInt(settings.logo_size));
       } catch { console.log('Using default logo'); }
     };
     loadLogoSettings();
@@ -149,6 +146,14 @@ export function Header() {
       icon: Wrench,
       accent: 'text-sky-500 bg-sky-500/10 border-sky-500/20',
     },
+    {
+      href: '/contact',
+      label: isRTL ? 'تواصل معنا' : 'Contact',
+      desc: isRTL ? 'تواصل مع فريق المبيعات والدعم الهندسي' : 'Get in touch with our team',
+      badge: null,
+      icon: Phone,
+      accent: 'text-teal-500 bg-teal-500/10 border-teal-500/20',
+    },
   ];
 
   const quickLinks = [
@@ -171,6 +176,11 @@ export function Header() {
       href: '/about',
       label: isRTL ? 'عن أزكاسمارت' : 'About Us',
       icon: Info,
+    },
+    {
+      href: '/contact',
+      label: isRTL ? 'تواصل معنا' : 'Contact',
+      icon: Phone,
     },
   ];
 

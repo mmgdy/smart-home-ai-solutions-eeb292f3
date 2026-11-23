@@ -4,7 +4,9 @@ import { Product, CartItem } from '@/types/store';
 
 interface CartStore {
   items: CartItem[];
+  activeBundleId: string | null;
   addItem: (product: Product, quantity?: number) => void;
+  setActiveBundle: (bundleId: string | null) => void;
   removeItem: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
@@ -16,11 +18,12 @@ export const useCart = create<CartStore>()(
   persist(
     (set, get) => ({
       items: [],
-      
+      activeBundleId: null,
+
       addItem: (product: Product, quantity = 1) => {
         set((state) => {
           const existingItem = state.items.find(item => item.product.id === product.id);
-          
+
           if (existingItem) {
             return {
               items: state.items.map(item =>
@@ -30,25 +33,33 @@ export const useCart = create<CartStore>()(
               ),
             };
           }
-          
+
           return {
             items: [...state.items, { product, quantity }],
           };
         });
       },
-      
-      removeItem: (productId: string) => {
-        set((state) => ({
-          items: state.items.filter(item => item.product.id !== productId),
-        }));
+
+      setActiveBundle: (bundleId: string | null) => {
+        set({ activeBundleId: bundleId });
       },
-      
+
+      removeItem: (productId: string) => {
+        set((state) => {
+          const nextItems = state.items.filter(item => item.product.id !== productId);
+          return {
+            items: nextItems,
+            activeBundleId: nextItems.length === 0 ? null : state.activeBundleId,
+          };
+        });
+      },
+
       updateQuantity: (productId: string, quantity: number) => {
         if (quantity <= 0) {
           get().removeItem(productId);
           return;
         }
-        
+
         set((state) => ({
           items: state.items.map(item =>
             item.product.id === productId
@@ -57,16 +68,16 @@ export const useCart = create<CartStore>()(
           ),
         }));
       },
-      
-      clearCart: () => set({ items: [] }),
-      
+
+      clearCart: () => set({ items: [], activeBundleId: null }),
+
       getTotal: () => {
         return get().items.reduce(
           (total, item) => total + item.product.price * item.quantity,
           0
         );
       },
-      
+
       getItemCount: () => {
         return get().items.reduce((count, item) => count + item.quantity, 0);
       },

@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { Trash2, Plus, Minus, ShoppingBag, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Trash2, Plus, Minus, ShoppingBag, ArrowRight, ArrowLeft, Wrench } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { useCart } from '@/hooks/useCart';
@@ -8,10 +8,12 @@ import { useLanguage } from '@/lib/i18n';
 import { CompatibilityCheck } from '@/components/checkout/CompatibilityCheck';
 
 const Cart = () => {
-  const { items, updateQuantity, removeItem, getTotal, clearCart } = useCart();
+  const { items, activeBundleId, updateQuantity, removeItem, getTotal, clearCart } = useCart();
   const { t, formatPrice, isRTL } = useLanguage();
 
   const total = getTotal();
+  const isBundleOrder = Boolean(activeBundleId);
+  const regularInstallFee = total > 0 ? Math.max(1500, Math.round(total * 0.20)) : 0;
   const NextArrow = isRTL ? ArrowLeft : ArrowRight;
 
   if (items.length === 0) {
@@ -167,6 +169,22 @@ const Cart = () => {
                   <span className="text-muted-foreground">{t('subtotal')}</span>
                   <span className="font-medium text-foreground">{formatPrice(total)}</span>
                 </div>
+                {isBundleOrder && (
+                  <div className="flex justify-between items-center text-sm rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-3 py-2">
+                    <span className="text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1.5">
+                      <Wrench className="h-3.5 w-3.5" />
+                      {isRTL ? 'التركيب الاحترافي المعتمد' : 'Certified Installation'}
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs text-muted-foreground line-through">
+                        {formatPrice(regularInstallFee)}
+                      </span>
+                      <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                        {isRTL ? 'مجاناً (عرض الباقة)' : 'FREE (Bundle)'}
+                      </span>
+                    </div>
+                  </div>
+                )}
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">{t('shipping')}</span>
                   <span className="font-medium text-foreground">{t('calculatedAtCheckout')}</span>

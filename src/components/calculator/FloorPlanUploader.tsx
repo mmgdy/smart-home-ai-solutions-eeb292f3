@@ -71,6 +71,8 @@ function SuggestedProducts({ roomNames, formatPrice, isRTL }: {
               <img
                 src={p.image_url || '/placeholder.svg'}
                 alt={p.name}
+                loading="lazy"
+                decoding="async"
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                 onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/placeholder.svg'; }}
               />

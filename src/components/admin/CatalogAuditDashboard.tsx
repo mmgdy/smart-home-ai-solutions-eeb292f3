@@ -758,7 +758,7 @@ COMMIT;`;
           <CardContent className="p-4">
             <div className="text-xs text-emerald-700 dark:text-emerald-400 font-medium">Verified Cairo Vendors</div>
             <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">{suppliers.length}</div>
-            <div className="text-[11px] text-emerald-600/70 mt-0.5">Sonoff, Baytzaki, B.Tech, etc.</div>
+            <div className="text-[11px] text-emerald-600/70 mt-0.5">Sonoff, AzkaSmart, B.Tech, etc.</div>
           </CardContent>
         </Card>
 
@@ -800,7 +800,8 @@ COMMIT;`;
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {suppliers.map((sup) => {
               const suppliedProducts = cairoSupplierService.getProductsBySupplier(sup.id);
-              const cleanPhone = (sup.whatsapp || sup.phone || '').replace(/[^0-9]/g, '');
+              const rawCleanPhone = (sup.whatsapp || sup.phone || '').replace(/[^0-9]/g, '');
+              const cleanPhone = rawCleanPhone.startsWith('0') ? '2' + rawCleanPhone : rawCleanPhone;
 
               return (
                 <Card key={sup.id} className="hover:shadow-md transition-shadow border bg-card">
@@ -1145,6 +1146,8 @@ COMMIT;`;
                               <img
                                 src={a.image_url}
                                 alt={a.product_name}
+                                loading="lazy"
+                                decoding="async"
                                 className="w-full h-full object-cover group-hover:scale-110 transition-transform"
                                 onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/placeholder.svg'; }}
                               />
@@ -1372,6 +1375,8 @@ COMMIT;`;
                       <img 
                         src={selectedProductForSources.image_url} 
                         alt="" 
+                        loading="lazy"
+                        decoding="async"
                         className="w-full h-full object-cover" 
                         onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/placeholder.svg'; }}
                       />
@@ -1502,7 +1507,8 @@ COMMIT;`;
                     const storePrice = selectedProductForSources.price || 0;
                     const diff = s.price_egp && storePrice > 0 ? storePrice - Number(s.price_egp) : null;
                     const marginPct = diff !== null && storePrice > 0 ? Math.round((diff / storePrice) * 100) : null;
-                    const cleanPhone = (s.whatsapp || s.phone || '').replace(/[^0-9]/g, '');
+                    const rawCleanPhone = (s.whatsapp || s.phone || '').replace(/[^0-9]/g, '');
+                    const cleanPhone = rawCleanPhone.startsWith('0') ? '2' + rawCleanPhone : rawCleanPhone;
                     const waText = encodeURIComponent(`Hello, I am inquiring about availability of: ${selectedProductForSources.product_name || 'Product'}`);
 
                     return (

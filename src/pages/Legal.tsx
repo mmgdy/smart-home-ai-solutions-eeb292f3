@@ -304,7 +304,7 @@ For shipping inquiries, contact us at info@azkasmart.com.
 - ستتلقى تأكيدًا بالبريد الإلكتروني مع معلومات التتبع
 
 ## 5. التواصل
-لاستفسارات الشحن، تواصل معنا على info@baytzaki.com.
+لاستفسارات الشحن، تواصل معنا على info@azkasmart.com.
     `,
   },
   warranty: {
@@ -316,7 +316,7 @@ For shipping inquiries, contact us at info@azkasmart.com.
 **Last Updated: February 2026**
 
 ## 1. Warranty Coverage
-All products sold by Baytzaki come with the manufacturer's warranty. Warranty periods vary by brand:
+All products sold by AzkaSmart come with the manufacturer's warranty. Warranty periods vary by brand:
 
 | Brand | Warranty Period |
 |-------|----------------|
@@ -332,7 +332,7 @@ All products sold by Baytzaki come with the manufacturer's warranty. Warranty pe
 - Firmware/software issues (within the warranty period)
 
 ## 3. What's NOT Covered
-- Damage from improper installation (unless installed by Baytzaki)
+- Damage from improper installation (unless installed by AzkaSmart)
 - Physical damage (drops, water, fire, power surges)
 - Modification or tampering
 - Normal wear and tear
@@ -349,7 +349,7 @@ All products sold by Baytzaki come with the manufacturer's warranty. Warranty pe
 4. Replacement or repair will be completed within 7-14 business days
 
 ## 5. Installation Warranty
-Products installed by Baytzaki technicians include an additional **6-month installation warranty** covering:
+Products installed by AzkaSmart technicians include an additional **6-month installation warranty** covering:
 - Wiring and connection issues
 - Configuration errors
 - Integration problems with other smart home devices
@@ -366,7 +366,7 @@ For warranty claims, contact info@azkasmart.com or WhatsApp us.
 **آخر تحديث: فبراير 2026**
 
 ## 1. تغطية الضمان
-جميع المنتجات المباعة من بايتزاكي تأتي مع ضمان الشركة المصنعة.
+جميع المنتجات المباعة من أزكاسمارت تأتي مع ضمان الشركة المصنعة.
 
 | العلامة التجارية | فترة الضمان |
 |-----------------|------------|
@@ -390,7 +390,7 @@ For warranty claims, contact info@azkasmart.com or WhatsApp us.
 3. سيتم الاستبدال أو الإصلاح خلال 7-14 يوم عمل
 
 ## 5. ضمان التركيب
-المنتجات المركبة بواسطة فنيي بايتزاكي تشمل ضمان تركيب إضافي لمدة **6 أشهر**.
+المنتجات المركبة بواسطة فنيي أزكاسمارت تشمل ضمان تركيب إضافي لمدة **6 أشهر**.
 
 ## 6. التواصل
 لمطالبات الضمان، تواصل معنا على info@azkasmart.com.

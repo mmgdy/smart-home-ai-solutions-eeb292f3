@@ -10,8 +10,9 @@ const Services = () => {
   const { t, formatPrice, isRTL } = useLanguage();
   const { get } = useSiteInfo();
 
-  const phone = get('contact', 'phone', '+20 123 456 7890');
-  const whatsapp = get('contact', 'whatsapp', '201234567890').replace(/\D/g, '');
+  const phone = get('contact', 'phone', '01501896456');
+  const rawWa = (get('contact', 'whatsapp', '201501896456') || '201501896456').replace(/\D/g, '');
+  const whatsapp = rawWa.startsWith('0') ? '2' + rawWa : (rawWa || '201501896456');
   const email = get('contact', 'email', 'info@azkasmart.com');
 
   // Editable prices (Site Info → service_prices)

@@ -15,8 +15,8 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ['Outfit', 'sans-serif'],
-        display: ['Outfit', 'sans-serif'],
+        sans: ['Poppins', 'Noto Sans Arabic', 'sans-serif'],
+        display: ['Poppins', 'Noto Sans Arabic', 'sans-serif'],
       },
       colors: {
         border: "hsl(var(--border))",

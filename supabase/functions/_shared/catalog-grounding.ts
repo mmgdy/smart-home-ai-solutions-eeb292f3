@@ -49,42 +49,42 @@ export const OFFICIAL_BUNDLES: OfficialBundle[] = [
     id: "studio",
     nameEn: "Studio Apartment Smart Kit",
     nameAr: "باقة الاستوديو الذكية",
-    descEn: "Starter kit for studios. 4 lights, AC control, motion sensor, and entry security.",
-    descAr: "الباقة المتكاملة للاستوديو والشقق الصغيرة: تحكم في ٤ خطوط إضاءة والتكييف وحساس حركة وحساس باب.",
-    priceEgp: 7000,
-    originalPriceEgp: 9150,
-    savingsAr: "وفّر ~٢٥٠ ج.م/شهر من الكهرباء",
-    savingsEn: "Save ~250 EGP/month on electricity",
+    descEn: "Starter kit for studios. 4 lights, AC control, motion sensor, and entry security. Includes FREE certified installation.",
+    descAr: "الباقة المتكاملة للاستوديو والشقق الصغيرة: تحكم في ٤ خطوط إضاءة والتكييف وحساس حركة وحساس باب — شامل التركيب الاحترافي مجاناً.",
+    priceEgp: 7872,
+    originalPriceEgp: 9446,
+    savingsAr: "شامل التركيب مجاناً (وفر ١,٥٧٤ ج.م) + وفّر ~٢٥٠ ج.م/شهر من الكهرباء",
+    savingsEn: "FREE Certified Installation (Save 1,574 EGP) + Save ~250 EGP/mo on electricity",
     devicesAr: [
       "٤ مفاتيح ذكية SONOFF MINI Extreme MINIR4",
       "١ ريموت تكييف ذكي WiFi IR Remote",
       "١ هاب SONOFF Zigbee Bridge Pro",
       "١ حساس حركة ذكي SONOFF Zigbee",
-      "١ حساس أبواب وشبابيك ذكي Tuya Zigbee",
+      "١ حساس أبواب وشبابيك ذكي Zigbee",
     ],
     devicesEn: [
       "4x SONOFF MINI Extreme Wi-Fi Smart Switch MINIR4",
       "1x WiFi IR Remote Control",
       "1x SONOFF Zigbee Bridge Pro",
       "1x SONOFF Zigbee Motion Sensor | SNZB-03P",
-      "1x Tuya Zigbee Door and Window Sensor",
+      "1x Zigbee Door and Window Sensor",
     ],
   },
   {
     id: "2bed",
     nameEn: "2-Bedroom Apartment Kit",
     nameAr: "باقة شقة غرفتين",
-    descEn: "Smart lighting, climate control, smart scenes, and entry protection for a 2-bedroom home.",
-    descAr: "إضاءة ذكية، تحكم بالتكييف، سيناريوهات تشغيل ذكية، وحماية المداخل لشقة غرفتين.",
-    priceEgp: 13300,
-    originalPriceEgp: 17350,
-    savingsAr: "وفّر ~٤٠٠ ج.م/شهر من الكهرباء",
-    savingsEn: "Save ~400 EGP/month on electricity",
+    descEn: "Smart lighting, climate control, smart scenes, and entry protection for a 2-bedroom home. Includes FREE certified installation.",
+    descAr: "إضاءة ذكية، تحكم بالتكييف، سيناريوهات تشغيل ذكية، وحماية المداخل لشقة غرفتين — شامل التركيب الاحترافي مجاناً.",
+    priceEgp: 14919,
+    originalPriceEgp: 17903,
+    savingsAr: "شامل التركيب مجاناً (وفر ٢,٩٨٤ ج.م) + وفّر ~٤٠٠ ج.م/شهر من الكهرباء",
+    savingsEn: "FREE Certified Installation (Save 2,984 EGP) + Save ~400 EGP/mo on electricity",
     devicesAr: [
       "٨ مفاتيح ذكية SONOFF MINI Extreme MINIR4",
       "٢ ريموت تكييف ذكي WiFi IR Remote",
       "١ هاب SONOFF Zigbee Bridge Pro",
-      "٢ حساس أبواب وشبابيك Tuya Zigbee",
+      "٢ حساس أبواب وشبابيك Zigbee",
       "٢ حساس حركة SONOFF Zigbee",
       "١ ريموت سيناريوهات SONOFF SwitchMan R5",
     ],
@@ -92,7 +92,7 @@ export const OFFICIAL_BUNDLES: OfficialBundle[] = [
       "8x SONOFF MINI Extreme Wi-Fi Smart Switch MINIR4",
       "2x WiFi IR Remote Control",
       "1x SONOFF Zigbee Bridge Pro",
-      "2x Tuya Zigbee Door and Window Sensor",
+      "2x Zigbee Door and Window Sensor",
       "2x SONOFF Zigbee Motion Sensor",
       "1x SONOFF SwitchMan R5 Scene Controller",
     ],
@@ -101,18 +101,18 @@ export const OFFICIAL_BUNDLES: OfficialBundle[] = [
     id: "3bed",
     nameEn: "3-Bedroom Apartment Kit",
     nameAr: "باقة شقة ٣ غرف",
-    descEn: "Complete home automation with 12 switch channels, 3 AC controllers, security sensors, temperature display, and whole-home power meter.",
-    descAr: "منظومة شاملة لـ ١٢ خط إضاءة، ٣ أجهزة تكييف، حساسات أمان، شاشة حرارة ورطوبة، وعداد رقمي لمراقبة استهلاك الطاقة.",
-    priceEgp: 20500,
-    originalPriceEgp: 26800,
-    savingsAr: "وفّر ~٦٠٠ ج.م/شهر من الكهرباء",
-    savingsEn: "Save ~600 EGP/month on electricity",
+    descEn: "Complete home automation with 12 switch channels, 3 AC controllers, security sensors, temperature display, and whole-home power meter. Includes FREE certified installation.",
+    descAr: "منظومة شاملة لـ ١٢ خط إضاءة، ٣ أجهزة تكييف، حساسات أمان، شاشة حرارة ورطوبة، وعداد رقمي لمراقبة استهلاك الطاقة — شامل التركيب الاحترافي مجاناً.",
+    priceEgp: 23071,
+    originalPriceEgp: 27685,
+    savingsAr: "شامل التركيب مجاناً (وفر ٤,٦١٤ ج.م) + وفّر ~٦٠٠ ج.م/شهر من الكهرباء",
+    savingsEn: "FREE Certified Installation (Save 4,614 EGP) + Save ~600 EGP/mo on electricity",
     devicesAr: [
       "١٢ مفتاح ذكي SONOFF MINI Extreme MINIR4",
       "٣ ريموت تكييف ذكي WiFi IR Remote",
       "١ هاب SONOFF Zigbee Bridge Pro",
       "٢ حساس حركة SONOFF Zigbee",
-      "٣ حساسات أبواب وشبابيك Tuya Zigbee",
+      "٣ حساسات أبواب وشبابيك Zigbee",
       "١ عداد وقاطع طاقة ذكي SONOFF POW Elite 20A",
       "١ حساس حرارة ورطوبة مع شاشة SONOFF LCD",
       "١ ريموت سيناريوهات SONOFF SwitchMan R5",
@@ -122,7 +122,7 @@ export const OFFICIAL_BUNDLES: OfficialBundle[] = [
       "3x WiFi IR Remote Control",
       "1x SONOFF Zigbee Bridge Pro",
       "2x SONOFF Zigbee Motion Sensor",
-      "3x Tuya Zigbee Door and Window Sensor",
+      "3x Zigbee Door and Window Sensor",
       "1x SONOFF POW Elite Smart Power Meter",
       "1x SONOFF SNZB-02D Zigbee LCD Smart Temperature",
       "1x SONOFF SwitchMan R5 Scene Controller",
@@ -132,20 +132,20 @@ export const OFFICIAL_BUNDLES: OfficialBundle[] = [
     id: "villa-security",
     nameEn: "Villa Security Kit",
     nameAr: "باقة أمان الفيلا",
-    descEn: "Comprehensive security system with smart biometric lock, indoor & outdoor cameras, perimeter sensors, smoke and water leak detectors.",
-    descAr: "نظام أمان شامل مع قفل إلكتروني ببصمة الإصبع، كاميرات مراقبة داخلية وخارجية، حساسات أبواب، وحساسات دخان وتسريب مياه.",
-    priceEgp: 21750,
-    originalPriceEgp: 28400,
-    savingsAr: "حماية على مدار الساعة وتنبيهات فورية لعائلتك",
-    savingsEn: "24/7 protection & real-time phone alerts",
+    descEn: "Comprehensive security system with smart biometric lock, indoor & outdoor cameras, perimeter sensors, smoke and water leak detectors. Includes FREE certified installation.",
+    descAr: "نظام أمان شامل مع قفل إلكتروني ببصمة الإصبع، كاميرات مراقبة داخلية وخارجية، حساسات أبواب، وحساسات دخان وتسريب مياه — شامل التركيب الاحترافي مجاناً.",
+    priceEgp: 24076,
+    originalPriceEgp: 28891,
+    savingsAr: "شامل التركيب مجاناً (وفر ٤,٨١٥ ج.م) + حماية على مدار الساعة",
+    savingsEn: "FREE Certified Installation (Save 4,815 EGP) + 24/7 protection & alerts",
     devicesAr: [
       "١ قفل ذكي ببصمة الإصبع SMART LOCK LEZN K80",
       "٢ كاميرا مراقبة داخلية متحركة CAM-PT2",
       "٢ كاميرا مراقبة خارجية مقاومة للطقس SONOFF CAM-B1P",
       "١ هاب SONOFF Zigbee Bridge Pro",
-      "٦ حساسات أبواب وشبابيك Tuya Zigbee",
+      "٦ حساسات أبواب وشبابيك Zigbee",
       "٢ حساس حركة SONOFF Zigbee",
-      "١ حساس إنذار دخان وحريق Tuya Zigbee",
+      "١ حساس إنذار دخان وحريق Zigbee",
       "١ حساس كشف تسريب مياه SONOFF Zigbee",
     ],
     devicesEn: [
@@ -153,9 +153,9 @@ export const OFFICIAL_BUNDLES: OfficialBundle[] = [
       "2x Indoor Smart Security Camera | CAM-PT2",
       "2x SONOFF CAM Outdoor Smart Security Camera | CAM-B1P",
       "1x SONOFF Zigbee Bridge Pro",
-      "6x Tuya Zigbee Door and Window Sensor",
+      "6x Zigbee Door and Window Sensor",
       "2x SONOFF Zigbee Motion Sensor",
-      "1x Tuya Zigbee Smoke Sensor",
+      "1x Zigbee Smoke Sensor (without battery)",
       "1x SONOFF Zigbee Water Leak Sensor",
     ],
   },
@@ -163,12 +163,12 @@ export const OFFICIAL_BUNDLES: OfficialBundle[] = [
     id: "energy",
     nameEn: "Energy Saving Kit",
     nameAr: "باقة توفير الطاقة",
-    descEn: "Slashing electricity bills with real-time power metering, radar human presence sensing, LCD climate displays, and scheduled AC timers.",
-    descAr: "تقليل فاتورة الكهرباء: عداد طاقة لمراقبة الاستهلاك لحظياً، حساس وجود بشري بالرادار، ومؤقتات تكييف ذكية.",
-    priceEgp: 12050,
-    originalPriceEgp: 15750,
-    savingsAr: "وفّر حتى ٣٥-٤٠٪ من استهلاك الكهرباء والتكييف",
-    savingsEn: "Cut up to 35-40% on electricity bills",
+    descEn: "Slashing electricity bills with real-time power metering, radar human presence sensing, LCD climate displays, and scheduled AC timers. Includes FREE certified installation.",
+    descAr: "تقليل فاتورة الكهرباء: عداد طاقة لمراقبة الاستهلاك لحظياً، حساس وجود بشري بالرادار، ومؤقتات تكييف ذكية — شامل التركيب الاحترافي مجاناً.",
+    priceEgp: 13712,
+    originalPriceEgp: 16454,
+    savingsAr: "شامل التركيب مجاناً (وفر ٢,٧٤٢ ج.م) + وفّر حتى ٣٥-٤٠٪ من الكهرباء",
+    savingsEn: "FREE Certified Installation (Save 2,742 EGP) + Cut up to 35-40% on bills",
     devicesAr: [
       "١ عداد طاقة ذكي SONOFF POW Elite 20A",
       "٦ مفاتيح ذكية مع مؤقتات SONOFF MINIR4",
@@ -190,12 +190,12 @@ export const OFFICIAL_BUNDLES: OfficialBundle[] = [
     id: "villa-full",
     nameEn: "Full Villa Smart Home",
     nameAr: "فيلا ذكية بالكامل",
-    descEn: "Ultimate luxury smart villa with motorized curtain, cat-eye camera lock, full surveillance, 20 lighting channels, and Ultra hub.",
-    descAr: "الفيلا الذكية المتكاملة الفاخرة مع ستارة ذكية بموتور، قفل ذكي بكاميرا وشاشة، مراقبة شاملة، ٢٠ خط إضاءة، وهاب ألترا متقدم.",
-    priceEgp: 55600,
-    originalPriceEgp: 72700,
-    savingsAr: "أتمتة شاملة وفخامة متكاملة وأمان تام للفيلا",
-    savingsEn: "Complete automation & whole-villa security",
+    descEn: "Ultimate luxury smart villa with motorized curtain, cat-eye camera lock, full surveillance, 20 lighting channels, and Ultra hub. Includes FREE certified installation.",
+    descAr: "الفيلا الذكية المتكاملة الفاخرة مع ستارة ذكية بموتور، قفل ذكي بكاميرا وشاشة، مراقبة شاملة، ٢٠ خط إضاءة، وهاب ألترا متقدم — شامل التركيب الاحترافي مجاناً.",
+    priceEgp: 62692,
+    originalPriceEgp: 75230,
+    savingsAr: "شامل التركيب مجاناً (وفر ١٢,٥٣٨ ج.م) + أتمتة شاملة للفيلا",
+    savingsEn: "FREE Certified Installation (Save 12,538 EGP) + Complete villa automation",
     devicesAr: [
       "١ قفل ذكي متطور PANDA 2625 بكاميرا وشاشة داخلية",
       "١ موتور وستارة كهربائية ذكية ٣ متر",
@@ -204,7 +204,7 @@ export const OFFICIAL_BUNDLES: OfficialBundle[] = [
       "٢٠ مفتاح ذكي SONOFF MINI Extreme MINIR4",
       "٤ ريموت تكييف ذكي WiFi IR Remote",
       "١ هاب ألترا فائق المدى SONOFF Zigbee Bridge Ultra",
-      "٦ حساسات أبواب وشبابيك Tuya Zigbee",
+      "٦ حساسات أبواب وشبابيك Zigbee",
       "٤ حساسات حركة SONOFF Zigbee",
       "١ قاطع وعداد طاقة ذكي SONOFF POW Elite",
       "٢ ريموت سيناريوهات وتحكم لاسلكي SwitchMan R5",
@@ -217,7 +217,7 @@ export const OFFICIAL_BUNDLES: OfficialBundle[] = [
       "20x SONOFF MINI Extreme Wi-Fi Smart Switch MINIR4",
       "4x WiFi IR Remote Control",
       "1x SONOFF Zigbee Bridge Ultra",
-      "6x Tuya Zigbee Door and Window Sensor",
+      "6x Zigbee Door and Window Sensor",
       "4x SONOFF Zigbee Motion Sensor",
       "1x SONOFF POW Elite Smart Power Meter",
       "2x SONOFF SwitchMan R5 Scene Controller",
@@ -559,10 +559,7 @@ export function buildSmartGroundedResponse(
   if (bundles.length > 0 && !priceFilter.maxPrice) {
     const primary = bundles[0];
     const secondary = bundles[1];
-    const installFee = Math.max(
-      Math.round(primary.priceEgp * INSTALLATION_POLICY.percentage),
-      INSTALLATION_POLICY.minVisitFeeEgp,
-    );
+    const installSaving = primary.originalPriceEgp - primary.priceEgp;
 
     const keyProducts = matchedProducts.slice(0, 4);
     const prodLinks = keyProducts
@@ -572,30 +569,32 @@ export function buildSmartGroundedResponse(
     if (isArabic) {
       const devicesList = primary.devicesAr.map((d) => `  - ${d}`).join("\n");
       const secBlock = secondary
-        ? `\n\n💡 **بديل اقتصادي لتقليل الفاتورة:**\n- **[${secondary.nameAr}](/bundles?bundle=${secondary.id})** بسعر **${secondary.priceEgp.toLocaleString()} ج.م** (بدلاً من ${secondary.originalPriceEgp.toLocaleString()} ج.م) — ${secondary.savingsAr}.`
+        ? `\n\n💡 **بديل مخصص لتقليل فاتورة الكهرباء:**\n- **[${secondary.nameAr}](/bundles?bundle=${secondary.id})** بسعر **${secondary.priceEgp.toLocaleString()} ج.م** *(بدلاً من ${secondary.originalPriceEgp.toLocaleString()} ج.م — شامل التركيب مجاناً)* — ${secondary.savingsAr}.`
         : "";
-      return `أهلاً بك في **AzkaSmart**! أنسب حل لطلبك هو:
+      return `أهلاً بك في **AzkaSmart**! أنسب حل متكامل لطلبك هو:
 
 ### 🏠 [${primary.nameAr} (${primary.nameEn})](/bundles?bundle=${primary.id})
-- **سعر الباقة:** **${primary.priceEgp.toLocaleString()} ج.م** *(بدلاً من ${primary.originalPriceEgp.toLocaleString()} ج.م — وفر ${(primary.originalPriceEgp - primary.priceEgp).toLocaleString()} ج.م)*
-- **التوفير الشهري:** ${primary.savingsAr}
+- **سعر الباقة (نفس أسعار الكتالوج بالضبط):** **${primary.priceEgp.toLocaleString()} ج.م** *(بدلاً من ${primary.originalPriceEgp.toLocaleString()} ج.م شاملة قيمة التركيب)*
+- **عرض التركيب الحصري:** **تركيب احترافي وبرمجة مجاناً ١٠٠٪** ضمن الباقة *(توفير فوري **${installSaving.toLocaleString()} ج.م** قيمة الـ ٢٠٪ مصاريف التركيب)*
+- **المزايا والتوفير:** ${primary.savingsAr}
 - **محتويات الباقة المتكاملة:**
 ${devicesList}${secBlock}
 
 ### 🛒 أبرز الأجهزة المشمولة في الكتالوج:
 ${prodLinks}
 
-- **التركيب والضمان:** تركيب احترافي بجميع محافظات مصر (${INSTALLATION_POLICY.percentage * 100}% من قيمة الأجهزة = **${installFee.toLocaleString()} ج.م** شامل البرمجة والضمان الرسمي لمدة سنة).
-- يمكنك استعراض [جميع باقات التوفير](/bundles) أو استخدام [حاسبة التكلفة الذكية](/calculator).`;
+- **التركيب والضمان:** التركيب والبرمجة **مجاناً بالكامل** مع جميع الباقات الرسمية في كافة محافظات مصر + ضمان رسمي معتمد لمدة سنة كاملة (ملاحظة: للأجهزة الفردية خارج الباقات تكون رسوم التركيب ٢٠٪ بحد أدنى ١,٥٠٠ ج.م).
+- يمكنك استعراض وطلب الباقة مباشرة من [صفحة الباقات الذكية](/bundles) أو تخصيص غرفك عبر [حاسبة التكلفة الذكية](/calculator).`;
     } else {
       const devicesList = primary.devicesEn.map((d) => `  - ${d}`).join("\n");
       const secBlock = secondary
-        ? `\n\n💡 **Focused Energy-Saving Alternative:**\n- **[${secondary.nameEn}](/bundles?bundle=${secondary.id})** — **${secondary.priceEgp.toLocaleString()} EGP** (was ${secondary.originalPriceEgp.toLocaleString()} EGP) — ${secondary.savingsEn}.`
+        ? `\n\n💡 **Focused Energy-Saving Alternative:**\n- **[${secondary.nameEn}](/bundles?bundle=${secondary.id})** — **${secondary.priceEgp.toLocaleString()} EGP** *(was ${secondary.originalPriceEgp.toLocaleString()} EGP — FREE Installation Included)* — ${secondary.savingsEn}.`
         : "";
       return `Here is our top recommended package for your home:
 
 ### 🏠 [${primary.nameEn}](/bundles?bundle=${primary.id})
-- **Bundle Price:** **${primary.priceEgp.toLocaleString()} EGP** *(was ${primary.originalPriceEgp.toLocaleString()} EGP — Save ${(primary.originalPriceEgp - primary.priceEgp).toLocaleString()} EGP)*
+- **Bundle Price (Exact Sum of Catalog Devices):** **${primary.priceEgp.toLocaleString()} EGP** *(was ${primary.originalPriceEgp.toLocaleString()} EGP with installation)*
+- **Exclusive Bundle Perks:** **100% FREE Certified Installation & Programming** *(Instant savings of **${installSaving.toLocaleString()} EGP** — normally 20% installation fee)*
 - **Estimated Savings:** ${primary.savingsEn}
 - **Included Devices:**
 ${devicesList}${secBlock}
@@ -603,7 +602,7 @@ ${devicesList}${secBlock}
 ### 🛒 Key Verified Devices in This Setup:
 ${prodLinks}
 
-- **Installation & Warranty:** Certified installation across Egypt (${INSTALLATION_POLICY.percentage * 100}% of equipment = **${installFee.toLocaleString()} EGP**, with official 1-year warranty).
+- **Installation & Warranty:** Certified installation and smart scene setup are **100% FREE** with all official bundles across Egypt, backed by an official 1-year warranty (standalone individual device orders carry a 20% installation fee, min 1,500 EGP).
 - Explore [All Smart Bundles](/bundles) or customize your rooms in the [Smart Home Calculator](/calculator).`;
     }
   }
@@ -665,18 +664,20 @@ ${prodLinks}
   if (/(?:installation|install\s+fee|visit\s+fee|warranty|تركيب|معاينه|مصاريف\s+التركيب|الضمان)/i.test(norm)) {
     if (isArabic) {
       return `### 🔧 نظام التركيب والضمان في AzkaSmart
-- **تكلفة التركيب الاحترافي:** **٢٠٪ من إجمالي قيمة الأجهزة** بحد أدنى **١,٥٠٠ ج.م** للزيارة الواحدة (تشمل التوصيل الكهربائي، البرمجة، وربط الموبايل).
+- **تركيب مجاني ١٠٠٪ مع الباقات:** عند طلب أي باقة من [الباقات الذكية الجاهزة](/bundles)، تحصل على **التركيب الاحترافي والبرمجة مجاناً بالكامل** (توفير ٢٠٪ من قيمة الأجهزة).
+- **تكلفة التركيب للأجهزة الفردية:** **٢٠٪ من إجمالي قيمة الأجهزة** بحد أدنى **١,٥٠٠ ج.م** للزيارة الواحدة (تشمل التوصيل الكهربائي، البرمجة، وربط الموبايل).
 - **التغطية الجغرافية:** متاح في جميع محافظات مصر (القاهرة، الجيزة، الإسكندرية، الساحل، الدلتا، والصعيد).
 - **الضمان:** ضمان رسمي معتمد لمدة **سنة كاملة** ضد عيوب الصناعة.
 
-يمكنك حساب تكلفة شقتك فوراً عبر [حاسبة المنزل الذكي](/calculator) أو استعراض [الباقات الجاهزة](/bundles).`;
+يمكنك حساب تكلفة شقتك فوراً عبر [حاسبة المنزل الذكي](/calculator) أو استعراض [الباقات الجاهزة شاملة التركيب المجاني](/bundles).`;
     } else {
       return `### 🔧 AzkaSmart Installation & Warranty Policy
-- **Certified Installation Fee:** **20% of total equipment cost**, with a **1,500 EGP minimum visit fee** (covers wiring, hub pairing, mobile app setup, and scene programming).
+- **100% FREE Installation with Bundles:** All [Official Smart Home Bundles](/bundles) include **FREE certified installation and smart scene programming** (saving 20% in installation fees).
+- **Standalone Device Installation Fee:** **20% of total equipment cost**, with a **1,500 EGP minimum visit fee** (covers wiring, hub pairing, mobile app setup, and scene programming).
 - **Coverage:** Available across all Egyptian governorates (Cairo, Giza, Alexandria, North Coast, and nationwide).
 - **Warranty:** Official **1-Year Egyptian Warranty** on all smart devices and locks.
 
-Estimate your project in seconds with our [Smart Home Calculator](/calculator) or browse [Smart Bundles](/bundles).`;
+Estimate your project in seconds with our [Smart Home Calculator](/calculator) or browse [Smart Bundles with Free Installation](/bundles).`;
     }
   }
 

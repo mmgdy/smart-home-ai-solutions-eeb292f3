@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useLanguage } from '@/lib/i18n';
+import { normalizeBrand, brandToSlug } from '@/lib/brands';
 import { supabase } from '@/integrations/supabase/client';
 
 interface Brand { name: string; slug: string; logo_url: string | null; }
 
-const FALLBACK = ['SONOFF', 'MOES', 'TP-Link', 'FIBARO', 'MCOHome', 'HELTUN', 'Danalock', 'Arylic', 'Tuya', 'Aqara'];
+const FALLBACK = ['SONOFF', 'eWeLink', 'LEZN', 'DNAKE', 'SIB', 'Levana', 'Zosar', 'Surpass', 'Tuya', 'Bosch'];
 
 export function BrandShowcase() {
   const { isRTL } = useLanguage();
@@ -20,14 +21,24 @@ export function BrandShowcase() {
         .order('display_order', { ascending: true })
         .limit(12);
       if (data && data.length > 0) {
-        setBrands(data as any);
+        const seen = new Set<string>();
+        const cleaned: Brand[] = [];
+        for (const row of data as any[]) {
+          const canonical = normalizeBrand(row.name);
+          if (!canonical || seen.has(canonical.toLowerCase())) continue;
+          seen.add(canonical.toLowerCase());
+          cleaned.push({ name: canonical, slug: brandToSlug(canonical), logo_url: row.logo_url });
+        }
+        setBrands(cleaned);
       } else {
         // Derive from products
         const { data: distinct } = await supabase
           .from('products').select('brand').not('brand', 'is', null).limit(2000);
-        const names = Array.from(new Set((distinct ?? []).map((r: any) => r.brand).filter(Boolean))).slice(0, 12);
+        const names = Array.from(
+          new Set((distinct ?? []).map((r: any) => normalizeBrand(r.brand)).filter(Boolean))
+        ).slice(0, 12) as string[];
         const fallback = names.length ? names : FALLBACK;
-        setBrands(fallback.map((n) => ({ name: n, slug: n.toLowerCase().replace(/[^a-z0-9]+/g, '-'), logo_url: null })));
+        setBrands(fallback.map((n) => ({ name: n, slug: brandToSlug(n), logo_url: null })));
       }
     })();
   }, []);
@@ -61,6 +72,8 @@ export function BrandShowcase() {
                   <img
                         src={brand.logo_url}
                         alt={brand.name}
+                        loading="lazy"
+                        decoding="async"
                         className="max-h-10 max-w-[120px] object-contain grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-300 ease-out"
                         onError={(e) => {
                           const el = e.currentTarget as HTMLImageElement;

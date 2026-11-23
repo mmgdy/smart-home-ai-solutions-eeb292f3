@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useLanguage } from '@/lib/i18n';
 import { useSiteInfo } from '@/hooks/useSiteInfo';
 import { Phone, MapPin, Mail, MessageCircle, Facebook, Instagram, Youtube } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { loadBrandingSettings, resolveBrandingAssetUrl } from '@/lib/favicon';
 import defaultLogoImage from '@/assets/logo.png';
 import defaultLogoDark from '@/assets/logo-dark.png';
 import { useTheme } from '@/lib/theme';
@@ -14,37 +14,39 @@ export function Footer() {
   const { theme } = useTheme();
   const isRTL = language === 'ar';
   const [logoDefault, setLogoDefault] = useState<string>(() => {
-    try { return localStorage.getItem('azka_logo_default') || defaultLogoImage; } catch { return defaultLogoImage; }
+    try { return resolveBrandingAssetUrl(localStorage.getItem('azka_logo_default'), 'logo-light', defaultLogoImage); } catch { return defaultLogoImage; }
   });
   const [logoLight, setLogoLight] = useState<string | null>(() => {
-    try { return localStorage.getItem('azka_logo_light') || defaultLogoImage; } catch { return defaultLogoImage; }
+    try { return resolveBrandingAssetUrl(localStorage.getItem('azka_logo_light'), 'logo-light', defaultLogoImage); } catch { return defaultLogoImage; }
   });
   const [logoDark, setLogoDark] = useState<string | null>(() => {
-    try { return localStorage.getItem('azka_logo_dark') || defaultLogoDark; } catch { return defaultLogoDark; }
+    try { return resolveBrandingAssetUrl(localStorage.getItem('azka_logo_dark'), 'logo-dark', defaultLogoDark); } catch { return defaultLogoDark; }
   });
   const [logoSize, setLogoSize] = useState(80);
 
   useEffect(() => {
     const loadLogo = async () => {
-      const { data } = await supabase
-        .from('admin_settings')
-        .select('key, value')
-        .in('key', ['logo_url', 'logo_light_url', 'logo_dark_url', 'logo_size']);
-      data?.forEach((s) => {
-        if (s.key === 'logo_url' && s.value) {
-          setLogoDefault(s.value);
-          try { localStorage.setItem('azka_logo_default', s.value); } catch {}
+      try {
+        const settings = await loadBrandingSettings();
+        if (settings.logo_url) {
+          const resolved = resolveBrandingAssetUrl(settings.logo_url, 'logo-light', defaultLogoImage);
+          setLogoDefault(resolved);
+          try { localStorage.setItem('azka_logo_default', resolved); } catch {}
         }
-        if (s.key === 'logo_light_url' && s.value) {
-          setLogoLight(s.value);
-          try { localStorage.setItem('azka_logo_light', s.value); } catch {}
+        if (settings.logo_light_url) {
+          const resolved = resolveBrandingAssetUrl(settings.logo_light_url, 'logo-light', defaultLogoImage);
+          setLogoLight(resolved);
+          try { localStorage.setItem('azka_logo_light', resolved); } catch {}
         }
-        if (s.key === 'logo_dark_url' && s.value) {
-          setLogoDark(s.value);
-          try { localStorage.setItem('azka_logo_dark', s.value); } catch {}
+        if (settings.logo_dark_url) {
+          const resolved = resolveBrandingAssetUrl(settings.logo_dark_url, 'logo-dark', defaultLogoDark);
+          setLogoDark(resolved);
+          try { localStorage.setItem('azka_logo_dark', resolved); } catch {}
         }
-        if (s.key === 'logo_size' && s.value) setLogoSize(Math.min(parseInt(s.value), 80));
-      });
+        if (settings.logo_size) setLogoSize(Math.min(parseInt(settings.logo_size), 80));
+      } catch {
+        // Keep default logo fallback
+      }
     };
     loadLogo();
     const handleSettingsUpdate = () => loadLogo();
@@ -56,16 +58,18 @@ export function Footer() {
     ? (logoDark || logoDefault)
     : (logoLight || logoDefault);
 
-  const phone = get('contact', 'phone', '01501896456');
-  const rawWa = get('contact', 'whatsapp', '01501896456').replace(/\D/g, '');
-  const whatsapp = rawWa.startsWith('0') ? '2' + rawWa : rawWa;
-  const email = get('contact', 'email', 'info@azkasmart.com');
-  const address = isRTL ? get('contact', 'address_ar', 'القاهرة، مصر') : get('contact', 'address_en', 'Cairo, Egypt');
+  const phone = get('contact', 'phone', '01501896456') || '01501896456';
+  const rawWa = (get('contact', 'whatsapp', '201501896456') || '201501896456').replace(/\D/g, '');
+  const whatsapp = rawWa.startsWith('0') ? '2' + rawWa : (rawWa || '201501896456');
+  const email = get('contact', 'email', 'info@azkasmart.com') || 'info@azkasmart.com';
+  const address = isRTL
+    ? (get('contact', 'address_ar', 'برج 4، شارع التسعين الشمالي، القاهرة الجديدة، مصر') || 'برج 4، شارع التسعين الشمالي، القاهرة الجديدة، مصر')
+    : (get('contact', 'address_en', 'Tower 4, Northern 90th St, New Cairo, Egypt') || 'Tower 4, Northern 90th St, New Cairo, Egypt');
 
-  const fb = get('social', 'facebook', '');
-  const ig = get('social', 'instagram', '');
-  const tt = get('social', 'tiktok', '');
-  const yt = get('social', 'youtube', '');
+  const fb = get('social', 'facebook', 'https://www.facebook.com/azkasmartcom') || 'https://www.facebook.com/azkasmartcom';
+  const ig = get('social', 'instagram', 'https://www.instagram.com/azkasmart') || 'https://www.instagram.com/azkasmart';
+  const tt = get('social', 'tiktok', 'https://www.tiktok.com/@azkasmart.eg') || 'https://www.tiktok.com/@azkasmart.eg';
+  const yt = get('social', 'youtube', 'https://www.youtube.com/@azkasmart_eg') || 'https://www.youtube.com/@azkasmart_eg';
 
   const solutionLinks = [
     { label: isRTL ? 'تحكم في الإضاءة' : 'Control Lighting', href: '/products?category=lighting' },
@@ -83,6 +87,7 @@ export function Footer() {
     { label: isRTL ? 'الماركات' : 'Brands', href: '/brands' },
     { label: isRTL ? 'عن أزكاسمارت' : 'About AzkaSmart', href: '/about' },
     { label: isRTL ? 'الملف التعريفي للشركة' : 'Company Profile', href: '/company-profile' },
+    { label: isRTL ? 'تواصل معنا' : 'Contact', href: '/contact' },
   ];
 
   const legalLinks = [
@@ -125,10 +130,16 @@ export function Footer() {
 
             {(fb || ig || tt || yt) && (
               <div className="flex gap-3 mt-5">
-                {fb && <a href={fb} target="_blank" rel="noreferrer" aria-label="Facebook" className="w-9 h-9 rounded-full bg-muted hover:bg-primary/20 hover:text-primary flex items-center justify-center transition-colors"><Facebook className="h-4 w-4" /></a>}
-                {ig && <a href={ig} target="_blank" rel="noreferrer" aria-label="Instagram" className="w-9 h-9 rounded-full bg-muted hover:bg-primary/20 hover:text-primary flex items-center justify-center transition-colors"><Instagram className="h-4 w-4" /></a>}
-                {yt && <a href={yt} target="_blank" rel="noreferrer" aria-label="YouTube" className="w-9 h-9 rounded-full bg-muted hover:bg-primary/20 hover:text-primary flex items-center justify-center transition-colors"><Youtube className="h-4 w-4" /></a>}
-                {tt && <a href={tt} target="_blank" rel="noreferrer" aria-label="TikTok" className="w-9 h-9 rounded-full bg-muted hover:bg-primary/20 hover:text-primary flex items-center justify-center transition-colors text-xs font-bold">TT</a>}
+                {fb && <a href={fb} target="_blank" rel="noopener noreferrer" aria-label="Facebook" title="Facebook" className="w-9 h-9 rounded-full bg-muted hover:bg-primary/20 hover:text-primary flex items-center justify-center transition-colors"><Facebook className="h-4 w-4" /></a>}
+                {ig && <a href={ig} target="_blank" rel="noopener noreferrer" aria-label="Instagram" title="Instagram" className="w-9 h-9 rounded-full bg-muted hover:bg-primary/20 hover:text-primary flex items-center justify-center transition-colors"><Instagram className="h-4 w-4" /></a>}
+                {tt && (
+                  <a href={tt} target="_blank" rel="noopener noreferrer" aria-label="TikTok" title="TikTok" className="w-9 h-9 rounded-full bg-muted hover:bg-primary/20 hover:text-primary flex items-center justify-center transition-colors">
+                    <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
+                    </svg>
+                  </a>
+                )}
+                {yt && <a href={yt} target="_blank" rel="noopener noreferrer" aria-label="YouTube" title="YouTube" className="w-9 h-9 rounded-full bg-muted hover:bg-primary/20 hover:text-primary flex items-center justify-center transition-colors"><Youtube className="h-4 w-4" /></a>}
               </div>
             )}
           </div>

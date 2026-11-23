@@ -9,6 +9,7 @@ import { useLanguage } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import { getProductImage, productPlaceholder } from '@/lib/productImage';
 import { parseProtocols } from '@/lib/protocolIcon';
+import { normalizeBrand } from '@/lib/brands';
 
 interface ProductCardProps {
   product: Product;
@@ -37,6 +38,8 @@ export function ProductCard({ product, className }: ProductCardProps) {
     });
   };
 
+  const isOutOfStock = (product.stock ?? 0) <= 0;
+
   const discount = product.original_price
     ? Math.round(((product.original_price - product.price) / product.original_price) * 100)
     : null;
@@ -58,7 +61,10 @@ export function ProductCard({ product, className }: ProductCardProps) {
             alt={product.name}
             loading="lazy"
             onError={(e) => { (e.currentTarget as HTMLImageElement).src = productPlaceholder; }}
-            className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-105 drop-shadow-sm"
+            className={cn(
+              "h-full w-full object-contain transition-transform duration-300 group-hover:scale-105 drop-shadow-sm",
+              isOutOfStock && "opacity-65 grayscale-[25%]"
+            )}
           />
 
           {/* Badges */}
@@ -66,6 +72,11 @@ export function ProductCard({ product, className }: ProductCardProps) {
             "absolute top-3 flex flex-col gap-2",
             isRTL ? "right-3" : "left-3"
           )}>
+            {isOutOfStock && (
+              <span className="rounded-full bg-destructive px-2.5 py-1 text-xs font-semibold text-destructive-foreground shadow-sm">
+                {t('outOfStock')}
+              </span>
+            )}
             {discount && (
               <span className="rounded-full bg-destructive px-2 py-1 text-xs font-medium text-destructive-foreground">
                 -{discount}%
@@ -110,14 +121,14 @@ export function ProductCard({ product, className }: ProductCardProps) {
         <div className="flex flex-1 flex-col p-3">
           {/* Brand & Protocol */}
           <div className="mb-2 flex items-center gap-2">
-            {product.brand && (
-              <span className="text-xs text-muted-foreground">{product.brand}</span>
+            {normalizeBrand(product.brand) && (
+              <span className="text-xs text-muted-foreground">{normalizeBrand(product.brand)}</span>
+            )}
+            {normalizeBrand(product.brand) && product.protocol && (
+              <span className="text-muted-foreground">•</span>
             )}
             {product.protocol && (
-              <>
-                <span className="text-muted-foreground">•</span>
-                <span className="text-xs text-primary">{product.protocol}</span>
-              </>
+              <span className="text-xs text-primary">{product.protocol}</span>
             )}
           </div>
 
@@ -143,19 +154,24 @@ export function ProductCard({ product, className }: ProductCardProps) {
                 {formatPrice(product.original_price)}
               </span>
             )}
+            {isOutOfStock && (
+              <span className="rounded-full bg-destructive/15 border border-destructive/30 px-2 py-0.5 text-[11px] font-semibold text-destructive">
+                {t('outOfStock')}
+              </span>
+            )}
           </div>
 
           <div className="mt-3 flex items-center gap-1.5 sm:gap-2">
             <div className="flex h-9 items-center rounded-full border border-border bg-background shrink-0">
-              <button type="button" className="grid h-9 w-7 sm:w-8 place-items-center text-muted-foreground hover:text-foreground" onClick={(e) => updateQuantity(e, quantity - 1)} disabled={quantity <= 1}>
+              <button type="button" className="grid h-9 w-7 sm:w-8 place-items-center text-muted-foreground hover:text-foreground" onClick={(e) => updateQuantity(e, quantity - 1)} disabled={isOutOfStock || quantity <= 1}>
                 <Minus className="h-3.5 w-3.5" />
               </button>
               <span className="w-6 sm:w-7 text-center text-sm font-medium text-foreground">{quantity}</span>
-              <button type="button" className="grid h-9 w-7 sm:w-8 place-items-center text-muted-foreground hover:text-foreground" onClick={(e) => updateQuantity(e, quantity + 1)} disabled={product.stock === 0 || quantity >= product.stock}>
+              <button type="button" className="grid h-9 w-7 sm:w-8 place-items-center text-muted-foreground hover:text-foreground" onClick={(e) => updateQuantity(e, quantity + 1)} disabled={isOutOfStock || quantity >= product.stock}>
                 <Plus className="h-3.5 w-3.5" />
               </button>
             </div>
-            <Button size="sm" className="min-w-0 flex-1 gap-1.5 rounded-full px-2 sm:px-3" onClick={handleAddToCart} disabled={product.stock === 0}>
+            <Button size="sm" className="min-w-0 flex-1 gap-1.5 rounded-full px-2 sm:px-3" onClick={handleAddToCart} disabled={isOutOfStock}>
               <ShoppingCart className="h-4 w-4 shrink-0" />
               <span className="truncate hidden sm:inline">{t('addToCart')}</span>
               <span className="truncate sm:hidden">{t('addToCart').split(' ')[0]}</span>
