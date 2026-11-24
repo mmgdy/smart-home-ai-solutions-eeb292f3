@@ -193,14 +193,14 @@ export function Header() {
         ? "bg-background/95 backdrop-blur-xl border-b border-border/60 shadow-sm"
         : "bg-background/80 backdrop-blur-md border-b border-border/30"
     )}>
-      <div className="container flex h-16 md:h-20 items-center justify-between px-3 sm:px-6 md:px-12">
+      <div className="container flex h-16 md:h-20 items-center justify-between gap-1 px-2.5 sm:px-6 md:px-12">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2 shrink-0 min-h-[44px]">
           <img
             src={currentLogo}
             alt="AzkaSmart"
             style={{ height: `${Math.min(logoSize, 56)}px` }}
-            className="object-contain transition-all duration-300 max-h-9 sm:max-h-12 lg:max-h-14 w-auto"
+            className="object-contain transition-all duration-300 max-h-9 sm:max-h-12 lg:max-h-14 max-w-[118px] sm:max-w-[160px] lg:max-w-none w-auto"
           />
         </Link>
 
@@ -218,7 +218,7 @@ export function Header() {
         </nav>
 
         {/* Right side actions */}
-        <div className="flex items-center gap-1 sm:gap-2">
+        <div className="flex items-center gap-0.5 sm:gap-2 shrink-0">
           <div className="hidden lg:flex items-center gap-2">
             <AuthButton variant="ghost" size="sm" />
           </div>

@@ -780,18 +780,21 @@ const ProductDetail = () => {
                   <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
                     <h3 className="mb-3 font-display text-base font-semibold text-foreground">{t('specifications')}</h3>
                     <dl className="divide-y divide-border/50">
-                      {formattedSpecs.map(([label, val]) => (
-                        <div key={label} className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1 sm:gap-4 py-2.5 first:pt-0 last:pb-0 text-sm">
-                          <dt className="text-foreground/70 font-medium shrink-0">{label}</dt>
-                          <dd
-                            dir="auto"
-                            style={{ unicodeBidi: 'plaintext' }}
-                            className="font-medium text-foreground sm:text-end break-words"
-                          >
-                            {val}
-                          </dd>
-                        </div>
-                      ))}
+                      {formattedSpecs.map(([label, val]) => {
+                        const isMostlyLatin = /[A-Za-z]/.test(val) && /^[A-Za-z0-9]/.test(val.trim());
+                        return (
+                          <div key={label} className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1 sm:gap-4 py-2.5 first:pt-0 last:pb-0 text-sm">
+                            <dt className="text-foreground/70 font-medium shrink-0">{label}</dt>
+                            <dd
+                              dir={isMostlyLatin ? 'ltr' : 'auto'}
+                              style={{ unicodeBidi: 'isolate' }}
+                              className="font-medium text-foreground sm:text-end break-words"
+                            >
+                              {val}
+                            </dd>
+                          </div>
+                        );
+                      })}
                     </dl>
                   </div>
                 )}
