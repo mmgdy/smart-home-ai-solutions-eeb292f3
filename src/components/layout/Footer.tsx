@@ -170,7 +170,7 @@ export function Footer() {
             <h4 className="font-display font-semibold text-foreground mb-4">{isRTL ? 'نثق بنا' : 'Why Trust Us'}</h4>
             <div className="space-y-3">
               {[
-                { icon: '✅', label: isRTL ? 'ضمان رسمي ٢ سنة' : '2-Year Official Warranty' },
+                { icon: '✅', label: isRTL ? 'ضمان رسمي لمدة سنة' : '1-Year Official Warranty' },
                 { icon: '🚚', label: isRTL ? 'الدفع عند الاستلام' : 'Cash on Delivery' },
                 { icon: '🔧', label: isRTL ? 'تركيب احترافي' : 'Professional Installation' },
                 { icon: '🏠', label: isRTL ? '١٠٠٠+ منزل ذكي' : '1,000+ Smart Homes' },

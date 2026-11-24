@@ -5,7 +5,7 @@ import { ArrowRight, Check, Wifi, Wrench } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
-import { defaultBundles, normalizeBundles, syncBundlesWithCatalog } from '@/lib/bundles';
+import { defaultBundles, getBundleProductIds, normalizeBundles, syncBundlesWithCatalog } from '@/lib/bundles';
 import { supabase } from '@/integrations/supabase/client';
 import { Product } from '@/types/store';
 
@@ -15,18 +15,12 @@ export function SmartBundles() {
 
   useEffect(() => {
     (async () => {
-      const [{ data: bundleRow }, { data: prodData }] = await Promise.all([
-        supabase
-          .from('site_info')
-          .select('value')
-          .eq('section', 'bundles')
-          .eq('key', 'list')
-          .maybeSingle(),
-        supabase
-          .from('products')
-          .select('id, name, slug, price, original_price, image_url, brand, stock, featured, category, description, protocol, ratings')
-          .gt('stock', 0),
-      ]);
+      const { data: bundleRow } = await supabase
+        .from('site_info')
+        .select('value')
+        .eq('section', 'bundles')
+        .eq('key', 'list')
+        .maybeSingle();
 
       let baseBundles = normalizeBundles(defaultBundles);
       if (bundleRow?.value) {
@@ -37,6 +31,14 @@ export function SmartBundles() {
           // Keep built-in bundles as fallback.
         }
       }
+
+      const bundleIds = getBundleProductIds(baseBundles);
+      const { data: prodData } = bundleIds.length
+        ? await supabase
+            .from('products')
+            .select('id, name, slug, price, original_price, image_url, brand, stock, featured, description, protocol')
+            .in('id', bundleIds)
+        : { data: [] as any[] };
 
       const prodList = (prodData ?? []) as unknown as Product[];
       setDisplayBundles(syncBundlesWithCatalog(baseBundles, prodList).slice(0, 4));

@@ -12,7 +12,7 @@ import { useLanguage } from '@/lib/i18n';
 import { useCart } from '@/hooks/useCart';
 import { useToast } from '@/hooks/use-toast';
 import type { Product } from '@/types/store';
-import { defaultBundles, matchProductsForBundle, normalizeBundles, syncBundlesWithCatalog } from '@/lib/bundles';
+import { defaultBundles, getBundleProductIds, matchProductsForBundle, normalizeBundles, syncBundlesWithCatalog } from '@/lib/bundles';
 import { supabase } from '@/integrations/supabase/client';
 
 const Bundles = () => {
@@ -28,16 +28,58 @@ const Bundles = () => {
   const [selectedProducts, setSelectedProducts] = useState<Record<string, number>>({});
   const [search, setSearch] = useState('');
 
+  const loadCatalogProductsForBundles = async (targetBundles = bundles): Promise<Product[]> => {
+    const bundleIds = getBundleProductIds(targetBundles);
+    const bundleIdSet = new Set(bundleIds);
+
+    const [{ data: hiddenRow }, { data: bundleProdData }, { data: inStockData }] = await Promise.all([
+      supabase
+        .from('site_info')
+        .select('value')
+        .eq('section', 'products')
+        .eq('key', 'hidden_ids')
+        .maybeSingle(),
+      bundleIds.length
+        ? supabase.from('products').select('*').in('id', bundleIds)
+        : Promise.resolve({ data: [] as any[] }),
+      supabase
+        .from('products')
+        .select('*')
+        .gt('stock', 0)
+        .order('name')
+        .range(0, 999),
+    ]);
+
+    let hiddenSet = new Set<string>();
+    if (hiddenRow?.value) {
+      try {
+        const parsedHidden = JSON.parse(hiddenRow.value);
+        if (Array.isArray(parsedHidden)) {
+          hiddenSet = new Set(parsedHidden.map((id) => String(id)));
+        }
+      } catch {
+        // Ignore malformed hidden_ids value.
+      }
+    }
+
+    const byId = new Map<string, Product>();
+    ((bundleProdData ?? []) as any as Product[]).forEach((p) => {
+      byId.set(p.id, p);
+    });
+    ((inStockData ?? []) as any as Product[]).forEach((p) => {
+      if (hiddenSet.has(p.id) && !bundleIdSet.has(p.id)) return;
+      if (!byId.has(p.id)) {
+        byId.set(p.id, p);
+      }
+    });
+
+    return Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name));
+  };
+
   const ensureProductsLoaded = async () => {
     if (allProducts.length) return allProducts;
     setProductsLoading(true);
-    const { data } = await supabase
-      .from('products')
-      .select('*')
-      .gt('stock', 0)
-      .order('name')
-      .limit(500);
-    const list = (data ?? []) as any as Product[];
+    const list = await loadCatalogProductsForBundles(bundles);
     setAllProducts(list);
     setProductsLoading(false);
     return list;
@@ -45,6 +87,7 @@ const Bundles = () => {
 
   const openCustomize = async (bundle: any) => {
     setActiveBundle(bundle);
+    setSearch('');
     setCustomizeOpen(true);
     const products = await ensureProductsLoaded();
     setSelectedProducts(matchProductsForBundle(bundle, products));
@@ -103,25 +146,12 @@ const Bundles = () => {
 
   useEffect(() => {
     (async () => {
-      const [{ data: infoData }, { data: prodData }] = await Promise.all([
-        supabase
-          .from('site_info')
-          .select('value')
-          .eq('section', 'bundles')
-          .eq('key', 'list')
-          .maybeSingle(),
-        supabase
-          .from('products')
-          .select('*')
-          .gt('stock', 0)
-          .order('name')
-          .limit(500),
-      ]);
-
-      const prodList = (prodData ?? []) as any as Product[];
-      if (prodList.length) {
-        setAllProducts(prodList);
-      }
+      const { data: infoData } = await supabase
+        .from('site_info')
+        .select('value')
+        .eq('section', 'bundles')
+        .eq('key', 'list')
+        .maybeSingle();
 
       let baseBundles = normalizeBundles(defaultBundles);
       if (infoData?.value) {
@@ -133,6 +163,11 @@ const Bundles = () => {
         } catch {
           // Keep built-in bundles as fallback.
         }
+      }
+
+      const prodList = await loadCatalogProductsForBundles(baseBundles);
+      if (prodList.length) {
+        setAllProducts(prodList);
       }
 
       setBundles(syncBundlesWithCatalog(baseBundles, prodList));
@@ -310,32 +345,44 @@ const Bundles = () => {
           />
           <div className="flex-1 overflow-y-auto space-y-2 pr-1">
             {productsLoading && <div className="flex justify-center py-8"><Loader2 className="animate-spin" /></div>}
-            {!productsLoading && allProducts
-              .filter((p) => !search || p.name.toLowerCase().includes(search.toLowerCase()) || (p.brand || '').toLowerCase().includes(search.toLowerCase()))
-              .slice(0, 100)
-              .map((p) => {
-                const qty = selectedProducts[p.id] || 0;
-                return (
-                  <div key={p.id} className="flex items-center gap-3 border border-border rounded-lg p-2">
-                    <Checkbox
-                      checked={qty > 0}
-                      onCheckedChange={(v) => setSelectedProducts((s) => ({ ...s, [p.id]: v ? Math.max(1, qty) : 0 }))}
-                    />
-                    <img src={(p as any).image_url || '/placeholder.svg'} alt={p.name} loading="lazy" decoding="async" className="w-10 h-10 rounded-lg object-contain p-0.5 bg-muted/30 border border-border/40 shrink-0" onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/placeholder.svg'; }} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{p.name}</p>
-                      <p className="text-xs text-muted-foreground">{formatPrice(p.price)}</p>
+            {!productsLoading && (() => {
+              const bundleIdSet = new Set<string>(
+                (activeBundle?.items || []).map((it: any) => it.productId).filter(Boolean),
+              );
+              const q = search.toLowerCase();
+              return [...allProducts]
+                .filter((p) => !q || p.name.toLowerCase().includes(q) || (p.brand || '').toLowerCase().includes(q))
+                .sort((a, b) => {
+                  const aInBundle = bundleIdSet.has(a.id) || (selectedProducts[a.id] || 0) > 0 ? 0 : 1;
+                  const bInBundle = bundleIdSet.has(b.id) || (selectedProducts[b.id] || 0) > 0 ? 0 : 1;
+                  if (aInBundle !== bInBundle) return aInBundle - bInBundle;
+                  return a.name.localeCompare(b.name);
+                })
+                .slice(0, 100)
+                .map((p) => {
+                  const qty = selectedProducts[p.id] || 0;
+                  return (
+                    <div key={p.id} className="flex items-center gap-3 border border-border rounded-lg p-2">
+                      <Checkbox
+                        checked={qty > 0}
+                        onCheckedChange={(v) => setSelectedProducts((s) => ({ ...s, [p.id]: v ? Math.max(1, qty) : 0 }))}
+                      />
+                      <img src={(p as any).image_url || '/placeholder.svg'} alt={p.name} loading="lazy" decoding="async" className="w-10 h-10 rounded-lg object-contain p-0.5 bg-muted/30 border border-border/40 shrink-0" onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/placeholder.svg'; }} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{p.name}</p>
+                        <p className="text-xs text-muted-foreground">{formatPrice(p.price)}</p>
+                      </div>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={qty}
+                        onChange={(e) => setSelectedProducts((s) => ({ ...s, [p.id]: Math.max(0, parseInt(e.target.value || '0', 10)) }))}
+                        className="w-16 h-8 text-center"
+                      />
                     </div>
-                    <Input
-                      type="number"
-                      min={0}
-                      value={qty}
-                      onChange={(e) => setSelectedProducts((s) => ({ ...s, [p.id]: Math.max(0, parseInt(e.target.value || '0', 10)) }))}
-                      className="w-16 h-8 text-center"
-                    />
-                  </div>
-                );
-              })}
+                  );
+                });
+            })()}
           </div>
           <DialogFooter className="flex items-center justify-between sm:justify-between gap-2">
             <div className="text-xs font-semibold text-foreground">
