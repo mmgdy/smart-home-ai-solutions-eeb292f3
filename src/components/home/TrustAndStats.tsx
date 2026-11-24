@@ -9,7 +9,7 @@ export const TrustAndStats = () => {
     {
       icon: Shield,
       title: isRTL ? 'ضمان رسمي' : 'Official Warranty',
-      desc: isRTL ? 'ضمان ٢ سنة على جميع المنتجات' : '2-year warranty on all products',
+      desc: isRTL ? 'ضمان لمدة سنة على جميع المنتجات' : '1-year warranty on all products',
     },
     {
       icon: Truck,

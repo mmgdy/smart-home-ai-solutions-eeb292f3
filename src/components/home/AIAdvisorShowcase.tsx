@@ -16,8 +16,8 @@ export function AIAdvisorShowcase() {
     },
     {
       type: 'answer',
-      textEn: 'Based on your apartment, I recommend:\n\n🔆 12x SONOFF MINIR4 Switches — 11,880 EGP\n📷 2x Smart Security Cameras — 3,330 EGP\n⚡ Smart Energy Meter — 1,680 EGP\n🏠 Zigbee Bridge Pro — 1,500 EGP\n\nTotal: 18,390 EGP + certified installation & 2-year warranty!',
-      textAr: 'بناءً على شقتك، أنصحك بـ:\n\n🔆 ١٢ مفتاح ذكي SONOFF MINIR4 — ١١,٨٨٠ ج.م\n📷 ٢ كاميرا مراقبة ذكية — ٣,٣٣٠ ج.م\n⚡ عداد طاقة ذكي — ١,٦٨٠ ج.م\n🏠 هاب Zigbee Pro — ١,٥٠٠ ج.م\n\nالإجمالي: ١٨,٣٩٠ ج.م + خيار التركيب المعتمد وضمان سنتين!',
+      textEn: 'Based on your apartment, I recommend:\n\n🔆 12x SONOFF MINIR4 Switches — 11,880 EGP\n📷 2x Smart Security Cameras — 3,330 EGP\n⚡ Smart Energy Meter — 1,680 EGP\n🏠 Zigbee Bridge Pro — 1,500 EGP\n\nTotal: 18,390 EGP + certified installation & 1-year warranty!',
+      textAr: 'بناءً على شقتك، أنصحك بـ:\n\n🔆 ١٢ مفتاح ذكي SONOFF MINIR4 — ١١,٨٨٠ ج.م\n📷 ٢ كاميرا مراقبة ذكية — ٣,٣٣٠ ج.م\n⚡ عداد طاقة ذكي — ١,٦٨٠ ج.م\n🏠 هاب Zigbee Pro — ١,٥٠٠ ج.م\n\nالإجمالي: ١٨,٣٩٠ ج.م + خيار التركيب المعتمد وضمان لمدة سنة!',
     },
   ];
 
