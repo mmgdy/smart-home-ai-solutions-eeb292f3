@@ -23,7 +23,7 @@ const Cart = () => {
           <title>{`${t('cart') || 'Cart'} | AzkaSmart`}</title>
         </Helmet>
         <Layout>
-          <div className="container py-20 text-center">
+          <div className="container pt-28 pb-20 text-center">
             <div className="mx-auto max-w-md">
               <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-muted/50">
                 <ShoppingBag className="h-10 w-10 text-muted-foreground/60" />
@@ -35,14 +35,14 @@ const Cart = () => {
                 {t('cartEmptyDesc')}
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-                <Link to="/products">
-                  <Button className="gap-2">
+                <Link to="/products" className="w-full sm:w-auto">
+                  <Button className="w-full sm:w-auto h-11 gap-2">
                     {t('browseProducts')}
                     <NextArrow className="h-4 w-4" />
                   </Button>
                 </Link>
-                <Link to="/bundles">
-                  <Button variant="outline" className="gap-2">
+                <Link to="/bundles" className="w-full sm:w-auto">
+                  <Button variant="outline" className="w-full sm:w-auto h-11 gap-2">
                     {isRTL ? 'الباقات المميزة' : 'Featured Bundles'}
                     <NextArrow className="h-4 w-4" />
                   </Button>
@@ -61,8 +61,8 @@ const Cart = () => {
         <title>{`${t('cart') || 'Cart'} (${items.length}) | AzkaSmart`}</title>
       </Helmet>
       <Layout>
-        <div className="container py-8 md:py-12">
-          <h1 className="mb-8 font-display text-3xl font-bold text-foreground md:text-4xl">
+        <div className="container pt-24 pb-12 md:pt-28 md:pb-16">
+          <h1 className="mb-6 md:mb-8 font-display text-2xl sm:text-3xl font-bold text-foreground md:text-4xl scroll-mt-24">
             {t('shoppingCart')}
           </h1>
 
@@ -77,10 +77,10 @@ const Cart = () => {
                 {items.map((item) => (
                   <div
                     key={item.product.id}
-                    className="flex gap-4 rounded-xl border border-border bg-card p-4"
+                    className="flex gap-3 sm:gap-4 rounded-xl border border-border bg-card p-3.5 sm:p-4"
                   >
                     {/* Image */}
-                    <div className="h-24 w-24 shrink-0 overflow-hidden rounded-xl bg-muted/20 border border-border/40 p-2 flex items-center justify-center">
+                    <div className="h-20 w-20 sm:h-24 sm:w-24 shrink-0 overflow-hidden rounded-xl bg-muted/20 border border-border/40 p-2 flex items-center justify-center">
                       {item.product.image_url ? (
                         <img
                           src={item.product.image_url}
@@ -95,52 +95,55 @@ const Cart = () => {
                     </div>
 
                     {/* Details */}
-                    <div className="flex flex-1 flex-col">
-                      <div className="flex items-start justify-between">
-                        <div>
+                    <div className="flex flex-1 min-w-0 flex-col">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
                           <Link to={`/products/${item.product.slug}`}>
-                            <h3 className="font-display font-semibold text-foreground hover:text-primary transition-colors">
+                            <h3 className="font-display text-sm sm:text-base font-semibold text-foreground hover:text-primary transition-colors break-words leading-snug">
                               {item.product.name}
                             </h3>
                           </Link>
                           {item.product.brand && (
-                            <p className="text-sm text-muted-foreground">{item.product.brand}</p>
+                            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">{item.product.brand}</p>
                           )}
                         </div>
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="text-muted-foreground hover:text-destructive"
+                          aria-label={isRTL ? 'حذف المنتج' : 'Remove item'}
+                          className="h-11 w-11 shrink-0 rounded-xl text-foreground/75 hover:text-destructive hover:bg-destructive/10"
                           onClick={() => removeItem(item.product.id)}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
 
-                      <div className="mt-auto flex items-center justify-between">
+                      <div className="mt-3 pt-2 flex flex-wrap items-center justify-between gap-2">
                         {/* Quantity */}
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5">
                           <Button
                             variant="outline"
                             size="icon"
-                            className="h-8 w-8"
+                            aria-label={isRTL ? 'تقليل الكمية' : 'Decrease quantity'}
+                            className="h-11 w-11 lg:h-9 lg:w-9 rounded-xl"
                             onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
                           >
-                            <Minus className="h-3 w-3" />
+                            <Minus className="h-3.5 w-3.5" />
                           </Button>
-                          <span className="w-8 text-center font-medium">{item.quantity}</span>
+                          <span className="w-8 text-center text-sm font-semibold">{item.quantity}</span>
                           <Button
                             variant="outline"
                             size="icon"
-                            className="h-8 w-8"
+                            aria-label={isRTL ? 'زيادة الكمية' : 'Increase quantity'}
+                            className="h-11 w-11 lg:h-9 lg:w-9 rounded-xl"
                             onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
                           >
-                            <Plus className="h-3 w-3" />
+                            <Plus className="h-3.5 w-3.5" />
                           </Button>
                         </div>
 
                         {/* Price */}
-                        <span className="font-display text-lg font-semibold text-foreground">
+                        <span className="font-display text-base sm:text-lg font-semibold text-foreground">
                           {formatPrice(item.product.price * item.quantity)}
                         </span>
                       </div>
@@ -149,10 +152,11 @@ const Cart = () => {
                 ))}
 
                 <Button
-                  variant="ghost"
-                  className="text-muted-foreground"
+                  variant="outline"
+                  className="min-h-[44px] px-4 text-sm font-medium text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
                   onClick={clearCart}
                 >
+                  <Trash2 className="h-4 w-4 me-2" />
                   {t('clearCart')}
                 </Button>
               </div>

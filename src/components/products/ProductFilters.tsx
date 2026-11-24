@@ -79,7 +79,10 @@ export function ProductFilters({
   const SectionHeader = ({ title, section }: { title: string; section: string }) => (
     <button
       onClick={() => toggleSection(section)}
-      className="flex w-full items-center justify-between py-2 text-sm font-semibold text-foreground"
+      className={cn(
+        "flex w-full items-center justify-between py-2 text-sm font-semibold text-foreground",
+        isMobile && "min-h-[44px]"
+      )}
     >
       {title}
       {expandedSections[section] ? (
@@ -91,7 +94,7 @@ export function ProductFilters({
   );
 
   return (
-    <div className={cn("space-y-1", isMobile && "pb-8")}>
+    <div className={cn("space-y-1", isMobile && "pb-8 px-1")}>
       <div className="flex items-center justify-between mb-4">
         <h3 className="flex items-center gap-2 font-display font-semibold text-foreground">
           <SlidersHorizontal className="h-4 w-4" />
@@ -102,7 +105,7 @@ export function ProductFilters({
             variant="ghost"
             size="sm"
             onClick={() => onFiltersChange({ ...defaultFilters, priceRange: [0, maxPrice] })}
-            className="text-xs text-muted-foreground hover:text-foreground"
+            className="min-h-[40px] lg:min-h-0 text-xs text-muted-foreground hover:text-foreground"
           >
             {isRTL ? 'مسح الكل' : 'Clear All'}
           </Button>
@@ -113,7 +116,7 @@ export function ProductFilters({
       <div className="border-b border-border pb-4">
         <SectionHeader title={isRTL ? 'نطاق السعر' : 'Price Range'} section="price" />
         {expandedSections.price && (
-          <div className="mt-3 space-y-3">
+          <div className="mt-3 space-y-3 px-2">
             <Slider
               min={0}
               max={maxPrice}
@@ -122,9 +125,9 @@ export function ProductFilters({
               onValueChange={(val) => update({ priceRange: val as [number, number] })}
               className="py-2"
             />
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>{formatPrice(filters.priceRange[0])}</span>
-              <span>{formatPrice(filters.priceRange[1])}</span>
+            <div className="flex flex-wrap items-center justify-between gap-2 px-0.5 text-xs font-medium text-foreground/85">
+              <span className="shrink-0">{formatPrice(filters.priceRange[0])}</span>
+              <span className="shrink-0">{formatPrice(filters.priceRange[1])}</span>
             </div>
           </div>
         )}
@@ -134,9 +137,9 @@ export function ProductFilters({
       <div className="border-b border-border pb-4">
         <SectionHeader title={isRTL ? 'العلامة التجارية' : 'Brand'} section="brands" />
         {expandedSections.brands && (
-          <div className="mt-2 space-y-2">
+          <div className="mt-2 space-y-1.5">
             {availableBrands.map((brand) => (
-              <label key={brand} className="flex items-center gap-2 cursor-pointer text-sm">
+              <label key={brand} className={cn("flex items-center gap-2.5 cursor-pointer text-sm", isMobile && "min-h-[40px] py-1")}>
                 <Checkbox
                   checked={filters.brands.includes(brand)}
                   onCheckedChange={() => toggleBrand(brand)}
@@ -152,9 +155,9 @@ export function ProductFilters({
       <div className="border-b border-border pb-4">
         <SectionHeader title={isRTL ? 'البروتوكول' : 'Protocol'} section="protocol" />
         {expandedSections.protocol && (
-          <div className="mt-2 space-y-2">
+          <div className="mt-2 space-y-1.5">
             {availableProtocols.map((protocol) => (
-              <label key={protocol} className="flex items-center gap-2 cursor-pointer text-sm">
+              <label key={protocol} className={cn("flex items-center gap-2.5 cursor-pointer text-sm", isMobile && "min-h-[40px] py-1")}>
                 <Checkbox
                   checked={filters.protocols.includes(protocol)}
                   onCheckedChange={() => toggleProtocol(protocol)}
@@ -170,13 +173,13 @@ export function ProductFilters({
       <div className="pb-4">
         <SectionHeader title={isRTL ? 'التوفر' : 'Availability'} section="availability" />
         {expandedSections.availability && (
-          <div className="mt-2 space-y-2">
+          <div className="mt-2 space-y-1.5">
             {([
               { value: 'all', label: isRTL ? 'الكل' : 'All' },
               { value: 'in-stock', label: isRTL ? 'متوفر' : 'In Stock' },
               { value: 'out-of-stock', label: isRTL ? 'غير متوفر' : 'Out of Stock' },
             ] as const).map((opt) => (
-              <label key={opt.value} className="flex items-center gap-2 cursor-pointer text-sm">
+              <label key={opt.value} className={cn("flex items-center gap-2.5 cursor-pointer text-sm", isMobile && "min-h-[40px] py-1")}>
                 <Checkbox
                   checked={filters.availability === opt.value}
                   onCheckedChange={() => update({ availability: opt.value })}

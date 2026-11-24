@@ -55,7 +55,7 @@ const Services = () => {
         <meta name="description" content="Professional smart home installation and consultation services." />
       </Helmet>
       <Layout>
-        <div className="container py-12">
+        <div className="container pt-24 pb-12 md:pt-28 md:pb-16">
           <div className="mb-12 text-center">
             <h1 className="mb-4 font-display text-4xl font-bold text-foreground">{t('ourServices')}</h1>
             <p className="mx-auto max-w-2xl text-lg text-muted-foreground">{t('servicesDesc')}</p>

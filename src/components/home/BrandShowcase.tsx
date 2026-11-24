@@ -50,12 +50,12 @@ export function BrandShowcase() {
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
-          className="text-center text-xs tracking-[0.2em] uppercase text-muted-foreground font-medium mb-8"
+          className="text-center text-xs tracking-[0.2em] uppercase text-foreground/75 font-medium mb-8"
         >
           {isRTL ? 'علامات تجارية أصلية معتمدة' : 'Authorized Genuine Brands'}
         </motion.p>
 
-        <div className="flex flex-wrap items-center justify-center gap-6 md:gap-10">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:flex lg:flex-wrap items-center justify-center gap-3 sm:gap-4 lg:gap-10">
           {brands.map((brand, index) => (
             <motion.div
               key={brand.slug}
@@ -66,7 +66,7 @@ export function BrandShowcase() {
             >
               <Link
                 to={`/brands?brand=${brand.slug}`}
-                className="group flex items-center justify-center h-12 min-w-[100px] px-3"
+                className="group flex items-center justify-center h-12 min-w-[100px] px-3 rounded-xl border border-border/60 bg-card/40 lg:border-0 lg:bg-transparent hover:border-primary/40 transition-colors"
               >
                 {brand.logo_url ? (
                   <img
@@ -74,7 +74,7 @@ export function BrandShowcase() {
                         alt={brand.name}
                         loading="lazy"
                         decoding="async"
-                        className="max-h-10 max-w-[120px] object-contain grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-300 ease-out"
+                        className="max-h-9 max-w-[110px] object-contain grayscale opacity-80 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-300 ease-out"
                         onError={(e) => {
                           const el = e.currentTarget as HTMLImageElement;
                           el.style.display = 'none';
@@ -82,7 +82,7 @@ export function BrandShowcase() {
                         }}
                       />
                     ) : null}
-                    <span className={`font-display text-sm md:text-base font-bold tracking-tight text-muted-foreground/60 group-hover:text-foreground transition-colors duration-200 ${brand.logo_url ? 'hidden' : ''}`}>
+                    <span className={`font-display text-sm md:text-base font-bold tracking-tight text-foreground/80 group-hover:text-foreground transition-colors duration-200 ${brand.logo_url ? 'hidden' : ''}`}>
                       {brand.name}
                     </span>
               </Link>

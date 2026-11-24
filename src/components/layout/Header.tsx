@@ -195,12 +195,12 @@ export function Header() {
     )}>
       <div className="container flex h-16 md:h-20 items-center justify-between px-3 sm:px-6 md:px-12">
         {/* Logo */}
-        <Link to="/" className="flex items-center gap-2 shrink-0">
+        <Link to="/" className="flex items-center gap-2 shrink-0 min-h-[44px]">
           <img
             src={currentLogo}
             alt="AzkaSmart"
             style={{ height: `${Math.min(logoSize, 56)}px` }}
-            className="object-contain transition-all duration-300 max-h-12 sm:max-h-14"
+            className="object-contain transition-all duration-300 max-h-9 sm:max-h-12 lg:max-h-14 w-auto"
           />
         </Link>
 
@@ -210,7 +210,7 @@ export function Header() {
             <Link
               key={link.href}
               to={link.href}
-              className="px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-foreground/5 rounded-lg transition-all duration-200"
+              className="px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-foreground/5 rounded-lg transition-all duration-200 whitespace-nowrap"
             >
               {link.label}
             </Link>
@@ -218,22 +218,22 @@ export function Header() {
         </nav>
 
         {/* Right side actions */}
-        <div className="flex items-center gap-1.5 sm:gap-2">
+        <div className="flex items-center gap-1 sm:gap-2">
           <div className="hidden lg:flex items-center gap-2">
             <AuthButton variant="ghost" size="sm" />
           </div>
 
           <AISearchDialog />
 
-          <div className="hidden md:flex items-center gap-2">
+          <div className="hidden lg:flex items-center gap-2">
             <InstallAppButton />
           </div>
 
-          {/* Theme & Language on screens >= sm */}
-          <div className="hidden sm:inline-flex items-center">
+          {/* Theme on desktop (lg+) only; Language visible on all sizes */}
+          <div className="hidden lg:inline-flex items-center">
             <ThemeSlider />
           </div>
-          <div className="hidden sm:inline-flex items-center">
+          <div className="inline-flex items-center">
             <LanguageToggle />
           </div>
 
@@ -242,14 +242,14 @@ export function Header() {
             <Button
               variant="ghost"
               size="icon"
-              className="h-9 w-9 rounded-full hover:bg-foreground/5 text-foreground"
+              className="h-11 w-11 lg:h-9 lg:w-9 rounded-full hover:bg-foreground/5 text-foreground"
               aria-label={isRTL ? "سلة المشتريات" : "Shopping Cart"}
             >
               <ShoppingCart className="h-4 w-4" />
               {itemCount > 0 && (
                 <span className={cn(
-                  "absolute -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground shadow-sm animate-in zoom-in-50",
-                  isRTL ? "-left-1" : "-right-1"
+                  "absolute top-0.5 lg:-top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground shadow-sm animate-in zoom-in-50",
+                  isRTL ? "left-0.5 lg:-left-1" : "right-0.5 lg:-right-1"
                 )}>
                   {itemCount}
                 </span>
@@ -264,7 +264,7 @@ export function Header() {
                 variant="outline"
                 size="icon"
                 onClick={() => setMobileMenuOpen(true)}
-                className="h-9 w-9 rounded-xl lg:hidden bg-secondary/80 hover:bg-secondary border-border/80 text-foreground shrink-0 shadow-sm flex items-center justify-center transition-all"
+                className="h-11 w-11 rounded-xl lg:hidden bg-secondary/80 hover:bg-secondary border-border/80 text-foreground shrink-0 shadow-sm flex items-center justify-center transition-all"
                 aria-label={isRTL ? "القائمة الرئيسية" : "Main menu"}
               >
                 <Menu className="h-5 w-5" />
@@ -319,7 +319,7 @@ export function Header() {
 
                 {/* Primary Solution Links */}
                 <div>
-                  <div className="px-1 mb-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/80">
+                  <div className="px-1 mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
                     {isRTL ? 'الحلول والخدمات' : 'Solutions & Services'}
                   </div>
                   <div className="space-y-1.5">
@@ -330,7 +330,7 @@ export function Header() {
                           key={link.href}
                           to={link.href}
                           onClick={() => setMobileMenuOpen(false)}
-                          className="flex items-center justify-between p-2.5 rounded-xl bg-card/50 hover:bg-card border border-border/40 hover:border-border transition-all group"
+                          className="flex items-center justify-between min-h-[48px] p-2.5 rounded-xl bg-card/50 hover:bg-card border border-border/40 hover:border-border transition-all group"
                         >
                           <div className="flex items-center gap-3 min-w-0">
                             <div className={cn("p-2 rounded-lg border shrink-0", link.accent)}>
@@ -342,12 +342,12 @@ export function Header() {
                                   {link.label}
                                 </span>
                                 {link.badge && (
-                                  <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-secondary text-secondary-foreground border border-border/50">
+                                  <span className="text-xs font-bold px-1.5 py-0.5 rounded-md bg-secondary text-secondary-foreground border border-border/50">
                                     {link.badge}
                                   </span>
                                 )}
                               </div>
-                              <p className="text-[11px] text-muted-foreground truncate">
+                              <p className="text-xs text-muted-foreground truncate">
                                 {link.desc}
                               </p>
                             </div>
@@ -361,7 +361,7 @@ export function Header() {
 
                 {/* Catalog & Quick Tools */}
                 <div>
-                  <div className="px-1 mb-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/80">
+                  <div className="px-1 mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
                     {isRTL ? 'الكتالوج والأدوات' : 'Explore & Tools'}
                   </div>
                   <div className="grid grid-cols-2 gap-2">
@@ -372,7 +372,7 @@ export function Header() {
                           key={link.href}
                           to={link.href}
                           onClick={() => setMobileMenuOpen(false)}
-                          className="flex items-center gap-2.5 p-2.5 rounded-xl bg-card/40 hover:bg-card border border-border/40 hover:border-border transition-all group"
+                          className="flex items-center gap-2.5 min-h-[44px] p-2.5 rounded-xl bg-card/40 hover:bg-card border border-border/40 hover:border-border transition-all group"
                         >
                           <Icon className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
                           <span className="text-xs font-medium text-foreground group-hover:text-primary transition-colors truncate">
@@ -422,7 +422,7 @@ export function Header() {
                   <button
                     type="button"
                     onClick={() => setLanguage(language === 'en' ? 'ar' : 'en')}
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-muted transition-colors text-xs font-semibold text-foreground"
+                    className="flex items-center gap-2 min-h-[44px] px-3 py-1.5 rounded-lg hover:bg-muted transition-colors text-xs font-semibold text-foreground"
                     aria-label={isRTL ? "تغيير اللغة" : "Switch language"}
                   >
                     <Globe className="h-4 w-4 text-primary" />
@@ -431,7 +431,7 @@ export function Header() {
 
                   {/* Theme slider */}
                   <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-medium text-muted-foreground">
+                    <span className="text-xs font-medium text-muted-foreground">
                       {theme === 'dark' ? (isRTL ? 'ليلي' : 'Dark') : (isRTL ? 'نهاري' : 'Light')}
                     </span>
                     <ThemeSlider />
@@ -441,7 +441,7 @@ export function Header() {
                 {/* Account & App Install Buttons */}
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex-1">
-                    <AuthButton variant="outline" size="sm" className="w-full justify-center text-xs h-9" />
+                    <AuthButton variant="outline" size="sm" className="w-full justify-center text-xs min-h-[44px]" />
                   </div>
                   <div className="flex-1">
                     <InstallAppButton />

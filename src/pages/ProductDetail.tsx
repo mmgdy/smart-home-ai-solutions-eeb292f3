@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Helmet } from 'react-helmet-async';
 import { 
   ArrowLeft, ArrowRight, ShoppingCart, Loader2, Check, Shield, Truck, 
-  Award, Wifi, CreditCard, Maximize2, X, ChevronLeft, ChevronRight 
+  Award, Wifi, CreditCard, Maximize2, X, ChevronLeft, ChevronRight, Minus, Plus 
 } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
@@ -295,12 +295,14 @@ const ProductDetail = () => {
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [quantity, setQuantity] = useState(1);
 
   // Sync selected variant with master when slug changes
   useEffect(() => {
     if (master?.id) {
       setSelectedVariantId(master.id);
       setSelectedImage(null);
+      setQuantity(1);
     }
   }, [master?.id]);
 
@@ -321,6 +323,7 @@ const ProductDetail = () => {
     if (activeProduct) {
       const primary = getProductImage(activeProduct);
       setSelectedImage(primary);
+      setQuantity(1);
     }
   }, [activeProduct?.id]);
 
@@ -353,7 +356,7 @@ const ProductDetail = () => {
 
   const handleAddToCart = () => {
     if (activeProduct) {
-      addItem(activeProduct);
+      addItem(activeProduct, quantity);
       toast({ title: t('addedToCart'), description: `${activeProduct.name} ${t('hasBeenAdded')}` });
     }
   };
@@ -361,8 +364,22 @@ const ProductDetail = () => {
   if (isLoading) {
     return (
       <Layout>
-        <div className="flex min-h-[60vh] items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <div className="container py-8 md:py-12 pt-24 pb-24 lg:pb-12" aria-busy="true">
+          <div className="h-5 w-32 rounded bg-muted animate-pulse mb-6" />
+          <div className="grid gap-8 lg:grid-cols-2">
+            <div className="aspect-[4/3] sm:aspect-square rounded-2xl bg-muted animate-pulse" />
+            <div className="space-y-4">
+              <div className="h-4 w-28 rounded bg-muted animate-pulse" />
+              <div className="h-8 w-4/5 rounded bg-muted animate-pulse" />
+              <div className="h-9 w-40 rounded bg-muted animate-pulse" />
+              <div className="h-12 w-full md:w-56 rounded-full bg-muted animate-pulse" />
+              <div className="space-y-2 pt-4">
+                <div className="h-4 w-full rounded bg-muted animate-pulse" />
+                <div className="h-4 w-11/12 rounded bg-muted animate-pulse" />
+                <div className="h-4 w-3/4 rounded bg-muted animate-pulse" />
+              </div>
+            </div>
+          </div>
         </div>
       </Layout>
     );
@@ -371,7 +388,7 @@ const ProductDetail = () => {
   if (!master || !activeProduct) {
     return (
       <Layout>
-        <div className="container py-20 text-center">
+        <div className="container pt-28 pb-20 text-center">
           <h1 className="mb-4 font-display text-2xl font-bold">{t('productNotFound')}</h1>
           <p className="mb-8 text-muted-foreground">{t('productNotFoundDesc')}</p>
           <Link to="/products"><Button>{t('backToProducts')}</Button></Link>
@@ -385,9 +402,10 @@ const ProductDetail = () => {
     ? (activeProduct.variant_axis || master.variant_axis || familyVariants[0]?.variant_axis)
     : null;
 
-  const discount = product.original_price
-    ? Math.round(((product.original_price - product.price) / product.original_price) * 100)
-    : null;
+  const hasDiscount = Boolean(product.original_price && product.original_price > product.price);
+  const discount = hasDiscount
+    ? Math.round(((product.original_price! - product.price) / product.original_price!) * 100)
+    : 0;
   const BackArrow = isRTL ? ArrowRight : ArrowLeft;
 
   const displayBrand = normalizeBrand(product.brand);
@@ -444,23 +462,23 @@ const ProductDetail = () => {
         })}</script>
       </Helmet>
       <Layout>
-        <div className="container py-8 md:py-12 pt-24">
-          <Link to="/products" className="mb-8 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+        <div className="container py-6 md:py-12 pt-20 md:pt-24 pb-28 lg:pb-12">
+          <Link to="/products" className="mb-4 md:mb-8 inline-flex items-center gap-2 min-h-[44px] lg:min-h-0 text-sm text-muted-foreground hover:text-foreground transition-colors">
             <BackArrow className="h-4 w-4" />
             {t('backToProducts')}
           </Link>
 
-          <div className="grid gap-8 lg:grid-cols-2">
+          <div className="grid gap-5 lg:gap-8 lg:grid-cols-2">
             {/* Image & Video */}
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               {/* Main Product Image Container - Displays whole picture with object-contain */}
-              <div className="relative aspect-square overflow-hidden rounded-2xl border border-border bg-card/60 flex items-center justify-center p-4 sm:p-8 group shadow-sm">
+              <div className="relative aspect-[4/3] sm:aspect-square max-h-[250px] sm:max-h-none overflow-hidden rounded-2xl border border-border bg-card/60 flex items-center justify-center p-3 sm:p-8 group shadow-sm">
                 <img
                   src={selectedImage || getProductImage(product)}
                   alt={product.name}
                   loading="eager"
                   onError={(e) => { (e.currentTarget as HTMLImageElement).src = productPlaceholder; }}
-                  className="h-full w-full object-contain max-h-[460px] transition-transform duration-300 group-hover:scale-[1.03] cursor-zoom-in drop-shadow-sm"
+                  className="h-full w-full object-contain max-h-[220px] sm:max-h-[460px] transition-transform duration-300 group-hover:scale-[1.03] cursor-zoom-in drop-shadow-sm"
                   onClick={() => setLightboxOpen(true)}
                 />
 
@@ -468,25 +486,26 @@ const ProductDetail = () => {
                 <button
                   type="button"
                   onClick={() => setLightboxOpen(true)}
-                  className="absolute bottom-3 end-3 p-2 rounded-xl bg-background/80 hover:bg-background text-foreground/80 hover:text-foreground backdrop-blur-md border border-border/60 shadow-sm transition-all opacity-0 group-hover:opacity-100"
+                  className="absolute bottom-3 end-3 p-2.5 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 lg:p-2 flex items-center justify-center rounded-xl bg-background/80 hover:bg-background text-foreground/80 hover:text-foreground backdrop-blur-md border border-border/60 shadow-sm transition-all opacity-90 lg:opacity-0 group-hover:opacity-100"
                   title={isRTL ? "عرض الصورة كاملة مكبرة" : "View whole picture full size"}
+                  aria-label={isRTL ? "عرض الصورة كاملة مكبرة" : "View whole picture full size"}
                 >
                   <Maximize2 className="h-4 w-4" />
                 </button>
 
-                <div className={cn("absolute top-4 flex flex-col gap-2 pointer-events-none", isRTL ? "right-4" : "left-4")}>
+                <div className={cn("absolute top-3 sm:top-4 flex flex-col gap-2 pointer-events-none", isRTL ? "right-3 sm:right-4" : "left-3 sm:left-4")}>
                   {product.stock <= 0 && (
-                    <span className="rounded-full bg-destructive px-3 py-1 text-sm font-semibold text-destructive-foreground shadow-sm">
+                    <span className="rounded-full bg-destructive px-3 py-1 text-xs sm:text-sm font-semibold text-destructive-foreground shadow-sm">
                       {t('outOfStock')}
                     </span>
                   )}
-                  {discount && (
-                    <span className="rounded-full bg-destructive px-3 py-1 text-sm font-medium text-destructive-foreground shadow-sm">
+                  {discount > 0 && (
+                    <span className="rounded-full bg-destructive px-3 py-1 text-xs sm:text-sm font-medium text-destructive-foreground shadow-sm">
                       {t('save')} {discount}%
                     </span>
                   )}
                   {product.featured && (
-                    <span className="rounded-full bg-primary px-3 py-1 text-sm font-medium text-primary-foreground shadow-sm">
+                    <span className="rounded-full bg-primary px-3 py-1 text-xs sm:text-sm font-medium text-primary-foreground shadow-sm">
                       {t('featured')}
                     </span>
                   )}
@@ -583,8 +602,8 @@ const ProductDetail = () => {
 
             {/* Details */}
             <div className="flex flex-col">
-              <div className="mb-3 flex flex-wrap items-center gap-2">
-                {displayBrand && <span className="text-sm text-muted-foreground">{displayBrand}</span>}
+              <div className="mb-2 sm:mb-3 flex flex-wrap items-center gap-2">
+                {displayBrand && <span className="text-sm text-foreground/80 font-medium">{displayBrand}</span>}
                 {displayBrand && protocolTokens.length > 0 && <span className="text-muted-foreground">•</span>}
                 {protocolTokens.map(({ name, icon: Icon, bg, fg, description }) => (
                   <span
@@ -592,7 +611,7 @@ const ProductDetail = () => {
                     title={description}
                     aria-label={description}
                     className={cn(
-                      'inline-flex h-7 items-center gap-1 rounded-full px-2.5 text-[11px] font-medium',
+                      'inline-flex h-7 items-center gap-1 rounded-full px-2.5 text-xs lg:text-[11px] font-medium',
                       bg,
                       fg
                     )}
@@ -603,13 +622,134 @@ const ProductDetail = () => {
                 ))}
               </div>
 
-              <h1 className="mb-3 font-display text-2xl font-bold text-foreground md:text-3xl">{product.name}</h1>
+              <h1 className="mb-3 font-display text-xl sm:text-2xl font-bold text-foreground md:text-3xl leading-snug">{product.name}</h1>
+
+              {/* Price & Stock — shown immediately under title on mobile (order-1) so it stays above the fold, while keeping desktop visual order (lg:order-3) */}
+              <div className="order-1 lg:order-3">
+                {/* Price */}
+                <div className="mb-3 sm:mb-4 flex items-center gap-3 flex-wrap">
+                  <span className="font-display text-2xl sm:text-3xl font-bold text-foreground">{formatPrice(product.price)}</span>
+                  {discount > 0 && product.original_price && (
+                    <span className="text-base sm:text-lg text-muted-foreground line-through">{formatPrice(product.original_price)}</span>
+                  )}
+                </div>
+
+                {/* Stock */}
+                <div className="mb-4 flex items-center gap-2">
+                  {product.stock > 0 ? (
+                    <>
+                      <Check className="h-4 w-4 text-success" />
+                      <span className="text-sm text-success font-medium">{t('inStock')} ({product.stock} {t('available')})</span>
+                    </>
+                  ) : (
+                    <span className="inline-flex items-center rounded-full bg-destructive/15 border border-destructive/30 px-3 py-1 text-xs font-semibold text-destructive">
+                      {t('outOfStock')}
+                    </span>
+                  )}
+                </div>
+
+                {/* Variant selector */}
+                {hasVariants && (
+                  <div className="mb-5">
+                    <p className="text-sm font-medium mb-2">
+                      {variantAxis === 'color'
+                        ? (isRTL ? 'اللون' : 'Color')
+                        : variantAxis === 'channels'
+                          ? (isRTL ? 'عدد المفاتيح / الخيار' : 'Channels / Option')
+                          : (isRTL ? 'الخيار' : 'Option')}
+                      {activeProduct.variant_label && (
+                        <span className="text-muted-foreground font-normal"> : {activeProduct.variant_label}</span>
+                      )}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {familyVariants.map((v) => {
+                        const isSelected = v.id === product.id;
+                        const oos = v.stock === 0;
+                        return (
+                          <button
+                            key={v.id}
+                            onClick={() => setSelectedVariantId(v.id)}
+                            disabled={oos}
+                            className={cn(
+                              "min-h-[44px] lg:min-h-0 px-3.5 py-1.5 rounded-full border text-sm transition font-medium",
+                              isSelected
+                                ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                                : "border-border hover:border-primary/50 text-foreground bg-card",
+                              oos && "opacity-40 line-through cursor-not-allowed"
+                            )}
+                          >
+                            {v.variant_label || v.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Compatibility badges */}
+                {worksWithPlatforms.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-2 mb-4">
+                    <Wifi className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-xs text-foreground/80">{isRTL ? 'متوافق مع:' : 'Works with:'}</span>
+                    {worksWithPlatforms.map((platform) => (
+                      <span key={platform} className="text-xs px-2.5 py-0.5 rounded-full bg-secondary text-foreground/85 font-medium">{platform}</span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Quantity Stepper + Add to Cart + Trust badges */}
+                <div className="mb-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="flex h-12 items-center rounded-full border border-border bg-card shrink-0">
+                      <button
+                        type="button"
+                        aria-label={isRTL ? 'تقليل الكمية' : 'Decrease quantity'}
+                        className="grid h-12 w-11 place-items-center text-foreground/80 hover:text-foreground disabled:opacity-40"
+                        onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                        disabled={product.stock <= 0 || quantity <= 1}
+                      >
+                        <Minus className="h-4 w-4" />
+                      </button>
+                      <span className="w-8 text-center text-sm font-semibold text-foreground">{quantity}</span>
+                      <button
+                        type="button"
+                        aria-label={isRTL ? 'زيادة الكمية' : 'Increase quantity'}
+                        className="grid h-12 w-11 place-items-center text-foreground/80 hover:text-foreground disabled:opacity-40"
+                        onClick={() => setQuantity((q) => Math.min(product.stock || 1, q + 1))}
+                        disabled={product.stock <= 0 || quantity >= product.stock}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </button>
+                    </div>
+
+                    <Button
+                      size="lg"
+                      className="flex-1 md:flex-none gap-2 glow-primary rounded-full h-12 px-6 sm:px-8 text-sm sm:text-base font-semibold"
+                      onClick={handleAddToCart}
+                      disabled={product.stock === 0}
+                    >
+                      <ShoppingCart className="h-5 w-5 shrink-0" />
+                      {t('addToCart')}
+                    </Button>
+                  </div>
+
+                  {/* Trust badges inline */}
+                  <div className="flex flex-wrap gap-3 sm:gap-4">
+                    {trustBadges.map((badge) => (
+                      <div key={badge.label} className="flex items-center gap-1.5 text-xs text-foreground/80 font-medium">
+                        <badge.icon className="h-3.5 w-3.5 text-primary shrink-0" />
+                        <span>{badge.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
 
               {sanitizedDescriptionHtml && (
                 <div
                   dir={hasArabicDescription ? "rtl" : "auto"}
                   className={cn(
-                    "product-description mb-4 text-base text-muted-foreground whitespace-pre-line break-words leading-relaxed",
+                    "order-2 lg:order-2 product-description mb-5 text-sm sm:text-base text-foreground/85 whitespace-pre-line break-words leading-relaxed",
                     hasArabicDescription && "text-right",
                     "[&_p]:mb-3 [&_p:last-child]:mb-0",
                     "[&_h3]:text-lg [&_h3]:font-semibold [&_h3]:text-foreground [&_h3]:mt-4 [&_h3]:mb-2",
@@ -623,138 +763,107 @@ const ProductDetail = () => {
                 />
               )}
 
-              {/* Price */}
-              <div className="mb-4 flex items-center gap-3 flex-wrap">
-                <span className="font-display text-3xl font-bold text-foreground">{formatPrice(product.price)}</span>
-                {product.original_price && (
-                  <span className="text-lg text-muted-foreground line-through">{formatPrice(product.original_price)}</span>
-                )}
-              </div>
-
-              {/* Stock */}
-              <div className="mb-4 flex items-center gap-2">
-                {product.stock > 0 ? (
-                  <>
-                    <Check className="h-4 w-4 text-success" />
-                    <span className="text-sm text-success">{t('inStock')} ({product.stock} {t('available')})</span>
-                  </>
-                ) : (
-                  <span className="inline-flex items-center rounded-full bg-destructive/15 border border-destructive/30 px-3 py-1 text-xs font-semibold text-destructive">
-                    {t('outOfStock')}
-                  </span>
-                )}
-              </div>
-
-              {/* Variant selector */}
-              {hasVariants && (
-                <div className="mb-5">
-                  <p className="text-sm font-medium mb-2">
-                    {variantAxis === 'color'
-                      ? (isRTL ? 'اللون' : 'Color')
-                      : variantAxis === 'channels'
-                        ? (isRTL ? 'عدد المفاتيح / الخيار' : 'Channels / Option')
-                        : (isRTL ? 'الخيار' : 'Option')}
-                    {activeProduct.variant_label && (
-                      <span className="text-muted-foreground font-normal"> : {activeProduct.variant_label}</span>
-                    )}
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {familyVariants.map((v) => {
-                      const isSelected = v.id === product.id;
-                      const oos = v.stock === 0;
-                      return (
-                        <button
-                          key={v.id}
-                          onClick={() => setSelectedVariantId(v.id)}
-                          disabled={oos}
-                          className={cn(
-                            "px-3.5 py-1.5 rounded-full border text-sm transition font-medium",
-                            isSelected
-                              ? "border-primary bg-primary text-primary-foreground shadow-sm"
-                              : "border-border hover:border-primary/50 text-foreground bg-card",
-                            oos && "opacity-40 line-through cursor-not-allowed"
-                          )}
-                        >
-                          {v.variant_label || v.name}
-                        </button>
-                      );
-                    })}
+              <div className="order-3 lg:order-4">
+                {/* Delivery info */}
+                <div className="p-4 rounded-xl bg-card border border-border mb-4">
+                  <div className="flex items-center gap-2 text-sm">
+                    <Truck className="h-4 w-4 text-primary shrink-0" />
+                    <span className="font-medium text-foreground">{isRTL ? 'التوصيل' : 'Delivery'}</span>
                   </div>
+                  <p className="text-xs text-foreground/80 mt-1 leading-relaxed">
+                    {isRTL ? 'القاهرة والجيزة: ٢-٣ أيام عمل | باقي المحافظات: ٤-٧ أيام عمل' : 'Cairo & Giza: 2-3 business days | Other cities: 4-7 business days'}
+                  </p>
                 </div>
-              )}
 
-              {/* Compatibility badges */}
-              {worksWithPlatforms.length > 0 && (
-                <div className="flex flex-wrap items-center gap-2 mb-4">
-                  <Wifi className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">{isRTL ? 'متوافق مع:' : 'Works with:'}</span>
-                  {worksWithPlatforms.map((platform) => (
-                    <span key={platform} className="text-xs px-2 py-0.5 rounded-full bg-secondary text-muted-foreground font-medium">{platform}</span>
-                  ))}
-                </div>
-              )}
+                {/* Specs */}
+                {formattedSpecs.length > 0 && (
+                  <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
+                    <h3 className="mb-3 font-display text-base font-semibold text-foreground">{t('specifications')}</h3>
+                    <dl className="divide-y divide-border/50">
+                      {formattedSpecs.map(([label, val]) => (
+                        <div key={label} className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1 sm:gap-4 py-2.5 first:pt-0 last:pb-0 text-sm">
+                          <dt className="text-foreground/70 font-medium shrink-0">{label}</dt>
+                          <dd
+                            dir="auto"
+                            style={{ unicodeBidi: 'plaintext' }}
+                            className="font-medium text-foreground sm:text-end break-words"
+                          >
+                            {val}
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </div>
+                )}
 
-              {/* Add to Cart + Trust badges */}
-              <div className="mb-6">
-                <Button size="lg" className="w-full md:w-auto gap-2 glow-primary rounded-full h-12 px-8 mb-4" onClick={handleAddToCart} disabled={product.stock === 0}>
-                  <ShoppingCart className="h-5 w-5" />
-                  {t('addToCart')}
-                </Button>
-
-                {/* Trust badges inline */}
-                <div className="flex flex-wrap gap-4">
-                  {trustBadges.map((badge) => (
-                    <div key={badge.label} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <badge.icon className="h-3.5 w-3.5 text-primary" />
-                      <span>{badge.label}</span>
-                    </div>
-                  ))}
+                {/* Bundle suggestion */}
+                <div className="mt-4 p-4 rounded-xl bg-primary/5 border border-primary/20">
+                  <p className="text-sm font-medium text-foreground mb-1">
+                    {isRTL ? '💡 وفّر أكثر مع الباقات' : '💡 Save more with bundles'}
+                  </p>
+                  <p className="text-xs text-foreground/80 mb-2.5 leading-relaxed">
+                    {isRTL ? 'اشترِ باقة كاملة بأسعار حقيقية مع خصم مميز وتركيب معتمد' : 'Buy a complete bundle with package discounts & certified installation'}
+                  </p>
+                  <Link to="/bundles">
+                    <Button variant="outline" size="sm" className="rounded-full text-xs h-9 px-4">
+                      {isRTL ? 'عرض الباقات' : 'View Bundles'}
+                      <ArrowRight className={cn("ml-1 h-3 w-3", isRTL && "rotate-180 mr-1 ml-0")} />
+                    </Button>
+                  </Link>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
 
-              {/* Delivery info */}
-              <div className="p-4 rounded-xl bg-card border border-border mb-4">
-                <div className="flex items-center gap-2 text-sm">
-                  <Truck className="h-4 w-4 text-primary" />
-                  <span className="font-medium text-foreground">{isRTL ? 'التوصيل' : 'Delivery'}</span>
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {isRTL ? 'القاهرة والجيزة: ٢-٣ أيام عمل | باقي المحافظات: ٤-٧ أيام عمل' : 'Cairo & Giza: 2-3 business days | Other cities: 4-7 business days'}
-                </p>
+        {/* Sticky bottom price + Add to Cart bar on mobile (< lg) */}
+        <div
+          data-testid="mobile-sticky-add-to-cart"
+          className="fixed bottom-0 left-0 right-0 z-40 lg:hidden bg-background/95 backdrop-blur-xl border-t border-border px-3 py-2.5 shadow-[0_-8px_30px_rgba(0,0,0,0.18)]"
+        >
+          <div className="container px-0 flex items-center justify-between gap-2.5">
+            <div className="min-w-0 shrink-0">
+              <div className="font-display text-base sm:text-lg font-bold text-foreground leading-tight">
+                {formatPrice(product.price * quantity)}
               </div>
-
-              {/* Specs */}
-              {formattedSpecs.length > 0 && (
-                <div className="rounded-xl border border-border bg-card p-5">
-                  <h3 className="mb-3 font-display text-base font-semibold text-foreground">{t('specifications')}</h3>
-                  <dl className="space-y-2">
-                    {formattedSpecs.map(([label, val]) => (
-                      <div key={label} className="flex justify-between gap-4 text-sm">
-                        <dt className="text-muted-foreground shrink-0">{label}</dt>
-                        <dd className="font-medium text-foreground text-end">
-                          {val}
-                        </dd>
-                      </div>
-                    ))}
-                  </dl>
+              {discount > 0 && product.original_price && (
+                <div className="text-xs text-muted-foreground line-through leading-tight">
+                  {formatPrice(product.original_price * quantity)}
                 </div>
               )}
+            </div>
 
-              {/* Bundle suggestion */}
-              <div className="mt-4 p-4 rounded-xl bg-primary/5 border border-primary/20">
-                <p className="text-sm font-medium text-foreground mb-1">
-                  {isRTL ? '💡 وفّر أكثر مع الباقات' : '💡 Save more with bundles'}
-                </p>
-                <p className="text-xs text-muted-foreground mb-2">
-                  {isRTL ? 'اشترِ باقة كاملة بأسعار حقيقية مع خصم مميز وتركيب معتمد' : 'Buy a complete bundle with package discounts & certified installation'}
-                </p>
-                <Link to="/bundles">
-                  <Button variant="outline" size="sm" className="rounded-full text-xs h-7">
-                    {isRTL ? 'عرض الباقات' : 'View Bundles'}
-                    <ArrowRight className={cn("ml-1 h-3 w-3", isRTL && "rotate-180 mr-1 ml-0")} />
-                  </Button>
-                </Link>
+            <div className="flex items-center gap-2 flex-1 justify-end">
+              <div className="flex h-11 items-center rounded-full border border-border bg-card shrink-0">
+                <button
+                  type="button"
+                  aria-label={isRTL ? 'تقليل الكمية' : 'Decrease quantity'}
+                  className="grid h-11 w-9 place-items-center text-foreground/80 hover:text-foreground disabled:opacity-40"
+                  onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                  disabled={product.stock <= 0 || quantity <= 1}
+                >
+                  <Minus className="h-3.5 w-3.5" />
+                </button>
+                <span className="w-6 text-center text-sm font-semibold text-foreground">{quantity}</span>
+                <button
+                  type="button"
+                  aria-label={isRTL ? 'زيادة الكمية' : 'Increase quantity'}
+                  className="grid h-11 w-9 place-items-center text-foreground/80 hover:text-foreground disabled:opacity-40"
+                  onClick={() => setQuantity((q) => Math.min(product.stock || 1, q + 1))}
+                  disabled={product.stock <= 0 || quantity >= product.stock}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                </button>
               </div>
+
+              <Button
+                className="h-11 flex-1 max-w-[190px] rounded-full gap-1.5 px-4 text-xs sm:text-sm font-semibold glow-primary"
+                onClick={handleAddToCart}
+                disabled={product.stock <= 0}
+              >
+                <ShoppingCart className="h-4 w-4 shrink-0" />
+                <span className="truncate">{t('addToCart')}</span>
+              </Button>
             </div>
           </div>
         </div>

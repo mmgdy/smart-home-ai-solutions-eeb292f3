@@ -130,8 +130,8 @@ export function AIAdvisorShowcase() {
             <div className="space-y-4">
               {/* User message */}
               <div className={cn("flex", isRTL ? "justify-start" : "justify-end")}>
-                <div className="max-w-[85%] bg-primary/10 rounded-2xl rounded-br-sm px-4 py-3">
-                  <p className="text-sm text-foreground whitespace-pre-line">
+                <div className="max-w-[92%] sm:max-w-[85%] bg-primary/15 border border-primary/20 rounded-2xl rounded-br-sm px-3.5 sm:px-4 py-3">
+                  <p className="text-xs sm:text-sm text-foreground whitespace-pre-line leading-relaxed">
                     {isRTL ? exampleFlow[0].textAr : exampleFlow[0].textEn}
                   </p>
                 </div>
@@ -139,17 +139,23 @@ export function AIAdvisorShowcase() {
 
               {/* AI response */}
               <div className={cn("flex", isRTL ? "justify-end" : "justify-start")}>
-                <div className="max-w-[85%] bg-secondary rounded-2xl rounded-bl-sm px-4 py-3">
-                  <p className="text-sm text-foreground whitespace-pre-line leading-relaxed">
+                <div className="w-full sm:max-w-[90%] bg-secondary rounded-2xl rounded-bl-sm px-3.5 sm:px-4 py-3.5">
+                  <p className="text-xs sm:text-sm text-foreground whitespace-pre-line leading-relaxed break-words">
                     {isRTL ? exampleFlow[1].textAr : exampleFlow[1].textEn}
                   </p>
-                  <div className="mt-3 flex gap-2">
-                    <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary">
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Link
+                      to="/ai-consultant"
+                      className="inline-flex items-center min-h-[36px] text-xs font-medium px-3 py-1.5 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                    >
                       {isRTL ? 'أضف للسلة' : 'Add to Cart'}
-                    </span>
-                    <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary">
+                    </Link>
+                    <Link
+                      to="/ai-consultant"
+                      className="inline-flex items-center min-h-[36px] text-xs font-medium px-3 py-1.5 rounded-full bg-background/80 border border-border text-foreground hover:bg-background transition-colors"
+                    >
                       {isRTL ? 'عدّل الخطة' : 'Modify Plan'}
-                    </span>
+                    </Link>
                   </div>
                 </div>
               </div>

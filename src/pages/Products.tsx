@@ -306,9 +306,9 @@ const Products = () => {
               {/* Mobile filter button */}
               <Sheet open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
                 <SheetTrigger asChild>
-                  <Button variant="outline" className="gap-2 lg:hidden relative">
+                  <Button variant="outline" className="gap-2 lg:hidden relative h-11 px-4 shrink-0">
                     <Filter className="h-4 w-4" />
-                    {isRTL ? 'فلاتر' : 'Filters'}
+                    {isRTL ? 'الفلاتر' : 'Filters'}
                     {activeFilterCount > 0 && (
                       <span className={cn(
                         "absolute -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground",
@@ -319,11 +319,11 @@ const Products = () => {
                     )}
                   </Button>
                 </SheetTrigger>
-                <SheetContent side={isRTL ? 'right' : 'left'} className="overflow-y-auto">
-                  <SheetHeader>
+                <SheetContent side={isRTL ? 'right' : 'left'} className="w-[88vw] max-w-sm flex flex-col p-0">
+                  <SheetHeader className="px-5 pt-5 pb-3 border-b border-border">
                     <SheetTitle>{isRTL ? 'الفلاتر' : 'Filters'}</SheetTitle>
                   </SheetHeader>
-                  <div className="mt-6">
+                  <div className="flex-1 overflow-y-auto px-5 py-4">
                     {/* Category buttons in mobile */}
                     <div className="mb-6">
                       <h4 className="mb-3 font-display font-semibold text-foreground text-sm">{t('categories')}</h4>
@@ -331,6 +331,7 @@ const Products = () => {
                         <Button
                           variant={selectedCategory === null ? 'secondary' : 'ghost'}
                           size="sm"
+                          className="min-h-[40px]"
                           onClick={() => { handleCategoryChange(null); }}
                         >
                           {t('allProducts')}
@@ -340,6 +341,7 @@ const Products = () => {
                             key={category.id}
                             variant={selectedCategory === category.slug ? 'secondary' : 'ghost'}
                             size="sm"
+                            className="min-h-[40px]"
                             onClick={() => { handleCategoryChange(category.slug); }}
                           >
                             {category.name}
@@ -356,6 +358,16 @@ const Products = () => {
                       maxPrice={maxPrice}
                       isMobile
                     />
+                  </div>
+                  <div className="p-4 border-t border-border bg-background/95 backdrop-blur">
+                    <Button
+                      className="w-full h-11 rounded-full font-semibold"
+                      onClick={() => setMobileFiltersOpen(false)}
+                    >
+                      {isRTL
+                        ? `تطبيق الفلاتر (${filteredProducts.length})`
+                        : `Apply Filters (${filteredProducts.length})`}
+                    </Button>
                   </div>
                 </SheetContent>
               </Sheet>
@@ -447,15 +459,28 @@ const Products = () => {
               )}
 
               {isLoading ? (
-                <div className="flex items-center justify-center py-20">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <div className="grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4" aria-busy="true">
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="rounded-xl border border-border bg-card overflow-hidden p-3 sm:p-4 space-y-3 animate-pulse"
+                    >
+                      <div className="aspect-square rounded-lg bg-muted" />
+                      <div className="h-3 w-1/3 rounded bg-muted" />
+                      <div className="h-4 w-4/5 rounded bg-muted" />
+                      <div className="h-5 w-1/2 rounded bg-muted" />
+                      <div className="h-10 w-full rounded-lg bg-muted" />
+                    </div>
+                  ))}
                 </div>
               ) : filteredProducts.length > 0 ? (
                 <>
                   <p className="mb-6 text-sm text-muted-foreground">
-                    {t('showing')} {Math.min(visibleCount, filteredProducts.length)} of {filteredProducts.length} {filteredProducts.length !== 1 ? t('productsPlural') : t('product')}
+                    {isRTL
+                      ? `عرض ${Math.min(visibleCount, filteredProducts.length)} من ${filteredProducts.length} منتج`
+                      : `Showing ${Math.min(visibleCount, filteredProducts.length)} of ${filteredProducts.length} ${filteredProducts.length !== 1 ? 'products' : 'product'}`}
                   </p>
-                  <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4">
+                  <div className="grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4">
                     {filteredProducts.slice(0, visibleCount).map((product) => (
                       <ProductCard key={product.id} product={product} />
                     ))}

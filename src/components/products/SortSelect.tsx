@@ -20,7 +20,7 @@ export function SortSelect({ value, onChange }: SortSelectProps) {
 
   return (
     <Select value={value} onValueChange={(val) => onChange(val as FilterState['sortBy'])}>
-      <SelectTrigger className="w-[180px]">
+      <SelectTrigger className="flex-1 sm:flex-none sm:w-[180px] h-11 lg:h-10">
         <SelectValue />
       </SelectTrigger>
       <SelectContent>

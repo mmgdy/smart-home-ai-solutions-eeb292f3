@@ -40,9 +40,10 @@ export function ProductCard({ product, className }: ProductCardProps) {
 
   const isOutOfStock = (product.stock ?? 0) <= 0;
 
-  const discount = product.original_price
-    ? Math.round(((product.original_price - product.price) / product.original_price) * 100)
-    : null;
+  const hasDiscount = Boolean(product.original_price && product.original_price > product.price);
+  const discount = hasDiscount
+    ? Math.round(((product.original_price! - product.price) / product.original_price!) * 100)
+    : 0;
 
   const protocolTokens = parseProtocols(product.protocol, product.name);
 
@@ -69,15 +70,15 @@ export function ProductCard({ product, className }: ProductCardProps) {
 
           {/* Badges */}
           <div className={cn(
-            "absolute top-3 flex flex-col gap-2",
-            isRTL ? "right-3" : "left-3"
+            "absolute top-2.5 sm:top-3 flex flex-col gap-1.5 sm:gap-2",
+            isRTL ? "right-2.5 sm:right-3" : "left-2.5 sm:left-3"
           )}>
             {isOutOfStock && (
               <span className="rounded-full bg-destructive px-2.5 py-1 text-xs font-semibold text-destructive-foreground shadow-sm">
                 {t('outOfStock')}
               </span>
             )}
-            {discount && (
+            {discount > 0 && (
               <span className="rounded-full bg-destructive px-2 py-1 text-xs font-medium text-destructive-foreground">
                 -{discount}%
               </span>
@@ -93,8 +94,8 @@ export function ProductCard({ product, className }: ProductCardProps) {
           {protocolTokens.length > 0 && (
             <div
               className={cn(
-                "absolute bottom-3 flex flex-wrap items-center gap-1.5",
-                isRTL ? "right-3 left-3 flex-row-reverse" : "left-3 right-3"
+                "absolute bottom-2.5 sm:bottom-3 flex flex-wrap items-center gap-1 sm:gap-1.5",
+                isRTL ? "right-2.5 left-2.5 sm:right-3 sm:left-3 flex-row-reverse" : "left-2.5 right-2.5 sm:left-3 sm:right-3"
               )}
             >
               {protocolTokens.map(({ name, icon: Icon, bg, fg, description }) => (
@@ -103,7 +104,7 @@ export function ProductCard({ product, className }: ProductCardProps) {
                   title={description}
                   aria-label={description}
                   className={cn(
-                    'inline-flex h-7 items-center gap-1 rounded-full px-2 text-[11px] font-medium shadow-sm backdrop-blur-sm',
+                    'inline-flex h-7 items-center gap-1 rounded-full px-2 text-xs lg:text-[11px] font-medium shadow-sm backdrop-blur-sm',
                     bg,
                     fg
                   )}
@@ -146,35 +147,51 @@ export function ProductCard({ product, className }: ProductCardProps) {
 
           {/* Price */}
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-display text-base font-bold text-foreground">
+            <span className="font-display text-sm sm:text-base font-bold text-foreground">
               {formatPrice(product.price)}
             </span>
-            {product.original_price && (
-              <span className="text-sm text-muted-foreground line-through">
+            {discount > 0 && product.original_price && (
+              <span className="text-xs sm:text-sm text-muted-foreground line-through">
                 {formatPrice(product.original_price)}
               </span>
             )}
             {isOutOfStock && (
-              <span className="rounded-full bg-destructive/15 border border-destructive/30 px-2 py-0.5 text-[11px] font-semibold text-destructive">
+              <span className="rounded-full bg-destructive/15 border border-destructive/30 px-2 py-0.5 text-xs lg:text-[11px] font-semibold text-destructive">
                 {t('outOfStock')}
               </span>
             )}
           </div>
 
-          <div className="mt-3 flex items-center gap-1.5 sm:gap-2">
-            <div className="flex h-9 items-center rounded-full border border-border bg-background shrink-0">
-              <button type="button" className="grid h-9 w-7 sm:w-8 place-items-center text-muted-foreground hover:text-foreground" onClick={(e) => updateQuantity(e, quantity - 1)} disabled={isOutOfStock || quantity <= 1}>
+          <div className="mt-3 flex items-center gap-2">
+            <div className="hidden lg:flex h-9 items-center rounded-full border border-border bg-background shrink-0">
+              <button
+                type="button"
+                aria-label="Decrease quantity"
+                className="grid h-9 w-8 place-items-center text-muted-foreground hover:text-foreground"
+                onClick={(e) => updateQuantity(e, quantity - 1)}
+                disabled={isOutOfStock || quantity <= 1}
+              >
                 <Minus className="h-3.5 w-3.5" />
               </button>
-              <span className="w-6 sm:w-7 text-center text-sm font-medium text-foreground">{quantity}</span>
-              <button type="button" className="grid h-9 w-7 sm:w-8 place-items-center text-muted-foreground hover:text-foreground" onClick={(e) => updateQuantity(e, quantity + 1)} disabled={isOutOfStock || quantity >= product.stock}>
+              <span className="w-7 text-center text-sm font-medium text-foreground">{quantity}</span>
+              <button
+                type="button"
+                aria-label="Increase quantity"
+                className="grid h-9 w-8 place-items-center text-muted-foreground hover:text-foreground"
+                onClick={(e) => updateQuantity(e, quantity + 1)}
+                disabled={isOutOfStock || quantity >= product.stock}
+              >
                 <Plus className="h-3.5 w-3.5" />
               </button>
             </div>
-            <Button size="sm" className="min-w-0 flex-1 gap-1.5 rounded-full px-2 sm:px-3" onClick={handleAddToCart} disabled={isOutOfStock}>
+            <Button
+              size="sm"
+              className="min-w-0 flex-1 h-11 lg:h-9 gap-1.5 rounded-full px-3 text-xs sm:text-sm font-medium"
+              onClick={handleAddToCart}
+              disabled={isOutOfStock}
+            >
               <ShoppingCart className="h-4 w-4 shrink-0" />
-              <span className="truncate hidden sm:inline">{t('addToCart')}</span>
-              <span className="truncate sm:hidden">{t('addToCart').split(' ')[0]}</span>
+              <span className="truncate">{t('addToCart')}</span>
             </Button>
           </div>
         </div>

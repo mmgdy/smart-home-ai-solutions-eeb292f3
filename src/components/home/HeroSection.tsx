@@ -159,20 +159,20 @@ export function HeroSection() {
         />
       </div>
 
-      <div className="container relative z-10 px-4 md:px-12 pt-28 md:pt-32 pb-28 md:pb-32">
+      <div className="container relative z-10 px-4 md:px-12 pt-24 md:pt-32 pb-24 md:pb-32">
         <div className="max-w-5xl mx-auto text-center">
           {/* Badge */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-card/40 backdrop-blur-md border border-primary/30 mb-8 shadow-[0_0_30px_-5px_hsl(var(--primary)/0.4)]"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-card/40 backdrop-blur-md border border-primary/30 mb-6 md:mb-8 shadow-[0_0_30px_-5px_hsl(var(--primary)/0.4)]"
           >
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
               <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
             </span>
-            <span className="text-sm font-medium text-foreground">
+            <span className="text-xs sm:text-sm font-medium text-foreground">
               {isRTL ? 'منزلك الذكي يبدأ من هنا' : 'Your smart home starts here'}
             </span>
           </motion.div>
@@ -182,7 +182,7 @@ export function HeroSection() {
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.1 }}
-            className="font-display text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold tracking-tight leading-[1.08] mb-5 md:mb-6"
+            className="font-display text-3xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold tracking-tight leading-[1.12] sm:leading-[1.08] mb-4 md:mb-6"
           >
             <span className="block text-foreground drop-shadow-[0_2px_20px_rgba(0,0,0,0.5)]">
               {headline}
@@ -193,7 +193,7 @@ export function HeroSection() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.25 }}
-            className="text-base md:text-xl text-foreground/85 max-w-2xl mx-auto mb-6 md:mb-8 leading-relaxed font-medium drop-shadow-[0_1px_8px_rgba(0,0,0,0.4)]"
+            className="text-sm sm:text-base md:text-xl text-foreground/90 max-w-2xl mx-auto mb-6 md:mb-8 leading-relaxed font-medium drop-shadow-[0_1px_8px_rgba(0,0,0,0.4)]"
           >
             {subheadline}
           </motion.p>
@@ -203,10 +203,10 @@ export function HeroSection() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.35 }}
-            className="max-w-xl mx-auto mb-8"
+            className="max-w-xl mx-auto mb-6 md:mb-8"
           >
             <div className={cn(
-              'flex items-center gap-2 px-4 py-3 rounded-2xl bg-background/80 backdrop-blur-xl border shadow-[0_8px_32px_-8px_rgba(0,0,0,0.4)] transition-shadow',
+              'flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-3 rounded-2xl bg-background/85 backdrop-blur-xl border shadow-[0_8px_32px_-8px_rgba(0,0,0,0.4)] transition-shadow',
               isFocused ? 'border-primary shadow-[0_8px_40px_-8px_hsl(var(--primary)/0.5)]' : 'border-border/60'
             )}>
               <Search className="h-5 w-5 text-muted-foreground flex-shrink-0" />
@@ -218,13 +218,13 @@ export function HeroSection() {
                   onKeyDown={handleKey}
                   onFocus={() => setIsFocused(true)}
                   onBlur={() => setIsFocused(false)}
-                  className="w-full bg-transparent text-foreground text-sm outline-none placeholder-transparent"
+                  className="w-full bg-transparent text-foreground text-sm outline-none placeholder-transparent h-9"
                   aria-label={isRTL ? 'ابحث عن منتجات' : 'Search products'}
                 />
                 {/* Typewriter placeholder */}
                 {!searchValue && (
                   <div className="absolute inset-0 flex items-center pointer-events-none overflow-hidden">
-                    <span className="text-sm text-muted-foreground whitespace-nowrap">
+                    <span className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap truncate">
                       {typedText}
                       {typedText.length < hints[hintIdx].length && (
                         <span className="inline-block w-0.5 h-3.5 bg-muted-foreground/60 ml-px align-middle animate-pulse" />
@@ -234,7 +234,11 @@ export function HeroSection() {
                 )}
               </div>
               {searchValue && (
-                <button onClick={() => setSearchValue('')} className="text-muted-foreground hover:text-foreground flex-shrink-0">
+                <button
+                  onClick={() => setSearchValue('')}
+                  className="min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 flex items-center justify-center text-muted-foreground hover:text-foreground flex-shrink-0"
+                  aria-label={isRTL ? 'مسح البحث' : 'Clear search'}
+                >
                   <X className="h-4 w-4" />
                 </button>
               )}
@@ -242,21 +246,22 @@ export function HeroSection() {
               <button
                 onClick={() => fileInputRef.current?.click()}
                 disabled={imageLoading}
-                className="flex-shrink-0 p-1.5 rounded-lg bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                className="flex-shrink-0 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 p-1.5 flex items-center justify-center rounded-lg bg-muted/60 hover:bg-muted text-foreground/80 hover:text-foreground transition-colors"
                 title={isRTL ? 'بحث بالصورة' : 'Search by image'}
+                aria-label={isRTL ? 'بحث بالصورة' : 'Search by image'}
               >
                 {imageLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
               </button>
               <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
               <Button
                 size="sm"
-                className="flex-shrink-0 rounded-xl h-8 px-4"
+                className="flex-shrink-0 rounded-xl h-11 lg:h-8 px-4 text-xs sm:text-sm font-medium"
                 onClick={() => handleSearch(searchValue)}
               >
                 {isRTL ? 'بحث' : 'Search'}
               </Button>
             </div>
-            <p className="text-xs text-foreground/50 mt-2">
+            <p className="text-xs text-foreground/85 font-medium mt-2.5 drop-shadow-[0_1px_4px_rgba(0,0,0,0.6)]">
               {isRTL
                 ? 'أو ارفع صورة غرفتك للبحث عن المنتجات المناسبة'
                 : 'Or upload a room photo to find matching smart devices'}
@@ -287,7 +292,7 @@ export function HeroSection() {
               <Button
                 size="lg"
                 variant="outline"
-                className="w-full sm:w-auto h-12 sm:h-14 px-6 sm:px-8 text-sm sm:text-base font-medium rounded-full border-foreground/30 bg-background/30 backdrop-blur-md hover:bg-background/50 text-foreground"
+                className="w-full sm:w-auto h-12 sm:h-14 px-6 sm:px-8 text-sm sm:text-base font-medium rounded-full border-foreground/30 bg-background/40 backdrop-blur-md hover:bg-background/60 text-foreground"
               >
                 <Play className="mr-2 h-4 w-4 fill-current" />
                 {isRTL ? 'تصفح المنتجات' : 'Browse Products'}
@@ -298,9 +303,9 @@ export function HeroSection() {
               <Button
                 size="lg"
                 variant="outline"
-                className="w-full sm:w-auto h-12 sm:h-14 px-6 sm:px-8 text-sm sm:text-base font-medium rounded-full border-primary/40 bg-primary/10 backdrop-blur-md hover:bg-primary/20 text-primary"
+                className="w-full sm:w-auto h-12 sm:h-14 px-6 sm:px-8 text-sm sm:text-base font-medium rounded-full border-primary/60 bg-background/50 backdrop-blur-md hover:bg-primary/25 text-foreground"
               >
-                <Sparkles className="mr-2 h-4 w-4" />
+                <Sparkles className="mr-2 h-4 w-4 text-emerald-400" />
                 {isRTL ? 'AI يرسم أجهزة على صورة بيتك' : 'AI Home Designer'}
               </Button>
             </Link>
@@ -308,9 +313,9 @@ export function HeroSection() {
               <Button
                 size="lg"
                 variant="outline"
-                className="w-full sm:w-auto h-12 sm:h-14 px-6 sm:px-8 text-sm sm:text-base font-medium rounded-full border-warning/40 bg-warning/10 backdrop-blur-md hover:bg-warning/20 text-warning"
+                className="w-full sm:w-auto h-12 sm:h-14 px-6 sm:px-8 text-sm sm:text-base font-medium rounded-full border-warning/50 bg-background/40 backdrop-blur-md hover:bg-warning/20 text-foreground"
               >
-                <Calculator className="mr-2 h-4 w-4" />
+                <Calculator className="mr-2 h-4 w-4 text-warning" />
                 {isRTL ? 'حاسبة التكلفة' : 'Cost Calculator'}
               </Button>
             </Link>

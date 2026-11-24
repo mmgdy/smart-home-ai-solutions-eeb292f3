@@ -180,12 +180,12 @@ export function AISearchDialog() {
       <Button
         variant="ghost"
         size="icon"
-        className="h-9 w-9 rounded-full hover:bg-foreground/5 relative"
+        className="h-11 w-11 lg:h-9 lg:w-9 rounded-full hover:bg-foreground/5 relative shrink-0"
         onClick={() => setOpen(true)}
         aria-label="AI Search"
       >
         <Search className="h-4 w-4" />
-        <Sparkles className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 text-primary" />
+        <Sparkles className="absolute top-1.5 right-1.5 lg:-top-0.5 lg:-right-0.5 h-2.5 w-2.5 text-primary" />
       </Button>
 
       {open && (

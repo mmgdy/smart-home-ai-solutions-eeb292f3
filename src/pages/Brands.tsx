@@ -118,7 +118,7 @@ export default function BrandsPage() {
         <title>{isRTL ? "الماركات | أزكاسمارت" : "Brands | AzkaSmart"}</title>
       </Helmet>
 
-      <div className="container px-6 md:px-12 py-12">
+      <div className="container px-6 md:px-12 pt-24 pb-12 md:pt-28 md:pb-16">
         {!activeSlug ? (
           <>
             <div className="text-center mb-10">

@@ -73,7 +73,7 @@ const Profile = () => {
         <title>{`${labels.profile} | AzkaSmart`}</title>
       </Helmet>
       <Layout>
-        <div className="container py-8 md:py-12 max-w-4xl">
+        <div className="container pt-24 pb-12 md:pt-28 max-w-4xl">
           {/* Profile Header */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}

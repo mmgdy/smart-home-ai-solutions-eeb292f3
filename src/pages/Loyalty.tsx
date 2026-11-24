@@ -90,7 +90,7 @@ const Loyalty = () => {
         <meta name="description" content={labels.pageDesc} />
       </Helmet>
       <Layout>
-        <div className="container py-8 md:py-12">
+        <div className="container pt-24 pb-12 md:pt-28 md:pb-16">
           {/* Hero */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}

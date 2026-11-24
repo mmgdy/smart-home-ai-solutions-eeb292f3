@@ -28,7 +28,7 @@ export function FeaturedProducts() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const { data: rawProducts } = useQuery({
+  const { data: rawProducts, isLoading } = useQuery({
     queryKey: ['featured-products'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -108,8 +108,23 @@ export function FeaturedProducts() {
           </motion.div>
         </div>
 
-        {products && products.length > 0 ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {isLoading ? (
+          <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4" aria-busy="true">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div
+                key={i}
+                className="rounded-xl border border-border bg-card overflow-hidden p-3 sm:p-4 space-y-3 animate-pulse"
+              >
+                <div className="aspect-square rounded-lg bg-muted" />
+                <div className="h-3 w-1/3 rounded bg-muted" />
+                <div className="h-4 w-4/5 rounded bg-muted" />
+                <div className="h-5 w-1/2 rounded bg-muted" />
+                <div className="h-10 w-full rounded-lg bg-muted" />
+              </div>
+            ))}
+          </div>
+        ) : products && products.length > 0 ? (
+          <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
             {products.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}

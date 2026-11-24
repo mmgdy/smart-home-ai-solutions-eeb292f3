@@ -14,10 +14,10 @@ export function LanguageToggle() {
       variant="ghost"
       size="sm"
       onClick={toggleLanguage}
-      className="gap-2"
+      className="gap-1.5 min-h-[44px] min-w-[44px] px-2.5 lg:min-h-0 lg:min-w-0 lg:px-3"
     >
-      <Globe className="h-4 w-4" />
-      <span className="text-sm font-medium">
+      <Globe className="h-4 w-4 shrink-0" />
+      <span className="text-xs sm:text-sm font-medium">
         {language === 'en' ? 'العربية' : 'English'}
       </span>
     </Button>
