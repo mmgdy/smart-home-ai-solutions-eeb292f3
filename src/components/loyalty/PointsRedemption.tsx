@@ -105,10 +105,10 @@ export const PointsRedemption = ({
   }
 
   return (
-    <div className="rounded-xl border border-border bg-card p-4">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <Gift className="h-5 w-5 text-primary" />
+    <div className="rounded-xl border border-border bg-card p-3 sm:p-4 min-w-0">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+        <div className="flex items-center gap-2 min-w-0">
+          <Gift className="h-5 w-5 text-primary shrink-0" />
           <span className="font-medium text-foreground">{labels.loyaltyPoints}</span>
         </div>
         <LoyaltyBadge tier={loyalty.tier} points={availablePoints} size="sm" />
@@ -120,7 +120,7 @@ export const PointsRedemption = ({
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="flex items-center justify-between rounded-lg bg-green-500/10 p-3"
+            className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-green-500/10 p-3"
           >
             <div className="flex items-center gap-2">
               <Check className="h-5 w-5 text-green-600" />
@@ -165,7 +165,7 @@ export const PointsRedemption = ({
                 <Minus className="h-4 w-4" />
               </Button>
               
-              <div className="relative flex-1">
+              <div className="relative flex-1 min-w-0">
                 <Input
                   type="number"
                   value={pointsToRedeem}

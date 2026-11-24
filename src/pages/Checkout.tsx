@@ -771,7 +771,7 @@ const Checkout = () => {
 
 
       <Layout>
-        <div className="container pt-24 pb-12 md:pt-28 md:pb-16">
+        <div className="container px-4 sm:px-6 lg:px-8 pt-24 pb-12 md:pt-28 md:pb-16">
           {/* Back Button */}
           <button
             onClick={() => navigate('/cart')}
@@ -786,22 +786,22 @@ const Checkout = () => {
           </h1>
 
           <form onSubmit={handleSubmit}>
-            <div className="grid gap-8 lg:grid-cols-[1fr_400px]">
+            <div className="grid grid-cols-1 gap-6 lg:gap-8 lg:grid-cols-[minmax(0,1fr)_400px]">
               {/* Shipping Form */}
-              <div className="space-y-6">
+              <div className="space-y-6 min-w-0">
                 {/* AI Compatibility Check */}
                 <CompatibilityCheck />
 
                 {/* Sign-in banner */}
                 {!user && (
-                  <div className="rounded-xl border border-primary/30 bg-primary/5 p-5">
+                  <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 sm:p-5 min-w-0">
                     <div className="flex items-center gap-3 mb-3">
-                      <LogIn className="h-5 w-5 text-primary" />
+                      <LogIn className="h-5 w-5 text-primary shrink-0" />
                       <h2 className="font-display text-lg font-semibold text-foreground">
                         {language === 'ar' ? 'سجّل لجمع النقاط' : 'Sign in to earn rewards'}
                       </h2>
                     </div>
-                    <p className="text-sm text-muted-foreground mb-4">
+                    <p className="text-sm text-muted-foreground mb-4 break-words">
                       {language === 'ar'
                         ? 'أنشئ حساب بسرعة لجمع نقاط الولاء واستبدالها بخصومات على طلباتك القادمة'
                         : 'Create an account to earn loyalty points and redeem them for future discounts'}
@@ -811,11 +811,11 @@ const Checkout = () => {
                 )}
 
                 {user && (
-                  <div className="rounded-xl border border-green-500/30 bg-green-500/5 p-4">
+                  <div className="rounded-xl border border-green-500/30 bg-green-500/5 p-4 min-w-0">
                     <div className="flex items-center gap-3">
-                      <CheckCircle className="h-5 w-5 text-green-600" />
-                      <div>
-                        <p className="font-medium text-foreground">
+                      <CheckCircle className="h-5 w-5 text-green-600 shrink-0" />
+                      <div className="min-w-0">
+                        <p className="font-medium text-foreground break-words">
                           {language === 'ar' ? 'تم تسجيل الدخول' : 'Signed in as'} {user.user_metadata?.full_name || user.email}
                         </p>
                         <p className="text-sm text-muted-foreground">
@@ -826,13 +826,13 @@ const Checkout = () => {
                   </div>
                 )}
 
-                <div className="rounded-xl border border-border bg-card p-6">
+                <div className="rounded-xl border border-border bg-card p-4 sm:p-6 min-w-0">
                   <h2 className="mb-6 font-display text-xl font-semibold text-foreground flex items-center gap-2">
                     <Truck className="h-5 w-5 text-primary" />
                     {labels.shippingInfo}
                   </h2>
 
-                  <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <Label htmlFor="firstName">{labels.firstName}</Label>
                       <Input
@@ -963,9 +963,9 @@ const Checkout = () => {
                 </div>
 
                 {/* Payment Method */}
-                <div className="rounded-xl border border-border bg-card p-6">
+                <div className="rounded-xl border border-border bg-card p-4 sm:p-6 min-w-0">
                   <h2 className="mb-6 font-display text-xl font-semibold text-foreground flex items-center gap-2">
-                    <CreditCard className="h-5 w-5 text-primary" />
+                    <CreditCard className="h-5 w-5 text-primary shrink-0" />
                     {labels.paymentMethod}
                   </h2>
                   
@@ -979,7 +979,7 @@ const Checkout = () => {
                       <div 
                         role="button"
                         tabIndex={0}
-                        className={`relative flex items-start sm:items-center gap-3.5 p-4 rounded-xl border-2 transition-all cursor-pointer select-none ${
+                        className={`relative flex items-start sm:items-center gap-3 sm:gap-3.5 p-3 sm:p-4 rounded-xl border-2 transition-all cursor-pointer select-none min-w-0 ${
                           paymentMethod === 'card' 
                             ? 'border-primary bg-primary/[0.06] shadow-sm ring-1 ring-primary/30' 
                             : 'border-border/80 hover:border-primary/40 bg-card hover:bg-muted/20'
@@ -988,15 +988,15 @@ const Checkout = () => {
                         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPaymentMethod('card'); } }}
                       >
                         <RadioGroupItem value="card" id="card" className="h-5 w-5 shrink-0 mt-0.5 sm:mt-0 border-2" />
-                        <Label htmlFor="card" className="flex-1 cursor-pointer">
-                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
-                            <div className="flex items-center gap-3">
+                        <Label htmlFor="card" className="flex-1 min-w-0 cursor-pointer">
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 min-w-0">
+                            <div className="flex items-center gap-3 min-w-0">
                               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                                 <CreditCard className="h-5 w-5" />
                               </div>
-                              <div>
+                              <div className="min-w-0">
                                 <p className="font-semibold text-foreground text-sm sm:text-base">{labels.cardPayment}</p>
-                                <p className="text-xs sm:text-sm text-muted-foreground">
+                                <p className="text-xs sm:text-sm text-muted-foreground break-words">
                                   {language === 'ar' ? 'دفع إلكتروني فوري وآمن (فيزا / ماستركارد / ميزة)' : 'Instant secure payment (Visa / Mastercard / Meeza)'}
                                 </p>
                               </div>
@@ -1023,7 +1023,7 @@ const Checkout = () => {
                       <div 
                         role="button"
                         tabIndex={0}
-                        className={`relative p-4 rounded-xl border-2 transition-all cursor-pointer select-none ${
+                        className={`relative p-3 sm:p-4 rounded-xl border-2 transition-all cursor-pointer select-none min-w-0 ${
                           paymentMethod === 'instapay' 
                             ? 'border-purple-600 bg-purple-500/[0.06] shadow-sm ring-1 ring-purple-600/30' 
                             : 'border-border/80 hover:border-purple-400/50 bg-card hover:bg-muted/20'
@@ -1031,24 +1031,24 @@ const Checkout = () => {
                         onClick={() => setPaymentMethod('instapay')}
                         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPaymentMethod('instapay'); } }}
                       >
-                        <div className="flex items-start sm:items-center gap-3.5">
+                        <div className="flex items-start sm:items-center gap-3 sm:gap-3.5 min-w-0">
                           <RadioGroupItem value="instapay" id="instapay" className="h-5 w-5 shrink-0 mt-0.5 sm:mt-0 border-2 border-purple-600 text-purple-600" />
-                          <Label htmlFor="instapay" className="flex-1 cursor-pointer">
-                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
-                              <div className="flex items-center gap-3">
+                          <Label htmlFor="instapay" className="flex-1 min-w-0 cursor-pointer">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 min-w-0">
+                              <div className="flex items-center gap-3 min-w-0">
                                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[#7B2CBF] to-[#9D4EDD] text-white shadow-sm">
                                   <Smartphone className="h-5 w-5" />
                                 </div>
-                                <div>
-                                  <div className="flex items-center gap-2">
+                                <div className="min-w-0">
+                                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                                     <p className="font-semibold text-foreground text-sm sm:text-base">
                                       {language === 'ar' ? 'الدفع عبر إنستاباي (InstaPay)' : 'Pay via InstaPay'}
                                     </p>
-                                    <span className="inline-flex items-center rounded-full bg-purple-100 dark:bg-purple-950/80 px-2 py-0.5 text-[10px] font-bold text-purple-700 dark:text-purple-300">
+                                    <span className="inline-flex items-center rounded-full bg-purple-100 dark:bg-purple-950/80 px-2 py-0.5 text-[10px] font-bold text-purple-700 dark:text-purple-300 shrink-0">
                                       تحويل فوري
                                     </span>
                                   </div>
-                                  <p className="text-xs sm:text-sm text-muted-foreground">
+                                  <p className="text-xs sm:text-sm text-muted-foreground break-words">
                                     {language === 'ar' ? 'تحويل لحظي مباشر عبر تطبيق إنستاباي بدون رسوم' : 'Direct instant transfer via InstaPay with zero fees'}
                                   </p>
                                 </div>
@@ -1059,20 +1059,20 @@ const Checkout = () => {
 
                         {/* Expandable InstaPay Instructions Card */}
                         {paymentMethod === 'instapay' && (
-                          <div className="mt-4 pt-4 border-t border-purple-500/20 space-y-4" onClick={(e) => e.stopPropagation()}>
-                            <div className="bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-900/50 rounded-xl p-4 space-y-3">
-                              <div className="flex items-center justify-between text-xs text-purple-900 dark:text-purple-200 font-semibold">
+                          <div className="mt-4 pt-4 border-t border-purple-500/20 space-y-4 min-w-0" onClick={(e) => e.stopPropagation()}>
+                            <div className="bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-900/50 rounded-xl p-3 sm:p-4 space-y-3 min-w-0">
+                              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-purple-900 dark:text-purple-200 font-semibold">
                                 <span>{language === 'ar' ? 'بيانات التحويل عبر إنستاباي:' : 'InstaPay Transfer Details:'}</span>
-                                <span className="bg-purple-200 dark:bg-purple-900 px-2 py-0.5 rounded font-mono font-bold text-sm">
+                                <span className="bg-purple-200 dark:bg-purple-900 px-2 py-0.5 rounded font-mono font-bold text-sm shrink-0">
                                   {formatPrice(total)}
                                 </span>
                               </div>
 
                               {/* InstaPay Address */}
-                              <div className="flex items-center justify-between bg-white dark:bg-card p-2.5 rounded-lg border border-purple-100 dark:border-purple-900">
-                                <div>
+                              <div className="flex flex-wrap items-center justify-between gap-2 bg-white dark:bg-card p-2.5 rounded-lg border border-purple-100 dark:border-purple-900">
+                                <div className="min-w-0 flex-1">
                                   <span className="text-[11px] text-muted-foreground block">{language === 'ar' ? 'عنوان إنستاباي (IPA):' : 'InstaPay Address (IPA):'}</span>
-                                  <span className="font-mono font-bold text-sm text-foreground">
+                                  <span className="font-mono font-bold text-sm text-foreground break-all">
                                     {getInfo('payment', 'instapay_address', 'azkasmart@instapay')}
                                   </span>
                                 </div>
@@ -1080,7 +1080,7 @@ const Checkout = () => {
                                   type="button"
                                   variant="outline"
                                   size="sm"
-                                  className="h-8 gap-1 text-xs"
+                                  className="h-8 gap-1 text-xs shrink-0"
                                   onClick={() => copyToClipboard(getInfo('payment', 'instapay_address', 'azkasmart@instapay'), 'ipa')}
                                 >
                                   {copiedField === 'ipa' ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Copy className="h-3.5 w-3.5" />}
@@ -1089,10 +1089,10 @@ const Checkout = () => {
                               </div>
 
                               {/* InstaPay Phone */}
-                              <div className="flex items-center justify-between bg-white dark:bg-card p-2.5 rounded-lg border border-purple-100 dark:border-purple-900">
-                                <div>
+                              <div className="flex flex-wrap items-center justify-between gap-2 bg-white dark:bg-card p-2.5 rounded-lg border border-purple-100 dark:border-purple-900">
+                                <div className="min-w-0 flex-1">
                                   <span className="text-[11px] text-muted-foreground block">{language === 'ar' ? 'رقم الهاتف المسجل في إنستاباي:' : 'InstaPay Mobile Number:'}</span>
-                                  <span className="font-mono font-bold text-sm text-foreground" dir="ltr">
+                                  <span className="font-mono font-bold text-sm text-foreground break-words" dir="ltr">
                                     {getInfo('payment', 'instapay_phone', '01050627310')}
                                   </span>
                                 </div>
@@ -1100,7 +1100,7 @@ const Checkout = () => {
                                   type="button"
                                   variant="outline"
                                   size="sm"
-                                  className="h-8 gap-1 text-xs"
+                                  className="h-8 gap-1 text-xs shrink-0"
                                   onClick={() => copyToClipboard(getInfo('payment', 'instapay_phone', '01050627310'), 'phone')}
                                 >
                                   {copiedField === 'phone' ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Copy className="h-3.5 w-3.5" />}
@@ -1109,15 +1109,15 @@ const Checkout = () => {
                               </div>
 
                               {/* Account Name */}
-                              <div className="text-xs text-muted-foreground">
+                              <div className="text-xs text-muted-foreground break-words">
                                 <span>{language === 'ar' ? 'اسم الحساب:' : 'Account Name:'} </span>
                                 <strong className="text-foreground">{getInfo('payment', 'instapay_name', 'AzkaSmart')}</strong>
                               </div>
                             </div>
 
                             {/* Verification Reference Input */}
-                            <div className="space-y-1.5">
-                              <Label htmlFor="instapayRef" className="text-xs font-medium">
+                            <div className="space-y-1.5 min-w-0">
+                              <Label htmlFor="instapayRef" className="text-xs font-medium block break-words">
                                 {language === 'ar' ? 'رقم العملية أو اسم / رقم المحول (للتحقق):' : 'Transfer Reference / Sender Name or Phone (for verification):'}
                               </Label>
                               <Input
@@ -1125,19 +1125,19 @@ const Checkout = () => {
                                 value={instapayReference}
                                 onChange={(e) => setInstapayReference(e.target.value)}
                                 placeholder={language === 'ar' ? 'مثال: رقم التحويل، أو اسم صاحب الحساب المحول منه...' : 'e.g. Transfer ID, or sender account name/phone...'}
-                                className="text-sm"
+                                className="text-sm w-full"
                               />
                             </div>
 
                             {/* Receipt Upload */}
-                            <div className="space-y-1.5">
-                              <Label className="text-xs font-medium block">
+                            <div className="space-y-1.5 min-w-0">
+                              <Label className="text-xs font-medium block break-words">
                                 {language === 'ar' ? 'إرفاق إيصال التحويل (اختياري):' : 'Attach Transfer Receipt (Optional):'}
                               </Label>
-                              <div className="flex items-center gap-3">
-                                <label className="flex items-center gap-2 px-3 py-2 border border-input rounded-lg cursor-pointer hover:bg-muted text-xs font-medium transition">
-                                  <UploadCloud className="h-4 w-4 text-purple-600" />
-                                  <span>{instapayReceiptFile ? instapayReceiptFile.name : (language === 'ar' ? 'اختيار صورة الإيصال' : 'Choose Receipt Image')}</span>
+                              <div className="flex flex-wrap items-center gap-3">
+                                <label className="flex items-center gap-2 px-3 py-2 border border-input rounded-lg cursor-pointer hover:bg-muted text-xs font-medium transition max-w-full min-w-0">
+                                  <UploadCloud className="h-4 w-4 text-purple-600 shrink-0" />
+                                  <span className="truncate">{instapayReceiptFile ? instapayReceiptFile.name : (language === 'ar' ? 'اختيار صورة الإيصال' : 'Choose Receipt Image')}</span>
                                   <input type="file" accept="image/*,.pdf" onChange={handleReceiptChange} className="hidden" />
                                 </label>
                                 {instapayReceiptPreview && (
@@ -1166,10 +1166,10 @@ const Checkout = () => {
                                 )}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="inline-flex items-center gap-2 text-xs text-emerald-700 dark:text-emerald-400 hover:underline font-medium"
+                                className="inline-flex items-start sm:items-center gap-2 text-xs text-emerald-700 dark:text-emerald-400 hover:underline font-medium break-words"
                               >
-                                <MessageCircle className="h-3.5 w-3.5" />
-                                {language === 'ar' ? 'أو يمكنك إرسال صورة التحويل عبر واتساب مباشرة' : 'Or send the transfer receipt via WhatsApp directly'}
+                                <MessageCircle className="h-3.5 w-3.5 shrink-0 mt-0.5 sm:mt-0" />
+                                <span>{language === 'ar' ? 'أو يمكنك إرسال صورة التحويل عبر واتساب مباشرة' : 'Or send the transfer receipt via WhatsApp directly'}</span>
                               </a>
                             </div>
                           </div>
@@ -1182,7 +1182,7 @@ const Checkout = () => {
                       <div 
                         role="button"
                         tabIndex={0}
-                        className={`relative flex items-start sm:items-center gap-3.5 p-4 rounded-xl border-2 transition-all cursor-pointer select-none ${
+                        className={`relative flex items-start sm:items-center gap-3 sm:gap-3.5 p-3 sm:p-4 rounded-xl border-2 transition-all cursor-pointer select-none min-w-0 ${
                           paymentMethod === 'cod' 
                             ? 'border-primary bg-primary/[0.06] shadow-sm ring-1 ring-primary/30' 
                             : 'border-border/80 hover:border-primary/40 bg-card hover:bg-muted/20'
@@ -1191,16 +1191,16 @@ const Checkout = () => {
                         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPaymentMethod('cod'); } }}
                       >
                         <RadioGroupItem value="cod" id="cod" className="h-5 w-5 shrink-0 mt-0.5 sm:mt-0 border-2" />
-                        <Label htmlFor="cod" className="flex-1 cursor-pointer">
-                          <div className="flex items-center gap-3">
+                        <Label htmlFor="cod" className="flex-1 min-w-0 cursor-pointer">
+                          <div className="flex items-center gap-3 min-w-0">
                             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                               <Banknote className="h-5 w-5" />
                             </div>
-                            <div>
+                            <div className="min-w-0">
                               <p className="font-semibold text-foreground text-sm sm:text-base">
                                 {language === 'ar' ? 'الدفع عند الاستلام (نقداً)' : 'Cash on Delivery (COD)'}
                               </p>
-                              <p className="text-xs sm:text-sm text-muted-foreground">
+                              <p className="text-xs sm:text-sm text-muted-foreground break-words">
                                 {language === 'ar' ? 'ادفع نقداً عند استلام الشحنة وتأكيد الطلب' : 'Pay in cash upon delivery of your order'}
                               </p>
                             </div>
@@ -1213,15 +1213,15 @@ const Checkout = () => {
 
                 {/* Professional Installation */}
                 <div className={cn(
-                  "rounded-xl border p-6",
+                  "rounded-xl border p-4 sm:p-6 min-w-0",
                   isBundleOrder
                     ? "border-emerald-500/40 bg-gradient-to-br from-emerald-500/10 to-card"
                     : "border-primary/30 bg-gradient-to-br from-primary/10 to-card"
                 )}>
-                  <div className="flex items-start justify-between gap-4 mb-3">
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <Wrench className={cn("h-5 w-5", isBundleOrder ? "text-emerald-500" : "text-primary")} />
-                      <h2 className="font-display text-xl font-semibold text-foreground">
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="flex items-center gap-2.5 sm:gap-3 flex-wrap min-w-0 flex-1">
+                      <Wrench className={cn("h-5 w-5 shrink-0", isBundleOrder ? "text-emerald-500" : "text-primary")} />
+                      <h2 className="font-display text-lg sm:text-xl font-semibold text-foreground break-words">
                         {language === 'ar' ? 'التركيب الاحترافي المعتمد' : 'Certified Professional Installation'}
                       </h2>
                       {isBundleOrder && (
@@ -1230,9 +1230,9 @@ const Checkout = () => {
                         </span>
                       )}
                     </div>
-                    <Switch checked={includeInstallation} onCheckedChange={setIncludeInstallation} />
+                    <Switch checked={includeInstallation} onCheckedChange={setIncludeInstallation} className="shrink-0" />
                   </div>
-                  <p className="text-sm text-muted-foreground mb-3">
+                  <p className="text-sm text-muted-foreground mb-3 break-words">
                     {isBundleOrder
                       ? (language === 'ar'
                           ? `التركيب الاحترافي والبرمجة الكاملة للأجهزة والسيناريوهات مشمولان مجاناً بالكامل ضمن باقتك المختارة (توفر ${formatPrice(regularInstallationFee)} رسوم تركيب).`
@@ -1243,10 +1243,10 @@ const Checkout = () => {
                   </p>
                   {includeInstallation && subtotal > 0 && (
                     <div className={cn(
-                      "flex items-center justify-between rounded-lg px-4 py-3",
+                      "flex flex-wrap items-center justify-between gap-2 rounded-lg px-3 sm:px-4 py-3",
                       isBundleOrder ? "bg-emerald-500/15 border border-emerald-500/30" : "bg-primary/10"
                     )}>
-                      <span className="text-sm font-medium text-foreground">
+                      <span className="text-sm font-medium text-foreground min-w-0 flex-1 break-words">
                         {isBundleOrder
                           ? (language === 'ar'
                               ? 'شامل التركيب والبرمجة الميدانية المعتمدة ضمن الباقة'
@@ -1256,7 +1256,7 @@ const Checkout = () => {
                               : `20% of total (min. 1,500 EGP visit fee)`)}
                       </span>
                       {isBundleOrder ? (
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 shrink-0">
                           <span className="text-sm text-muted-foreground line-through">
                             {formatPrice(regularInstallationFee)}
                           </span>
@@ -1265,7 +1265,7 @@ const Checkout = () => {
                           </span>
                         </div>
                       ) : (
-                        <span className="font-display text-lg font-bold text-primary">
+                        <span className="font-display text-lg font-bold text-primary shrink-0">
                           {formatPrice(installationFee)}
                         </span>
                       )}
@@ -1274,42 +1274,42 @@ const Checkout = () => {
                 </div>
 
                 {/* Coupon Code */}
-                <div className="rounded-xl border border-border bg-card p-6">
+                <div className="rounded-xl border border-border bg-card p-4 sm:p-6 min-w-0">
                   <h2 className="mb-4 font-display text-xl font-semibold text-foreground flex items-center gap-2">
-                    <Tag className="h-5 w-5 text-primary" />
+                    <Tag className="h-5 w-5 text-primary shrink-0" />
                     {language === 'ar' ? 'كود الخصم' : 'Coupon Code'}
                   </h2>
                   {appliedCoupon ? (
-                    <div className="flex items-center justify-between rounded-lg bg-green-500/10 border border-green-500/30 px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <Tag className="h-4 w-4 text-green-600" />
-                        <span className="font-mono font-bold text-green-600">{appliedCoupon.code}</span>
-                        <span className="text-sm text-green-600">
+                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-green-500/10 border border-green-500/30 px-4 py-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Tag className="h-4 w-4 text-green-600 shrink-0" />
+                        <span className="font-mono font-bold text-green-600 break-all">{appliedCoupon.code}</span>
+                        <span className="text-sm text-green-600 shrink-0">
                           (-{formatPrice(couponDiscount)})
                         </span>
                       </div>
                       <button
                         type="button"
                         onClick={() => { setAppliedCoupon(null); setCouponCode(''); }}
-                        className="text-muted-foreground hover:text-foreground"
+                        className="text-muted-foreground hover:text-foreground shrink-0"
                       >
                         <XIcon className="h-4 w-4" />
                       </button>
                     </div>
                   ) : (
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 min-w-0">
                       <Input
                         value={couponCode}
                         onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
                         placeholder={language === 'ar' ? 'أدخل كود الخصم' : 'Enter coupon code'}
-                        className="font-mono uppercase"
+                        className="font-mono uppercase min-w-0 flex-1"
                         onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), applyCoupon())}
                       />
                       <button
                         type="button"
                         onClick={applyCoupon}
                         disabled={couponLoading || !couponCode.trim()}
-                        className="shrink-0 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium disabled:opacity-50 flex items-center gap-2"
+                        className="shrink-0 px-3 sm:px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium disabled:opacity-50 flex items-center gap-1.5 sm:gap-2"
                       >
                         {couponLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                         {language === 'ar' ? 'تطبيق' : 'Apply'}
@@ -1320,9 +1320,9 @@ const Checkout = () => {
                 </div>
 
                 {/* Loyalty Points Redemption */}
-                <div className="rounded-xl border border-border bg-card p-6">
+                <div className="rounded-xl border border-border bg-card p-4 sm:p-6 min-w-0">
                   <h2 className="mb-4 font-display text-xl font-semibold text-foreground flex items-center gap-2">
-                    <Gift className="h-5 w-5 text-primary" />
+                    <Gift className="h-5 w-5 text-primary shrink-0" />
                     {language === 'ar' ? 'استبدال النقاط' : 'Redeem Points'}
                   </h2>
                   <PointsRedemption
@@ -1334,7 +1334,7 @@ const Checkout = () => {
               </div>
 
               {/* Order Summary */}
-              <div className="h-fit rounded-xl border border-border bg-card p-6">
+              <div className="h-fit min-w-0 rounded-xl border border-border bg-card p-4 sm:p-6">
                 <h2 className="mb-6 font-display text-xl font-semibold text-foreground">
                   {labels.orderSummary}
                 </h2>
@@ -1342,7 +1342,7 @@ const Checkout = () => {
                 {/* Items */}
                 <div className="mb-6 space-y-3">
                   {items.map((item) => (
-                    <div key={item.product.id} className="flex items-center gap-3">
+                    <div key={item.product.id} className="flex items-center gap-3 min-w-0">
                       <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-muted/30 border border-border/40 p-1 flex items-center justify-center">
                         <img
                           src={item.product.image_url || '/placeholder.svg'}
@@ -1359,7 +1359,7 @@ const Checkout = () => {
                           x{item.quantity}
                         </p>
                       </div>
-                      <span className="text-sm font-medium text-foreground">
+                      <span className="shrink-0 text-sm font-medium text-foreground">
                         {formatPrice(item.product.price * item.quantity)}
                       </span>
                     </div>
@@ -1367,23 +1367,23 @@ const Checkout = () => {
                 </div>
 
                 <div className="space-y-3 border-t border-border pt-4">
-                  <div className="flex justify-between text-sm">
+                  <div className="flex justify-between gap-2 text-sm">
                     <span className="text-muted-foreground">{labels.subtotal}</span>
-                    <span className="font-medium text-foreground">{formatPrice(subtotal)}</span>
+                    <span className="font-medium text-foreground shrink-0">{formatPrice(subtotal)}</span>
                   </div>
-                  <div className="flex justify-between text-sm">
+                  <div className="flex justify-between gap-2 text-sm">
                     <span className="text-muted-foreground">{labels.shipping}</span>
-                    <span className="font-medium text-foreground">
+                    <span className="font-medium text-foreground shrink-0">
                       {shippingCost === 0 ? labels.freeShipping : formatPrice(shippingCost)}
                     </span>
                   </div>
                   {includeInstallation && isBundleOrder && (
-                    <div className="flex justify-between items-center text-sm rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-3 py-2">
-                      <span className="text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1.5">
-                        <Wrench className="h-3.5 w-3.5" />
-                        {language === 'ar' ? 'التركيب المعتمد (عرض الباقة)' : 'Installation (Bundle Offer)'}
+                    <div className="flex flex-wrap justify-between items-center gap-2 text-sm rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-3 py-2">
+                      <span className="text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1.5 min-w-0">
+                        <Wrench className="h-3.5 w-3.5 shrink-0" />
+                        <span>{language === 'ar' ? 'التركيب المعتمد (عرض الباقة)' : 'Installation (Bundle Offer)'}</span>
                       </span>
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 shrink-0">
                         <span className="text-xs text-muted-foreground line-through">
                           {formatPrice(regularInstallationFee)}
                         </span>
@@ -1394,35 +1394,35 @@ const Checkout = () => {
                     </div>
                   )}
                   {includeInstallation && !isBundleOrder && installationFee > 0 && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">
+                    <div className="flex justify-between gap-2 text-sm">
+                      <span className="text-muted-foreground min-w-0">
                         {language === 'ar' ? 'التركيب (٢٠٪، حد أدنى ١٥٠٠ ج.م)' : 'Installation (20%, min. 1,500 EGP)'}
                       </span>
-                      <span className="font-medium text-foreground">{formatPrice(installationFee)}</span>
+                      <span className="font-medium text-foreground shrink-0">{formatPrice(installationFee)}</span>
                     </div>
                   )}
                   {couponDiscount > 0 && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-green-600 flex items-center gap-1">
-                        <Tag className="h-3 w-3" />
-                        {appliedCoupon?.code}
+                    <div className="flex justify-between gap-2 text-sm">
+                      <span className="text-green-600 flex items-center gap-1 min-w-0">
+                        <Tag className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{appliedCoupon?.code}</span>
                       </span>
-                      <span className="font-medium text-green-600">-{formatPrice(couponDiscount)}</span>
+                      <span className="font-medium text-green-600 shrink-0">-{formatPrice(couponDiscount)}</span>
                     </div>
                   )}
                   {pointsDiscount > 0 && (
-                    <div className="flex justify-between text-sm">
+                    <div className="flex justify-between gap-2 text-sm">
                       <span className="text-green-600">{labels.pointsDiscount}</span>
-                      <span className="font-medium text-green-600">-{formatPrice(pointsDiscount)}</span>
+                      <span className="font-medium text-green-600 shrink-0">-{formatPrice(pointsDiscount)}</span>
                     </div>
                   )}
 
                   <div className="border-t border-border pt-3">
-                    <div className="flex justify-between">
+                    <div className="flex justify-between gap-2">
                       <span className="font-display text-lg font-semibold text-foreground">
                         {labels.total}
                       </span>
-                      <div className="text-right">
+                      <div className="text-right shrink-0">
                         {pointsDiscount > 0 && (
                           <span className="block text-sm text-muted-foreground line-through">
                             {formatPrice(totalBeforeDiscount)}

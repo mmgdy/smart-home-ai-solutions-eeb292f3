@@ -47,7 +47,7 @@ export function SmartBundles() {
 
   return (
     <section className="py-20 bg-card/30">
-      <div className="container px-6 md:px-12">
+      <div className="container px-4 sm:px-6 md:px-12">
         <div className="text-center mb-12">
           <motion.span
             initial={{ opacity: 0, y: 20 }}
@@ -79,7 +79,7 @@ export function SmartBundles() {
           </motion.p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-6 max-w-5xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl mx-auto">
           {displayBundles.map((bundle, index) => {
             const installSaving = Math.max(0, bundle.originalPrice - bundle.priceEgp);
             return (
@@ -90,7 +90,7 @@ export function SmartBundles() {
                 viewport={{ once: true }}
                 transition={{ delay: index * 0.05 }}
                 className={cn(
-                  "relative rounded-2xl border bg-card p-6 transition-all hover:border-primary/40",
+                  "relative min-w-0 rounded-2xl border bg-card p-4 sm:p-6 transition-all hover:border-primary/40",
                   bundle.popular ? "border-primary/50 ring-1 ring-primary/20" : "border-border"
                 )}
               >
@@ -100,19 +100,19 @@ export function SmartBundles() {
                   </div>
                 )}
 
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <h3 className="font-display text-lg font-bold text-foreground">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
+                  <div className="min-w-0">
+                    <h3 className="font-display text-lg font-bold text-foreground break-words">
                       {isRTL ? bundle.nameAr : bundle.nameEn}
                     </h3>
                     <div className="flex items-center gap-2 mt-1">
                       <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-500">
-                        <Wrench className="h-3 w-3" />
+                        <Wrench className="h-3 w-3 shrink-0" />
                         {isRTL ? 'شامل التركيب مجاناً' : 'FREE Certified Install'}
                       </span>
                     </div>
                   </div>
-                  <div className="text-right">
+                  <div className={cn("shrink-0", isRTL ? "text-right sm:text-left" : "text-left sm:text-right")}>
                     <div className="font-display text-2xl font-bold text-foreground">
                       {formatPrice(bundle.priceEgp)}
                     </div>
@@ -126,33 +126,33 @@ export function SmartBundles() {
                 </div>
 
                 {/* Devices list */}
-                <div className="grid grid-cols-2 gap-1.5 mb-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 mb-4">
                   {(isRTL ? bundle.devicesAr : bundle.devicesEn).map((device) => (
-                    <div key={device} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <Check className="h-3 w-3 text-primary flex-shrink-0" />
-                      <span>{device}</span>
+                    <div key={device} className="flex items-start gap-1.5 text-xs text-muted-foreground min-w-0">
+                      <Check className="h-3 w-3 text-primary flex-shrink-0 mt-0.5" />
+                      <span className="break-words min-w-0">{device}</span>
                     </div>
                   ))}
                 </div>
 
                 {/* Savings */}
-                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-success/10 mb-4">
-                  <Wifi className="h-3 w-3 text-success" />
-                  <span className="text-xs font-medium text-success">
+                <div className="flex items-start sm:items-center gap-2 px-3 py-2 rounded-lg bg-success/10 mb-4 min-w-0">
+                  <Wifi className="h-3 w-3 text-success shrink-0 mt-0.5 sm:mt-0" />
+                  <span className="text-xs font-medium text-success break-words min-w-0">
                     {isRTL ? bundle.savingsAr : bundle.savingsEn}
                   </span>
                 </div>
 
                 {/* Badges */}
-                <div className="flex items-center justify-between">
-                  <div className="flex gap-1.5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap gap-1.5 min-w-0">
                     {bundle.badges.map((badge) => (
                       <span key={badge} className="text-[10px] px-2 py-0.5 rounded-full bg-secondary text-muted-foreground font-medium">
                         {badge}
                       </span>
                     ))}
                   </div>
-                  <Link to={`/bundles#${bundle.id}`}>
+                  <Link to={`/bundles#${bundle.id}`} className="shrink-0">
                     <Button size="sm" variant="outline" className="h-8 rounded-full text-xs group">
                       {isRTL ? 'التفاصيل' : 'Details'}
                       <ArrowRight className={cn("ml-1 h-3 w-3 group-hover:translate-x-0.5 transition-transform", isRTL && "rotate-180 mr-1 ml-0")} />

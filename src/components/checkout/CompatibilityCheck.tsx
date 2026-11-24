@@ -97,13 +97,13 @@ export function CompatibilityCheck({ items: propItems, className }: Compatibilit
   const hasSuggestions = (result?.suggestions?.length ?? 0) > 0;
 
   return (
-    <div className={cn("rounded-xl border border-primary/30 bg-gradient-to-br from-primary/10 via-card to-card p-6", className)}>
-      <div className="flex items-center justify-between gap-3 mb-3">
-        <div className="flex items-center gap-2">
-          <div className="relative">
+    <div className={cn("rounded-xl border border-primary/30 bg-gradient-to-br from-primary/10 via-card to-card p-4 sm:p-6 min-w-0", className)}>
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="relative shrink-0">
             <Sparkles className="h-5 w-5 text-primary" />
           </div>
-          <h2 className="font-display text-lg font-semibold text-foreground">
+          <h2 className="font-display text-lg font-semibold text-foreground break-words">
             {language === 'ar' ? 'فحص التوافق بالذكاء الاصطناعي' : 'AI Compatibility Check'}
           </h2>
         </div>
@@ -111,7 +111,7 @@ export function CompatibilityCheck({ items: propItems, className }: Compatibilit
           type="button"
           onClick={run}
           disabled={loading}
-          className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 disabled:opacity-50"
+          className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 shrink-0 disabled:opacity-50"
         >
           <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
           {language === 'ar' ? 'إعادة الفحص' : 'Re-check'}
@@ -120,7 +120,7 @@ export function CompatibilityCheck({ items: propItems, className }: Compatibilit
 
       {loading && !result && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
-          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+          <Loader2 className="h-4 w-4 animate-spin text-primary shrink-0" />
           {language === 'ar' ? 'يفحص المساعد سلتك...' : 'AI is reviewing your cart...'}
         </div>
       )}
@@ -128,38 +128,40 @@ export function CompatibilityCheck({ items: propItems, className }: Compatibilit
       {result && (
         <>
           {result.summary && (
-            <p className="text-sm text-foreground mb-3">{result.summary}</p>
+            <p className="text-sm text-foreground mb-3 break-words min-w-0">{result.summary}</p>
           )}
 
           {hasIssues && (
-            <div className="space-y-2 mb-4">
+            <div className="space-y-2 mb-4 min-w-0">
               {result.issues.map((iss, idx) => (
                 <div
                   key={idx}
-                  className={`flex items-start gap-2 rounded-lg px-3 py-2 text-sm ${
+                  className={`flex items-start gap-2 rounded-lg px-3 py-2 text-sm min-w-0 ${
                     iss.severity === 'warning'
                       ? 'bg-amber-500/10 text-amber-800 dark:text-amber-200 border border-amber-500/30'
                       : 'bg-primary/5 text-foreground border border-primary/20'
                   }`}
                 >
                   <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
-                  <span>{iss.message}</span>
+                  <span className="break-words min-w-0">{iss.message}</span>
                 </div>
               ))}
             </div>
           )}
 
           {!hasIssues && !hasSuggestions && ran && (
-            <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
-              <CheckCircle className="h-4 w-4" />
-              {language === 'ar'
-                ? 'سلتك متكاملة ومتوافقة ✨'
-                : "Your cart looks complete and compatible ✨"}
+            <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400 min-w-0">
+              <CheckCircle className="h-4 w-4 shrink-0" />
+              <span className="break-words min-w-0">
+                {language === 'ar'
+                  ? 'سلتك متكاملة ومتوافقة ✨'
+                  : "Your cart looks complete and compatible ✨"}
+              </span>
             </div>
           )}
 
           {hasSuggestions && (
-            <div className="space-y-2">
+            <div className="space-y-2 min-w-0">
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 {language === 'ar' ? 'مقترحات لإكمال إعدادك' : 'Suggested to complete your setup'}
               </p>
@@ -167,7 +169,7 @@ export function CompatibilityCheck({ items: propItems, className }: Compatibilit
                 {result.suggestions.map(s => (
                   <div
                     key={s.productId}
-                    className="flex items-center gap-3 rounded-lg border border-border bg-background/60 p-2.5"
+                    className="flex flex-wrap sm:flex-nowrap items-center gap-3 rounded-lg border border-border bg-background/60 p-2.5 min-w-0"
                   >
                     <div className="h-12 w-12 shrink-0 overflow-hidden rounded-md bg-muted/30 border border-border/40 p-1 flex items-center justify-center">
                       <img
