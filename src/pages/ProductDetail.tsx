@@ -400,8 +400,10 @@ const ProductDetail = () => {
 
   const worksWithPlatforms = getWorksWithPlatforms(product);
   const formattedSpecs = getFormattedSpecifications(product);
-  const sanitizedDescriptionHtml = sanitizeProductDescription(product.description);
-  const plainDescriptionText = stripDescriptionHtml(product.description);
+  const hasArabicDescription = isRTL && Boolean(product.description_ar && product.description_ar.trim().length > 0);
+  const activeDescriptionRaw = hasArabicDescription ? product.description_ar : product.description;
+  const sanitizedDescriptionHtml = sanitizeProductDescription(activeDescriptionRaw);
+  const plainDescriptionText = stripDescriptionHtml(activeDescriptionRaw);
 
   return (
     <>
@@ -605,9 +607,10 @@ const ProductDetail = () => {
 
               {sanitizedDescriptionHtml && (
                 <div
-                  dir="auto"
+                  dir={hasArabicDescription ? "rtl" : "auto"}
                   className={cn(
                     "product-description mb-4 text-base text-muted-foreground whitespace-pre-line break-words leading-relaxed",
+                    hasArabicDescription && "text-right",
                     "[&_p]:mb-3 [&_p:last-child]:mb-0",
                     "[&_h3]:text-lg [&_h3]:font-semibold [&_h3]:text-foreground [&_h3]:mt-4 [&_h3]:mb-2",
                     "[&_h4]:text-base [&_h4]:font-semibold [&_h4]:text-foreground [&_h4]:mt-3 [&_h4]:mb-1.5",

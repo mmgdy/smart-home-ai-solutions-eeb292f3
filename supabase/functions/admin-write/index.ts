@@ -22,7 +22,7 @@ async function verifyAdminToken(supabase: any, token: string): Promise<boolean> 
 }
 
 const DB_PRODUCT_FIELDS = [
-  "name","slug","description","price","original_price","brand","protocol",
+  "name","slug","description","description_ar","price","original_price","brand","protocol",
   "image_url","stock","featured","video_url","category_id","images","specifications","is_published",
 ];
 
@@ -81,6 +81,7 @@ Deno.serve(async (req) => {
         .insert({
           name: enriched.name, slug,
           description: enriched.description ?? null,
+          description_ar: enriched.description_ar ?? null,
           price: enriched.price ?? 0, original_price: enriched.original_price ?? null,
           brand: enriched.brand ?? null, protocol: enriched.protocol ?? null,
           image_url: enriched.image_url ?? null, stock: enriched.stock ?? 10,

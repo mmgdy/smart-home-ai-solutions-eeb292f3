@@ -29,6 +29,7 @@ interface Product {
   name: string;
   slug: string;
   description: string | null;
+  description_ar?: string | null;
   price: number;
   original_price: number | null;
   category_id: string | null;
@@ -47,7 +48,7 @@ interface Product {
 interface Category { id: string; name: string; }
 
 const blank: Partial<Product> = {
-  name: "", slug: "", description: "", price: 0, original_price: null,
+  name: "", slug: "", description: "", description_ar: "", price: 0, original_price: null,
   category_id: null, brand: "", protocol: "", image_url: "", stock: 10,
   featured: false, video_url: "", seo_title: "", seo_description: "",
   seo_keywords: [], tags: [],
@@ -70,6 +71,8 @@ export function ProductEditor({ adminToken }: Props) {
   const videoInputRef = useRef<HTMLInputElement>(null);
   const descImageInputRef = useRef<HTMLInputElement>(null);
   const descTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const descArImageInputRef = useRef<HTMLInputElement>(null);
+  const descArTextareaRef = useRef<HTMLTextAreaElement>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [hiddenIds, setHiddenIds] = useState<string[]>([]);
@@ -81,6 +84,7 @@ export function ProductEditor({ adminToken }: Props) {
   const [uploading, setUploading] = useState(false);
   const [videoUploading, setVideoUploading] = useState(false);
   const [descImageUploading, setDescImageUploading] = useState(false);
+  const [descArImageUploading, setDescArImageUploading] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [brandFilter, setBrandFilter] = useState<string>("all");
@@ -103,7 +107,7 @@ export function ProductEditor({ adminToken }: Props) {
     for (let from = 0; ; from += pageSize) {
       const { data, error } = await supabase
         .from("products")
-        .select("id, name, slug, description, price, original_price, category_id, brand, protocol, image_url, stock, featured, video_url, seo_title, seo_description, seo_keywords, tags")
+        .select("*")
         .order("updated_at", { ascending: false })
         .range(from, from + pageSize - 1);
       if (error) throw error;
@@ -394,8 +398,10 @@ export function ProductEditor({ adminToken }: Props) {
     }
   };
 
-  const handleDescriptionImageUpload = async (file: File) => {
-    setDescImageUploading(true);
+  const handleDescriptionImageUpload = async (file: File, targetField: "description" | "description_ar" = "description") => {
+    const isAr = targetField === "description_ar";
+    if (isAr) setDescArImageUploading(true);
+    else setDescImageUploading(true);
     try {
       const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
       const path = `manual/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
@@ -407,10 +413,10 @@ export function ProductEditor({ adminToken }: Props) {
       if (error || !data?.success) throw new Error(data?.error || error?.message || "Upload failed");
 
       const tag = `<img src="${data.publicUrl}" alt="">`;
-      const ta = descTextareaRef.current;
+      const ta = isAr ? descArTextareaRef.current : descTextareaRef.current;
 
       setEditing((prev) => {
-        const cur = prev.description ?? "";
+        const cur = (prev[targetField] as string | null | undefined) ?? "";
         const start = ta && typeof ta.selectionStart === "number" ? ta.selectionStart : cur.length;
         const end = ta && typeof ta.selectionEnd === "number" ? ta.selectionEnd : cur.length;
         const nextDesc = cur.slice(0, start) + tag + cur.slice(end);
@@ -421,14 +427,15 @@ export function ProductEditor({ adminToken }: Props) {
             ta.setSelectionRange(newPos, newPos);
           }
         }, 0);
-        return { ...prev, description: nextDesc };
+        return { ...prev, [targetField]: nextDesc };
       });
 
-      toast({ title: "Image inserted into description" });
+      toast({ title: isAr ? "Image inserted into Description (Arabic)" : "Image inserted into description" });
     } catch (e: any) {
       toast({ title: "Upload failed", description: e.message, variant: "destructive" });
     } finally {
-      setDescImageUploading(false);
+      if (isAr) setDescArImageUploading(false);
+      else setDescImageUploading(false);
     }
   };
 
@@ -934,7 +941,7 @@ export function ProductEditor({ adminToken }: Props) {
                     onChange={(e) => {
                       const f = e.target.files?.[0];
                       e.target.value = "";
-                      if (f) handleDescriptionImageUpload(f);
+                      if (f) handleDescriptionImageUpload(f, "description");
                     }}
                   />
                   <Button
@@ -958,6 +965,47 @@ export function ProductEditor({ adminToken }: Props) {
                 rows={12}
                 value={editing.description ?? ""}
                 onChange={(e) => setEditing({ ...editing, description: e.target.value })}
+              />
+            </div>
+
+            <div className="space-y-2 md:col-span-2">
+              <div className="flex items-center justify-between gap-2">
+                <Label>Description (Arabic)</Label>
+                <div>
+                  <input
+                    ref={descArImageInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/gif,image/webp,.jpg,.jpeg,.png,.gif,.webp"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      e.target.value = "";
+                      if (f) handleDescriptionImageUpload(f, "description_ar");
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => descArImageInputRef.current?.click()}
+                    disabled={descArImageUploading}
+                  >
+                    {descArImageUploading ? (
+                      <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                    ) : (
+                      <ImageIcon className="h-4 w-4 mr-1.5" />
+                    )}
+                    Insert image / GIF
+                  </Button>
+                </div>
+              </div>
+              <Textarea
+                ref={descArTextareaRef}
+                dir="rtl"
+                rows={12}
+                value={editing.description_ar ?? ""}
+                onChange={(e) => setEditing({ ...editing, description_ar: e.target.value })}
+                placeholder="الوصف باللغة العربية (اختياري)..."
               />
             </div>
 
@@ -1050,6 +1098,9 @@ export function ProductEditor({ adminToken }: Props) {
               }}
               onApplyDescription={(newDesc) => {
                 setEditing(prev => ({ ...prev, description: newDesc }));
+              }}
+              onApplyDescriptionAr={(newDescAr) => {
+                setEditing(prev => ({ ...prev, description_ar: newDescAr }));
               }}
             />
           ) : (

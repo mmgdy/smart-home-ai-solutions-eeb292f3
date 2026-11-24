@@ -12,6 +12,7 @@ export interface Product {
   name: string;
   slug: string;
   description: string | null;
+  description_ar?: string | null;
   price: number;
   original_price: number | null;
   category_id: string | null;

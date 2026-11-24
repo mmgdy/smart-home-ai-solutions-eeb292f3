@@ -268,26 +268,49 @@ serve(async (req) => {
     // Fetch categories
     const { data: categories, error: catError } = await supabase
       .from('categories')
-      .select('id, slug');
+      .select('id, slug, name');
     
     if (catError) throw catError;
 
     const categoryMap = new Map(categories.map(c => [c.slug, c.id]));
+    const categoryNameMap = new Map(categories.map(c => [(c.name || '').toLowerCase(), c.id]));
 
-    // Parse CSV
-    const lines = csvContent.split('\n');
-    const headers = parseCSVLine(lines[0]);
+    // Parse CSV (strip UTF-8 BOM if present)
+    const cleanCsv = csvContent.replace(/^\ufeff/, '');
+    const lines = cleanCsv.split(/\r?\n/);
+    const headers = parseCSVLine(lines[0]).map(h => h.replace(/^\ufeff/, '').trim());
     
+    // Detect Admin Export format vs WooCommerce format
+    const isExportFormat = headers.some(h => h.toLowerCase() === 'product name') &&
+                           headers.some(h => h.toLowerCase().includes('price (egp)'));
+
     // Find column indices
-    const nameIdx = headers.findIndex(h => h.toLowerCase() === 'name');
+    const nameIdx = isExportFormat
+      ? headers.findIndex(h => h.toLowerCase() === 'product name')
+      : headers.findIndex(h => h.toLowerCase() === 'name');
     const typeIdx = headers.findIndex(h => h.toLowerCase() === 'type');
     const skuIdx = headers.findIndex(h => h.toLowerCase() === 'sku');
     const descIdx = headers.findIndex(h => h.toLowerCase() === 'description');
+    const descArIdx = headers.findIndex(h => {
+      const l = h.toLowerCase();
+      return l === 'description (arabic)' || l === 'description_ar' || l === 'arabic description';
+    });
     const shortDescIdx = headers.findIndex(h => h.toLowerCase() === 'short description');
-    const priceIdx = headers.findIndex(h => h.toLowerCase() === 'regular price');
+    const priceIdx = isExportFormat
+      ? headers.findIndex(h => h.toLowerCase() === 'price (egp)')
+      : headers.findIndex(h => h.toLowerCase() === 'regular price');
+    const origPriceIdx = headers.findIndex(h => h.toLowerCase() === 'original price (egp)');
     const salePriceIdx = headers.findIndex(h => h.toLowerCase() === 'sale price');
-    const imagesIdx = headers.findIndex(h => h.toLowerCase() === 'images');
-    const categoryIdx = headers.findIndex(h => h.toLowerCase() === 'categories');
+    const imagesIdx = isExportFormat
+      ? headers.findIndex(h => h.toLowerCase() === 'image url')
+      : headers.findIndex(h => h.toLowerCase() === 'images');
+    const categoryIdx = isExportFormat
+      ? headers.findIndex(h => h.toLowerCase() === 'category')
+      : headers.findIndex(h => h.toLowerCase() === 'categories');
+    const brandIdx = headers.findIndex(h => h.toLowerCase() === 'brand');
+    const stockIdx = headers.findIndex(h => h.toLowerCase() === 'stock');
+    const protocolIdx = headers.findIndex(h => h.toLowerCase() === 'protocol');
+    const featuredIdx = headers.findIndex(h => h.toLowerCase() === 'featured');
     const publishedIdx = headers.findIndex(h => h.toLowerCase() === 'published');
 
     const products: any[] = [];
@@ -299,39 +322,69 @@ serve(async (req) => {
 
       const values = parseCSVLine(line);
       
-      const type = values[typeIdx]?.toLowerCase() || '';
-      // Skip variable products (parent items) and variations that have parent
-      if (type === 'variable' || type === 'variation') continue;
-      
-      const published = values[publishedIdx];
-      if (published !== '1') continue;
+      if (!isExportFormat) {
+        const type = values[typeIdx]?.toLowerCase() || '';
+        // Skip variable products (parent items) and variations that have parent
+        if (type === 'variable' || type === 'variation') continue;
+        
+        const published = values[publishedIdx];
+        if (published !== '1') continue;
+      }
 
       const name = values[nameIdx]?.trim();
       if (!name || name.length < 3) continue;
 
-      // Skip furniture and non-smart-home products
-      const nameLower = name.toLowerCase();
-      if (nameLower.includes('chair') || nameLower.includes('table') || 
-          nameLower.includes('furniture') || nameLower.includes('drawer') ||
-          nameLower.includes('vitra') || nameLower.includes('magisso')) continue;
+      if (!isExportFormat) {
+        // Skip furniture and non-smart-home products
+        const nameLower = name.toLowerCase();
+        if (nameLower.includes('chair') || nameLower.includes('table') || 
+            nameLower.includes('furniture') || nameLower.includes('drawer') ||
+            nameLower.includes('vitra') || nameLower.includes('magisso')) continue;
+      }
 
-      const rawPrice = values[priceIdx]?.replace(',', '.').replace(/[^0-9.]/g, '') || '0';
+      const rawPrice = isExportFormat
+        ? (values[priceIdx]?.replace(/,/g, '').replace(/[^0-9.]/g, '') || '0')
+        : (values[priceIdx]?.replace(',', '.').replace(/[^0-9.]/g, '') || '0');
       const price = parseFloat(rawPrice) || 0;
       if (price <= 0) continue;
 
       const rawSalePrice = values[salePriceIdx]?.replace(',', '.').replace(/[^0-9.]/g, '') || '';
       const salePrice = parseFloat(rawSalePrice) || null;
+      const rawOrigPrice = origPriceIdx >= 0 ? (values[origPriceIdx]?.replace(/,/g, '').replace(/[^0-9.]/g, '') || '') : '';
+      const origPrice = parseFloat(rawOrigPrice) || null;
 
-      const description = cleanDescription(values[descIdx] || values[shortDescIdx] || '');
+      const description = isExportFormat
+        ? (values[descIdx]?.trim() || '')
+        : cleanDescription(values[descIdx] || values[shortDescIdx] || '');
+      const descriptionAr = descArIdx >= 0 ? (values[descArIdx]?.trim() || null) : null;
       const images = (values[imagesIdx] || '').split(',').map(s => s.trim()).filter(Boolean);
-      const brand = determineBrand(name);
-      const protocol = determineProtocol(name, description);
-      const categorySlug = determineCategory(name, description);
-      const categoryId = categoryMap.get(categorySlug) || categoryMap.get('accessories');
+      const brand = (isExportFormat && brandIdx >= 0) ? (values[brandIdx]?.trim() || '') : determineBrand(name);
+      const protocol = (isExportFormat && protocolIdx >= 0 && values[protocolIdx]?.trim())
+        ? values[protocolIdx].trim()
+        : determineProtocol(name, description);
 
-      // Convert price to Egyptian market price
-      const egpPrice = convertToEgyptPrice(price, name);
-      const egpSalePrice = salePrice ? convertToEgyptPrice(salePrice, name) : null;
+      let categoryId = null;
+      if (isExportFormat && categoryIdx >= 0 && values[categoryIdx]?.trim()) {
+        const catVal = values[categoryIdx].trim().toLowerCase();
+        categoryId = categoryNameMap.get(catVal) || categoryMap.get(catVal) || null;
+      }
+      if (!categoryId) {
+        const categorySlug = determineCategory(name, description);
+        categoryId = categoryMap.get(categorySlug) || categoryMap.get('accessories');
+      }
+
+      // Convert price to Egyptian market price (only for WooCommerce raw imports)
+      const egpPrice = isExportFormat ? price : convertToEgyptPrice(price, name);
+      const egpSalePrice = !isExportFormat && salePrice ? convertToEgyptPrice(salePrice, name) : null;
+      const finalOriginalPrice = isExportFormat
+        ? (origPrice && origPrice > egpPrice ? origPrice : null)
+        : (egpSalePrice && egpSalePrice < egpPrice ? egpPrice : null);
+      const stockVal = (isExportFormat && stockIdx >= 0 && values[stockIdx] !== undefined && values[stockIdx] !== '')
+        ? (parseInt(values[stockIdx], 10) || 0)
+        : 100;
+      const featuredVal = (isExportFormat && featuredIdx >= 0)
+        ? values[featuredIdx]?.trim().toLowerCase() === 'yes'
+        : false;
 
       // Create unique slug
       const baseSlug = createSlug(name);
@@ -339,21 +392,24 @@ serve(async (req) => {
       slugCount.set(baseSlug, count + 1);
       const slug = count > 0 ? `${baseSlug}-${count}` : baseSlug;
 
-      const rawProduct = {
+      const rawProduct: Record<string, any> = {
         name,
         slug,
         description: description || null,
         price: egpPrice,
-        original_price: egpSalePrice && egpSalePrice < egpPrice ? egpPrice : null,
+        original_price: finalOriginalPrice,
         category_id: categoryId,
         image_url: images[0] || null,
         images: images.slice(1),
         brand: brand || null,
         protocol: protocol || null,
         specifications: {},
-        stock: 100,
-        featured: false,
+        stock: stockVal,
+        featured: featuredVal,
       };
+      if (descriptionAr !== null) {
+        rawProduct.description_ar = descriptionAr || null;
+      }
 
       products.push(autoEnrichProductSpecifications(rawProduct));
     }

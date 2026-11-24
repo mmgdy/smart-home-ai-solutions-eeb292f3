@@ -120,7 +120,7 @@ export default function Admin() {
     try {
       const query = supabase
         .from('products')
-        .select('id, name, slug, brand, price, original_price, stock, protocol, description, image_url, featured, categories(name)')
+        .select('*, categories(name)')
         .order('brand')
         .order('name');
 
@@ -155,7 +155,7 @@ export default function Admin() {
 
       const headers = [
         'Category', 'Brand', 'Product Name', 'Price (EGP)', 'Original Price (EGP)',
-        'Discount %', 'Stock', 'Protocol', 'Featured', 'Product URL', 'Image URL', 'Description'
+        'Discount %', 'Stock', 'Protocol', 'Featured', 'Product URL', 'Image URL', 'Description', 'Description (Arabic)'
       ];
 
       const rows = filteredProducts.map(p => {
@@ -166,7 +166,9 @@ export default function Admin() {
           (p.categories as any)?.name || 'Uncategorized', p.brand || 'Other', p.name,
           p.price, p.original_price || '', discount || '', p.stock, p.protocol || '',
           p.featured ? 'Yes' : 'No', `https://azkasmart.com/products/${p.slug}`,
-          p.image_url || '', (p.description || '').replace(/"/g, '""').replace(/\\n/g, ' ')
+          p.image_url || '',
+          (p.description || '').replace(/"/g, '""').replace(/\\n/g, ' '),
+          ((p as any).description_ar || '').replace(/"/g, '""').replace(/\\n/g, ' ')
         ];
       });
 

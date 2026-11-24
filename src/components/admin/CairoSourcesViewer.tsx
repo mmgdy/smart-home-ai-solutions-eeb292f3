@@ -49,6 +49,7 @@ interface Props {
   onApplyPrice?: (newPrice: number) => void;
   onApplyStock?: (newStock: number) => void;
   onApplyDescription?: (newDescription: string) => void;
+  onApplyDescriptionAr?: (newDescriptionAr: string) => void;
 }
 
 export const CairoSourcesViewer: React.FC<Props> = ({ 
@@ -61,7 +62,8 @@ export const CairoSourcesViewer: React.FC<Props> = ({
   protocol = '',
   onApplyPrice,
   onApplyStock,
-  onApplyDescription
+  onApplyDescription,
+  onApplyDescriptionAr
 }) => {
   const { toast } = useToast();
   const [audit, setAudit] = useState<ProductAuditInfo | null>(() => cairoSupplierService.getProductAudit(productId));
@@ -427,7 +429,12 @@ export const CairoSourcesViewer: React.FC<Props> = ({
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => onApplyDescription && onApplyDescription(rec.recommendedDescriptionEn)}
+                onClick={() => {
+                  if (onApplyDescription) {
+                    onApplyDescription(rec.recommendedDescriptionEn);
+                    toast({ title: 'Updated English Description' });
+                  }
+                }}
                 disabled={!onApplyDescription}
                 className="flex-1 text-[11px] h-7 px-1.5 border-primary/30 hover:bg-primary/10 text-primary"
               >
@@ -436,8 +443,15 @@ export const CairoSourcesViewer: React.FC<Props> = ({
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => onApplyDescription && onApplyDescription(rec.recommendedDescriptionAr)}
-                disabled={!onApplyDescription}
+                onClick={() => {
+                  if (onApplyDescriptionAr) {
+                    onApplyDescriptionAr(rec.recommendedDescriptionAr);
+                    toast({ title: 'تم تحديث الوصف العربي (Description Arabic)' });
+                  } else if (onApplyDescription) {
+                    onApplyDescription(rec.recommendedDescriptionAr);
+                  }
+                }}
+                disabled={!onApplyDescriptionAr && !onApplyDescription}
                 className="flex-1 text-[11px] h-7 px-1.5 border-primary/30 hover:bg-primary/10 text-primary font-arabic"
               >
                 تطبيق العربي
