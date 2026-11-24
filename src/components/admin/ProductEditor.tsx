@@ -448,16 +448,52 @@ export function ProductEditor({ adminToken }: Props) {
     try {
       const isNew = !editing.id;
       const action = isNew ? "create-product" : "update-product";
-      const body = isNew
-        ? { action, product: editing }
-        : { action, id: editing.id, updates: editing };
+      const normalizedDescriptionAr =
+        typeof editing.description_ar === "string" ? editing.description_ar : null;
+      const payload = { ...editing, description_ar: normalizedDescriptionAr };
+
       const { data, error } = await supabase.functions.invoke("admin-write", {
         headers: { Authorization: "Bearer " + adminToken },
         body: isNew
-          ? { action, product: editing }
-          : { action, id: editing.id, updates: editing },
+          ? { action, product: payload }
+          : { action, id: editing.id, updates: payload },
       });
       if (error || !data?.success) throw new Error(data?.error || error?.message || "Failed");
+
+      const savedRow = data?.data;
+      // Fallback: if the deployed admin-write edge function stripped `description_ar`
+      // from its column allowlist, persist `description_ar` (and the full saved row)
+      // through backup-manager's service-role merge upsert so `description_ar` is
+      // guaranteed to be written to the `products` table.
+      if (
+        savedRow?.id &&
+        (savedRow.description_ar ?? null) !== (normalizedDescriptionAr ?? null)
+      ) {
+        const { data: bmData, error: bmErr } = await supabase.functions.invoke("backup-manager", {
+          headers: { Authorization: "Bearer " + adminToken },
+          body: {
+            action: "restore-backup",
+            token: adminToken,
+            selectedTables: ["products"],
+            mode: "merge",
+            backupData: {
+              tables: {
+                products: [
+                  {
+                    ...savedRow,
+                    description_ar: normalizedDescriptionAr,
+                    updated_at: new Date().toISOString(),
+                  },
+                ],
+              },
+            },
+          },
+        });
+        if (bmErr || !bmData?.success) {
+          throw new Error(bmData?.error || bmErr?.message || "Failed to persist Arabic description");
+        }
+      }
+
       toast({ title: isNew ? "Product created" : "Product saved" });
       setOpen(false);
       await load();
