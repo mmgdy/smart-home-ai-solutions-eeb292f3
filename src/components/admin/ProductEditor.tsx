@@ -17,6 +17,12 @@ import { getProductImage } from "@/lib/productImage";
 import { parseProtocols } from "@/lib/protocolIcon";
 import { ProtocolSelector, detectProtocolFromName } from "@/components/admin/ProtocolSelector";
 import { ProductDependenciesEditor } from "@/components/admin/ProductDependenciesEditor";
+import { ProductGalleryEditor } from "@/components/admin/ProductGalleryEditor";
+import {
+  inferImageMimeType,
+  normalizeProductGallery,
+  replacePrimaryImageInGallery,
+} from "@/lib/productGallery";
 import {
   DEPENDENCIES_SITE_INFO_SECTION,
   parseManualDependencies,
@@ -43,6 +49,7 @@ interface Product {
   brand: string | null;
   protocol: string | null;
   image_url: string | null;
+  images?: string[] | null;
   stock: number;
   featured: boolean | null;
   video_url: string | null;
@@ -57,7 +64,7 @@ interface Category { id: string; name: string; }
 
 const blank: Partial<Product> = {
   name: "", slug: "", description: "", description_ar: "", price: 0, original_price: null,
-  category_id: null, brand: "", protocol: "", image_url: "", stock: 10,
+  category_id: null, brand: "", protocol: "", image_url: "", images: [], stock: 10,
   featured: false, video_url: "", seo_title: "", seo_description: "",
   seo_keywords: [], tags: [],
 };
@@ -93,6 +100,7 @@ export function ProductEditor({ adminToken }: Props) {
   const [depsLoading, setDepsLoading] = useState(false);
   const [depsDirty, setDepsDirty] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [primaryClearedInInput, setPrimaryClearedInInput] = useState(false);
   const hiddenIdSet = useMemo(() => new Set(hiddenIds), [hiddenIds]);
   const [uploading, setUploading] = useState(false);
   const [videoUploading, setVideoUploading] = useState(false);
@@ -372,14 +380,21 @@ export function ProductEditor({ adminToken }: Props) {
   };
 
   const openNew = () => {
-    setEditing({ ...blank });
+    setPrimaryClearedInInput(false);
+    setEditing({ ...blank, images: [] });
     setEditingDeps([]);
     setDepsLoading(false);
     setDepsDirty(false);
     setOpen(true);
   };
   const openEdit = (p: Product) => {
-    setEditing({ ...p });
+    setPrimaryClearedInInput(false);
+    const initialGallery = normalizeProductGallery(p.image_url, p.images);
+    setEditing({
+      ...p,
+      image_url: initialGallery[0] ?? "",
+      images: initialGallery,
+    });
     setEditingDeps([]);
     setDepsDirty(false);
     setDepsLoading(true);
@@ -409,10 +424,20 @@ export function ProductEditor({ adminToken }: Props) {
       const base64 = await fileToBase64(file);
       const { data, error } = await supabase.functions.invoke("admin-write", {
         headers: { Authorization: "Bearer " + adminToken },
-        body: { action: "upload-file", bucket: "product-images", filename: path, base64, mimeType: file.type },
+        body: {
+          action: "upload-file",
+          bucket: "product-images",
+          filename: path,
+          base64,
+          mimeType: inferImageMimeType(file),
+        },
       });
       if (error || !data?.success) throw new Error(data?.error || error?.message || "Upload failed");
-      setEditing((prev) => ({ ...prev, image_url: data.publicUrl }));
+      setEditing((prev) => ({
+        ...prev,
+        image_url: data.publicUrl,
+        images: replacePrimaryImageInGallery(prev.images ?? [], data.publicUrl),
+      }));
       toast({ title: "Image uploaded" });
     } catch (e: any) {
       toast({ title: "Upload failed", description: e.message, variant: "destructive" });
@@ -505,12 +530,29 @@ export function ProductEditor({ adminToken }: Props) {
         editing.specifications && typeof editing.specifications === "object"
           ? editing.specifications
           : null;
+      const typedPrimary = (editing.image_url ?? "").trim();
+      const baseGallery = Array.isArray(editing.images)
+        ? editing.images.map((u) => (u || "").trim()).filter(Boolean)
+        : [];
+      const intendedImages = typedPrimary
+        ? replacePrimaryImageInGallery(baseGallery, typedPrimary)
+        : primaryClearedInInput
+        ? baseGallery.slice(1)
+        : baseGallery;
+      const intendedImageUrl = intendedImages[0] ?? null;
+      const intendedVideoUrl =
+        typeof editing.video_url === "string" && editing.video_url.trim() !== ""
+          ? editing.video_url.trim()
+          : null;
       const payload = {
         ...editing,
         protocol: normalizedProtocol,
         brand: normalizedBrand,
         description_ar: normalizedDescriptionAr,
         specifications: intendedSpecifications,
+        image_url: intendedImageUrl,
+        images: intendedImages,
+        video_url: intendedVideoUrl,
       };
 
       const { data, error } = await supabase.functions.invoke("admin-write", {
@@ -523,14 +565,16 @@ export function ProductEditor({ adminToken }: Props) {
 
       const savedRow = data?.data;
       // Fallback: if the deployed admin-write edge function altered or stripped
-      // protocol, description_ar, brand, or specifications (e.g. legacy enricher),
-      // persist the exact intended fields via backup-manager's service-role merge upsert.
+      // any intended fields, persist them via backup-manager's service-role merge upsert.
       const needsDirectPersist =
         Boolean(savedRow?.id) &&
         (
           (savedRow.protocol ?? null) !== normalizedProtocol ||
           (savedRow.description_ar ?? null) !== normalizedDescriptionAr ||
           (savedRow.brand ?? null) !== normalizedBrand ||
+          (savedRow.image_url ?? null) !== intendedImageUrl ||
+          (savedRow.video_url ?? null) !== intendedVideoUrl ||
+          JSON.stringify(savedRow.images ?? []) !== JSON.stringify(intendedImages) ||
           JSON.stringify(savedRow.specifications ?? null) !== JSON.stringify(intendedSpecifications)
         );
       if (needsDirectPersist) {
@@ -549,6 +593,9 @@ export function ProductEditor({ adminToken }: Props) {
                     protocol: normalizedProtocol,
                     description_ar: normalizedDescriptionAr,
                     brand: normalizedBrand,
+                    image_url: intendedImageUrl,
+                    images: intendedImages,
+                    video_url: intendedVideoUrl,
                     specifications: intendedSpecifications,
                     updated_at: new Date().toISOString(),
                   },
@@ -561,6 +608,22 @@ export function ProductEditor({ adminToken }: Props) {
         if (bmErr || !bmData?.success || bmTableErrors.length > 0) {
           throw new Error(bmTableErrors[0] || bmData?.error || bmErr?.message || "Failed to persist product fields");
         }
+      }
+
+      // Clear any stale local image override for this product so saved primary photo renders live
+      if (savedRow?.id) {
+        try {
+          const rawOverrides = localStorage.getItem("azka_admin_replaced_images");
+          if (rawOverrides) {
+            const parsed = JSON.parse(rawOverrides);
+            if (parsed && parsed[savedRow.id]) {
+              delete parsed[savedRow.id];
+              localStorage.setItem("azka_admin_replaced_images", JSON.stringify(parsed));
+            }
+          }
+        } catch {}
+        queryClient.invalidateQueries({ queryKey: ["product"] });
+        queryClient.invalidateQueries({ queryKey: ["products"] });
       }
 
       if (savedRow?.id && (depsDirty || editingDeps.length > 0)) {
@@ -884,8 +947,7 @@ export function ProductEditor({ adminToken }: Props) {
                         <button
                           type="button"
                           onClick={() => {
-                            setEditing({ ...p });
-                            setOpen(true);
+                            openEdit(p);
                             setTimeout(() => {
                               const cairoTab = document.querySelector('[value="cairo"]') as HTMLButtonElement;
                               cairoTab?.click();
@@ -963,27 +1025,82 @@ export function ProductEditor({ adminToken }: Props) {
 
             <TabsContent value="details">
               <div className="grid gap-4 md:grid-cols-2">
-            <div className="md:col-span-2 space-y-2">
-              <Label>Image</Label>
-              <div className="flex items-center gap-3">
-                <div className="w-24 h-24 rounded-lg bg-muted flex items-center justify-center overflow-hidden border border-border">
-                  {editing.image_url ? (
-                    <img src={editing.image_url} alt="" loading="lazy" decoding="async" className="w-full h-full object-contain p-1"
-                      onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
-                  ) : (
-                    <ImageIcon className="h-8 w-8 text-muted-foreground" />
-                  )}
-                </div>
-                <div className="flex-1 space-y-2">
-                  <Input value={editing.image_url ?? ""} onChange={(e) => setEditing({ ...editing, image_url: e.target.value })} placeholder="https://… or upload" />
-                  <input ref={fileInputRef} type="file" accept="image/*" className="hidden"
-                    onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageUpload(f); }} />
-                  <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
-                    {uploading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
-                    Upload
-                  </Button>
+            <div className="md:col-span-2 space-y-3">
+              <div className="space-y-2">
+                <Label>Image (Main)</Label>
+                <div className="flex items-center gap-3">
+                  <div className="w-24 h-24 rounded-lg bg-muted flex items-center justify-center overflow-hidden border border-border shrink-0">
+                    {editing.image_url ? (
+                      <img key={editing.image_url} src={editing.image_url} alt="" loading="lazy" decoding="async" className="w-full h-full object-contain p-1"
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                    ) : (
+                      <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-2 min-w-0">
+                    <Input
+                      value={editing.image_url ?? ""}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const hasVal = val.trim().length > 0;
+                        setPrimaryClearedInInput(!hasVal);
+                        setEditing((prev) => ({
+                          ...prev,
+                          image_url: val,
+                          images: hasVal
+                            ? replacePrimaryImageInGallery(prev.images ?? [], val)
+                            : prev.images,
+                        }));
+                      }}
+                      onBlur={() => {
+                        setPrimaryClearedInInput(false);
+                        setEditing((prev) => {
+                          if ((prev.image_url ?? "").trim()) return prev;
+                          const nextList = prev.images ?? [];
+                          if (nextList.length <= 1) {
+                            return { ...prev, image_url: "", images: [] };
+                          }
+                          const promoted = nextList.slice(1);
+                          return {
+                            ...prev,
+                            image_url: promoted[0] ?? "",
+                            images: promoted,
+                          };
+                        });
+                      }}
+                      placeholder="https://… or upload"
+                    />
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/gif,image/webp,image/avif,image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        e.target.value = "";
+                        if (f) handleImageUpload(f);
+                      }}
+                    />
+                    <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+                      {uploading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
+                      Upload
+                    </Button>
+                  </div>
                 </div>
               </div>
+
+              <ProductGalleryEditor
+                images={editing.images ?? []}
+                adminToken={adminToken}
+                onChange={(nextGallery) => {
+                  setPrimaryClearedInInput(false);
+                  setEditing((prev) => ({
+                    ...prev,
+                    images: nextGallery,
+                    image_url: nextGallery[0] ?? "",
+                  }));
+                }}
+              />
             </div>
 
             <div className="space-y-2 md:col-span-2">
@@ -1036,7 +1153,7 @@ export function ProductEditor({ adminToken }: Props) {
             </div>
 
             <div className="space-y-2">
-              <Label>Video (YouTube URL or upload from computer)</Label>
+              <Label>Video (YouTube, Vimeo URL or upload from computer)</Label>
               <div className="flex items-center gap-2">
                 <Input
                   value={editing.video_url ?? ""}

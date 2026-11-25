@@ -1,10 +1,10 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Helmet } from 'react-helmet-async';
 import { 
   ArrowLeft, ArrowRight, ShoppingCart, Loader2, Check, Shield, Truck, 
-  Award, CreditCard, Maximize2, X, ChevronLeft, ChevronRight, Minus, Plus 
+  Award, CreditCard, Maximize2, X, ChevronLeft, ChevronRight, Minus, Plus, Play 
 } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/lib/i18n';
 import { parseProtocols } from '@/lib/protocolIcon';
 import { getProductImage, productPlaceholder } from '@/lib/productImage';
+import { getVideoEmbedInfo, type VideoEmbedInfo } from '@/lib/productGallery';
 import { normalizeBrand } from '@/lib/brands';
 import { sanitizeProductDescription, stripDescriptionHtml } from '@/lib/sanitizeDescription';
 import { CompleteYourSetup } from '@/components/products/CompleteYourSetup';
@@ -266,14 +267,9 @@ function getProductWarrantyBadgeLabel(product: Product, isRTL: boolean): string 
   return isRTL ? 'ضمان سنة واحدة' : '1-Year Warranty';
 }
 
-function getYouTubeEmbedUrl(url: string): string | null {
-  const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([a-zA-Z0-9_-]{11})/);
-  return match ? `https://www.youtube.com/embed/${match[1]}` : null;
-}
-
-function isDirectVideo(url: string): boolean {
-  return /\.(mp4|webm|ogg|mov)(\?|$)/i.test(url);
-}
+type GalleryItem =
+  | { kind: 'image'; id: string; url: string }
+  | { kind: 'video'; id: string; url: string; video: VideoEmbedInfo };
 
 const ProductDetail = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -337,15 +333,19 @@ const ProductDetail = () => {
   });
 
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [activeMediaIndex, setActiveMediaIndex] = useState(0);
+  const [brokenImages, setBrokenImages] = useState<Set<string>>(() => new Set());
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [quantity, setQuantity] = useState(1);
+  const viewerSwipeStart = useRef<{ x: number; y: number } | null>(null);
+  const lightboxSwipeStart = useRef<{ x: number; y: number } | null>(null);
 
   // Sync selected variant with master when slug changes
   useEffect(() => {
     if (master?.id) {
       setSelectedVariantId(master.id);
-      setSelectedImage(null);
+      setActiveMediaIndex(0);
+      setBrokenImages(new Set());
       setQuantity(1);
     }
   }, [master?.id]);
@@ -362,36 +362,92 @@ const ProductDetail = () => {
     return master;
   }, [master, familyVariants, selectedVariantId, hasVariants]);
 
-  // When variant changes, update selected image if it has its own image
+  // Reset active slide and broken-image tracker when variant changes
   useEffect(() => {
     if (activeProduct) {
-      const primary = getProductImage(activeProduct);
-      setSelectedImage(primary);
+      setActiveMediaIndex(0);
+      setBrokenImages(new Set());
       setQuantity(1);
     }
   }, [activeProduct?.id]);
 
-  // Aggregate all unique product images (master, variants, multi-angle shots)
+  // Aggregate all unique product images (primary image_url first, then images[], plus variants)
   const allImages = useMemo(() => {
     if (!activeProduct) return [];
     const set = new Set<string>();
-    if (activeProduct.image_url) set.add(activeProduct.image_url);
+    const preferredPrimary =
+      activeProduct.image_url?.trim() || getProductImage(activeProduct);
+    if (preferredPrimary && preferredPrimary !== productPlaceholder) {
+      set.add(preferredPrimary);
+    }
     if (Array.isArray(activeProduct.images)) {
       activeProduct.images.forEach((img) => {
-        if (img && typeof img === 'string') set.add(img);
+        if (img && typeof img === 'string' && img.trim()) set.add(img.trim());
       });
     }
-    familyVariants.forEach((v) => {
-      if (v.image_url) set.add(v.image_url);
-      if (Array.isArray(v.images)) {
-        v.images.forEach((img) => {
-          if (img && typeof img === 'string') set.add(img);
-        });
-      }
-    });
+    if (hasVariants) {
+      familyVariants.forEach((v) => {
+        if (v.image_url && v.image_url.trim()) set.add(v.image_url.trim());
+        if (Array.isArray(v.images)) {
+          v.images.forEach((img) => {
+            if (img && typeof img === 'string' && img.trim()) set.add(img.trim());
+          });
+        }
+      });
+    }
     const list = Array.from(set).filter(Boolean);
     return list.length > 0 ? list : [productPlaceholder];
-  }, [activeProduct, familyVariants]);
+  }, [activeProduct, familyVariants, hasVariants]);
+
+  const validImages = useMemo(() => {
+    const filtered = allImages.filter((url) => !brokenImages.has(url));
+    return filtered.length > 0 ? filtered : [productPlaceholder];
+  }, [allImages, brokenImages]);
+
+  const videoInfo = useMemo(
+    () => getVideoEmbedInfo(activeProduct?.video_url),
+    [activeProduct?.video_url]
+  );
+
+  const galleryItems = useMemo<GalleryItem[]>(() => {
+    const list: GalleryItem[] = validImages.map((url, idx) => ({
+      kind: 'image',
+      id: `img-${idx}-${url}`,
+      url,
+    }));
+    if (videoInfo) {
+      list.push({
+        kind: 'video',
+        id: `vid-${videoInfo.url}`,
+        url: videoInfo.url,
+        video: videoInfo,
+      });
+    }
+    return list;
+  }, [validImages, videoInfo]);
+
+  const safeMediaIndex = Math.min(activeMediaIndex, Math.max(0, galleryItems.length - 1));
+  const activeItem = galleryItems[safeMediaIndex] ?? {
+    kind: 'image' as const,
+    id: 'fallback',
+    url: productPlaceholder,
+  };
+  const activeImageUrl = activeItem.kind === 'image' ? activeItem.url : validImages[0] || productPlaceholder;
+
+  const markImageBroken = (url: string) => {
+    if (!url || url === productPlaceholder) return;
+    setBrokenImages((prev) => {
+      if (prev.has(url)) return prev;
+      const next = new Set(prev);
+      next.add(url);
+      return next;
+    });
+  };
+
+  const stepMedia = (delta: number) => {
+    if (galleryItems.length <= 1) return;
+    setActiveMediaIndex((prev) => (prev + delta + galleryItems.length) % galleryItems.length);
+  };
 
   const protocolTokens = useMemo(
     () => parseProtocols(activeProduct?.protocol),
@@ -512,85 +568,172 @@ const ProductDetail = () => {
           </Link>
 
           <div className="grid gap-5 lg:gap-8 lg:grid-cols-2">
-            {/* Image & Video */}
-            <div className="space-y-3 sm:space-y-4">
-              {/* Main Product Image Container - Displays whole picture with object-contain */}
-              <div className="relative aspect-[4/3] sm:aspect-square max-h-[250px] sm:max-h-none overflow-hidden rounded-2xl border border-border bg-card/60 flex items-center justify-center p-3 sm:p-8 group shadow-sm">
-                <img
-                  src={selectedImage || getProductImage(product)}
-                  alt={product.name}
-                  loading="eager"
-                  onError={(e) => { (e.currentTarget as HTMLImageElement).src = productPlaceholder; }}
-                  className="h-full w-full object-contain max-h-[220px] sm:max-h-[460px] transition-transform duration-300 group-hover:scale-[1.03] cursor-zoom-in drop-shadow-sm"
-                  onClick={() => setLightboxOpen(true)}
-                />
+            {/* Image & Video Gallery */}
+            <div className="space-y-3 sm:space-y-4 min-w-0">
+              {/* Main Product Media Viewer */}
+              <div
+                data-testid="product-main-viewer"
+                className={cn(
+                  "relative aspect-[4/3] sm:aspect-square max-h-[260px] sm:max-h-none overflow-hidden rounded-2xl border border-border bg-card/60 flex items-center justify-center group shadow-sm touch-pan-y",
+                  activeItem.kind === 'video' ? "p-0 bg-black" : "p-3 sm:p-8"
+                )}
+                onTouchStart={(e) => {
+                  const target = e.target as HTMLElement | null;
+                  if (target?.closest('video')) return;
+                  const t = e.touches[0];
+                  if (t) viewerSwipeStart.current = { x: t.clientX, y: t.clientY };
+                }}
+                onTouchEnd={(e) => {
+                  const start = viewerSwipeStart.current;
+                  viewerSwipeStart.current = null;
+                  if (!start || galleryItems.length <= 1) return;
+                  const t = e.changedTouches[0];
+                  if (!t) return;
+                  const dx = t.clientX - start.x;
+                  const dy = t.clientY - start.y;
+                  if (Math.abs(dx) >= 45 && Math.abs(dx) > Math.abs(dy) * 1.2) {
+                    const step = isRTL ? (dx > 0 ? 1 : -1) : (dx < 0 ? 1 : -1);
+                    stepMedia(step);
+                  }
+                }}
+              >
+                {activeItem.kind === 'video' ? (
+                  activeItem.video.kind === 'direct' ? (
+                    <video
+                      key={activeItem.url}
+                      src={activeItem.video.url}
+                      className="w-full h-full object-contain bg-black"
+                      controls
+                      playsInline
+                    />
+                  ) : (
+                    <iframe
+                      key={activeItem.url}
+                      src={activeItem.video.embedUrl ?? activeItem.url}
+                      title={`${product.name} video`}
+                      className="w-full h-full border-0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  )
+                ) : (
+                  <>
+                    <img
+                      key={activeItem.url}
+                      src={activeItem.url}
+                      alt={product.name}
+                      loading="eager"
+                      onError={() => markImageBroken(activeItem.url)}
+                      className="h-full w-full object-contain max-h-[220px] sm:max-h-[460px] transition-transform duration-300 group-hover:scale-[1.03] cursor-zoom-in drop-shadow-sm"
+                      onClick={() => setLightboxOpen(true)}
+                    />
 
-                {/* Click to view whole picture full-size button */}
-                <button
-                  type="button"
-                  onClick={() => setLightboxOpen(true)}
-                  className="absolute bottom-3 end-3 p-2.5 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 lg:p-2 flex items-center justify-center rounded-xl bg-background/80 hover:bg-background text-foreground/80 hover:text-foreground backdrop-blur-md border border-border/60 shadow-sm transition-all opacity-90 lg:opacity-0 group-hover:opacity-100"
-                  title={isRTL ? "عرض الصورة كاملة مكبرة" : "View whole picture full size"}
-                  aria-label={isRTL ? "عرض الصورة كاملة مكبرة" : "View whole picture full size"}
-                >
-                  <Maximize2 className="h-4 w-4" />
-                </button>
+                    {/* Click to view whole picture full-size button */}
+                    <button
+                      type="button"
+                      onClick={() => setLightboxOpen(true)}
+                      className="absolute bottom-3 end-3 p-2.5 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 lg:p-2 flex items-center justify-center rounded-xl bg-background/80 hover:bg-background text-foreground/80 hover:text-foreground backdrop-blur-md border border-border/60 shadow-sm transition-all opacity-90 lg:opacity-0 group-hover:opacity-100"
+                      title={isRTL ? "عرض الصورة كاملة مكبرة" : "View whole picture full size"}
+                      aria-label={isRTL ? "عرض الصورة كاملة مكبرة" : "View whole picture full size"}
+                    >
+                      <Maximize2 className="h-4 w-4" />
+                    </button>
 
-                <div className={cn("absolute top-3 sm:top-4 flex flex-col gap-2 pointer-events-none", isRTL ? "right-3 sm:right-4" : "left-3 sm:left-4")}>
-                  {product.stock <= 0 && (
-                    <span className="rounded-full bg-destructive px-3 py-1 text-xs sm:text-sm font-semibold text-destructive-foreground shadow-sm">
-                      {t('outOfStock')}
-                    </span>
-                  )}
-                  {discount > 0 && (
-                    <span className="rounded-full bg-destructive px-3 py-1 text-xs sm:text-sm font-medium text-destructive-foreground shadow-sm">
-                      {t('save')} {discount}%
-                    </span>
-                  )}
-                  {product.featured && (
-                    <span className="rounded-full bg-primary px-3 py-1 text-xs sm:text-sm font-medium text-primary-foreground shadow-sm">
-                      {t('featured')}
-                    </span>
-                  )}
-                </div>
+                    <div className={cn("absolute top-3 sm:top-4 flex flex-col gap-2 pointer-events-none", isRTL ? "right-3 sm:right-4" : "left-3 sm:left-4")}>
+                      {product.stock <= 0 && (
+                        <span className="rounded-full bg-destructive px-3 py-1 text-xs sm:text-sm font-semibold text-destructive-foreground shadow-sm">
+                          {t('outOfStock')}
+                        </span>
+                      )}
+                      {discount > 0 && (
+                        <span className="rounded-full bg-destructive px-3 py-1 text-xs sm:text-sm font-medium text-destructive-foreground shadow-sm">
+                          {t('save')} {discount}%
+                        </span>
+                      )}
+                      {product.featured && (
+                        <span className="rounded-full bg-primary px-3 py-1 text-xs sm:text-sm font-medium text-primary-foreground shadow-sm">
+                          {t('featured')}
+                        </span>
+                      )}
+                    </div>
 
-                {/* Protocol badges overlay */}
-                {protocolTokens.length > 0 && (
-                  <div
-                    className={cn(
-                      "absolute bottom-4 flex flex-wrap items-center gap-1.5 pointer-events-none",
-                      isRTL ? "right-4 left-14 flex-row-reverse" : "left-4 right-14"
-                    )}
-                  >
-                    {protocolTokens.map(({ name, icon: Icon, bg, fg, description }) => (
-                      <span
-                        key={name}
-                        title={description}
-                        aria-label={description}
+                    {/* Protocol badges overlay */}
+                    {protocolTokens.length > 0 && (
+                      <div
                         className={cn(
-                          'inline-flex h-8 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium shadow-md backdrop-blur-sm',
-                          bg,
-                          fg
+                          "absolute bottom-4 flex flex-wrap items-center gap-1.5 pointer-events-none",
+                          isRTL ? "right-4 left-14 flex-row-reverse" : "left-4 right-14"
                         )}
                       >
-                        <Icon className="h-4 w-4" strokeWidth={2.25} />
-                        <span className="leading-none">{name}</span>
-                      </span>
-                    ))}
-                  </div>
+                        {protocolTokens.map(({ name, icon: Icon, bg, fg, description }) => (
+                          <span
+                            key={name}
+                            title={description}
+                            aria-label={description}
+                            className={cn(
+                              'inline-flex h-8 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium shadow-md backdrop-blur-sm',
+                              bg,
+                              fg
+                            )}
+                          >
+                            <Icon className="h-4 w-4" strokeWidth={2.25} />
+                            <span className="leading-none">{name}</span>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
 
-              {/* Multi-angle & Gallery Thumbnails */}
-              {allImages.length > 1 && (
-                <div className="flex items-center gap-2 overflow-x-auto pb-2 pt-1">
-                  {allImages.map((img, idx) => {
-                    const isSelected = img === (selectedImage || getProductImage(product));
+              {/* Multi-angle Images & Video Gallery Thumbnails */}
+              {galleryItems.length > 1 && (
+                <div
+                  data-testid="product-gallery-thumbnails"
+                  className="flex items-center gap-2 overflow-x-auto pb-2 pt-1 max-w-full"
+                >
+                  {galleryItems.map((item, idx) => {
+                    const isSelected = idx === safeMediaIndex;
+                    if (item.kind === 'video') {
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          data-testid="gallery-video-thumb"
+                          onClick={() => setActiveMediaIndex(idx)}
+                          className={cn(
+                            "relative h-16 w-16 sm:h-20 sm:w-20 shrink-0 rounded-xl border-2 overflow-hidden bg-slate-900 transition-all flex items-center justify-center",
+                            isSelected
+                              ? "border-primary ring-2 ring-primary/20 shadow-md scale-105"
+                              : "border-border/60 hover:border-border opacity-80 hover:opacity-100"
+                          )}
+                          title={isRTL ? 'فيديو المنتج' : 'Product Video'}
+                          aria-label={isRTL ? 'فيديو المنتج' : 'Product Video'}
+                        >
+                          {item.video.posterUrl ? (
+                            <img
+                              src={item.video.posterUrl}
+                              alt={`${product.name} video`}
+                              loading="lazy"
+                              decoding="async"
+                              className="h-full w-full object-cover opacity-80"
+                            />
+                          ) : null}
+                          <span className="absolute inset-0 flex items-center justify-center bg-black/35">
+                            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-black/75 text-white ring-1 ring-white/40 shadow">
+                              <Play className="h-4 w-4 fill-white translate-x-[1px]" />
+                            </span>
+                          </span>
+                        </button>
+                      );
+                    }
+
                     return (
                       <button
-                        key={img + idx}
+                        key={item.id}
                         type="button"
-                        onClick={() => setSelectedImage(img)}
+                        data-testid="gallery-image-thumb"
+                        onClick={() => setActiveMediaIndex(idx)}
                         className={cn(
                           "relative h-16 w-16 sm:h-20 sm:w-20 shrink-0 rounded-xl border-2 overflow-hidden bg-card/60 p-1.5 transition-all flex items-center justify-center",
                           isSelected
@@ -600,51 +743,22 @@ const ProductDetail = () => {
                         title={isRTL ? `صورة ${idx + 1}` : `Image ${idx + 1}`}
                       >
                         <img
-                          src={img}
+                          src={item.url}
                           alt={`${product.name} - ${idx + 1}`}
                           loading="lazy"
                           decoding="async"
                           className="h-full w-full object-contain"
-                          onError={(e) => { (e.currentTarget as HTMLImageElement).src = productPlaceholder; }}
+                          onError={() => markImageBroken(item.url)}
                         />
                       </button>
                     );
                   })}
                 </div>
               )}
-
-              {/* Installation Video */}
-              {product.video_url && (
-                <div className="rounded-2xl border border-border bg-card overflow-hidden">
-                  <div className="p-3 border-b border-border">
-                    <h3 className="text-sm font-semibold flex items-center gap-2">
-                      🎬 {isRTL ? 'فيديو التركيب' : 'Installation Video'}
-                    </h3>
-                  </div>
-                  <div className="aspect-video">
-                    {isDirectVideo(product.video_url) ? (
-                      <video
-                        src={product.video_url}
-                        className="w-full h-full"
-                        controls
-                        playsInline
-                      />
-                    ) : (
-                      <iframe
-                        src={getYouTubeEmbedUrl(product.video_url) ?? product.video_url}
-                        title="Installation video"
-                        className="w-full h-full"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                      />
-                    )}
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Details */}
-            <div className="flex flex-col">
+            <div className="flex flex-col min-w-0">
               <div className="mb-2 sm:mb-3 flex flex-wrap items-center gap-2">
                 {displayBrand && <span className="text-sm text-foreground/80 font-medium">{displayBrand}</span>}
                 {displayBrand && protocolTokens.length > 0 && <span className="text-muted-foreground">•</span>}
@@ -925,44 +1039,62 @@ const ProductDetail = () => {
                 <X className="h-6 w-6" />
               </button>
 
-              {/* Big Uncropped Picture */}
-              <div className="w-full max-h-[78vh] flex items-center justify-center overflow-hidden rounded-2xl bg-black/40 p-2">
+              {/* Big Uncropped Picture (swipeable on mobile) */}
+              <div
+                className="w-full max-h-[78vh] flex items-center justify-center overflow-hidden rounded-2xl bg-black/40 p-2 touch-pan-y"
+                onTouchStart={(e) => {
+                  const t = e.touches[0];
+                  if (t) lightboxSwipeStart.current = { x: t.clientX, y: t.clientY };
+                }}
+                onTouchEnd={(e) => {
+                  const start = lightboxSwipeStart.current;
+                  lightboxSwipeStart.current = null;
+                  if (!start || validImages.length <= 1) return;
+                  const t = e.changedTouches[0];
+                  if (!t) return;
+                  const dx = t.clientX - start.x;
+                  const dy = t.clientY - start.y;
+                  if (Math.abs(dx) >= 45 && Math.abs(dx) > Math.abs(dy) * 1.2) {
+                    const step = isRTL ? (dx > 0 ? 1 : -1) : (dx < 0 ? 1 : -1);
+                    const curIdx = Math.max(0, validImages.indexOf(activeImageUrl));
+                    setActiveMediaIndex((curIdx + step + validImages.length) % validImages.length);
+                  }
+                }}
+              >
                 <img
-                  src={selectedImage || getProductImage(product)}
+                  src={activeImageUrl}
                   alt={product.name}
                   className="max-h-[75vh] max-w-full object-contain drop-shadow-2xl select-none"
                 />
               </div>
 
               {/* Prev / Next controls if multiple images */}
-              {allImages.length > 1 && (
+              {validImages.length > 1 && (
                 <div className="flex items-center gap-3 mt-4">
                   <Button
                     variant="secondary"
                     size="sm"
                     className="h-9 px-3 rounded-full"
                     onClick={() => {
-                      const cur = selectedImage || getProductImage(product);
-                      const curIdx = allImages.indexOf(cur);
-                      const prevIdx = (curIdx - 1 + allImages.length) % allImages.length;
-                      setSelectedImage(allImages[prevIdx]);
+                      const curIdx = Math.max(0, validImages.indexOf(activeImageUrl));
+                      const prevIdx = (curIdx - 1 + validImages.length) % validImages.length;
+                      setActiveMediaIndex(prevIdx);
                     }}
                   >
                     <ChevronLeft className="h-4 w-4" />
                     <span className="text-xs">{isRTL ? 'السابق' : 'Previous'}</span>
                   </Button>
                   <span className="text-xs text-white/70 font-medium">
-                    {allImages.indexOf(selectedImage || getProductImage(product)) + 1} / {allImages.length}
+                    {Math.max(0, validImages.indexOf(activeImageUrl)) + 1} / {validImages.length}
                   </span>
                   <Button
                     variant="secondary"
                     size="sm"
                     className="h-9 px-3 rounded-full"
                     onClick={() => {
-                      const cur = selectedImage || getProductImage(product);
-                      const curIdx = allImages.indexOf(cur);
-                      const nextIdx = (curIdx + 1) % allImages.length;
-                      setSelectedImage(allImages[nextIdx]);
+                      const curIdx = Math.max(0, validImages.indexOf(activeImageUrl));
+                      const nextIdx = (curIdx + 1) % validImages.length;
+                      setActiveMediaIndex(nextIdx);
                     }}
                   >
                     <span className="text-xs">{isRTL ? 'التالي' : 'Next'}</span>
