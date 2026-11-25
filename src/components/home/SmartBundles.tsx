@@ -5,7 +5,7 @@ import { ArrowRight, Check, Wifi, Wrench } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
-import { defaultBundles, getBundleProductIds, normalizeBundles, syncBundlesWithCatalog } from '@/lib/bundles';
+import { defaultBundles, getBundleProductRefs, normalizeBundles, syncBundlesWithCatalog } from '@/lib/bundles';
 import { supabase } from '@/integrations/supabase/client';
 import { Product } from '@/types/store';
 
@@ -15,12 +15,20 @@ export function SmartBundles() {
 
   useEffect(() => {
     (async () => {
-      const { data: bundleRow } = await supabase
-        .from('site_info')
-        .select('value')
-        .eq('section', 'bundles')
-        .eq('key', 'list')
-        .maybeSingle();
+      const [{ data: bundleRow }, { data: hiddenRow }] = await Promise.all([
+        supabase
+          .from('site_info')
+          .select('value')
+          .eq('section', 'bundles')
+          .eq('key', 'list')
+          .maybeSingle(),
+        supabase
+          .from('site_info')
+          .select('value')
+          .eq('section', 'products')
+          .eq('key', 'hidden_ids')
+          .maybeSingle(),
+      ]);
 
       let baseBundles = normalizeBundles(defaultBundles);
       if (bundleRow?.value) {
@@ -32,16 +40,36 @@ export function SmartBundles() {
         }
       }
 
-      const bundleIds = getBundleProductIds(baseBundles);
-      const { data: prodData } = bundleIds.length
-        ? await supabase
-            .from('products')
-            .select('id, name, slug, price, original_price, image_url, brand, stock, featured, description, protocol')
-            .in('id', bundleIds)
-        : { data: [] as any[] };
+      let hiddenSet = new Set<string>();
+      if (hiddenRow?.value) {
+        try {
+          const parsedHidden = JSON.parse(hiddenRow.value);
+          if (Array.isArray(parsedHidden)) {
+            hiddenSet = new Set(parsedHidden.map((id) => String(id)));
+          }
+        } catch {
+          // Ignore malformed hidden_ids value.
+        }
+      }
 
-      const prodList = (prodData ?? []) as unknown as Product[];
-      setDisplayBundles(syncBundlesWithCatalog(baseBundles, prodList).slice(0, 4));
+      const refs = getBundleProductRefs(baseBundles);
+      const cols = 'id, name, slug, price, original_price, image_url, brand, stock, featured, description, protocol';
+      const [{ data: byIdData }, { data: bySlugData }] = await Promise.all([
+        refs.ids.length
+          ? supabase.from('products').select(cols).in('id', refs.ids)
+          : Promise.resolve({ data: [] as any[] }),
+        refs.slugs.length
+          ? supabase.from('products').select(cols).in('slug', refs.slugs)
+          : Promise.resolve({ data: [] as any[] }),
+      ]);
+
+      const byId = new Map<string, Product>();
+      [...(byIdData ?? []), ...(bySlugData ?? [])].forEach((p: any) => {
+        if (p?.id && !byId.has(p.id)) byId.set(p.id, p as Product);
+      });
+
+      const prodList = Array.from(byId.values());
+      setDisplayBundles(syncBundlesWithCatalog(baseBundles, prodList, hiddenSet).slice(0, 4));
     })();
   }, []);
 

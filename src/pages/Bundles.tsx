@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Check, Wifi, ShoppingCart, Sparkles, Settings2, Loader2, Wrench } from 'lucide-react';
+import { Check, Wifi, ShoppingCart, Sparkles, Settings2, Loader2, Wrench, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -12,7 +12,14 @@ import { useLanguage } from '@/lib/i18n';
 import { useCart } from '@/hooks/useCart';
 import { useToast } from '@/hooks/use-toast';
 import type { Product } from '@/types/store';
-import { defaultBundles, getBundleProductIds, matchProductsForBundle, normalizeBundles, syncBundlesWithCatalog } from '@/lib/bundles';
+import {
+  defaultBundles,
+  getBundleCompositionBreakdown,
+  getBundleProductRefs,
+  normalizeBundles,
+  syncBundlesWithCatalog,
+  type ResolvedBundleEntry,
+} from '@/lib/bundles';
 import { supabase } from '@/integrations/supabase/client';
 
 const Bundles = () => {
@@ -24,23 +31,29 @@ const Bundles = () => {
   const [customizeOpen, setCustomizeOpen] = useState(false);
   const [activeBundle, setActiveBundle] = useState<any>(null);
   const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [hiddenIdSet, setHiddenIdSet] = useState<Set<string>>(new Set());
   const [productsLoading, setProductsLoading] = useState(false);
   const [selectedProducts, setSelectedProducts] = useState<Record<string, number>>({});
+  const [unavailableItems, setUnavailableItems] = useState<ResolvedBundleEntry[]>([]);
   const [search, setSearch] = useState('');
 
-  const loadCatalogProductsForBundles = async (targetBundles = bundles): Promise<Product[]> => {
-    const bundleIds = getBundleProductIds(targetBundles);
-    const bundleIdSet = new Set(bundleIds);
+  const loadCatalogProductsForBundles = async (
+    targetBundles = bundles,
+  ): Promise<{ products: Product[]; hiddenSet: Set<string> }> => {
+    const refs = getBundleProductRefs(targetBundles);
 
-    const [{ data: hiddenRow }, { data: bundleProdData }, { data: inStockData }] = await Promise.all([
+    const [{ data: hiddenRow }, { data: byIdData }, { data: bySlugData }, { data: inStockData }] = await Promise.all([
       supabase
         .from('site_info')
         .select('value')
         .eq('section', 'products')
         .eq('key', 'hidden_ids')
         .maybeSingle(),
-      bundleIds.length
-        ? supabase.from('products').select('*').in('id', bundleIds)
+      refs.ids.length
+        ? supabase.from('products').select('*').in('id', refs.ids)
+        : Promise.resolve({ data: [] as any[] }),
+      refs.slugs.length
+        ? supabase.from('products').select('*').in('slug', refs.slugs)
         : Promise.resolve({ data: [] as any[] }),
       supabase
         .from('products')
@@ -63,34 +76,42 @@ const Bundles = () => {
     }
 
     const byId = new Map<string, Product>();
-    ((bundleProdData ?? []) as any as Product[]).forEach((p) => {
-      byId.set(p.id, p);
+    [...(byIdData ?? []), ...(bySlugData ?? [])].forEach((p: any) => {
+      if (p?.id && !byId.has(p.id)) {
+        byId.set(p.id, p as Product);
+      }
     });
     ((inStockData ?? []) as any as Product[]).forEach((p) => {
-      if (hiddenSet.has(p.id) && !bundleIdSet.has(p.id)) return;
+      if (hiddenSet.has(p.id)) return;
       if (!byId.has(p.id)) {
         byId.set(p.id, p);
       }
     });
 
-    return Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name));
+    setHiddenIdSet(hiddenSet);
+    const products = Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name));
+    return { products, hiddenSet };
   };
 
-  const ensureProductsLoaded = async () => {
-    if (allProducts.length) return allProducts;
+  const ensureProductsLoaded = async (): Promise<{ products: Product[]; hiddenSet: Set<string> }> => {
+    if (allProducts.length) return { products: allProducts, hiddenSet: hiddenIdSet };
     setProductsLoading(true);
-    const list = await loadCatalogProductsForBundles(bundles);
-    setAllProducts(list);
+    const res = await loadCatalogProductsForBundles(bundles);
+    setAllProducts(res.products);
     setProductsLoading(false);
-    return list;
+    return res;
   };
 
   const openCustomize = async (bundle: any) => {
     setActiveBundle(bundle);
     setSearch('');
+    setSelectedProducts({});
+    setUnavailableItems([]);
     setCustomizeOpen(true);
-    const products = await ensureProductsLoaded();
-    setSelectedProducts(matchProductsForBundle(bundle, products));
+    const { products, hiddenSet } = await ensureProductsLoaded();
+    const breakdown = getBundleCompositionBreakdown(bundle, products, hiddenSet);
+    setSelectedProducts(breakdown.availableSelection);
+    setUnavailableItems(breakdown.unavailableEntries);
   };
 
   const addCustomizedToCart = () => {
@@ -99,10 +120,13 @@ const Bundles = () => {
     Object.entries(selectedProducts).forEach(([id, qty]) => {
       if (qty <= 0) return;
       const p = allProducts.find((x) => x.id === id);
-      if (p) { addItem(p as any, qty); added += qty; }
+      if (p && !hiddenIdSet.has(p.id) && (p.stock ?? 0) > 0) {
+        addItem(p as any, qty);
+        added += qty;
+      }
     });
     if (added === 0) {
-      toast({ title: isRTL ? 'لم يتم اختيار أي منتج' : 'No products selected', variant: 'destructive' });
+      toast({ title: isRTL ? 'لم يتم اختيار أي منتج متاح' : 'No available products selected', variant: 'destructive' });
       return;
     }
     if (activeBundle?.id) {
@@ -117,13 +141,13 @@ const Bundles = () => {
   };
 
   const handleOrderBundle = async (bundle: ReturnType<typeof normalizeBundles>[number]) => {
-    const products = await ensureProductsLoaded();
-    const matched = matchProductsForBundle(bundle, products);
-    const ids = Object.keys(matched);
+    const { products, hiddenSet } = await ensureProductsLoaded();
+    const breakdown = getBundleCompositionBreakdown(bundle, products, hiddenSet);
+    const ids = Object.keys(breakdown.availableSelection);
     if (!ids.length) {
       toast({
         title: isRTL ? 'تعذّر إضافة الباقة' : "Couldn't auto-add bundle",
-        description: isRTL ? 'افتح "تخصيص" لاختيار المنتجات يدوياً' : 'Open "Customize" to pick products manually',
+        description: isRTL ? 'افتح "تخصيص" لاختيار المنتجات المتاحة' : 'Open "Customize" to review available products',
         variant: 'destructive',
       });
       openCustomize(bundle);
@@ -133,13 +157,22 @@ const Bundles = () => {
     let total = 0;
     ids.forEach((id) => {
       const p = products.find((x) => x.id === id);
-      const qty = matched[id];
-      if (p) { addItem(p as any, qty); total += qty; }
+      const qty = breakdown.availableSelection[id];
+      if (p && !hiddenSet.has(p.id) && (p.stock ?? 0) > 0) {
+        addItem(p as any, qty);
+        total += qty;
+      }
     });
     setCartBundle(bundle.id);
+    const unavailableNote =
+      breakdown.unavailableEntries.length > 0
+        ? isRTL
+          ? ` (تم استبعاد ${breakdown.unavailableEntries.length} مكون غير متوفر حالياً)`
+          : ` (${breakdown.unavailableEntries.length} unavailable item(s) omitted)`
+        : '';
     toast({
       title: isRTL ? 'تمت إضافة الباقة (شامل التركيب مجاناً)' : 'Bundle added to cart (Free Installation)',
-      description: isRTL ? `${total} جهاز من ${bundle.nameAr}` : `${total} devices from ${bundle.nameEn}`,
+      description: (isRTL ? `${total} جهاز من ${bundle.nameAr}` : `${total} devices from ${bundle.nameEn}`) + unavailableNote,
     });
     navigate('/cart');
   };
@@ -165,14 +198,20 @@ const Bundles = () => {
         }
       }
 
-      const prodList = await loadCatalogProductsForBundles(baseBundles);
+      const { products: prodList, hiddenSet } = await loadCatalogProductsForBundles(baseBundles);
       if (prodList.length) {
         setAllProducts(prodList);
       }
 
-      setBundles(syncBundlesWithCatalog(baseBundles, prodList));
+      setBundles(syncBundlesWithCatalog(baseBundles, prodList, hiddenSet));
     })();
   }, []);
+
+  const getUnavailableLabel = (reason?: ResolvedBundleEntry['reason']) => {
+    if (reason === 'hidden') return isRTL ? 'مخفي / غير متاح' : 'Unavailable (Hidden)';
+    if (reason === 'out_of_stock') return isRTL ? 'نفد من المخزون' : 'Unavailable (Out of stock)';
+    return isRTL ? 'غير موجود بالكتالوج' : 'Unavailable (Not found)';
+  };
 
   return (
     <>
@@ -338,23 +377,71 @@ const Bundles = () => {
             </DialogTitle>
           </DialogHeader>
           <Input
-            placeholder={isRTL ? 'بحث عن منتج…' : 'Search products…'}
+            placeholder={isRTL ? 'بحث عن منتج بالاسم أو الرابط…' : 'Search products by name or slug…'}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="mb-3"
           />
           <div className="flex-1 overflow-y-auto space-y-2 pr-1">
             {productsLoading && <div className="flex justify-center py-8"><Loader2 className="animate-spin" /></div>}
+            {!productsLoading && unavailableItems.length > 0 && (
+              <div
+                data-testid="unavailable-bundle-items"
+                className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 space-y-2 mb-3"
+              >
+                <div className="flex items-center gap-2 text-xs font-semibold text-amber-700 dark:text-amber-300">
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                  <span>
+                    {isRTL
+                      ? 'مكونات من الباقة غير متوفرة حالياً (لم يتم تحديدها للطلب تلقائياً):'
+                      : 'Unavailable bundle component(s) (not pre-selected for checkout):'}
+                  </span>
+                </div>
+                <div className="space-y-1.5">
+                  {unavailableItems.map((entry, idx) => (
+                    <div
+                      key={`${entry.product?.id || entry.item.slug || entry.item.nameMatch}-${idx}`}
+                      className="flex items-center gap-2.5 rounded-lg border border-amber-500/25 bg-background/70 p-2 opacity-80"
+                    >
+                      <img
+                        src={entry.product?.image_url || '/placeholder.svg'}
+                        alt={entry.product?.name || entry.item.nameMatch}
+                        className="w-9 h-9 rounded-md object-contain p-0.5 bg-muted/30 border border-border/40 shrink-0 grayscale"
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/placeholder.svg'; }}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-foreground truncate">
+                          {entry.qty}× {entry.product?.name || entry.item.nameMatch}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {entry.product ? formatPrice(entry.product.price) : '—'}
+                        </p>
+                      </div>
+                      <span className="shrink-0 rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-semibold text-amber-800 dark:text-amber-200">
+                        {getUnavailableLabel(entry.reason)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             {!productsLoading && (() => {
               const bundleIdSet = new Set<string>(
                 (activeBundle?.items || []).map((it: any) => it.productId).filter(Boolean),
               );
-              const q = search.toLowerCase();
+              const q = search.trim().toLowerCase();
               return [...allProducts]
-                .filter((p) => !q || p.name.toLowerCase().includes(q) || (p.brand || '').toLowerCase().includes(q))
+                .filter((p) => !hiddenIdSet.has(p.id) && (p.stock ?? 0) > 0)
+                .filter(
+                  (p) =>
+                    !q ||
+                    p.name.toLowerCase().includes(q) ||
+                    (p.slug || '').toLowerCase().includes(q) ||
+                    (p.brand || '').toLowerCase().includes(q),
+                )
                 .sort((a, b) => {
-                  const aInBundle = bundleIdSet.has(a.id) || (selectedProducts[a.id] || 0) > 0 ? 0 : 1;
-                  const bInBundle = bundleIdSet.has(b.id) || (selectedProducts[b.id] || 0) > 0 ? 0 : 1;
+                  const aInBundle = (selectedProducts[a.id] || 0) > 0 || bundleIdSet.has(a.id) ? 0 : 1;
+                  const bInBundle = (selectedProducts[b.id] || 0) > 0 || bundleIdSet.has(b.id) ? 0 : 1;
                   if (aInBundle !== bInBundle) return aInBundle - bInBundle;
                   return a.name.localeCompare(b.name);
                 })
@@ -384,17 +471,26 @@ const Bundles = () => {
                 });
             })()}
           </div>
-          <DialogFooter className="flex items-center justify-between sm:justify-between gap-2">
-            <div className="text-xs font-semibold text-foreground">
-              {isRTL ? 'إجمالي المختار: ' : 'Selected Total: '}
-              <span className="text-primary text-sm">
-                {formatPrice(
-                  Object.entries(selectedProducts).reduce((sum, [id, q]) => {
-                    const p = allProducts.find((x) => x.id === id);
-                    return sum + (p ? Number(p.price) * q : 0);
-                  }, 0)
-                )}
-              </span>
+          <DialogFooter className="flex flex-wrap items-center justify-between sm:justify-between gap-2">
+            <div className="space-y-0.5">
+              <div className="text-xs font-semibold text-foreground">
+                {isRTL ? 'إجمالي المختار: ' : 'Selected Total: '}
+                <span className="text-primary text-sm">
+                  {formatPrice(
+                    Object.entries(selectedProducts).reduce((sum, [id, q]) => {
+                      const p = allProducts.find((x) => x.id === id);
+                      return sum + (p && !hiddenIdSet.has(p.id) && (p.stock ?? 0) > 0 ? Number(p.price) * q : 0);
+                    }, 0)
+                  )}
+                </span>
+              </div>
+              {!productsLoading && unavailableItems.length > 0 && activeBundle?.priceEgp > 0 && (
+                <div className="text-[11px] text-muted-foreground">
+                  {isRTL
+                    ? `إجمالي مكونات الباقة الكامل: ${formatPrice(activeBundle.priceEgp)} (يستثني ${unavailableItems.length} مكون غير متوفر)`
+                    : `Full bundle composition: ${formatPrice(activeBundle.priceEgp)} (excludes ${unavailableItems.length} unavailable)`}
+                </div>
+              )}
             </div>
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => setCustomizeOpen(false)}>
