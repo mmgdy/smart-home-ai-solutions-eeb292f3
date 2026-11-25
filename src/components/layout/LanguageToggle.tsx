@@ -15,7 +15,7 @@ export function LanguageToggle() {
       size="sm"
       onClick={toggleLanguage}
       aria-label={language === 'en' ? 'التبديل إلى العربية' : 'Switch to English'}
-      className="gap-1 sm:gap-1.5 min-h-[44px] min-w-[44px] px-2 lg:min-h-0 lg:min-w-0 lg:px-3"
+      className="gap-1 sm:gap-1.5 min-h-[44px] min-w-[44px] px-2 xl:min-h-0 xl:min-w-0 xl:px-2 2xl:px-2.5"
     >
       <Globe className="h-4 w-4 shrink-0" />
       <span className="text-xs font-semibold sm:hidden">

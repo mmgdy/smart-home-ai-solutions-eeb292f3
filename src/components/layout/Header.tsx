@@ -193,24 +193,24 @@ export function Header() {
         ? "bg-background/95 backdrop-blur-xl border-b border-border/60 shadow-sm"
         : "bg-background/80 backdrop-blur-md border-b border-border/30"
     )}>
-      <div className="container flex h-16 md:h-20 items-center justify-between gap-1 px-2.5 sm:px-6 md:px-12">
+      <div className="mx-auto w-full max-w-[1440px] flex h-16 md:h-20 items-center justify-between gap-2 px-3 sm:px-5 xl:px-6 2xl:px-8">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2 shrink-0 min-h-[44px]">
           <img
             src={currentLogo}
             alt="AzkaSmart"
-            style={{ height: `${Math.min(logoSize, 56)}px` }}
-            className="object-contain transition-all duration-300 max-h-9 sm:max-h-12 lg:max-h-14 max-w-[118px] sm:max-w-[160px] lg:max-w-none w-auto"
+            style={{ height: `${Math.min(logoSize, 44)}px` }}
+            className="object-contain transition-all duration-300 max-h-9 sm:max-h-10 xl:max-h-10 2xl:max-h-11 max-w-[118px] sm:max-w-[155px] xl:max-w-[165px] 2xl:max-w-[190px] w-auto"
           />
         </Link>
 
         {/* Desktop Navigation */}
-        <nav className="hidden items-center gap-1 lg:flex">
+        <nav className="hidden items-center gap-0.5 2xl:gap-1 xl:flex min-w-0">
           {navLinks.map((link) => (
             <Link
               key={link.href}
               to={link.href}
-              className="px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-foreground/5 rounded-lg transition-all duration-200 whitespace-nowrap"
+              className="px-2 2xl:px-2.5 py-2 text-[13px] 2xl:text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-foreground/5 rounded-lg transition-all duration-200 whitespace-nowrap"
             >
               {link.label}
             </Link>
@@ -218,19 +218,22 @@ export function Header() {
         </nav>
 
         {/* Right side actions */}
-        <div className="flex items-center gap-0.5 sm:gap-2 shrink-0">
-          <div className="hidden lg:flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-1.5 2xl:gap-2 shrink-0">
+          <div className="hidden xl:flex items-center gap-1.5">
             <AuthButton variant="ghost" size="sm" />
           </div>
 
           <AISearchDialog />
 
-          <div className="hidden lg:flex items-center gap-2">
-            <InstallAppButton />
+          <div className="hidden xl:flex items-center">
+            <InstallAppButton
+              className="h-9 px-2.5 min-[1420px]:px-3 gap-1.5"
+              labelClassName="hidden min-[1420px]:inline"
+            />
           </div>
 
-          {/* Theme on desktop (lg+) only; Language visible on all sizes */}
-          <div className="hidden lg:inline-flex items-center">
+          {/* Theme on desktop (xl+) only; Language visible on all sizes */}
+          <div className="hidden xl:inline-flex items-center">
             <ThemeSlider />
           </div>
           <div className="inline-flex items-center">
@@ -242,14 +245,14 @@ export function Header() {
             <Button
               variant="ghost"
               size="icon"
-              className="h-11 w-11 lg:h-9 lg:w-9 rounded-full hover:bg-foreground/5 text-foreground"
+              className="h-11 w-11 xl:h-9 xl:w-9 rounded-full hover:bg-foreground/5 text-foreground"
               aria-label={isRTL ? "سلة المشتريات" : "Shopping Cart"}
             >
               <ShoppingCart className="h-4 w-4" />
               {itemCount > 0 && (
                 <span className={cn(
-                  "absolute top-0.5 lg:-top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground shadow-sm animate-in zoom-in-50",
-                  isRTL ? "left-0.5 lg:-left-1" : "right-0.5 lg:-right-1"
+                  "absolute top-0.5 xl:-top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground shadow-sm animate-in zoom-in-50",
+                  isRTL ? "left-0.5 xl:-left-1" : "right-0.5 xl:-right-1"
                 )}>
                   {itemCount}
                 </span>
@@ -264,7 +267,7 @@ export function Header() {
                 variant="outline"
                 size="icon"
                 onClick={() => setMobileMenuOpen(true)}
-                className="h-11 w-11 rounded-xl lg:hidden bg-secondary/80 hover:bg-secondary border-border/80 text-foreground shrink-0 shadow-sm flex items-center justify-center transition-all"
+                className="h-11 w-11 rounded-xl xl:hidden bg-secondary/80 hover:bg-secondary border-border/80 text-foreground shrink-0 shadow-sm flex items-center justify-center transition-all"
                 aria-label={isRTL ? "القائمة الرئيسية" : "Main menu"}
               >
                 <Menu className="h-5 w-5" />
@@ -444,7 +447,7 @@ export function Header() {
                     <AuthButton variant="outline" size="sm" className="w-full justify-center text-xs min-h-[44px]" />
                   </div>
                   <div className="flex-1">
-                    <InstallAppButton />
+                    <InstallAppButton className="w-full min-h-[44px] gap-2" labelClassName="inline" />
                   </div>
                 </div>
               </div>

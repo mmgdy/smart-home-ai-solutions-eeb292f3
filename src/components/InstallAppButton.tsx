@@ -8,7 +8,13 @@ type BIPEvent = Event & {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 };
 
-export function InstallAppButton({ className }: { className?: string }) {
+export function InstallAppButton({
+  className,
+  labelClassName = 'hidden md:inline',
+}: {
+  className?: string;
+  labelClassName?: string;
+}) {
   const { language } = useLanguage();
   const [deferred, setDeferred] = useState<BIPEvent | null>(null);
   const [installed, setInstalled] = useState(false);
@@ -49,6 +55,8 @@ export function InstallAppButton({ className }: { className?: string }) {
     setShowIosHelp(true);
   };
 
+  const installLabel = language === 'ar' ? 'تثبيت التطبيق' : 'Install App';
+
   return (
     <>
       <Button
@@ -56,11 +64,13 @@ export function InstallAppButton({ className }: { className?: string }) {
         variant="default"
         size="sm"
         onClick={handleClick}
+        title={installLabel}
+        aria-label={installLabel}
         className={className}
       >
-        <Download className="h-4 w-4" />
-        <span className="hidden md:inline">
-          {language === 'ar' ? 'تثبيت التطبيق' : 'Install App'}
+        <Download className="h-4 w-4 shrink-0" />
+        <span className={labelClassName}>
+          {installLabel}
         </span>
       </Button>
 
