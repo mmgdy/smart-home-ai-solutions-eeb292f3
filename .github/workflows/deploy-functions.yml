@@ -68,7 +68,9 @@ jobs:
             echo "==> Deploying $name"
             if ! supabase functions deploy "$name" \
               --project-ref "$PROJECT_REF" \
-              --no-verify-jwt; then
+              --no-verify-jwt \
+              --use-api \
+              --yes; then
               echo "::warning::$name failed to deploy — continuing with the rest."
               FAILED="$FAILED $name"
             fi
