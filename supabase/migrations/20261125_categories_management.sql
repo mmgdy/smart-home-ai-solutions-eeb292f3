@@ -26,8 +26,7 @@ INSERT INTO public.categories (name, slug, sort_order, is_active) VALUES
   ('Accessories', 'accessories', 17, true)
 ON CONFLICT (slug) DO UPDATE SET
   name = EXCLUDED.name,
-  sort_order = EXCLUDED.sort_order,
-  is_active = true;
+  sort_order = EXCLUDED.sort_order;
 
 UPDATE public.categories c
 SET is_active = false, sort_order = 999
