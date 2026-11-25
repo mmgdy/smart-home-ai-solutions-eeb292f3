@@ -6,6 +6,12 @@ import { Layout } from "@/components/layout/Layout";
 import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/lib/i18n";
 import { normalizeBrand, brandToSlug } from "@/lib/brands";
+import {
+  BRAND_LOGOS_BUCKET,
+  buildBrandLogoIndex,
+  resolveBrandLogoUrl,
+  type BrandLogoObject,
+} from "@/lib/brandLogos";
 import { ProductCard } from "@/components/products/ProductCard";
 import type { Product } from "@/types/store";
 import { Loader2, ArrowLeft } from "lucide-react";
@@ -22,11 +28,12 @@ export default function BrandsPage() {
   const [brands, setBrands] = useState<Brand[]>([]);
   const [allVisibleProducts, setAllVisibleProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [failedLogos, setFailedLogos] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const [{ data: b }, { data: hiddenData }, { data: prods }] = await Promise.all([
+      const [{ data: b }, { data: hiddenData }, { data: prods }, logoListRes] = await Promise.all([
         supabase
           .from("brands")
           .select("id, name, slug, logo_url, description")
@@ -43,7 +50,15 @@ export default function BrandsPage() {
           .select("*")
           .is("parent_id", null)
           .order("featured", { ascending: false }),
+        supabase.storage
+          .from(BRAND_LOGOS_BUCKET)
+          .list("", { limit: 1000, sortBy: { column: "name", order: "asc" } })
+          .catch(() => ({ data: null, error: null })),
       ]);
+
+      const logoIndex = buildBrandLogoIndex(
+        ((logoListRes as { data?: BrandLogoObject[] | null })?.data ?? []) as BrandLogoObject[]
+      );
 
       let hiddenIds = new Set<string>();
       if (hiddenData?.value) {
@@ -92,16 +107,20 @@ export default function BrandsPage() {
         }
       }
 
-      const mergedList = Array.from(brandMap.values()).sort((a, b) =>
-        a.name.localeCompare(b.name)
-      );
+      const mergedList = Array.from(brandMap.values())
+        .map((brand) => ({
+          ...brand,
+          logo_url: resolveBrandLogoUrl(logoIndex, brand.name, brand.slug) || brand.logo_url,
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+      setFailedLogos({});
       setBrands(mergedList);
       setLoading(false);
     })();
   }, []);
 
   const activeBrand = useMemo(
-    () => brands.find((b) => b.slug === activeSlug),
+    () => brands.find((b) => b.slug === activeSlug?.toLowerCase()),
     [brands, activeSlug]
   );
 
@@ -147,12 +166,15 @@ export default function BrandsPage() {
                     whileHover={{ y: -4 }}
                     className="group aspect-square rounded-2xl bg-card border border-border hover:border-primary/50 hover:shadow-[0_10px_40px_-20px_hsl(var(--primary)/0.4)] flex flex-col items-center justify-center p-4 transition-all"
                   >
-                    {b.logo_url ? (
-                      <img src={b.logo_url} alt={b.name}
+                    {b.logo_url && !failedLogos[b.slug] ? (
+                      <img
+                        src={b.logo_url}
+                        alt={b.name}
                         loading="lazy"
                         decoding="async"
-                        className="max-h-20 max-w-full object-contain grayscale group-hover:grayscale-0 transition-all"
-                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                        className="max-h-14 max-w-[80%] w-auto h-auto object-contain bg-transparent"
+                        onError={() => setFailedLogos((prev) => ({ ...prev, [b.slug]: true }))}
+                      />
                     ) : (
                       <span className="font-display text-lg md:text-xl font-bold text-muted-foreground group-hover:text-foreground transition-colors">
                         {b.name}
@@ -170,8 +192,15 @@ export default function BrandsPage() {
               <ArrowLeft className="h-4 w-4 mr-2" />{isRTL ? "كل الماركات" : "All brands"}
             </Button>
             <div className="text-center mb-10">
-              {activeBrand?.logo_url && (
-                <img src={activeBrand.logo_url} alt={activeBrand.name} loading="lazy" decoding="async" className="h-20 mx-auto mb-4 object-contain" />
+              {activeBrand?.logo_url && !failedLogos[activeBrand.slug] && (
+                <img
+                  src={activeBrand.logo_url}
+                  alt={activeBrand.name}
+                  loading="lazy"
+                  decoding="async"
+                  className="max-h-14 max-w-[240px] w-auto h-auto mx-auto mb-4 object-contain bg-transparent"
+                  onError={() => setFailedLogos((prev) => ({ ...prev, [activeBrand.slug]: true }))}
+                />
               )}
               <h1 className="font-display text-4xl font-bold mb-2">{activeBrand?.name}</h1>
               {activeBrand?.description && (

@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
-import { FileImage, FileVideo, FileText, Trash2, Upload, ExternalLink, Search, Filter, Loader2 } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { FileImage, FileVideo, FileText, Trash2, Upload, ExternalLink, Search, Loader2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { BRAND_LOGOS_BUCKET } from '@/lib/brandLogos';
 
 const BUCKETS = [
   { id: 'product-images', label: 'Product Images', icon: FileImage, color: 'text-purple-600' },
@@ -36,10 +36,28 @@ function formatSize(bytes: number): string {
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 }
 
-function getPublicUrl(bucket: string, path: string): string {
+function getPublicUrl(bucket: string, path: string, versionToken?: string | null): string {
   const cleaned = path.replace(/^\/+/, '');
   if (cleaned.startsWith('http')) return cleaned;
-  return `https://djsibxhkfvwtjzvnjmhp.supabase.co/storage/v1/object/public/${bucket}/${encodeURIComponent(cleaned)}`;
+  const { data } = supabase.storage.from(bucket).getPublicUrl(cleaned);
+  const baseUrl = data.publicUrl;
+  if (!versionToken) return baseUrl;
+  const sep = baseUrl.includes('?') ? '&' : '?';
+  return `${baseUrl}${sep}v=${encodeURIComponent(versionToken)}`;
+}
+
+const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result || '');
+      resolve(result.split(',')[1] || '');
+    };
+    reader.onerror = () => reject(reader.error || new Error('Failed to read file'));
+    reader.readAsDataURL(file);
+  });
 }
 
 interface FileItem {
@@ -54,9 +72,12 @@ interface FileItem {
 
 export default function MediaManager({ adminToken }: { adminToken: string }) {
   const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [bucketIdx, setBucketIdx] = useState(0);
   const [files, setFiles] = useState<FileItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState('');
   const [deleting, setDeleting] = useState<string[]>([]);
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('all');
@@ -64,32 +85,159 @@ export default function MediaManager({ adminToken }: { adminToken: string }) {
   const [bucketCount, setBucketCount] = useState(BUCKETS.length);
 
   const bucket = BUCKETS[bucketIdx];
+  const isBrandLogos = bucket.id === BRAND_LOGOS_BUCKET;
 
-  // Use Supabase client storage API instead of raw fetch with adminToken
-  const fetchFiles = async () => {
+  const fetchFiles = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.storage.from(bucket.id).list();
-      if (error) throw new Error(error.message);
-      const items: FileItem[] = data.map((f: any) => {
-        const name = f.name.replace(/^\/+/, '');
-        const mime = (f.metadata?.mimetype || 'application/octet-stream');
-        return {
-          name,
-          id: f.id || name,
-          size: f.metadata?.size ?? 0,
-          createdAt: f.metadata?.created_at ?? f.created_at ?? new Date().toISOString(),
-          publicUrl: getPublicUrl(bucket.id, name),
-          mime,
-          type: classifyFile(name, { mimetype: mime }),
-        };
-      });
-      const fileItems = items.filter((f) => !f.name.endsWith('/') && f.size > 0);
-      setFiles(fileItems);
+      let rawFiles: any[] = [];
+      if (adminToken) {
+        const { data: res, error: fnErr } = await supabase.functions.invoke('admin-write', {
+          headers: { Authorization: 'Bearer ' + adminToken },
+          body: { action: 'list-files', bucket: bucket.id, limit: 1000, token: adminToken },
+        });
+        if (!fnErr && res?.success && Array.isArray(res.files)) {
+          rawFiles = res.files;
+        } else {
+          const { data, error } = await supabase.storage
+            .from(bucket.id)
+            .list('', { limit: 1000, sortBy: { column: 'name', order: 'asc' } });
+          if (error) throw new Error(error.message);
+          rawFiles = data ?? [];
+        }
+      } else {
+        const { data, error } = await supabase.storage
+          .from(bucket.id)
+          .list('', { limit: 1000, sortBy: { column: 'name', order: 'asc' } });
+        if (error) throw new Error(error.message);
+        rawFiles = data ?? [];
+      }
+
+      const items: FileItem[] = rawFiles
+        .filter((f: any) => f && f.id !== null && typeof f.name === 'string' && !f.name.endsWith('/') && f.name !== '.emptyFolderPlaceholder')
+        .map((f: any) => {
+          const name = f.name.replace(/^\/+/, '');
+          const mime = f.metadata?.mimetype || 'application/octet-stream';
+          const versionToken = f.updated_at || f.metadata?.eTag || f.created_at || null;
+          return {
+            name,
+            id: f.id || name,
+            size: f.metadata?.size ?? 0,
+            createdAt: f.updated_at ?? f.metadata?.created_at ?? f.created_at ?? new Date().toISOString(),
+            publicUrl: getPublicUrl(bucket.id, name, versionToken),
+            mime,
+            type: classifyFile(name, { mimetype: mime }),
+          };
+        });
+      setFiles(items);
     } catch (err: any) {
       toast({ title: 'Failed to load files', description: err.message, variant: 'destructive' });
+      setFiles([]);
     } finally {
       setLoading(false);
+    }
+  }, [bucket.id, adminToken, toast]);
+
+  useEffect(() => {
+    fetchFiles();
+  }, [fetchFiles]);
+
+  const handleFilesSelected = async (fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0) return;
+    if (!adminToken) {
+      toast({ title: 'Admin session required', description: 'Please log in as admin to upload files.', variant: 'destructive' });
+      return;
+    }
+
+    const selected = Array.from(fileList);
+    setUploading(true);
+    let uploadedCount = 0;
+    let replacedCount = 0;
+    let failedCount = 0;
+    const existingNames = new Set(files.map((f) => f.name.toLowerCase()));
+
+    try {
+      for (let i = 0; i < selected.length; i++) {
+        const file = selected[i];
+        const cleanName = file.name.split(/[/\\]/).pop()?.trim() || '';
+        if (!cleanName || cleanName.includes('..')) {
+          failedCount++;
+          continue;
+        }
+        if (isBrandLogos) {
+          const isPng = cleanName.toLowerCase().endsWith('.png') || file.type === 'image/png';
+          if (!isPng) {
+            failedCount++;
+            toast({
+              variant: 'destructive',
+              title: `${cleanName}: PNG required`,
+              description: 'Brand logos must be transparent PNG files (e.g. aqara.png, tp-link.png).',
+            });
+            continue;
+          }
+        }
+        if (file.size > MAX_UPLOAD_BYTES) {
+          failedCount++;
+          toast({
+            variant: 'destructive',
+            title: `${cleanName} is too large`,
+            description: 'Maximum file size is 8 MB.',
+          });
+          continue;
+        }
+
+        setUploadStatus(`Uploading ${i + 1}/${selected.length}: ${cleanName}...`);
+        const base64 = await fileToBase64(file);
+        const mimeType = isBrandLogos ? 'image/png' : (file.type || 'application/octet-stream');
+
+        const { data, error } = await supabase.functions.invoke('admin-write', {
+          headers: { Authorization: 'Bearer ' + adminToken },
+          body: {
+            action: 'upload-file',
+            bucket: bucket.id,
+            filename: cleanName,
+            base64,
+            mimeType,
+            upsert: true,
+            cacheControl: isBrandLogos ? '60' : '3600',
+            token: adminToken,
+          },
+        });
+
+        if (error || !data?.success) {
+          failedCount++;
+          console.error('Media upload failed:', error || data?.error);
+        } else {
+          if (existingNames.has(cleanName.toLowerCase())) {
+            replacedCount++;
+          } else {
+            uploadedCount++;
+          }
+        }
+      }
+
+      if (uploadedCount > 0 || replacedCount > 0) {
+        const parts: string[] = [];
+        if (uploadedCount > 0) parts.push(`${uploadedCount} uploaded`);
+        if (replacedCount > 0) parts.push(`${replacedCount} replaced`);
+        toast({
+          title: parts.join(', '),
+          description: failedCount > 0 ? `${failedCount} file(s) failed.` : undefined,
+        });
+        await fetchFiles();
+      } else if (failedCount > 0) {
+        toast({
+          variant: 'destructive',
+          title: 'Upload failed',
+          description: `${failedCount} file(s) could not be uploaded.`,
+        });
+      }
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Upload error', description: err.message });
+    } finally {
+      setUploading(false);
+      setUploadStatus('');
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
@@ -117,14 +265,24 @@ export default function MediaManager({ adminToken }: { adminToken: string }) {
   };
 
   const handleDelete = async (fileId: string) => {
-    if (!confirm(`Delete "${files.find(f => f.id === fileId)?.name}"? This cannot be undone.`)) return;
+    const file = files.find(f => f.id === fileId);
+    if (!file) return;
+    if (!confirm(`Delete "${file.name}"? This cannot be undone.`)) return;
     if (deleting.includes(fileId)) return;
     setDeleting(prev => [...prev, fileId]);
     try {
-      const file = files.find(f => f.id === fileId);
-      if (!file) return;
-      const { error } = await supabase.storage.from(bucket.id).remove([file.name]);
-      if (error) throw new Error(error.message);
+      const { data, error } = await supabase.functions.invoke('admin-write', {
+        headers: { Authorization: 'Bearer ' + adminToken },
+        body: {
+          action: 'delete-file',
+          bucket: bucket.id,
+          paths: [file.name],
+          token: adminToken,
+        },
+      });
+      if (error || !data?.success) {
+        throw new Error(data?.error || error?.message || 'Delete failed');
+      }
       setFiles(prev => prev.filter(f => f.id !== fileId));
       toast({ title: 'File deleted', description: file.name });
     } catch (err: any) {
@@ -155,31 +313,71 @@ export default function MediaManager({ adminToken }: { adminToken: string }) {
 
   return (
     <div className="space-y-6">
-      {/* Bucket selector */}
-      <div className="flex flex-wrap gap-2 items-center">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={refreshBuckets}
-          disabled={updatingBuckets}
-          className="gap-1.5"
-        >
-          {updatingBuckets && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-          <Upload className="w-3.5 h-3.5" /> Sync Buckets
-        </Button>
-        {BUCKETS.slice(0, bucketCount).map((b, i) => (
+      {/* Bucket selector + Upload */}
+      <div className="flex flex-wrap gap-2 items-center justify-between">
+        <div className="flex flex-wrap gap-2 items-center">
           <Button
-            key={b.id}
-            variant={bucketIdx === i ? 'default' : 'outline'}
+            variant="outline"
             size="sm"
-            onClick={() => { setBucketIdx(i); setLoading(true); setFiles([]); setSearch(''); setCategory('all'); }}
+            onClick={refreshBuckets}
+            disabled={updatingBuckets}
             className="gap-1.5"
           >
-            <b.icon className={`w-3.5 h-3.5 ${bucketIdx === i ? 'text-primary-foreground' : b.color}`} />
-            {b.label}
+            {updatingBuckets ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+            Sync Buckets
           </Button>
-        ))}
+          {BUCKETS.slice(0, bucketCount).map((b, i) => (
+            <Button
+              key={b.id}
+              variant={bucketIdx === i ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => { setBucketIdx(i); setFiles([]); setSearch(''); setCategory('all'); }}
+              className="gap-1.5"
+            >
+              <b.icon className={`w-3.5 h-3.5 ${bucketIdx === i ? 'text-primary-foreground' : b.color}`} />
+              {b.label}
+            </Button>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept={isBrandLogos ? 'image/png,.png' : 'image/*,video/*,.pdf'}
+            className="hidden"
+            onChange={(e) => handleFilesSelected(e.target.files)}
+          />
+          <Button
+            type="button"
+            size="sm"
+            disabled={uploading}
+            onClick={() => fileInputRef.current?.click()}
+            className="gap-1.5"
+          >
+            {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+            {uploading
+              ? (uploadStatus || 'Uploading...')
+              : isBrandLogos
+                ? 'Upload PNG Logos'
+                : 'Upload Files'}
+          </Button>
+        </div>
       </div>
+
+      {isBrandLogos && (
+        <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 px-3.5 py-2.5 text-xs text-muted-foreground space-y-1">
+          <p className="font-medium text-foreground">Brand Logo Naming Rule (Transparent PNG for dark cards)</p>
+          <p>
+            Name each PNG file after the brand slug in lowercase with hyphens, e.g.{' '}
+            <code className="text-foreground">aqara.png</code>, <code className="text-foreground">tp-link.png</code>,{' '}
+            <code className="text-foreground">work-pro.png</code>, <code className="text-foreground">irona-jis.png</code>,{' '}
+            <code className="text-foreground">hikvision.png</code> (exact brand names ignoring case/spaces also match).
+            Uploading a file with the same name replaces the existing logo; deleting returns that brand to text fallback.
+          </p>
+        </div>
+      )}
 
       {/* Search + filter */}
       <div className="flex flex-col sm:flex-row gap-3">
@@ -222,12 +420,12 @@ export default function MediaManager({ adminToken }: { adminToken: string }) {
           {getFilteredFiles().map((file) => (
             <div key={file.id} className="group relative bg-muted/50 border border-border rounded-xl overflow-hidden hover:border-primary/50 transition-colors">
               {/* Thumbnail */}
-              <div className="aspect-square bg-muted flex items-center justify-center relative overflow-hidden">
+              <div className={`aspect-square flex items-center justify-center relative overflow-hidden ${isBrandLogos ? 'bg-[#0b1612] p-4' : 'bg-muted'}`}>
                 {file.type === 'image' ? (
                   <img
                     src={file.publicUrl}
                     alt={file.name}
-                    className="w-full h-full object-cover"
+                    className={isBrandLogos ? 'max-h-14 max-w-[85%] w-auto h-auto object-contain bg-transparent' : 'w-full h-full object-cover'}
                     loading="lazy"
                     onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                   />
@@ -241,11 +439,12 @@ export default function MediaManager({ adminToken }: { adminToken: string }) {
                 <Button
                   variant="destructive"
                   size="icon"
-                  className="absolute top-2 right-2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                  onClick={() => handleDelete(file.id)}
-                  disabled={deleting.includes(file.id)}
+                  aria-label={`Delete ${file.name}`}
+                  className="absolute top-2 right-2 h-7 w-7 opacity-90 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                  onClick={() => handleDelete(file.id || file.name)}
+                  disabled={deleting.includes(file.id || file.name)}
                 >
-                  {deleting.includes(file.id) ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                  {deleting.includes(file.id || file.name) ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                 </Button>
               </div>
               {/* Info */}

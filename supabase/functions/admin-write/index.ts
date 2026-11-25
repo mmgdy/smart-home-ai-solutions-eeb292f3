@@ -46,7 +46,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   const ip = getIp(req);
-  const rate = checkRate(ip, { windowMs: 60_000, maxRequests: 30 });
+  const rate = checkRate(ip, { windowMs: 60_000, maxRequests: 120 });
   if (!rate.ok) {
     return new Response(JSON.stringify({ success: false, error: "Rate limit exceeded" }), {
       status: 429,
@@ -260,17 +260,77 @@ Deno.serve(async (req) => {
     }
 
     if (action === "upload-file") {
-      const { bucket, filename, base64, mimeType } = body;
+      const { bucket, filename, base64, mimeType, upsert, cacheControl } = body as {
+        bucket?: string;
+        filename?: string;
+        base64?: string;
+        mimeType?: string;
+        upsert?: boolean;
+        cacheControl?: string;
+      };
       if (!bucket || !filename || !base64) return new Response(JSON.stringify({ success: false, error: "bucket, filename, base64 required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+      const cleanFilename = String(filename).replace(/^\/+/, "");
+      if (!cleanFilename || cleanFilename.includes("..")) {
+        return new Response(JSON.stringify({ success: false, error: "Invalid filename" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
       const decoded = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
-      const { data: upData, error: e1 } = await supabase.storage.from(bucket).upload(filename, decoded, {
-        contentType: mimeType || "application/octet-stream", cacheControl: "31536000", upsert: false,
+      const { data: upData, error: e1 } = await supabase.storage.from(bucket).upload(cleanFilename, decoded, {
+        contentType: mimeType || "application/octet-stream",
+        cacheControl: typeof cacheControl === "string" && cacheControl ? cacheControl : "31536000",
+        upsert: Boolean(upsert),
       });
       if (e1) throw e1;
-      const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filename);
-      return new Response(JSON.stringify({ success: true, publicUrl: urlData.publicUrl }), {
+      const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(cleanFilename);
+      return new Response(JSON.stringify({ success: true, publicUrl: urlData.publicUrl, path: upData?.path || cleanFilename }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "list-files") {
+      const { bucket, prefix, limit } = body as {
+        bucket?: string;
+        prefix?: string;
+        limit?: number;
+      };
+      if (!bucket || typeof bucket !== "string") {
+        return new Response(JSON.stringify({ success: false, error: "bucket required" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const cleanPrefix = typeof prefix === "string" ? prefix.replace(/^\/+/, "") : "";
+      const safeLimit = Math.min(Math.max(Number(limit) || 500, 1), 1000);
+      const { data, error: listErr } = await supabase.storage.from(bucket).list(cleanPrefix, {
+        limit: safeLimit,
+        sortBy: { column: "name", order: "asc" },
+      });
+      if (listErr) throw listErr;
+      return new Response(JSON.stringify({ success: true, files: data ?? [] }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "delete-file") {
+      const { bucket, paths, filename } = body as {
+        bucket?: string;
+        paths?: string[];
+        filename?: string;
+      };
+      const rawPaths = Array.isArray(paths) ? paths : filename ? [filename] : [];
+      const cleanPaths = rawPaths
+        .map((p) => String(p).replace(/^\/+/, ""))
+        .filter((p) => p && !p.includes(".."));
+      if (!bucket || typeof bucket !== "string" || cleanPaths.length === 0) {
+        return new Response(JSON.stringify({ success: false, error: "bucket and valid paths required" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const { error: delErr } = await supabase.storage.from(bucket).remove(cleanPaths);
+      if (delErr) throw delErr;
+      return new Response(JSON.stringify({ success: true, deleted: cleanPaths }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
