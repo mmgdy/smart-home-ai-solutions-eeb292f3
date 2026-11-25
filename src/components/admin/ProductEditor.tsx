@@ -43,6 +43,7 @@ interface Product {
   seo_description?: string | null;
   seo_keywords?: string[] | null;
   tags?: string[] | null;
+  specifications?: Record<string, any> | null;
 }
 
 interface Category { id: string; name: string; }
@@ -292,9 +293,12 @@ export function ProductEditor({ adminToken }: Props) {
 
   const bulkSetProtocol = (proto: string) => {
     if (selectedIds.size === 0) return;
+    const nextProto = proto.trim() ? proto.trim() : null;
     bulkInvoke(
-      { action: "bulk-update-products", ids: Array.from(selectedIds), updates: { protocol: proto } },
-      `Updated protocol to "${proto}" for ${selectedIds.size} products`
+      { action: "bulk-update-products", ids: Array.from(selectedIds), updates: { protocol: nextProto } },
+      nextProto
+        ? `Updated protocol to "${nextProto}" for ${selectedIds.size} products`
+        : `Cleared protocol for ${selectedIds.size} products`
     );
   };
 
@@ -313,7 +317,7 @@ export function ProductEditor({ adminToken }: Props) {
       for (const [detectedProto, ids] of Object.entries(groups)) {
         await supabase.functions.invoke("admin-write", {
           headers: { Authorization: "Bearer " + adminToken },
-          body: { action: "bulk-update-products", ids, updates: { protocol: detectedProto } },
+          body: { action: "bulk-update-products", ids, updates: { protocol: detectedProto || null } },
         });
       }
       toast({
@@ -448,9 +452,27 @@ export function ProductEditor({ adminToken }: Props) {
     try {
       const isNew = !editing.id;
       const action = isNew ? "create-product" : "update-product";
+      const normalizedProtocol =
+        typeof editing.protocol === "string" && editing.protocol.trim() !== ""
+          ? editing.protocol.trim()
+          : null;
       const normalizedDescriptionAr =
         typeof editing.description_ar === "string" ? editing.description_ar : null;
-      const payload = { ...editing, description_ar: normalizedDescriptionAr };
+      const normalizedBrand =
+        typeof editing.brand === "string" && editing.brand.trim() !== ""
+          ? editing.brand.trim()
+          : null;
+      const intendedSpecifications =
+        editing.specifications && typeof editing.specifications === "object"
+          ? editing.specifications
+          : null;
+      const payload = {
+        ...editing,
+        protocol: normalizedProtocol,
+        brand: normalizedBrand,
+        description_ar: normalizedDescriptionAr,
+        specifications: intendedSpecifications,
+      };
 
       const { data, error } = await supabase.functions.invoke("admin-write", {
         headers: { Authorization: "Bearer " + adminToken },
@@ -461,14 +483,18 @@ export function ProductEditor({ adminToken }: Props) {
       if (error || !data?.success) throw new Error(data?.error || error?.message || "Failed");
 
       const savedRow = data?.data;
-      // Fallback: if the deployed admin-write edge function stripped `description_ar`
-      // from its column allowlist, persist `description_ar` (and the full saved row)
-      // through backup-manager's service-role merge upsert so `description_ar` is
-      // guaranteed to be written to the `products` table.
-      if (
-        savedRow?.id &&
-        (savedRow.description_ar ?? null) !== (normalizedDescriptionAr ?? null)
-      ) {
+      // Fallback: if the deployed admin-write edge function altered or stripped
+      // protocol, description_ar, brand, or specifications (e.g. legacy enricher),
+      // persist the exact intended fields via backup-manager's service-role merge upsert.
+      const needsDirectPersist =
+        Boolean(savedRow?.id) &&
+        (
+          (savedRow.protocol ?? null) !== normalizedProtocol ||
+          (savedRow.description_ar ?? null) !== normalizedDescriptionAr ||
+          (savedRow.brand ?? null) !== normalizedBrand ||
+          JSON.stringify(savedRow.specifications ?? null) !== JSON.stringify(intendedSpecifications)
+        );
+      if (needsDirectPersist) {
         const { data: bmData, error: bmErr } = await supabase.functions.invoke("backup-manager", {
           headers: { Authorization: "Bearer " + adminToken },
           body: {
@@ -481,7 +507,10 @@ export function ProductEditor({ adminToken }: Props) {
                 products: [
                   {
                     ...savedRow,
+                    protocol: normalizedProtocol,
                     description_ar: normalizedDescriptionAr,
+                    brand: normalizedBrand,
+                    specifications: intendedSpecifications,
                     updated_at: new Date().toISOString(),
                   },
                 ],
@@ -489,8 +518,9 @@ export function ProductEditor({ adminToken }: Props) {
             },
           },
         });
-        if (bmErr || !bmData?.success) {
-          throw new Error(bmData?.error || bmErr?.message || "Failed to persist Arabic description");
+        const bmTableErrors: string[] = bmData?.report?.products?.errors ?? [];
+        if (bmErr || !bmData?.success || bmTableErrors.length > 0) {
+          throw new Error(bmTableErrors[0] || bmData?.error || bmErr?.message || "Failed to persist product fields");
         }
       }
 
@@ -728,7 +758,7 @@ export function ProductEditor({ adminToken }: Props) {
                       )}
 
                       {/* Active Protocol Badges */}
-                      {parseProtocols(p.protocol, p.name).map((token) => {
+                      {parseProtocols(p.protocol).map((token) => {
                         const Icon = token.icon;
                         return (
                           <span

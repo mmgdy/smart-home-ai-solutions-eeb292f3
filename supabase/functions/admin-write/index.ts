@@ -68,26 +68,33 @@ Deno.serve(async (req) => {
     // ─── Products CRUD ───────────────────────────────────────────────
 
     if (action === "create-product") {
-      const { product } = body;
+      const { product } = body as { product?: Record<string, any> };
       if (!product || !product.name) {
         return new Response(JSON.stringify({ success: false, error: "Product name required" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      const enriched = autoEnrichProductSpecifications(product);
-      const slug = enriched.slug || enriched.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+      const normalizedProtocol =
+        typeof product.protocol === "string" && product.protocol.trim() !== ""
+          ? product.protocol.trim()
+          : null;
+      const normalizedBrand =
+        typeof product.brand === "string" && product.brand.trim() !== ""
+          ? product.brand.trim()
+          : null;
+      const slug = product.slug || String(product.name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
       const { data, error } = await supabase
         .from("products")
         .insert({
-          name: enriched.name, slug,
-          description: enriched.description ?? null,
-          description_ar: enriched.description_ar ?? null,
-          price: enriched.price ?? 0, original_price: enriched.original_price ?? null,
-          brand: enriched.brand ?? null, protocol: enriched.protocol ?? null,
-          image_url: enriched.image_url ?? null, stock: enriched.stock ?? 10,
-          featured: enriched.featured ?? false, video_url: enriched.video_url ?? null,
-          category_id: enriched.category_id ?? null,
-          images: enriched.images ?? null, specifications: enriched.specifications ?? null,
+          name: product.name, slug,
+          description: product.description ?? null,
+          description_ar: product.description_ar ?? null,
+          price: product.price ?? 0, original_price: product.original_price ?? null,
+          brand: normalizedBrand, protocol: normalizedProtocol,
+          image_url: product.image_url ?? null, stock: product.stock ?? 10,
+          featured: product.featured ?? false, video_url: product.video_url ?? null,
+          category_id: product.category_id ?? null,
+          images: product.images ?? null, specifications: product.specifications ?? null,
         })
         .select().single();
       if (error) throw error;
@@ -97,16 +104,24 @@ Deno.serve(async (req) => {
     }
 
     if (action === "update-product") {
-      const { id, updates } = body;
+      const { id, updates } = body as { id?: string; updates?: Record<string, any> };
       if (!id || !updates) {
         return new Response(JSON.stringify({ success: false, error: "id and updates required" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      const enriched = autoEnrichProductSpecifications(updates);
+      const filtered = filterProductFields(updates);
+      if ("protocol" in filtered) {
+        const pVal = filtered.protocol;
+        filtered.protocol = typeof pVal === "string" && pVal.trim() !== "" ? pVal.trim() : null;
+      }
+      if ("brand" in filtered) {
+        const bVal = filtered.brand;
+        filtered.brand = typeof bVal === "string" && bVal.trim() !== "" ? bVal.trim() : null;
+      }
       const { data, error } = await supabase
         .from("products")
-        .update({ ...filterProductFields(enriched), updated_at: new Date().toISOString() })
+        .update({ ...filtered, updated_at: new Date().toISOString() })
         .eq("id", id)
         .select()
         .single();

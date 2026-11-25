@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Wifi, Radio, Cpu, Waves, Bluetooth, SatelliteDish, Sparkles, Check, X, AlertTriangle } from 'lucide-react';
+import { Wifi, Radio, Cpu, Waves, Bluetooth, SatelliteDish, Sparkles, Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,7 +14,7 @@ interface ProtocolSelectorProps {
 }
 
 export function detectProtocolFromName(name: string): string {
-  if (!name) return 'WiFi';
+  if (!name) return '';
   const lower = name.toLowerCase();
   
   const hasZigbee = /\bzigbee\b/i.test(lower);
@@ -33,9 +33,9 @@ export function detectProtocolFromName(name: string): string {
   if (hasBle) return 'Bluetooth';
   if (hasRf) return 'RF 433 MHz';
   if (hasZwave) return 'Z-Wave';
+  if (hasWifi) return 'WiFi';
   
-  // Default for smart devices in the store
-  return 'WiFi';
+  return '';
 }
 
 export function ProtocolSelector({ value, onChange, productName = '', className = '' }: ProtocolSelectorProps) {
@@ -78,14 +78,12 @@ export function ProtocolSelector({ value, onChange, productName = '', className 
     const detected = detectProtocolFromName(productName);
     onChange(detected);
     toast({
-      title: 'Protocol auto-detected',
-      description: `Set protocol to "${detected}" based on product name.`,
+      title: detected ? 'Protocol auto-detected' : 'No wireless protocol detected',
+      description: detected
+        ? `Set protocol to "${detected}" based on product name.`
+        : 'Left protocol empty because the product name contains no wireless protocol keyword.',
     });
   };
-
-  const hasWifiAndZigbee = activeTokens.has('WiFi') && activeTokens.has('Zigbee');
-  const titleHasZigbee = /\bzigbee\b/i.test(productName);
-  const showZigbeeWarning = hasWifiAndZigbee && !titleHasZigbee;
 
   return (
     <div className={`space-y-3 ${className}`}>
@@ -184,16 +182,6 @@ export function ProtocolSelector({ value, onChange, productName = '', className 
           </button>
         )}
       </div>
-
-      {/* Contextual Warning about WiFi / Zigbee rule */}
-      {showZigbeeWarning && (
-        <div className="flex items-start gap-2 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-200 text-xs">
-          <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-          <div>
-            <strong>Smart rule notice:</strong> This product is set to &ldquo;WiFi / Zigbee&rdquo;, but its title does not mention &ldquo;Zigbee&rdquo;. The storefront will only display the <strong>Wi-Fi</strong> badge to avoid misleading customers, per catalog rule.
-          </div>
-        </div>
-      )}
 
       {/* Exact Database Value Input */}
       <div className="pt-1">

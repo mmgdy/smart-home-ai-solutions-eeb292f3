@@ -172,35 +172,23 @@ export const COMMON_PROTOCOLS = [
 ];
 
 /**
- * Extracts protocol tokens from a free-text protocol string. Returns up to
- * `max` recognisable chips (duplicates omitted), preserving first-seen order.
- * 
- * Enforces business rule: If a product supports Wi-Fi, remove the Zigbee badge
- * unless 'zigbee' is explicitly written in the product title.
+ * Extracts protocol tokens from a stored protocol string. Returns up to
+ * `max` recognisable chips (duplicates omitted), preserving matcher order.
+ * Tokens are derived strictly from the stored protocol value (never filtered by title).
  */
 export function parseProtocols(
   protocol: string | null | undefined,
-  productName?: string,
-  max = 4
+  _productName?: string,
+  max = MATCHERS.length
 ): ProtocolToken[] {
-  if (!protocol) return [];
+  if (!protocol || !protocol.trim()) return [];
   const seen = new Set<string>();
-  let tokens: ProtocolToken[] = [];
+  const tokens: ProtocolToken[] = [];
   for (const { pattern, token } of MATCHERS) {
     if (pattern.test(protocol) && !seen.has(token.name)) {
       seen.add(token.name);
       tokens.push(token);
       if (tokens.length >= max) break;
-    }
-  }
-
-  // If both Wi-Fi and Zigbee are detected, only keep Zigbee if written in product title
-  const hasWifi = tokens.some((t) => t.name === 'Wi-Fi');
-  const hasZigbee = tokens.some((t) => t.name === 'Zigbee');
-  if (hasWifi && hasZigbee) {
-    const titleHasZigbee = productName ? /\bzigbee\b/i.test(productName) : false;
-    if (!titleHasZigbee) {
-      tokens = tokens.filter((t) => t.name !== 'Zigbee');
     }
   }
 
@@ -211,8 +199,8 @@ export function parseProtocols(
  * Returns a short label such as "Wi-Fi + Matter" derived from the parsed
  * tokens. Falls back to the raw input if nothing matched.
  */
-export function protocolLabel(protocol: string | null | undefined, productName?: string): string {
-  const tokens = parseProtocols(protocol, productName);
+export function protocolLabel(protocol: string | null | undefined, _productName?: string): string {
+  const tokens = parseProtocols(protocol);
   if (tokens.length) return tokens.map((t) => t.name).join(' + ');
   return protocol?.trim() ?? '';
 }

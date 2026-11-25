@@ -45,7 +45,7 @@ export function ProductCard({ product, className }: ProductCardProps) {
     ? Math.round(((product.original_price! - product.price) / product.original_price!) * 100)
     : 0;
 
-  const protocolTokens = parseProtocols(product.protocol, product.name);
+  const protocolTokens = parseProtocols(product.protocol);
 
   return (
     <Link to={`/products/${product.slug}`}>
@@ -125,11 +125,11 @@ export function ProductCard({ product, className }: ProductCardProps) {
             {normalizeBrand(product.brand) && (
               <span className="text-xs text-muted-foreground">{normalizeBrand(product.brand)}</span>
             )}
-            {normalizeBrand(product.brand) && product.protocol && (
+            {normalizeBrand(product.brand) && product.protocol?.trim() && (
               <span className="text-muted-foreground">•</span>
             )}
-            {product.protocol && (
-              <span className="text-xs text-primary">{product.protocol}</span>
+            {product.protocol?.trim() && (
+              <span className="text-xs text-primary">{product.protocol.trim()}</span>
             )}
           </div>
 

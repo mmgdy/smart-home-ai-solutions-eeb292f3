@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Helmet } from 'react-helmet-async';
 import { 
   ArrowLeft, ArrowRight, ShoppingCart, Loader2, Check, Shield, Truck, 
-  Award, Wifi, CreditCard, Maximize2, X, ChevronLeft, ChevronRight, Minus, Plus 
+  Award, CreditCard, Maximize2, X, ChevronLeft, ChevronRight, Minus, Plus 
 } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
@@ -61,14 +61,77 @@ const SPEC_KEY_LABELS: Record<string, string> = {
 const SPEC_VALUE_LABELS: Record<string, string> = {
   in_stock: 'In Stock',
   out_of_stock: 'Out of Stock',
-  smart_biometric_lock: 'Smart Biometric Lock',
-  magnetic_lock: 'Magnetic Lock',
-  drop_bolt: 'Drop Bolt Lock',
-  electric_strike: 'Electric Strike Lock',
   included: 'Included',
 };
 
-const HIDDEN_SPEC_KEYS = /^(source|sync_source|smartzoom_id|smartzoom_slug|cairo_sources|supplier_name|supplier_url|wholesale_price)$/i;
+const HIDDEN_SPEC_KEYS = /^(source|sync_source|smartzoom_id|smartzoom_slug|cairo_sources|supplier_name|supplier_url|wholesale_price|stockstatus|stock_status|stock status|categories|brand|protocol)$/i;
+
+/**
+ * Identifies template-generated / auto-enriched specifications that were injected
+ * by the legacy product enricher rather than entered as real hardware specs.
+ */
+function isTemplateGeneratedSpec(rawKey: string, rawVal: unknown, product: Product): boolean {
+  const lowerKey = rawKey.trim().toLowerCase();
+  if (HIDDEN_SPEC_KEYS.test(lowerKey)) return true;
+
+  const strVal = rawVal === null || rawVal === undefined ? '' : String(rawVal).trim();
+
+  if (lowerKey === 'model') {
+    if (/^\d+$/.test(strVal)) return true;
+    const slugLower = (product.slug || '').trim().toLowerCase();
+    if (slugLower && strVal.toLowerCase() === slugLower) return true;
+  }
+
+  if (lowerKey === 'warranty') {
+    return /official warranty in egypt/i.test(strVal);
+  }
+
+  if (lowerKey === 'installation' || lowerKey === 'installation_service' || lowerKey === 'installation service') {
+    return /certified installation available/i.test(strVal);
+  }
+
+  if (lowerKey === 'neutral_required' || lowerKey === 'neutral_wire_required' || lowerKey === 'neutral wire required') {
+    return typeof rawVal === 'boolean' || /^(yes|no|true|false)$/i.test(strVal);
+  }
+
+  if (lowerKey === 'neutral_note' || lowerKey === 'wiring_note' || lowerKey === 'wiring note') {
+    return strVal.includes('سلك محايد') || strVal.includes('نيوترال');
+  }
+
+  if (lowerKey === 'lock_type' || lowerKey === 'lock type') {
+    return /^(smart_biometric_lock|smart biometric lock|magnetic_lock|magnetic lock|drop_bolt|drop bolt lock|electric_strike|electric strike lock)$/i.test(strVal);
+  }
+
+  if (lowerKey === 'door_thickness' || lowerKey === 'door thickness') {
+    return /^38\s*[-–]\s*70\s*mm$/i.test(strVal);
+  }
+
+  if (lowerKey === 'emergency_power' || lowerKey === 'emergency power') {
+    return /^usb type-c \+ physical mechanical keys$/i.test(strVal);
+  }
+
+  if (lowerKey === 'rfid_frequency' || lowerKey === 'rfid frequency') {
+    return /^(125khz \(em-marine\)|13\.56mhz \(mifare ic\))$/i.test(strVal);
+  }
+
+  if (lowerKey === 'fail_safe' || lowerKey === 'fail-safe') {
+    return rawVal === true || /^(yes|true)$/i.test(strVal);
+  }
+
+  if (lowerKey === 'bracket_required' || lowerKey === 'compatible_bracket' || lowerKey === 'compatible bracket') {
+    return /zl-bracket/i.test(strVal);
+  }
+
+  if (lowerKey === 'power_supply_recommended' || lowerKey === 'recommended_power_supply' || lowerKey === 'recommended power supply') {
+    return /12v 5a power supply/i.test(strVal);
+  }
+
+  if (lowerKey === 'voltage') {
+    return /^12v dc$/i.test(strVal);
+  }
+
+  return false;
+}
 
 function formatSpecKey(rawKey: string, rawVal?: unknown): string {
   const trimmed = rawKey.trim();
@@ -149,12 +212,12 @@ function getFormattedSpecifications(product: Product): Array<[string, string]> {
   const map = new Map<string, string>();
 
   for (const [rawKey, rawVal] of Object.entries(product.specifications)) {
-    if (HIDDEN_SPEC_KEYS.test(rawKey.trim())) continue;
+    if (isTemplateGeneratedSpec(rawKey, rawVal, product)) continue;
     const label = formatSpecKey(rawKey, rawVal);
     const formattedVal = formatSpecValue(rawKey, rawVal, product);
     if (!formattedVal) continue;
 
-    // If duplicate key (e.g. "warranty" and "Warranty"), prefer the more descriptive Official Warranty string
+    // If duplicate key (e.g. "warranty" and "Warranty"), prefer the more descriptive entered string
     if (map.has(label)) {
       const existing = map.get(label)!;
       if (formattedVal.length > existing.length) {
@@ -170,7 +233,8 @@ function getFormattedSpecifications(product: Product): Array<[string, string]> {
 
 function getProductWarrantyBadgeLabel(product: Product, isRTL: boolean): string {
   const specs = (product.specifications ?? {}) as Record<string, unknown>;
-  const rawWarr = String(specs['Warranty'] || specs['warranty'] || '');
+  const rawWarrRaw = String(specs['Warranty'] || specs['warranty'] || '');
+  const rawWarr = /official warranty in egypt/i.test(rawWarrRaw) ? '' : rawWarrRaw;
 
   const yearMatch = rawWarr.match(/(\d+)\s*-?\s*year/i);
   if (yearMatch) {
@@ -199,27 +263,6 @@ function getProductWarrantyBadgeLabel(product: Product, isRTL: boolean): string 
     return isRTL ? 'ضمان سنتين' : '2-Year Warranty';
   }
   return isRTL ? 'ضمان سنة واحدة' : '1-Year Warranty';
-}
-
-function getWorksWithPlatforms(product: Product): string[] {
-  const combined = `${product.name || ''} ${product.description || ''} ${product.protocol || ''} ${JSON.stringify(product.specifications ?? {})}`.toLowerCase();
-  const platforms: string[] = [];
-  const add = (p: string) => {
-    if (!platforms.includes(p)) platforms.push(p);
-  };
-
-  const isSmartConnected =
-    /\b(wi-?fi|zigbee|matter|z-wave|tuya|ewelink|sonoff|alexa|google home|homekit|home assistant|smartthings)\b/i.test(combined) &&
-    !/\b(bracket|enclosure|extension cable|stand|cover|windshield tag|white card|wristband)\b/i.test(product.name || '');
-
-  if (/\balexa\b/i.test(combined) || isSmartConnected) add('Alexa');
-  if (/\bgoogle (?:home|assistant)\b/i.test(combined) || isSmartConnected) add('Google Home');
-  if (/\b(?:apple home|homekit)\b/i.test(combined) || /\bmatter\b/i.test(combined)) add('Apple HomeKit');
-  if (/\bsmartthings\b/i.test(combined)) add('SmartThings');
-  if (/\b(?:home assistant|zigbee2mqtt|zbdongle|ihost|nspanel pro)\b/i.test(combined)) add('Home Assistant');
-  if (/\bmatter\b/i.test(combined) || /\bmatter\b/i.test(product.protocol || '')) add('Matter');
-
-  return platforms;
 }
 
 function getYouTubeEmbedUrl(url: string): string | null {
@@ -350,8 +393,8 @@ const ProductDetail = () => {
   }, [activeProduct, familyVariants]);
 
   const protocolTokens = useMemo(
-    () => parseProtocols(activeProduct?.protocol, activeProduct?.name),
-    [activeProduct?.protocol, activeProduct?.name]
+    () => parseProtocols(activeProduct?.protocol),
+    [activeProduct?.protocol]
   );
 
   const handleAddToCart = () => {
@@ -416,7 +459,6 @@ const ProductDetail = () => {
     { icon: Award, label: isRTL ? 'منتج أصلي' : 'Genuine Product' },
   ];
 
-  const worksWithPlatforms = getWorksWithPlatforms(product);
   const formattedSpecs = getFormattedSpecifications(product);
   const hasArabicDescription = isRTL && Boolean(product.description_ar && product.description_ar.trim().length > 0);
   const activeDescriptionRaw = hasArabicDescription ? product.description_ar : product.description;
@@ -683,17 +725,6 @@ const ProductDetail = () => {
                         );
                       })}
                     </div>
-                  </div>
-                )}
-
-                {/* Compatibility badges */}
-                {worksWithPlatforms.length > 0 && (
-                  <div className="flex flex-wrap items-center gap-2 mb-4">
-                    <Wifi className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-xs text-foreground/80">{isRTL ? 'متوافق مع:' : 'Works with:'}</span>
-                    {worksWithPlatforms.map((platform) => (
-                      <span key={platform} className="text-xs px-2.5 py-0.5 rounded-full bg-secondary text-foreground/85 font-medium">{platform}</span>
-                    ))}
                   </div>
                 )}
 
