@@ -337,14 +337,14 @@ const AIConsultant = () => {
                                     },
                                     table: ({ children }) => (
                                       <div className="my-2 w-full max-w-full overflow-x-auto rounded-lg border border-border/50">
-                                        <table className="w-full text-xs sm:text-sm border-collapse my-0">{children}</table>
+                                        <table className="w-max min-w-full sm:w-full text-xs sm:text-sm border-collapse my-0 break-normal [overflow-wrap:normal]">{children}</table>
                                       </div>
                                     ),
                                     th: ({ children }) => (
-                                      <th className="px-2 py-1.5 text-start font-semibold border-b border-border bg-background/40">{children}</th>
+                                      <th className="px-2.5 py-1.5 text-start font-semibold whitespace-nowrap border-b border-border bg-background/40 break-normal [overflow-wrap:normal]">{children}</th>
                                     ),
                                     td: ({ children }) => (
-                                      <td className="px-2 py-1.5 text-start border-b border-border/40 align-top">{children}</td>
+                                      <td className="px-2.5 py-1.5 text-start border-b border-border/40 align-top min-w-[90px] first:min-w-[120px] break-normal [overflow-wrap:normal]">{children}</td>
                                     ),
                                   }}
                                 >
@@ -410,7 +410,7 @@ const AIConsultant = () => {
                     className="order-1 sm:order-2 w-full sm:flex-1 min-w-0 min-h-[48px] max-h-32 resize-none rounded-xl"
                     disabled={isLoading}
                   />
-                  <div className="order-2 sm:contents flex items-center justify-between gap-2">
+                  <div className="order-2 sm:contents flex items-center justify-between gap-2 pe-16 sm:pe-0">
                     <VoiceButton
                       onTranscript={handleVoiceTranscript}
                       isDisabled={isLoading}
