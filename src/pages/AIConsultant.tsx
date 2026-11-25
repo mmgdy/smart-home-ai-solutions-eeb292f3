@@ -1,6 +1,6 @@
 import { Helmet } from 'react-helmet-async';
 import { Layout } from '@/components/layout/Layout';
-import { Bot, Send, User, Sparkles, Loader2, Volume2, VolumeX, ExternalLink } from 'lucide-react';
+import { Bot, Send, User, Sparkles, Loader2, Volume2, VolumeX, ExternalLink, Square } from 'lucide-react';
 import { useLanguage } from '@/lib/i18n';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,14 @@ import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
 import { useSiteInfo } from '@/hooks/useSiteInfo';
-import { VoiceButton, speakText } from '@/components/ai/VoiceButton';
+import {
+  VoiceButton,
+  speakText,
+  stopSpeaking,
+  unlockAudio,
+  subscribeSpeakingState,
+  type SpeakingState,
+} from '@/components/ai/VoiceButton';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Link, useLocation } from 'react-router-dom';
@@ -87,10 +94,19 @@ const AIConsultant = () => {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [autoSpeak, setAutoSpeak] = useState(false);
+  const [speakingState, setSpeakingState] = useState<SpeakingState>({ status: 'idle', id: null });
   const scrollRef = useRef<HTMLDivElement>(null);
   const didAutoSend = useRef(false);
 
   const suggestions = isRTL ? SUGGESTED_AR : SUGGESTED_EN;
+
+  useEffect(() => {
+    const unsubscribe = subscribeSpeakingState(setSpeakingState);
+    return () => {
+      unsubscribe();
+      stopSpeaking();
+    };
+  }, []);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -206,6 +222,10 @@ const AIConsultant = () => {
     const messageText = text || input.trim();
     if (!messageText || isLoading) return;
 
+    if (autoSpeak) {
+      unlockAudio();
+    }
+
     const userMsg: Message = { role: 'user', content: messageText };
     const newMessages = [...messages, userMsg];
     setMessages(newMessages);
@@ -216,7 +236,7 @@ const AIConsultant = () => {
       const response = await streamChat(newMessages);
       if (autoSpeak && response) {
         const lang = /[\u0600-\u06FF]/.test(response) ? 'ar-EG' : 'en-US';
-        speakText(response, lang);
+        void speakText(response, lang, { id: `msg-${newMessages.length}` });
       }
     } catch (error) {
       toast({
@@ -354,18 +374,51 @@ const AIConsultant = () => {
                             ) : (
                               <p className="text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere] font-body">{message.content}</p>
                             )}
-                            {message.role === 'assistant' && (
-                              <button
-                                onClick={() => {
-                                  const lang = /[\u0600-\u06FF]/.test(message.content) ? 'ar-EG' : 'en-US';
-                                  speakText(message.content, lang);
-                                }}
-                                className="mt-2 text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
-                              >
-                                <Volume2 className="h-3 w-3" />
-                                {isRTL ? 'اسمع' : 'Listen'}
-                              </button>
-                            )}
+                            {message.role === 'assistant' && (() => {
+                              const msgId = `msg-${i}`;
+                              const isThisActive = speakingState.id === msgId && speakingState.status !== 'idle';
+                              const isThisLoading = speakingState.id === msgId && speakingState.status === 'loading';
+                              const isThisPlaying = speakingState.id === msgId && speakingState.status === 'playing';
+                              return (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (isThisActive) {
+                                      stopSpeaking();
+                                      return;
+                                    }
+                                    unlockAudio();
+                                    const lang = /[\u0600-\u06FF]/.test(message.content) ? 'ar-EG' : 'en-US';
+                                    void speakText(message.content, lang, {
+                                      id: msgId,
+                                      onError: (msg) =>
+                                        toast({
+                                          variant: 'destructive',
+                                          title: isRTL ? 'تعذر تشغيل الصوت' : 'Audio Playback Failed',
+                                          description: msg,
+                                        }),
+                                    });
+                                  }}
+                                  className={cn(
+                                    'mt-2 text-xs flex items-center gap-1.5 transition-colors',
+                                    isThisActive ? 'text-primary font-medium' : 'text-muted-foreground hover:text-foreground'
+                                  )}
+                                >
+                                  {isThisLoading ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  ) : isThisPlaying ? (
+                                    <Square className="h-3 w-3 fill-current" />
+                                  ) : (
+                                    <Volume2 className="h-3.5 w-3.5" />
+                                  )}
+                                  {isThisLoading
+                                    ? (isRTL ? 'جاري التحميل...' : 'Loading...')
+                                    : isThisPlaying
+                                      ? (isRTL ? 'إيقاف' : 'Stop')
+                                      : (isRTL ? 'اسمع' : 'Listen')}
+                                </button>
+                              );
+                            })()}
                             {/* Product image cards for /products/slug links in completed messages */}
                             {message.role === 'assistant' && !(isLoading && i === messages.length - 1) && (() => {
                               const slugs = extractProductSlugsFromMarkdown(message.content);
@@ -414,6 +467,7 @@ const AIConsultant = () => {
                     <VoiceButton
                       onTranscript={handleVoiceTranscript}
                       isDisabled={isLoading}
+                      lang={isRTL ? 'ar-EG' : 'en-US'}
                       className="h-10 w-10 sm:h-12 sm:w-12 sm:order-1"
                     />
                     <div className="flex items-center gap-2 sm:contents">
@@ -425,11 +479,39 @@ const AIConsultant = () => {
                         {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
                       </Button>
                       <Button
+                        type="button"
                         variant={autoSpeak ? "default" : "outline"}
                         size="icon"
                         className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl flex-shrink-0 sm:order-4"
-                        onClick={() => setAutoSpeak(!autoSpeak)}
-                        title={autoSpeak ? "Auto-speak ON" : "Auto-speak OFF"}
+                        onClick={() => {
+                          unlockAudio();
+                          const next = !autoSpeak;
+                          setAutoSpeak(next);
+                          if (!next) {
+                            stopSpeaking();
+                            toast({ title: isRTL ? 'تم إيقاف النطق التلقائي' : 'Auto-speak OFF' });
+                            return;
+                          }
+                          toast({ title: isRTL ? 'تم تفعيل النطق التلقائي' : 'Auto-speak ON' });
+                          if (!isLoading && messages.length > 0) {
+                            const lastIdx = messages.length - 1;
+                            const lastMsg = messages[lastIdx];
+                            if (lastMsg.role === 'assistant' && lastMsg.content.trim()) {
+                              const lang = /[\u0600-\u06FF]/.test(lastMsg.content) ? 'ar-EG' : 'en-US';
+                              void speakText(lastMsg.content, lang, {
+                                id: `msg-${lastIdx}`,
+                                onError: (msg) =>
+                                  toast({
+                                    variant: 'destructive',
+                                    title: isRTL ? 'تعذر تشغيل الصوت' : 'Audio Playback Failed',
+                                    description: msg,
+                                  }),
+                              });
+                            }
+                          }
+                        }}
+                        title={autoSpeak ? (isRTL ? 'إيقاف النطق التلقائي' : 'Auto-speak ON') : (isRTL ? 'تفعيل النطق التلقائي' : 'Auto-speak OFF')}
+                        aria-label={autoSpeak ? (isRTL ? 'إيقاف النطق التلقائي' : 'Auto-speak ON') : (isRTL ? 'تفعيل النطق التلقائي' : 'Auto-speak OFF')}
                       >
                         {autoSpeak ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}
                       </Button>
