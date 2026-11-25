@@ -7,9 +7,10 @@ let cache: SiteInfoMap | null = null;
 const listeners = new Set<(s: SiteInfoMap) => void>();
 
 async function load(): Promise<SiteInfoMap> {
-  const { data } = await supabase.from("site_info").select("section, key, value");
+  const { data, error } = await supabase.from("site_info").select("section, key, value");
+  if (error || !data) return cache ?? {};
   const map: SiteInfoMap = {};
-  for (const row of data ?? []) {
+  for (const row of data) {
     if (!map[row.section]) map[row.section] = {};
     map[row.section][row.key] = row.value ?? "";
   }

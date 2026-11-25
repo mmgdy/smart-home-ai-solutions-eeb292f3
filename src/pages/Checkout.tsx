@@ -153,7 +153,11 @@ const Checkout = () => {
   const { t, formatPrice, isRTL, language } = useLanguage();
   const { toast } = useToast();
   const { user } = useAuth();
-  const { get: getInfo } = useSiteInfo();
+  const { get: getInfo, refresh: refreshInfo } = useSiteInfo();
+
+  useEffect(() => {
+    refreshInfo();
+  }, [refreshInfo]);
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<keyof CheckoutFormData, string>>>({});
@@ -957,30 +961,37 @@ const Checkout = () => {
                   
                   <RadioGroup
                     value={paymentMethod}
-                    onValueChange={(value) => setPaymentMethod(value as typeof paymentMethod)}
+                    onValueChange={(value) => {
+                      setPaymentMethod(value as 'xpay' | 'instapay' | 'cod');
+                      setPaymentStatusMessage(null);
+                    }}
+                    dir={isRTL ? 'rtl' : 'ltr'}
                     className="space-y-3"
                   >
                     {/* Card Payment (XPay Drop-in) */}
                     {xpayEnabled && (
                       <div
-                        role="button"
-                        tabIndex={0}
-                        className={`relative flex items-start sm:items-center gap-3 sm:gap-3.5 p-3 sm:p-4 rounded-xl border-2 transition-all cursor-pointer select-none min-w-0 ${
+                        className={`relative rounded-xl border-2 transition-all min-w-0 ${
                           paymentMethod === 'xpay'
                             ? 'border-primary bg-primary/[0.06] shadow-sm ring-1 ring-primary/30'
                             : 'border-border/80 hover:border-primary/40 bg-card hover:bg-muted/20'
                         }`}
-                        onClick={() => { setPaymentMethod('xpay'); setPaymentStatusMessage(null); }}
-                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPaymentMethod('xpay'); setPaymentStatusMessage(null); } }}
                       >
-                        <RadioGroupItem value="xpay" id="xpay" className="h-5 w-5 shrink-0 mt-0.5 sm:mt-0 border-2" />
-                        <Label htmlFor="xpay" className="flex-1 min-w-0 cursor-pointer">
-                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 min-w-0">
-                            <div className="flex items-center gap-3 min-w-0">
+                        <div className="relative flex items-start gap-3 sm:gap-3.5 p-3 sm:p-4 min-w-0">
+                          <RadioGroupItem
+                            value="xpay"
+                            id="xpay"
+                            className="relative z-10 h-5 w-5 shrink-0 mt-1 border-2"
+                          />
+                          <Label
+                            htmlFor="xpay"
+                            className="flex-1 min-w-0 cursor-pointer select-none after:content-[''] after:absolute after:inset-0"
+                          >
+                            <div className="flex items-start gap-3 min-w-0">
                               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                                 <CreditCard className="h-5 w-5" />
                               </div>
-                              <div className="min-w-0">
+                              <div className="min-w-0 flex-1">
                                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                                   <p className="font-semibold text-foreground text-sm sm:text-base">{labels.cardPayment}</p>
                                   {xpayMode === 'test' && (
@@ -989,44 +1000,85 @@ const Checkout = () => {
                                     </span>
                                   )}
                                 </div>
-                                <p className="text-xs sm:text-sm text-muted-foreground break-words">
-                                  {language === 'ar' ? 'دفع إلكتروني فوري وآمن (فيزا / ماستركارد / ميزة)' : 'Instant secure payment (Visa / Mastercard / Meeza)'}
+                                <p className="mt-0.5 text-xs sm:text-sm text-muted-foreground break-words">
+                                  {language === 'ar'
+                                    ? 'دفع إلكتروني فوري وآمن (فيزا، ماستركارد، ميزة، Apple Pay، فوري و valU)'
+                                    : 'Instant secure payment (Visa, Mastercard, Meeza, Apple Pay, Fawry & valU)'}
                                 </p>
+                                <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                                  <span
+                                    dir="ltr"
+                                    title="Visa"
+                                    className="inline-flex h-6 items-center justify-center rounded bg-[#1A1F71] px-2 text-[11px] font-extrabold italic tracking-wider text-white shadow-sm ring-1 ring-white/10"
+                                  >
+                                    VISA
+                                  </span>
+                                  <span
+                                    dir="ltr"
+                                    title="Mastercard"
+                                    aria-label="Mastercard"
+                                    className="inline-flex h-6 w-9 items-center justify-center rounded bg-white px-1 shadow-sm ring-1 ring-black/15"
+                                  >
+                                    <span className="block h-3.5 w-3.5 rounded-full bg-[#EB001B]" />
+                                    <span className="-ml-1.5 block h-3.5 w-3.5 rounded-full bg-[#F79E1B] mix-blend-multiply" />
+                                  </span>
+                                  <span
+                                    title="Meeza"
+                                    className="inline-flex h-6 items-center justify-center rounded bg-[#005B94] px-2 text-[10px] font-bold text-white shadow-sm ring-1 ring-white/10"
+                                  >
+                                    ميزة
+                                  </span>
+                                  <span
+                                    dir="ltr"
+                                    title="Apple Pay"
+                                    className="inline-flex h-6 items-center justify-center gap-0.5 rounded bg-black px-2 text-[11px] font-semibold tracking-tight text-white shadow-sm ring-1 ring-white/25"
+                                  >
+                                    <svg className="h-3 w-3 fill-current shrink-0 -mt-[1px]" viewBox="0 0 384 512" aria-hidden="true">
+                                      <path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z" />
+                                    </svg>
+                                    <span>Pay</span>
+                                  </span>
+                                  <span
+                                    dir="ltr"
+                                    title="Fawry"
+                                    className="inline-flex h-6 items-center justify-center rounded bg-[#FFD200] px-2 text-[11px] font-extrabold tracking-tight text-[#005596] shadow-sm ring-1 ring-black/10"
+                                  >
+                                    Fawry
+                                  </span>
+                                  <span
+                                    dir="ltr"
+                                    title="valU"
+                                    className="inline-flex h-6 items-center justify-center rounded bg-[#00A896] px-2 text-[11px] font-extrabold tracking-tight text-white shadow-sm ring-1 ring-white/15"
+                                  >
+                                    valU
+                                  </span>
+                                </div>
                               </div>
                             </div>
-                            <div className="flex items-center gap-1.5 self-start sm:self-auto shrink-0">
-                              <span className="inline-flex h-6 items-center rounded bg-[#1A1F71] px-2 text-[11px] font-bold italic tracking-wider text-white">
-                                VISA
-                              </span>
-                              <span className="inline-flex h-6 w-9 items-center justify-center rounded bg-white px-1 shadow-sm ring-1 ring-black/10">
-                                <span className="block h-3.5 w-3.5 rounded-full bg-[#EB001B]" />
-                                <span className="-ml-1.5 block h-3.5 w-3.5 rounded-full bg-[#F79E1B] mix-blend-multiply" />
-                              </span>
-                              <span className="inline-flex h-6 items-center rounded bg-[#005B94] px-1.5 text-[10px] font-bold text-white">
-                                ميزة
-                              </span>
-                            </div>
-                          </div>
-                        </Label>
+                          </Label>
+                        </div>
                       </div>
                     )}
 
                     {/* InstaPay */}
                     {instapayEnabled && (
-                      <div 
-                        role="button"
-                        tabIndex={0}
-                        className={`relative p-3 sm:p-4 rounded-xl border-2 transition-all cursor-pointer select-none min-w-0 ${
-                          paymentMethod === 'instapay' 
-                            ? 'border-purple-600 bg-purple-500/[0.06] shadow-sm ring-1 ring-purple-600/30' 
+                      <div
+                        className={`relative rounded-xl border-2 transition-all min-w-0 ${
+                          paymentMethod === 'instapay'
+                            ? 'border-purple-600 bg-purple-500/[0.06] shadow-sm ring-1 ring-purple-600/30'
                             : 'border-border/80 hover:border-purple-400/50 bg-card hover:bg-muted/20'
                         }`}
-                        onClick={() => setPaymentMethod('instapay')}
-                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPaymentMethod('instapay'); } }}
                       >
-                        <div className="flex items-start sm:items-center gap-3 sm:gap-3.5 min-w-0">
-                          <RadioGroupItem value="instapay" id="instapay" className="h-5 w-5 shrink-0 mt-0.5 sm:mt-0 border-2 border-purple-600 text-purple-600" />
-                          <Label htmlFor="instapay" className="flex-1 min-w-0 cursor-pointer">
+                        <div className="relative flex items-start sm:items-center gap-3 sm:gap-3.5 p-3 sm:p-4 min-w-0">
+                          <RadioGroupItem
+                            value="instapay"
+                            id="instapay"
+                            className="relative z-10 h-5 w-5 shrink-0 mt-0.5 sm:mt-0 border-2 border-purple-600 text-purple-600"
+                          />
+                          <Label
+                            htmlFor="instapay"
+                            className="flex-1 min-w-0 cursor-pointer select-none after:content-[''] after:absolute after:inset-0"
+                          >
                             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 min-w-0">
                               <div className="flex items-center gap-3 min-w-0">
                                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[#7B2CBF] to-[#9D4EDD] text-white shadow-sm">
@@ -1052,118 +1104,120 @@ const Checkout = () => {
 
                         {/* Expandable InstaPay Instructions Card */}
                         {paymentMethod === 'instapay' && (
-                          <div className="mt-4 pt-4 border-t border-purple-500/20 space-y-4 min-w-0" onClick={(e) => e.stopPropagation()}>
-                            <div className="bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-900/50 rounded-xl p-3 sm:p-4 space-y-3 min-w-0">
-                              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-purple-900 dark:text-purple-200 font-semibold">
-                                <span>{language === 'ar' ? 'بيانات التحويل عبر إنستاباي:' : 'InstaPay Transfer Details:'}</span>
-                                <span className="bg-purple-200 dark:bg-purple-900 px-2 py-0.5 rounded font-mono font-bold text-sm shrink-0">
-                                  {formatPrice(total)}
-                                </span>
-                              </div>
-
-                              {/* InstaPay Address */}
-                              <div className="flex flex-wrap items-center justify-between gap-2 bg-white dark:bg-card p-2.5 rounded-lg border border-purple-100 dark:border-purple-900">
-                                <div className="min-w-0 flex-1">
-                                  <span className="text-[11px] text-muted-foreground block">{language === 'ar' ? 'عنوان إنستاباي (IPA):' : 'InstaPay Address (IPA):'}</span>
-                                  <span className="font-mono font-bold text-sm text-foreground break-all">
-                                    {getInfo('payment', 'instapay_address', 'azkasmart@instapay')}
+                          <div className="px-3 pb-3 sm:px-4 sm:pb-4 min-w-0">
+                            <div className="pt-4 border-t border-purple-500/20 space-y-4 min-w-0">
+                              <div className="bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-900/50 rounded-xl p-3 sm:p-4 space-y-3 min-w-0">
+                                <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-purple-900 dark:text-purple-200 font-semibold">
+                                  <span>{language === 'ar' ? 'بيانات التحويل عبر إنستاباي:' : 'InstaPay Transfer Details:'}</span>
+                                  <span className="bg-purple-200 dark:bg-purple-900 px-2 py-0.5 rounded font-mono font-bold text-sm shrink-0">
+                                    {formatPrice(total)}
                                   </span>
                                 </div>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-8 gap-1 text-xs shrink-0"
-                                  onClick={() => copyToClipboard(getInfo('payment', 'instapay_address', 'azkasmart@instapay'), 'ipa')}
-                                >
-                                  {copiedField === 'ipa' ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Copy className="h-3.5 w-3.5" />}
-                                  {copiedField === 'ipa' ? (language === 'ar' ? 'تم النسخ' : 'Copied') : (language === 'ar' ? 'نسخ' : 'Copy')}
-                                </Button>
-                              </div>
 
-                              {/* InstaPay Phone */}
-                              <div className="flex flex-wrap items-center justify-between gap-2 bg-white dark:bg-card p-2.5 rounded-lg border border-purple-100 dark:border-purple-900">
-                                <div className="min-w-0 flex-1">
-                                  <span className="text-[11px] text-muted-foreground block">{language === 'ar' ? 'رقم الهاتف المسجل في إنستاباي:' : 'InstaPay Mobile Number:'}</span>
-                                  <span className="font-mono font-bold text-sm text-foreground break-words" dir="ltr">
-                                    {getInfo('payment', 'instapay_phone', '01050627310')}
-                                  </span>
-                                </div>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-8 gap-1 text-xs shrink-0"
-                                  onClick={() => copyToClipboard(getInfo('payment', 'instapay_phone', '01050627310'), 'phone')}
-                                >
-                                  {copiedField === 'phone' ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Copy className="h-3.5 w-3.5" />}
-                                  {copiedField === 'phone' ? (language === 'ar' ? 'تم النسخ' : 'Copied') : (language === 'ar' ? 'نسخ' : 'Copy')}
-                                </Button>
-                              </div>
-
-                              {/* Account Name */}
-                              <div className="text-xs text-muted-foreground break-words">
-                                <span>{language === 'ar' ? 'اسم الحساب:' : 'Account Name:'} </span>
-                                <strong className="text-foreground">{getInfo('payment', 'instapay_name', 'AzkaSmart')}</strong>
-                              </div>
-                            </div>
-
-                            {/* Verification Reference Input */}
-                            <div className="space-y-1.5 min-w-0">
-                              <Label htmlFor="instapayRef" className="text-xs font-medium block break-words">
-                                {language === 'ar' ? 'رقم العملية أو اسم / رقم المحول (للتحقق):' : 'Transfer Reference / Sender Name or Phone (for verification):'}
-                              </Label>
-                              <Input
-                                id="instapayRef"
-                                value={instapayReference}
-                                onChange={(e) => setInstapayReference(e.target.value)}
-                                placeholder={language === 'ar' ? 'مثال: رقم التحويل، أو اسم صاحب الحساب المحول منه...' : 'e.g. Transfer ID, or sender account name/phone...'}
-                                className="text-sm w-full"
-                              />
-                            </div>
-
-                            {/* Receipt Upload */}
-                            <div className="space-y-1.5 min-w-0">
-                              <Label className="text-xs font-medium block break-words">
-                                {language === 'ar' ? 'إرفاق إيصال التحويل (اختياري):' : 'Attach Transfer Receipt (Optional):'}
-                              </Label>
-                              <div className="flex flex-wrap items-center gap-3">
-                                <label className="flex items-center gap-2 px-3 py-2 border border-input rounded-lg cursor-pointer hover:bg-muted text-xs font-medium transition max-w-full min-w-0">
-                                  <UploadCloud className="h-4 w-4 text-purple-600 shrink-0" />
-                                  <span className="truncate">{instapayReceiptFile ? instapayReceiptFile.name : (language === 'ar' ? 'اختيار صورة الإيصال' : 'Choose Receipt Image')}</span>
-                                  <input type="file" accept="image/*,.pdf" onChange={handleReceiptChange} className="hidden" />
-                                </label>
-                                {instapayReceiptPreview && (
-                                  <div className="relative">
-                                    <img src={instapayReceiptPreview} alt="Receipt Preview" className="h-10 w-10 object-cover rounded border" />
-                                    <button
-                                      type="button"
-                                      onClick={() => { setInstapayReceiptFile(null); setInstapayReceiptPreview(null); }}
-                                      className="absolute -top-1 -right-1 h-4 w-4 bg-destructive text-white rounded-full flex items-center justify-center text-[10px]"
-                                    >
-                                      ✕
-                                    </button>
+                                {/* InstaPay Address */}
+                                <div className="flex flex-wrap items-center justify-between gap-2 bg-white dark:bg-card p-2.5 rounded-lg border border-purple-100 dark:border-purple-900">
+                                  <div className="min-w-0 flex-1">
+                                    <span className="text-[11px] text-muted-foreground block">{language === 'ar' ? 'عنوان إنستاباي (IPA):' : 'InstaPay Address (IPA):'}</span>
+                                    <span className="font-mono font-bold text-sm text-foreground break-all">
+                                      {getInfo('payment', 'instapay_address', 'azkasmart@instapay')}
+                                    </span>
                                   </div>
-                                )}
-                              </div>
-                            </div>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 gap-1 text-xs shrink-0"
+                                    onClick={() => copyToClipboard(getInfo('payment', 'instapay_address', 'azkasmart@instapay'), 'ipa')}
+                                  >
+                                    {copiedField === 'ipa' ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Copy className="h-3.5 w-3.5" />}
+                                    {copiedField === 'ipa' ? (language === 'ar' ? 'تم النسخ' : 'Copied') : (language === 'ar' ? 'نسخ' : 'Copy')}
+                                  </Button>
+                                </div>
 
-                            {/* Instant WhatsApp Verification Support */}
-                            <div className="pt-2 border-t border-purple-500/10">
-                              <a
-                                href={`https://wa.me/${(() => {
-                                  const d = (getInfo('contact', 'whatsapp', '201501896456') || '201501896456').replace(/[^0-9]/g, '');
-                                  return d.startsWith('0') ? '2' + d : (d || '201501896456');
-                                })()}?text=${encodeURIComponent(
-                                  `مرحباً أزكاسمارت، أود تأكيد الدفع عبر إنستاباي بمبلغ ${total} ج.م.\nالاسم: ${formData.firstName} ${formData.lastName}\nالهاتف: ${formData.phone}`
-                                )}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-start sm:items-center gap-2 text-xs text-emerald-700 dark:text-emerald-400 hover:underline font-medium break-words"
-                              >
-                                <MessageCircle className="h-3.5 w-3.5 shrink-0 mt-0.5 sm:mt-0" />
-                                <span>{language === 'ar' ? 'أو يمكنك إرسال صورة التحويل عبر واتساب مباشرة' : 'Or send the transfer receipt via WhatsApp directly'}</span>
-                              </a>
+                                {/* InstaPay Phone */}
+                                <div className="flex flex-wrap items-center justify-between gap-2 bg-white dark:bg-card p-2.5 rounded-lg border border-purple-100 dark:border-purple-900">
+                                  <div className="min-w-0 flex-1">
+                                    <span className="text-[11px] text-muted-foreground block">{language === 'ar' ? 'رقم الهاتف المسجل في إنستاباي:' : 'InstaPay Mobile Number:'}</span>
+                                    <span className="font-mono font-bold text-sm text-foreground break-words" dir="ltr">
+                                      {getInfo('payment', 'instapay_phone', '01050627310')}
+                                    </span>
+                                  </div>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 gap-1 text-xs shrink-0"
+                                    onClick={() => copyToClipboard(getInfo('payment', 'instapay_phone', '01050627310'), 'phone')}
+                                  >
+                                    {copiedField === 'phone' ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Copy className="h-3.5 w-3.5" />}
+                                    {copiedField === 'phone' ? (language === 'ar' ? 'تم النسخ' : 'Copied') : (language === 'ar' ? 'نسخ' : 'Copy')}
+                                  </Button>
+                                </div>
+
+                                {/* Account Name */}
+                                <div className="text-xs text-muted-foreground break-words">
+                                  <span>{language === 'ar' ? 'اسم الحساب:' : 'Account Name:'} </span>
+                                  <strong className="text-foreground">{getInfo('payment', 'instapay_name', 'AzkaSmart')}</strong>
+                                </div>
+                              </div>
+
+                              {/* Verification Reference Input */}
+                              <div className="space-y-1.5 min-w-0">
+                                <Label htmlFor="instapayRef" className="text-xs font-medium block break-words">
+                                  {language === 'ar' ? 'رقم العملية أو اسم / رقم المحول (للتحقق):' : 'Transfer Reference / Sender Name or Phone (for verification):'}
+                                </Label>
+                                <Input
+                                  id="instapayRef"
+                                  value={instapayReference}
+                                  onChange={(e) => setInstapayReference(e.target.value)}
+                                  placeholder={language === 'ar' ? 'مثال: رقم التحويل، أو اسم صاحب الحساب المحول منه...' : 'e.g. Transfer ID, or sender account name/phone...'}
+                                  className="text-sm w-full"
+                                />
+                              </div>
+
+                              {/* Receipt Upload */}
+                              <div className="space-y-1.5 min-w-0">
+                                <Label className="text-xs font-medium block break-words">
+                                  {language === 'ar' ? 'إرفاق إيصال التحويل (اختياري):' : 'Attach Transfer Receipt (Optional):'}
+                                </Label>
+                                <div className="flex flex-wrap items-center gap-3">
+                                  <label className="flex items-center gap-2 px-3 py-2 border border-input rounded-lg cursor-pointer hover:bg-muted text-xs font-medium transition max-w-full min-w-0">
+                                    <UploadCloud className="h-4 w-4 text-purple-600 shrink-0" />
+                                    <span className="truncate">{instapayReceiptFile ? instapayReceiptFile.name : (language === 'ar' ? 'اختيار صورة الإيصال' : 'Choose Receipt Image')}</span>
+                                    <input type="file" accept="image/*,.pdf" onChange={handleReceiptChange} className="hidden" />
+                                  </label>
+                                  {instapayReceiptPreview && (
+                                    <div className="relative">
+                                      <img src={instapayReceiptPreview} alt="Receipt Preview" className="h-10 w-10 object-cover rounded border" />
+                                      <button
+                                        type="button"
+                                        onClick={() => { setInstapayReceiptFile(null); setInstapayReceiptPreview(null); }}
+                                        className="absolute -top-1 -right-1 h-4 w-4 bg-destructive text-white rounded-full flex items-center justify-center text-[10px]"
+                                      >
+                                        ✕
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Instant WhatsApp Verification Support */}
+                              <div className="pt-2 border-t border-purple-500/10">
+                                <a
+                                  href={`https://wa.me/${(() => {
+                                    const d = (getInfo('contact', 'whatsapp', '201501896456') || '201501896456').replace(/[^0-9]/g, '');
+                                    return d.startsWith('0') ? '2' + d : (d || '201501896456');
+                                  })()}?text=${encodeURIComponent(
+                                    `مرحباً أزكاسمارت، أود تأكيد الدفع عبر إنستاباي بمبلغ ${total} ج.م.\nالاسم: ${formData.firstName} ${formData.lastName}\nالهاتف: ${formData.phone}`
+                                  )}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-start sm:items-center gap-2 text-xs text-emerald-700 dark:text-emerald-400 hover:underline font-medium break-words"
+                                >
+                                  <MessageCircle className="h-3.5 w-3.5 shrink-0 mt-0.5 sm:mt-0" />
+                                  <span>{language === 'ar' ? 'أو يمكنك إرسال صورة التحويل عبر واتساب مباشرة' : 'Or send the transfer receipt via WhatsApp directly'}</span>
+                                </a>
+                              </div>
                             </div>
                           </div>
                         )}
@@ -1172,33 +1226,38 @@ const Checkout = () => {
 
                     {/* Cash on Delivery */}
                     {codEnabled && (
-                      <div 
-                        role="button"
-                        tabIndex={0}
-                        className={`relative flex items-start sm:items-center gap-3 sm:gap-3.5 p-3 sm:p-4 rounded-xl border-2 transition-all cursor-pointer select-none min-w-0 ${
-                          paymentMethod === 'cod' 
-                            ? 'border-primary bg-primary/[0.06] shadow-sm ring-1 ring-primary/30' 
+                      <div
+                        className={`relative rounded-xl border-2 transition-all min-w-0 ${
+                          paymentMethod === 'cod'
+                            ? 'border-primary bg-primary/[0.06] shadow-sm ring-1 ring-primary/30'
                             : 'border-border/80 hover:border-primary/40 bg-card hover:bg-muted/20'
                         }`}
-                        onClick={() => setPaymentMethod('cod')}
-                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPaymentMethod('cod'); } }}
                       >
-                        <RadioGroupItem value="cod" id="cod" className="h-5 w-5 shrink-0 mt-0.5 sm:mt-0 border-2" />
-                        <Label htmlFor="cod" className="flex-1 min-w-0 cursor-pointer">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                              <Banknote className="h-5 w-5" />
+                        <div className="relative flex items-start sm:items-center gap-3 sm:gap-3.5 p-3 sm:p-4 min-w-0">
+                          <RadioGroupItem
+                            value="cod"
+                            id="cod"
+                            className="relative z-10 h-5 w-5 shrink-0 mt-0.5 sm:mt-0 border-2"
+                          />
+                          <Label
+                            htmlFor="cod"
+                            className="flex-1 min-w-0 cursor-pointer select-none after:content-[''] after:absolute after:inset-0"
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                <Banknote className="h-5 w-5" />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="font-semibold text-foreground text-sm sm:text-base">
+                                  {language === 'ar' ? 'الدفع عند الاستلام (نقداً)' : 'Cash on Delivery (COD)'}
+                                </p>
+                                <p className="text-xs sm:text-sm text-muted-foreground break-words">
+                                  {language === 'ar' ? 'ادفع نقداً عند استلام الشحنة وتأكيد الطلب' : 'Pay in cash upon delivery of your order'}
+                                </p>
+                              </div>
                             </div>
-                            <div className="min-w-0">
-                              <p className="font-semibold text-foreground text-sm sm:text-base">
-                                {language === 'ar' ? 'الدفع عند الاستلام (نقداً)' : 'Cash on Delivery (COD)'}
-                              </p>
-                              <p className="text-xs sm:text-sm text-muted-foreground break-words">
-                                {language === 'ar' ? 'ادفع نقداً عند استلام الشحنة وتأكيد الطلب' : 'Pay in cash upon delivery of your order'}
-                              </p>
-                            </div>
-                          </div>
-                        </Label>
+                          </Label>
+                        </div>
                       </div>
                     )}
                   </RadioGroup>
