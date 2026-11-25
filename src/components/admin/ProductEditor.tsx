@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Loader2, Plus, Pencil, Trash2, Upload, Search, X, Save, Image as ImageIcon, Video, Eye, EyeOff, Sparkles, Percent, CheckSquare, Square, RefreshCw, Radio } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +16,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { getProductImage } from "@/lib/productImage";
 import { parseProtocols } from "@/lib/protocolIcon";
 import { ProtocolSelector, detectProtocolFromName } from "@/components/admin/ProtocolSelector";
+import { ProductDependenciesEditor } from "@/components/admin/ProductDependenciesEditor";
+import {
+  DEPENDENCIES_SITE_INFO_SECTION,
+  parseManualDependencies,
+  type ProductDependencyRecord,
+} from "@/lib/productDependencies";
 import { CairoSourcesViewer } from "@/components/admin/CairoSourcesViewer";
 import { cairoSupplierService } from "@/data/cairoSupplierService";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -68,6 +75,7 @@ const fileToBase64 = (file: File): Promise<string> =>
 
 export function ProductEditor({ adminToken }: Props) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const descImageInputRef = useRef<HTMLInputElement>(null);
@@ -81,7 +89,11 @@ export function ProductEditor({ adminToken }: Props) {
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Partial<Product>>(blank);
+  const [editingDeps, setEditingDeps] = useState<ProductDependencyRecord[]>([]);
+  const [depsLoading, setDepsLoading] = useState(false);
+  const [depsDirty, setDepsDirty] = useState(false);
   const [saving, setSaving] = useState(false);
+  const hiddenIdSet = useMemo(() => new Set(hiddenIds), [hiddenIds]);
   const [uploading, setUploading] = useState(false);
   const [videoUploading, setVideoUploading] = useState(false);
   const [descImageUploading, setDescImageUploading] = useState(false);
@@ -359,8 +371,35 @@ export function ProductEditor({ adminToken }: Props) {
     }
   };
 
-  const openNew = () => { setEditing({ ...blank }); setOpen(true); };
-  const openEdit = (p: Product) => { setEditing({ ...p }); setOpen(true); };
+  const openNew = () => {
+    setEditing({ ...blank });
+    setEditingDeps([]);
+    setDepsLoading(false);
+    setDepsDirty(false);
+    setOpen(true);
+  };
+  const openEdit = (p: Product) => {
+    setEditing({ ...p });
+    setEditingDeps([]);
+    setDepsDirty(false);
+    setDepsLoading(true);
+    setOpen(true);
+    supabase
+      .from("site_info")
+      .select("value")
+      .eq("section", DEPENDENCIES_SITE_INFO_SECTION)
+      .eq("key", p.id)
+      .maybeSingle()
+      .then(
+        ({ data }) => {
+          setEditingDeps(parseManualDependencies(data?.value));
+          setDepsLoading(false);
+        },
+        () => {
+          setDepsLoading(false);
+        },
+      );
+  };
 
   const handleImageUpload = async (file: File) => {
     setUploading(true);
@@ -522,6 +561,33 @@ export function ProductEditor({ adminToken }: Props) {
         if (bmErr || !bmData?.success || bmTableErrors.length > 0) {
           throw new Error(bmTableErrors[0] || bmData?.error || bmErr?.message || "Failed to persist product fields");
         }
+      }
+
+      if (savedRow?.id && (depsDirty || editingDeps.length > 0)) {
+        const normalizedDeps = editingDeps.map((d, idx) => ({
+          dependent_product_id: d.dependent_product_id,
+          relation_type: d.relation_type,
+          sort_order: idx,
+          default_checked: Boolean(d.default_checked),
+        }));
+        const { data: depData, error: depErr } = await supabase.functions.invoke("admin-write", {
+          headers: { Authorization: "Bearer " + adminToken },
+          body: {
+            action: "update-site-info",
+            token: adminToken,
+            entries: [
+              {
+                section: DEPENDENCIES_SITE_INFO_SECTION,
+                key: savedRow.id,
+                value: JSON.stringify(normalizedDeps),
+              },
+            ],
+          },
+        });
+        if (depErr || !depData?.success) {
+          throw new Error(depData?.error || depErr?.message || "Failed to save dependent products");
+        }
+        queryClient.invalidateQueries({ queryKey: ["product-dependencies-manual", savedRow.id] });
       }
 
       toast({ title: isNew ? "Product created" : "Product saved" });
@@ -1080,6 +1146,18 @@ export function ProductEditor({ adminToken }: Props) {
               <Label>Featured on homepage</Label>
             </div>
 
+            <ProductDependenciesEditor
+              currentProductId={editing.id}
+              allProducts={products}
+              hiddenIds={hiddenIdSet}
+              dependencies={editingDeps}
+              loading={depsLoading}
+              onChange={(next) => {
+                setEditingDeps(next);
+                setDepsDirty(true);
+              }}
+            />
+
             {/* SEO + Tags */}
             <div className="md:col-span-2 border-t border-border pt-4 mt-2">
               <div className="flex items-center justify-between mb-3">
@@ -1179,7 +1257,7 @@ export function ProductEditor({ adminToken }: Props) {
 
       <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}><X className="h-4 w-4 mr-2" />Cancel</Button>
-            <Button onClick={save} disabled={saving}>
+            <Button onClick={save} disabled={saving || depsLoading}>
               {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
               Save
             </Button>

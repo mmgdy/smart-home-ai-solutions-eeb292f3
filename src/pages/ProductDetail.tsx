@@ -17,6 +17,7 @@ import { parseProtocols } from '@/lib/protocolIcon';
 import { getProductImage, productPlaceholder } from '@/lib/productImage';
 import { normalizeBrand } from '@/lib/brands';
 import { sanitizeProductDescription, stripDescriptionHtml } from '@/lib/sanitizeDescription';
+import { CompleteYourSetup } from '@/components/products/CompleteYourSetup';
 import { cairoSupplierService } from '@/data/cairoSupplierService';
 import { cn } from '@/lib/utils';
 
@@ -848,6 +849,8 @@ const ProductDetail = () => {
               </div>
             </div>
           </div>
+
+          <CompleteYourSetup mainProduct={product} mainQuantity={quantity} />
         </div>
 
         {/* Sticky bottom price + Add to Cart bar on mobile (< lg) */}
