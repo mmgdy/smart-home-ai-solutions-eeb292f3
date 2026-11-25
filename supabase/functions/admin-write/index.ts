@@ -894,6 +894,304 @@ JSON: {"seo_title":"<=60 chars","seo_description":"<=155 chars","seo_keywords":[
       );
     }
 
+    if (action === "list-categories") {
+      const { data: cats, error: catErr } = await supabase
+        .from("categories")
+        .select("id, name, slug, description, image_url, sort_order, is_active, created_at")
+        .order("sort_order", { ascending: true })
+        .order("name", { ascending: true });
+      if (catErr) throw catErr;
+
+      const counts = new Map<string, number>();
+      let uncategorizedCount = 0;
+      const pageSize = 1000;
+      for (let from = 0; ; from += pageSize) {
+        const { data: prods, error: prodErr } = await supabase
+          .from("products")
+          .select("id, category_id")
+          .range(from, from + pageSize - 1);
+        if (prodErr) throw prodErr;
+        for (const p of prods ?? []) {
+          if (p.category_id) {
+            counts.set(p.category_id, (counts.get(p.category_id) ?? 0) + 1);
+          } else {
+            uncategorizedCount++;
+          }
+        }
+        if (!prods || prods.length < pageSize) break;
+      }
+
+      const enriched = (cats ?? []).map((c: any) => ({
+        ...c,
+        sort_order: typeof c.sort_order === "number" ? c.sort_order : 0,
+        is_active: c.is_active !== false,
+        product_count: counts.get(c.id) ?? 0,
+      }));
+
+      return new Response(
+        JSON.stringify({ success: true, categories: enriched, uncategorized_count: uncategorizedCount }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (action === "create-category") {
+      const rawName = typeof body.name === "string" ? body.name.trim() : "";
+      if (!rawName) {
+        return new Response(JSON.stringify({ success: false, error: "Category name is required" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const rawSlug = typeof body.slug === "string" && body.slug.trim() ? body.slug.trim() : rawName;
+      const slug = rawSlug
+        .toLowerCase()
+        .replace(/&/g, " ")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "");
+      if (!slug || slug === "uncategorized") {
+        return new Response(JSON.stringify({ success: false, error: "Invalid or reserved category slug" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { data: existingSlug } = await supabase
+        .from("categories")
+        .select("id")
+        .eq("slug", slug)
+        .maybeSingle();
+      if (existingSlug) {
+        return new Response(
+          JSON.stringify({ success: false, error: `A category with slug "${slug}" already exists.` }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      let nextOrder = typeof body.sort_order === "number" && Number.isFinite(body.sort_order)
+        ? Math.round(body.sort_order)
+        : 0;
+      if (!nextOrder) {
+        const { data: allCats } = await supabase.from("categories").select("sort_order");
+        const maxOrder = (allCats ?? []).reduce((acc: number, row: any) => {
+          const val = typeof row.sort_order === "number" && row.sort_order < 900 ? row.sort_order : 0;
+          return Math.max(acc, val);
+        }, 0);
+        nextOrder = maxOrder + 1;
+      }
+
+      const { data, error } = await supabase
+        .from("categories")
+        .insert({
+          name: rawName,
+          slug,
+          sort_order: nextOrder,
+          is_active: body.is_active !== false,
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      return new Response(JSON.stringify({ success: true, data }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "update-category") {
+      const id = typeof body.id === "string" ? body.id.trim() : "";
+      if (!id) {
+        return new Response(JSON.stringify({ success: false, error: "Category id is required" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const updates: Record<string, unknown> = {};
+      if ("name" in body) {
+        const name = typeof body.name === "string" ? body.name.trim() : "";
+        if (!name) {
+          return new Response(JSON.stringify({ success: false, error: "Category name cannot be empty" }), {
+            status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        updates.name = name;
+      }
+      if ("slug" in body && typeof body.slug === "string") {
+        const nextSlug = body.slug
+          .toLowerCase()
+          .replace(/&/g, " ")
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/(^-|-$)/g, "");
+        if (!nextSlug || nextSlug === "uncategorized") {
+          return new Response(JSON.stringify({ success: false, error: "Invalid or reserved category slug" }), {
+            status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const { data: dup } = await supabase
+          .from("categories")
+          .select("id")
+          .eq("slug", nextSlug)
+          .neq("id", id)
+          .maybeSingle();
+        if (dup) {
+          return new Response(
+            JSON.stringify({ success: false, error: `Another category already uses slug "${nextSlug}".` }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        updates.slug = nextSlug;
+      }
+      if ("sort_order" in body && typeof body.sort_order === "number" && Number.isFinite(body.sort_order)) {
+        updates.sort_order = Math.round(body.sort_order);
+      }
+      if ("is_active" in body && typeof body.is_active === "boolean") {
+        updates.is_active = body.is_active;
+      }
+
+      if (Object.keys(updates).length === 0) {
+        return new Response(JSON.stringify({ success: false, error: "No valid category updates provided" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { data, error } = await supabase
+        .from("categories")
+        .update(updates)
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) throw error;
+      return new Response(JSON.stringify({ success: true, data }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "reorder-categories") {
+      const orderedIds = Array.isArray(body.orderedIds) ? body.orderedIds.map((x) => String(x)).filter(Boolean) : [];
+      if (orderedIds.length === 0) {
+        return new Response(JSON.stringify({ success: false, error: "orderedIds array is required" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      for (let idx = 0; idx < orderedIds.length; idx++) {
+        const { error } = await supabase
+          .from("categories")
+          .update({ sort_order: idx + 1 })
+          .eq("id", orderedIds[idx]);
+        if (error) throw error;
+      }
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "delete-category") {
+      const id = typeof body.id === "string" ? body.id.trim() : "";
+      if (!id) {
+        return new Response(JSON.stringify({ success: false, error: "Category id is required" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const { count, error: countErr } = await supabase
+        .from("products")
+        .select("id", { count: "exact", head: true })
+        .eq("category_id", id);
+      if (countErr) throw countErr;
+      if ((count ?? 0) > 0) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: `Cannot delete this category because ${count} product(s) are still assigned to it. Move those products to another category first.`,
+            productCount: count,
+          }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      const { error: delErr } = await supabase.from("categories").delete().eq("id", id);
+      if (delErr) throw delErr;
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "bulk-assign-category-by-slug") {
+      const rawSlugs = Array.isArray(body.slugs) ? body.slugs : [];
+      const tokens: string[] = [];
+      const seenTokens = new Set<string>();
+      for (const s of rawSlugs) {
+        const trimmed = String(s || "").trim();
+        if (!trimmed) continue;
+        const lower = trimmed.toLowerCase();
+        if (seenTokens.has(lower)) continue;
+        seenTokens.add(lower);
+        tokens.push(trimmed);
+      }
+      if (tokens.length === 0) {
+        return new Response(JSON.stringify({ success: false, error: "At least one product slug is required" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const categoryId =
+        typeof body.category_id === "string" && body.category_id.trim() && body.category_id !== "none"
+          ? body.category_id.trim()
+          : null;
+      if (categoryId) {
+        const { data: catExists } = await supabase
+          .from("categories")
+          .select("id")
+          .eq("id", categoryId)
+          .maybeSingle();
+        if (!catExists) {
+          return new Response(JSON.stringify({ success: false, error: "Selected category was not found" }), {
+            status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      }
+
+      const slugMap = new Map<string, { id: string; slug: string; name: string }>();
+      const pageSize = 1000;
+      for (let from = 0; ; from += pageSize) {
+        const { data: prods, error: prodErr } = await supabase
+          .from("products")
+          .select("id, slug, name")
+          .range(from, from + pageSize - 1);
+        if (prodErr) throw prodErr;
+        for (const p of prods ?? []) {
+          if (p.slug) slugMap.set(String(p.slug).trim().toLowerCase(), p);
+        }
+        if (!prods || prods.length < pageSize) break;
+      }
+
+      const matchedIds: string[] = [];
+      const matchedSlugs: string[] = [];
+      const unmatchedSlugs: string[] = [];
+      for (const token of tokens) {
+        const found = slugMap.get(token.toLowerCase());
+        if (found) {
+          matchedIds.push(found.id);
+          matchedSlugs.push(found.slug);
+        } else {
+          unmatchedSlugs.push(token);
+        }
+      }
+
+      const BATCH = 40;
+      const nowIso = new Date().toISOString();
+      for (let i = 0; i < matchedIds.length; i += BATCH) {
+        const chunk = matchedIds.slice(i, i + BATCH);
+        const { error: upErr } = await supabase
+          .from("products")
+          .update({ category_id: categoryId, updated_at: nowIso })
+          .in("id", chunk);
+        if (upErr) throw upErr;
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          updatedCount: matchedIds.length,
+          matchedSlugs,
+          unmatchedSlugs,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     return new Response(JSON.stringify({ success: false, error: "Unknown action" }), {
       status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

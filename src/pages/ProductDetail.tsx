@@ -323,11 +323,14 @@ const ProductDetail = () => {
       if (!familyMasterId) return [] as Product[];
       const { data, error } = await supabase
         .from('products')
-        .select('*')
+        .select('*, categories(*)')
         .or(`id.eq.${familyMasterId},parent_id.eq.${familyMasterId}`)
         .order('price');
       if (error) throw error;
-      return (data as Product[]) || [];
+      return ((data as any[]) || []).map((row) => ({
+        ...row,
+        category: row.categories || row.category,
+      })) as Product[];
     },
     enabled: !!familyMasterId,
   });
@@ -356,8 +359,11 @@ const ProductDetail = () => {
     if (!master) return null;
     if (hasVariants) {
       const sel = familyVariants.find((v) => v.id === selectedVariantId);
-      if (sel) return sel;
-      return familyVariants.find((v) => v.id === master.id) || familyVariants[0];
+      if (sel) {
+        return sel.category ? sel : { ...sel, category: master.category };
+      }
+      const def = familyVariants.find((v) => v.id === master.id) || familyVariants[0];
+      return def?.category ? def : { ...def, category: master.category };
     }
     return master;
   }, [master, familyVariants, selectedVariantId, hasVariants]);
@@ -761,7 +767,21 @@ const ProductDetail = () => {
             <div className="flex flex-col min-w-0">
               <div className="mb-2 sm:mb-3 flex flex-wrap items-center gap-2">
                 {displayBrand && <span className="text-sm text-foreground/80 font-medium">{displayBrand}</span>}
-                {displayBrand && protocolTokens.length > 0 && <span className="text-muted-foreground">•</span>}
+                {displayBrand && product.category?.name && product.category.slug !== 'uncategorized' && (
+                  <span className="text-muted-foreground">•</span>
+                )}
+                {product.category?.name && product.category.slug !== 'uncategorized' && (
+                  <Link
+                    to={`/products?category=${encodeURIComponent(product.category.slug)}`}
+                    data-testid="product-category-label"
+                    className="inline-flex h-7 items-center rounded-full border border-border bg-card/80 px-2.5 text-xs font-medium text-foreground/85 hover:border-primary/50 hover:text-primary transition-colors"
+                  >
+                    {product.category.name}
+                  </Link>
+                )}
+                {(displayBrand || (product.category?.name && product.category.slug !== 'uncategorized')) && protocolTokens.length > 0 && (
+                  <span className="text-muted-foreground">•</span>
+                )}
                 {protocolTokens.map(({ name, icon: Icon, bg, fg, description }) => (
                   <span
                     key={name}

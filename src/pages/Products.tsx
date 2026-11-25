@@ -14,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Product, Category } from '@/types/store';
 import { useLanguage } from '@/lib/i18n';
 import { normalizeBrand } from '@/lib/brands';
+import { getPublicShopCategories, sortCategories } from '@/lib/categories';
 import { cn } from '@/lib/utils';
 
 const Products = () => {
@@ -40,29 +41,12 @@ const Products = () => {
       const { data, error } = await supabase
         .from('categories')
         .select('*')
-        .order('name');
+        .order('sort_order', { ascending: true })
+        .order('name', { ascending: true });
       if (error) throw error;
-      return data as Category[];
+      return sortCategories((data ?? []) as Category[]);
     },
   });
-
-  // Filter out any unwanted furniture categories
-  const categories = useMemo(() => {
-    const defaultCats: Category[] = [
-      { id: '934d2c8e-8e1f-459e-8dd4-d93520719215', name: 'Smart Switches', slug: 'smart-switches', description: null, image_url: null, created_at: '' },
-      { id: '0dc4982c-ac41-4201-aa69-3a7494ed0a7b', name: 'Smart Sensors', slug: 'smart-sensors', description: null, image_url: null, created_at: '' },
-      { id: '161fef6c-d985-427e-a31f-f5735b0fa4c3', name: 'Smart Hubs', slug: 'smart-hubs', description: null, image_url: null, created_at: '' },
-      { id: 'f6461e11-a1df-490f-b81f-34009d5e48e6', name: 'Smart Panels', slug: 'smart-panels', description: null, image_url: null, created_at: '' },
-      { id: '61869110-4165-4bfe-80f1-af06217abd61', name: 'Smart Locks', slug: 'smart-locks', description: null, image_url: null, created_at: '' },
-      { id: '1b122176-06c8-440f-8a46-4e0855cbedea', name: 'Smart Plugs', slug: 'smart-plugs', description: null, image_url: null, created_at: '' },
-      { id: '2ded3f14-d5cb-47c6-a18b-1305ea346f67', name: 'Networking', slug: 'networking', description: null, image_url: null, created_at: '' },
-      { id: 'c73bb3ed-3b43-4f83-8759-a283ec7bdcf9', name: 'Accessories', slug: 'accessories', description: null, image_url: null, created_at: '' },
-    ];
-    if (!rawCategories || rawCategories.length === 0) return defaultCats;
-    return rawCategories.filter(
-      (c) => c.slug !== 'art-furniture' && !c.name.toLowerCase().includes('furniture')
-    );
-  }, [rawCategories]);
 
   const { data: hiddenIds } = useQuery({
     queryKey: ['hidden-product-ids'],
@@ -82,13 +66,20 @@ const Products = () => {
   const { data: rawProducts, isLoading } = useQuery({
     queryKey: ['products'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*, categories(*)')
-        .is('parent_id', null)
-        .order('featured', { ascending: false });
-      if (error) throw error;
-      return data;
+      const pageSize = 1000;
+      const rows: any[] = [];
+      for (let from = 0; ; from += pageSize) {
+        const { data, error } = await supabase
+          .from('products')
+          .select('*, categories(*)')
+          .is('parent_id', null)
+          .order('featured', { ascending: false })
+          .range(from, from + pageSize - 1);
+        if (error) throw error;
+        rows.push(...(data ?? []));
+        if (!data || data.length < pageSize) break;
+      }
+      return rows;
     },
   });
 
@@ -104,6 +95,12 @@ const Products = () => {
         images: Array.isArray(p.images) && p.images.length > 0 ? p.images : p.image_url ? [p.image_url] : [],
       })) as Product[];
   }, [rawProducts, hiddenIds]);
+
+  // Public shop category filter: ONLY active categories (never Uncategorized) with >= 1 published product, in sort_order
+  const categories = useMemo(
+    () => getPublicShopCategories(rawCategories ?? [], products),
+    [rawCategories, products]
+  );
 
   // Derive available brands/protocols from loaded products
   const availableBrands = useMemo(() => {
@@ -128,9 +125,18 @@ const Products = () => {
     if (!products) return [];
     let result = [...products];
 
-    // Category filter
+    // Category filter (real DB category match takes priority over legacy solution shortcuts)
     if (selectedCategory) {
-      if (selectedCategory === 'lighting') {
+      const matchedRealCat = rawCategories?.find(
+        (c) => c.slug === selectedCategory || c.id === selectedCategory
+      );
+      if (matchedRealCat) {
+        result = result.filter(
+          (p) =>
+            p.category_id === matchedRealCat.id ||
+            p.category?.slug === matchedRealCat.slug
+        );
+      } else if (selectedCategory === 'lighting') {
         result = result.filter(
           (p) =>
             p.category?.slug === 'smart-switches' ||
@@ -172,12 +178,10 @@ const Products = () => {
             p.name.toLowerCase().includes('motor')
         );
       } else {
-        const cat = categories?.find((c) => c.slug === selectedCategory || c.id === selectedCategory);
         result = result.filter(
           (p) =>
             p.category?.slug === selectedCategory ||
-            p.category_id === selectedCategory ||
-            (cat && p.category_id === cat.id)
+            p.category_id === selectedCategory
         );
       }
     }
@@ -237,7 +241,7 @@ const Products = () => {
     }
 
     return result;
-  }, [products, categories, search, selectedCategory, filters]);
+  }, [products, rawCategories, categories, search, selectedCategory, filters]);
 
   const handleCategoryChange = useCallback((slug: string | null) => {
     setSelectedCategory(slug);
@@ -421,7 +425,7 @@ const Products = () => {
                   <span className="text-sm text-muted-foreground">{t('activeFilters')}</span>
                   {selectedCategory && (
                     <Button variant="secondary" size="sm" className="gap-1 h-7" onClick={() => handleCategoryChange(null)}>
-                      {categories?.find((c) => c.slug === selectedCategory)?.name}
+                      {rawCategories?.find((c) => c.slug === selectedCategory || c.id === selectedCategory)?.name || selectedCategory}
                       <X className="h-3 w-3" />
                     </Button>
                   )}

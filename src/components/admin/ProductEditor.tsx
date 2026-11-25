@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Loader2, Plus, Pencil, Trash2, Upload, Search, X, Save, Image as ImageIcon, Video, Eye, EyeOff, Sparkles, Percent, CheckSquare, Square, RefreshCw, Radio } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, Upload, Search, X, Save, Image as ImageIcon, Video, Eye, EyeOff, Sparkles, Percent, CheckSquare, Square, RefreshCw, Radio, FolderTree, ListPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
@@ -32,6 +32,7 @@ import { CairoSourcesViewer } from "@/components/admin/CairoSourcesViewer";
 import { cairoSupplierService } from "@/data/cairoSupplierService";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Building2, ShieldCheck, CheckCircle2, XCircle, AlertTriangle, ExternalLink } from "lucide-react";
+import { matchSlugsToProducts, sortCategories } from "@/lib/categories";
 
 interface Props {
   adminToken: string;
@@ -60,7 +61,13 @@ interface Product {
   specifications?: Record<string, any> | null;
 }
 
-interface Category { id: string; name: string; }
+interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  sort_order?: number;
+  is_active?: boolean;
+}
 
 const blank: Partial<Product> = {
   name: "", slug: "", description: "", description_ar: "", price: 0, original_price: null,
@@ -109,6 +116,7 @@ export function ProductEditor({ adminToken }: Props) {
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [brandFilter, setBrandFilter] = useState<string>("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [protocolFilter, setProtocolFilter] = useState<string>("all");
   const [flagVersion, setFlagVersion] = useState(0);
@@ -117,10 +125,15 @@ export function ProductEditor({ adminToken }: Props) {
   const [aiBusy, setAiBusy] = useState(false);
   const [photoBusy, setPhotoBusy] = useState(false);
   const [visibleCount, setVisibleCount] = useState(50);
+  const [pendingBulkCategory, setPendingBulkCategory] = useState<{ id: string | null; name: string } | null>(null);
+  const [slugAssignOpen, setSlugAssignOpen] = useState(false);
+  const [slugInputText, setSlugInputText] = useState("");
+  const [slugTargetCategoryId, setSlugTargetCategoryId] = useState<string>("none");
+  const [slugAssignBusy, setSlugAssignBusy] = useState(false);
 
   useEffect(() => {
     setVisibleCount(50);
-  }, [search, brandFilter, statusFilter, protocolFilter]);
+  }, [search, brandFilter, categoryFilter, statusFilter, protocolFilter]);
 
   const fetchAllProducts = async () => {
     const pageSize = 1000;
@@ -138,20 +151,56 @@ export function ProductEditor({ adminToken }: Props) {
     return rows;
   };
 
+  const refreshCategories = async () => {
+    const { data, error } = await supabase
+      .from("categories")
+      .select("id, name, slug, sort_order, is_active")
+      .order("sort_order", { ascending: true })
+      .order("name", { ascending: true });
+    if (!error && data) {
+      setCategories(sortCategories(data as Category[]));
+    }
+  };
+
   const load = async () => {
     setLoading(true);
     const [p, { data: c }, { data: vizData }] = await Promise.all([
       fetchAllProducts(),
-      supabase.from("categories").select("id, name").order("name"),
+      supabase
+        .from("categories")
+        .select("id, name, slug, sort_order, is_active")
+        .order("sort_order", { ascending: true })
+        .order("name", { ascending: true }),
       supabase.from("site_info").select("value").eq("section", "products").eq("key", "hidden_ids").maybeSingle(),
     ]);
     setProducts(p ?? []);
-    setCategories((c as any) ?? []);
+    setCategories(sortCategories(((c as any) ?? []) as Category[]));
     try { setHiddenIds(vizData?.value ? JSON.parse(vizData.value) : []); } catch { setHiddenIds([]); }
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    const onCategoriesUpdated = () => { refreshCategories(); };
+    window.addEventListener("azka-categories-updated", onCategoriesUpdated);
+    return () => window.removeEventListener("azka-categories-updated", onCategoriesUpdated);
+  }, []);
+
+  const activeCategories = useMemo(
+    () => sortCategories(categories.filter((c) => c.is_active !== false)),
+    [categories]
+  );
+
+  const categoryMap = useMemo(() => {
+    const map = new Map<string, Category>();
+    for (const c of categories) map.set(c.id, c);
+    return map;
+  }, [categories]);
+
+  const slugPreview = useMemo(
+    () => matchSlugsToProducts(slugInputText, products),
+    [slugInputText, products]
+  );
 
   const refreshMissingPhotos = async () => {
     setPhotoBusy(true);
@@ -188,6 +237,8 @@ export function ProductEditor({ adminToken }: Props) {
     const q = search.trim().toLowerCase();
     return products.filter((p) => {
       if (brandFilter !== "all" && (p.brand ?? "") !== brandFilter) return false;
+      if (categoryFilter === "uncategorized" && p.category_id) return false;
+      if (categoryFilter !== "all" && categoryFilter !== "uncategorized" && p.category_id !== categoryFilter) return false;
       const audit = cairoSupplierService.getProductAudit(p.id);
       const isFlagged = cairoSupplierService.isWrongImageFlagged(p.id);
       const isVerified = cairoSupplierService.isImageVerified(p.id);
@@ -217,7 +268,7 @@ export function ProductEditor({ adminToken }: Props) {
         (p.slug ?? "").toLowerCase().includes(q) ||
         (audit?.sku && audit.sku.toLowerCase().includes(q));
     });
-  }, [products, search, brandFilter, statusFilter, protocolFilter, flagVersion]);
+  }, [products, search, brandFilter, categoryFilter, statusFilter, protocolFilter, flagVersion]);
 
   const allBrands = useMemo(
     () => Array.from(new Set(products.map((p) => p.brand).filter(Boolean))).sort() as string[],
@@ -274,6 +325,10 @@ export function ProductEditor({ adminToken }: Props) {
       }
       toast({ title: successMsg });
       clearSelection();
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["product"] });
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+      window.dispatchEvent(new CustomEvent("azka-categories-updated"));
       await load();
     } catch (e: any) {
       toast({ title: "Bulk action failed", description: e.message, variant: "destructive" });
@@ -320,6 +375,70 @@ export function ProductEditor({ adminToken }: Props) {
         ? `Updated protocol to "${nextProto}" for ${selectedIds.size} products`
         : `Cleared protocol for ${selectedIds.size} products`
     );
+  };
+
+  const confirmBulkSetCategory = async () => {
+    if (!pendingBulkCategory || selectedIds.size === 0) return;
+    const target = pendingBulkCategory;
+    setPendingBulkCategory(null);
+    await bulkInvoke(
+      {
+        action: "bulk-update-products",
+        ids: Array.from(selectedIds),
+        updates: { category_id: target.id },
+      },
+      `Moved ${selectedIds.size} product(s) to "${target.name}"`
+    );
+  };
+
+  const applyBulkSlugAssign = async () => {
+    const matched = slugPreview.matched;
+    if (matched.length === 0) {
+      toast({ variant: "destructive", title: "No matching product slugs found" });
+      return;
+    }
+
+    setSlugAssignBusy(true);
+    try {
+      const targetCategoryId = slugTargetCategoryId === "none" ? null : slugTargetCategoryId;
+      const { data, error } = await supabase.functions.invoke("admin-write", {
+        headers: { Authorization: "Bearer " + adminToken },
+        body: {
+          action: "bulk-assign-category-by-slug",
+          token: adminToken,
+          slugs: matched.map((p) => p.slug),
+          category_id: targetCategoryId,
+        },
+      });
+      if (error || !data?.success) {
+        throw new Error(data?.error || error?.message || "Failed to assign category");
+      }
+      const catLabel = targetCategoryId
+        ? categoryMap.get(targetCategoryId)?.name || "selected category"
+        : "Uncategorized";
+      toast({
+        title: `Moved ${data.updatedCount ?? matched.length} product(s) to "${catLabel}"`,
+        description:
+          slugPreview.unmatched.length > 0
+            ? `${slugPreview.unmatched.length} unmatched slug(s) were skipped.`
+            : undefined,
+      });
+      setSlugAssignOpen(false);
+      setSlugInputText("");
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["product"] });
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+      window.dispatchEvent(new CustomEvent("azka-categories-updated"));
+      await load();
+    } catch (e: any) {
+      toast({
+        title: "Bulk assign by slug failed",
+        description: e.message,
+        variant: "destructive",
+      });
+    } finally {
+      setSlugAssignBusy(false);
+    }
   };
 
   const bulkAutoDetectProtocols = async () => {
@@ -380,6 +499,7 @@ export function ProductEditor({ adminToken }: Props) {
   };
 
   const openNew = () => {
+    refreshCategories();
     setPrimaryClearedInInput(false);
     setEditing({ ...blank, images: [] });
     setEditingDeps([]);
@@ -388,6 +508,7 @@ export function ProductEditor({ adminToken }: Props) {
     setOpen(true);
   };
   const openEdit = (p: Product) => {
+    refreshCategories();
     setPrimaryClearedInInput(false);
     const initialGallery = normalizeProductGallery(p.image_url, p.images);
     setEditing({
@@ -544,8 +665,10 @@ export function ProductEditor({ adminToken }: Props) {
         typeof editing.video_url === "string" && editing.video_url.trim() !== ""
           ? editing.video_url.trim()
           : null;
+      const intendedCategoryId = editing.category_id ?? null;
       const payload = {
         ...editing,
+        category_id: intendedCategoryId,
         protocol: normalizedProtocol,
         brand: normalizedBrand,
         description_ar: normalizedDescriptionAr,
@@ -569,6 +692,7 @@ export function ProductEditor({ adminToken }: Props) {
       const needsDirectPersist =
         Boolean(savedRow?.id) &&
         (
+          (savedRow.category_id ?? null) !== intendedCategoryId ||
           (savedRow.protocol ?? null) !== normalizedProtocol ||
           (savedRow.description_ar ?? null) !== normalizedDescriptionAr ||
           (savedRow.brand ?? null) !== normalizedBrand ||
@@ -590,6 +714,7 @@ export function ProductEditor({ adminToken }: Props) {
                 products: [
                   {
                     ...savedRow,
+                    category_id: intendedCategoryId,
                     protocol: normalizedProtocol,
                     description_ar: normalizedDescriptionAr,
                     brand: normalizedBrand,
@@ -624,6 +749,8 @@ export function ProductEditor({ adminToken }: Props) {
         } catch {}
         queryClient.invalidateQueries({ queryKey: ["product"] });
         queryClient.invalidateQueries({ queryKey: ["products"] });
+        queryClient.invalidateQueries({ queryKey: ["categories"] });
+        window.dispatchEvent(new CustomEvent("azka-categories-updated"));
       }
 
       if (savedRow?.id && (depsDirty || editingDeps.length > 0)) {
@@ -720,6 +847,19 @@ export function ProductEditor({ adminToken }: Props) {
               <SelectItem value="delete_candidate">🗑️ Delete Candidates</SelectItem>
             </SelectContent>
           </Select>
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="w-full sm:w-52"><SelectValue placeholder="Category" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Categories</SelectItem>
+              <SelectItem value="uncategorized">Uncategorized</SelectItem>
+              {activeCategories.map((c) => (
+                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+              ))}
+              {categories.filter((c) => c.is_active === false).map((c) => (
+                <SelectItem key={c.id} value={c.id}>{c.name} (Inactive)</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Select value={brandFilter} onValueChange={setBrandFilter}>
             <SelectTrigger className="w-full sm:w-44"><SelectValue placeholder="Brand" /></SelectTrigger>
             <SelectContent>
@@ -785,6 +925,46 @@ export function ProductEditor({ adminToken }: Props) {
           </Button>
           <Button size="sm" variant="outline" onClick={() => bulkFeature(false)} disabled={bulkBusy || selectedIds.size === 0}>
             Unfeature
+          </Button>
+
+          {/* Bulk Category Action */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="outline" disabled={bulkBusy || selectedIds.size === 0} className="border-primary/40 text-foreground">
+                <FolderTree className="h-4 w-4 mr-1 text-primary" /> Set Category
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-64 max-h-80 overflow-y-auto">
+              <DropdownMenuItem
+                onClick={() => setPendingBulkCategory({ id: null, name: "Uncategorized" })}
+                className="cursor-pointer text-muted-foreground"
+              >
+                — Uncategorized —
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              {activeCategories.map((cat) => (
+                <DropdownMenuItem
+                  key={cat.id}
+                  onClick={() => setPendingBulkCategory({ id: cat.id, name: cat.name })}
+                  className="cursor-pointer"
+                >
+                  {cat.name}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              refreshCategories();
+              setSlugAssignOpen(true);
+            }}
+            disabled={bulkBusy}
+            className="gap-1"
+          >
+            <ListPlus className="h-4 w-4 text-primary" /> Bulk assign by slug
           </Button>
 
           {/* Bulk Protocol Action */}
@@ -969,7 +1149,7 @@ export function ProductEditor({ adminToken }: Props) {
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground truncate pt-0.5">
-                      {p.brand || "No brand"} {audit?.sku ? `• SKU: ${audit.sku}` : ''} • {p.price} EGP • Stock: {p.stock}
+                      {p.category_id ? (categoryMap.get(p.category_id)?.name ?? "Category") : "Uncategorized"} • {p.brand || "No brand"} {audit?.sku ? `• SKU: ${audit.sku}` : ''} • {p.price} EGP • Stock: {p.stock}
                       {p.featured ? " • ⭐ Featured" : ""}
                     </p>
                   </div>
@@ -1147,7 +1327,12 @@ export function ProductEditor({ adminToken }: Props) {
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">— Uncategorized —</SelectItem>
-                  {categories.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  {activeCategories.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  {editing.category_id && !activeCategories.some((c) => c.id === editing.category_id) && categoryMap.get(editing.category_id) && (
+                    <SelectItem value={editing.category_id}>
+                      {categoryMap.get(editing.category_id)!.name} (Inactive)
+                    </SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -1377,6 +1562,116 @@ export function ProductEditor({ adminToken }: Props) {
             <Button onClick={save} disabled={saving || depsLoading}>
               {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
               Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Set Category Confirmation Dialog */}
+      <Dialog open={!!pendingBulkCategory} onOpenChange={(o) => { if (!o) setPendingBulkCategory(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirm Category Update</DialogTitle>
+            <DialogDescription>
+              Move {selectedIds.size} selected {selectedIds.size === 1 ? "product" : "products"} to{" "}
+              <strong className="text-foreground">"{pendingBulkCategory?.name}"</strong>?
+              Only the category field will be updated; prices, stock, visibility, descriptions, and images remain unchanged.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPendingBulkCategory(null)} disabled={bulkBusy}>
+              Cancel
+            </Button>
+            <Button onClick={confirmBulkSetCategory} disabled={bulkBusy}>
+              {bulkBusy ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FolderTree className="h-4 w-4 mr-2" />}
+              Apply to {selectedIds.size} product(s)
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Assign Category by Slug Dialog */}
+      <Dialog open={slugAssignOpen} onOpenChange={setSlugAssignOpen}>
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Bulk Assign Category by Slug</DialogTitle>
+            <DialogDescription>
+              Paste product slugs (one per line), pick a target category, review matched and unmatched slugs, and apply. Only the category field changes.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="bulk-slug-category">Target Category</Label>
+              <Select value={slugTargetCategoryId} onValueChange={setSlugTargetCategoryId}>
+                <SelectTrigger id="bulk-slug-category">
+                  <SelectValue placeholder="Choose target category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">— Uncategorized —</SelectItem>
+                  {activeCategories.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="bulk-slug-textarea">Product Slugs (one per line)</Label>
+              <Textarea
+                id="bulk-slug-textarea"
+                rows={6}
+                value={slugInputText}
+                onChange={(e) => setSlugInputText(e.target.value)}
+                placeholder={"ezviz-h4-2k-outdoor-camera-with-colour-night-vision\neufy-indoor-cam-mini-2k-pan-tilt-camera"}
+                className="font-mono text-xs"
+              />
+            </div>
+
+            {slugInputText.trim().length > 0 && (
+              <div className="rounded-xl border border-border bg-muted/30 p-3 space-y-2 text-xs">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="secondary">Matched: {slugPreview.matched.length}</Badge>
+                  <Badge variant={slugPreview.unmatched.length > 0 ? "destructive" : "outline"}>
+                    Unmatched: {slugPreview.unmatched.length}
+                  </Badge>
+                </div>
+                {slugPreview.matched.length > 0 && (
+                  <div>
+                    <p className="font-medium text-foreground mb-1">Matched products:</p>
+                    <ul className="max-h-28 overflow-y-auto space-y-0.5 text-muted-foreground">
+                      {slugPreview.matched.map((m) => (
+                        <li key={m.id} className="truncate">
+                          <span className="font-mono text-foreground">{m.slug}</span> — {m.name}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {slugPreview.unmatched.length > 0 && (
+                  <div>
+                    <p className="font-medium text-destructive mb-1">Unmatched slugs (will be skipped):</p>
+                    <ul className="max-h-24 overflow-y-auto space-y-0.5 font-mono text-destructive">
+                      {slugPreview.unmatched.map((u) => (
+                        <li key={u}>{u}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSlugAssignOpen(false)} disabled={slugAssignBusy}>
+              Cancel
+            </Button>
+            <Button
+              onClick={applyBulkSlugAssign}
+              disabled={slugAssignBusy || slugPreview.matched.length === 0}
+            >
+              {slugAssignBusy ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FolderTree className="h-4 w-4 mr-2" />}
+              Apply ({slugPreview.matched.length} matched)
             </Button>
           </DialogFooter>
         </DialogContent>

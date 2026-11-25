@@ -4,7 +4,7 @@ import { Helmet } from 'react-helmet-async';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Upload, Loader2, CheckCircle, AlertCircle, Image, FileText, Sparkles, Download, Filter, DollarSign, CreditCard, Package, Settings, Globe, RefreshCw, Link2, Users, Tag, Zap, Merge, Bell, Search, ShieldCheck, FolderOpen, HardDrive, Bot } from 'lucide-react';
+import { Upload, Loader2, CheckCircle, AlertCircle, Image, FileText, Sparkles, Download, Filter, DollarSign, CreditCard, Package, Settings, Globe, RefreshCw, Link2, Users, Tag, Zap, Merge, Bell, Search, ShieldCheck, FolderOpen, HardDrive, Bot, FolderTree } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PushBroadcaster } from '@/components/admin/PushBroadcaster';
@@ -18,6 +18,7 @@ import { SiteSettings } from '@/components/admin/SiteSettings';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { ProductScraper } from '@/components/admin/ProductScraper';
 import { ProductEditor } from '@/components/admin/ProductEditor';
+import { CategoriesManager } from '@/components/admin/CategoriesManager';
 import { SiteInfoEditor } from '@/components/admin/SiteInfoEditor';
 import { BulkImporter } from '@/components/admin/BulkImporter';
 import { UsersManagement } from '@/components/admin/UsersManagement';
@@ -89,16 +90,30 @@ export default function Admin() {
     return <AdminLogin onLogin={login} />;
   }
 
+  const fetchAllProductsWithCategories = async (selectExpr: string) => {
+    const pageSize = 1000;
+    const rows: any[] = [];
+    for (let from = 0; ; from += pageSize) {
+      const { data, error } = await supabase
+        .from('products')
+        .select(selectExpr)
+        .order('brand')
+        .order('name')
+        .range(from, from + pageSize - 1);
+      if (error) throw error;
+      rows.push(...(data ?? []));
+      if (!data || data.length < pageSize) break;
+    }
+    return rows;
+  };
+
   // Fetch export stats on mount
   const fetchExportStats = async () => {
-    const { data: products } = await supabase
-      .from('products')
-      .select('brand, categories(name)')
-      .order('brand');
+    const products = await fetchAllProductsWithCategories('brand, categories(name)');
     
     if (products) {
       const brands = [...new Set(products.map(p => p.brand).filter(Boolean))] as string[];
-      const categories = [...new Set(products.map(p => (p.categories as any)?.name).filter(Boolean))] as string[];
+      const categories = [...new Set(products.map(p => (p.categories as any)?.name || 'Uncategorized'))] as string[];
       setExportStats({ total: products.length, categories, brands });
     }
   };
@@ -118,20 +133,13 @@ export default function Admin() {
   const handleExportCSV = async () => {
     setIsExporting(true);
     try {
-      const query = supabase
-        .from('products')
-        .select('*, categories(name)')
-        .order('brand')
-        .order('name');
-
-      const { data: products, error } = await query;
-      if (error) throw error;
+      const products = await fetchAllProductsWithCategories('*, categories(name)');
 
       let filteredProducts = products || [];
       
       if (selectedCategories.length > 0) {
         filteredProducts = filteredProducts.filter(p => 
-          selectedCategories.includes((p.categories as any)?.name)
+          selectedCategories.includes((p.categories as any)?.name || 'Uncategorized')
         );
       }
       
@@ -415,6 +423,7 @@ export default function Admin() {
             </TabsTrigger>
             <TabsTrigger value="users"><Users className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Users</span></TabsTrigger>
             <TabsTrigger value="products"><Package className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Products</span></TabsTrigger>
+            <TabsTrigger value="categories"><FolderTree className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Categories</span></TabsTrigger>
             <TabsTrigger value="bundles"><Package className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Bundles</span></TabsTrigger>
             <TabsTrigger value="variants"><Merge className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Variants</span></TabsTrigger>
             <TabsTrigger value="bulk"><Globe className="w-4 h-4 mr-1" /><span className="hidden sm:inline">Bulk Import</span></TabsTrigger>
@@ -458,6 +467,10 @@ export default function Admin() {
 
           <TabsContent value="products" className="mt-6">
             <ProductEditor adminToken={token} />
+          </TabsContent>
+
+          <TabsContent value="categories" className="mt-6">
+            <CategoriesManager adminToken={token} />
           </TabsContent>
 
           <TabsContent value="site-info" className="mt-6">
