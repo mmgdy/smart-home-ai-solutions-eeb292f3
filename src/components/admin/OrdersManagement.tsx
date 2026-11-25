@@ -40,17 +40,25 @@ interface OrderItem {
 
 const statusColors: Record<string, string> = {
   pending: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/30',
+  pending_payment: 'bg-amber-500/10 text-amber-600 border-amber-500/30',
+  paid: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30',
   processing: 'bg-blue-500/10 text-blue-600 border-blue-500/30',
   shipped: 'bg-purple-500/10 text-purple-600 border-purple-500/30',
   delivered: 'bg-green-500/10 text-green-600 border-green-500/30',
+  payment_failed: 'bg-red-500/10 text-red-600 border-red-500/30',
+  payment_expired: 'bg-orange-500/10 text-orange-600 border-orange-500/30',
   cancelled: 'bg-red-500/10 text-red-600 border-red-500/30',
 };
 
 const statusIcons: Record<string, typeof Clock> = {
   pending: Clock,
+  pending_payment: Clock,
+  paid: CheckCircle,
   processing: Package,
   shipped: Truck,
   delivered: CheckCircle,
+  payment_failed: X,
+  payment_expired: X,
   cancelled: X,
 };
 
@@ -172,7 +180,8 @@ export const OrdersManagement = ({ adminToken }: Props) => {
   const getPaymentMethod = (order: Order) => {
     const pm = order.shipping_address?.paymentMethod;
     if (pm === 'instapay') return { type: 'instapay', label: 'InstaPay', icon: Smartphone, color: 'bg-purple-100 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-800' };
-    if (pm === 'card') return { type: 'card', label: 'Card (PaySky)', icon: CreditCard, color: 'bg-blue-100 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-800' };
+    if (pm === 'xpay') return { type: 'xpay', label: 'Card (XPay)', icon: CreditCard, color: 'bg-blue-100 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-800' };
+    if (pm === 'card') return { type: 'card', label: 'Card (Online)', icon: CreditCard, color: 'bg-blue-100 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-800' };
     if (pm === 'cod') return { type: 'cod', label: 'Cash on Delivery', icon: Banknote, color: 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800' };
     if (order.stripe_session_id?.startsWith('cod_')) return { type: 'cod', label: 'Cash on Delivery', icon: Banknote, color: 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800' };
     if (order.stripe_session_id) return { type: 'card', label: 'Online Payment', icon: CreditCard, color: 'bg-blue-100 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-800' };
@@ -250,9 +259,13 @@ export const OrdersManagement = ({ adminToken }: Props) => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="pending_payment">Awaiting Payment</SelectItem>
+                        <SelectItem value="paid">Paid</SelectItem>
                         <SelectItem value="processing">Processing</SelectItem>
                         <SelectItem value="shipped">Shipped</SelectItem>
                         <SelectItem value="delivered">Delivered</SelectItem>
+                        <SelectItem value="payment_failed">Payment Failed</SelectItem>
+                        <SelectItem value="payment_expired">Payment Expired</SelectItem>
                         <SelectItem value="cancelled">Cancelled</SelectItem>
                       </SelectContent>
                     </Select>
@@ -311,9 +324,13 @@ export const OrdersManagement = ({ adminToken }: Props) => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="pending_payment">Awaiting Payment</SelectItem>
+                        <SelectItem value="paid">Paid</SelectItem>
                         <SelectItem value="processing">Processing</SelectItem>
                         <SelectItem value="shipped">Shipped</SelectItem>
                         <SelectItem value="delivered">Delivered</SelectItem>
+                        <SelectItem value="payment_failed">Payment Failed</SelectItem>
+                        <SelectItem value="payment_expired">Payment Expired</SelectItem>
                         <SelectItem value="cancelled">Cancelled</SelectItem>
                       </SelectContent>
                     </Select>
@@ -379,6 +396,28 @@ export const OrdersManagement = ({ adminToken }: Props) => {
                           </span>
                         </div>
                       </div>
+                      {selectedOrder.shipping_address.xpay && (
+                        <div className="col-span-2 p-3 bg-blue-50/50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-900 space-y-1 text-xs">
+                          <p className="font-semibold text-blue-900 dark:text-blue-200">XPay Payment Details</p>
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-muted-foreground">
+                            {selectedOrder.shipping_address.xpay.mode && (
+                              <span>Mode: <strong className="text-foreground uppercase">{selectedOrder.shipping_address.xpay.mode}</strong></span>
+                            )}
+                            {selectedOrder.shipping_address.xpay.paymentStatus && (
+                              <span>Status: <strong className="text-foreground">{selectedOrder.shipping_address.xpay.paymentStatus}</strong></span>
+                            )}
+                            {selectedOrder.shipping_address.xpay.sessionId && (
+                              <span>Session: <code className="font-mono text-foreground">{selectedOrder.shipping_address.xpay.sessionId}</code></span>
+                            )}
+                            {selectedOrder.shipping_address.xpay.paymentIntentId && (
+                              <span>Intent: <code className="font-mono text-foreground">{selectedOrder.shipping_address.xpay.paymentIntentId}</code></span>
+                            )}
+                          </div>
+                          {selectedOrder.shipping_address.xpay.failureReason && (
+                            <p className="text-destructive">Reason: {selectedOrder.shipping_address.xpay.failureReason}</p>
+                          )}
+                        </div>
+                      )}
                       {selectedOrder.shipping_address.instapayReference && (
                         <div>
                           <p className="text-muted-foreground">InstaPay Reference</p>

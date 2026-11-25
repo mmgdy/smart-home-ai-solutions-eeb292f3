@@ -87,7 +87,7 @@ export const translations = {
     calculatedAtCheckout: 'Calculated at checkout',
     total: 'Total',
     proceedToCheckout: 'Proceed to Checkout',
-    secureCheckout: 'Secure checkout powered by PaySky',
+    secureCheckout: 'Secure & encrypted checkout',
     
     // Services
     ourServices: 'Our Services',
@@ -205,7 +205,7 @@ export const translations = {
     calculatedAtCheckout: 'يُحسب عند الدفع',
     total: 'الإجمالي',
     proceedToCheckout: 'المتابعة للدفع',
-    secureCheckout: 'دفع آمن مدعوم من PaySky',
+    secureCheckout: 'دفع آمن ومشفر',
     
     // Services
     ourServices: 'خدماتنا',

@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { CheckCircle, Package, Truck, MapPin, Mail, Phone, ArrowRight, ArrowLeft, Copy, Check, Smartphone, MessageCircle, Download, FileText } from 'lucide-react';
+import { CheckCircle, AlertCircle, Clock, Package, Truck, MapPin, Mail, Phone, ArrowRight, ArrowLeft, Copy, Check, Smartphone, MessageCircle, Download, FileText, Loader2, RefreshCw } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/lib/i18n';
+import { useCart } from '@/hooks/useCart';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useSiteInfo } from '@/hooks/useSiteInfo';
@@ -25,8 +26,16 @@ interface OrderDetails {
     city: string;
     governorate: string;
     paymentMethod?: string;
+    isPaid?: boolean;
     instapayReference?: string;
     instapayReceiptUrl?: string;
+    xpay?: {
+      sessionId?: string | null;
+      mode?: string | null;
+      paymentStatus?: string | null;
+      paidAt?: string | null;
+      failureReason?: string | null;
+    };
     notes?: string;
   };
   items: {
@@ -40,12 +49,18 @@ interface OrderDetails {
 const OrderConfirmation = () => {
   const [searchParams] = useSearchParams();
   const orderId = searchParams.get('orderId');
+  const urlSessionId = searchParams.get('session_id');
   const { formatPrice, isRTL, language } = useLanguage();
+  const { clearCart } = useCart();
   const { toast } = useToast();
   
   const [order, setOrder] = useState<OrderDetails | null>(null);
-  // true once we've confirmed the order exists (even if full details aren't readable)
+  // true once we've confirmed the order exists (even if full guest details aren't readable via RLS)
   const [orderConfirmed, setOrderConfirmed] = useState(false);
+  const [guestStatus, setGuestStatus] = useState<string | null>(null);
+  const [guestTotal, setGuestTotal] = useState<number | null>(null);
+  const [guestFailureReason, setGuestFailureReason] = useState<string | null>(null);
+  const [isPollingStatus, setIsPollingStatus] = useState(false);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const { get: getInfo } = useSiteInfo();
@@ -54,44 +69,130 @@ const OrderConfirmation = () => {
 
   const NextArrow = isRTL ? ArrowLeft : ArrowRight;
 
+  const queryAuthoritativeStatus = async (
+    targetOrderId: string,
+    sessionId?: string | null,
+    paymentToken?: string | null
+  ) => {
+    const { data } = await supabase.functions.invoke('xpay-checkout', {
+      body: {
+        action: 'order-status',
+        orderId: targetOrderId,
+        ...(sessionId ? { sessionId } : {}),
+        ...(paymentToken ? { paymentToken } : {}),
+      },
+    });
+    return data?.success ? data.order : null;
+  };
+
   useEffect(() => {
+    let cancelled = false;
+    let pollTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const applyStatusUpdate = (authOrder: any) => {
+      if (!authOrder || cancelled) return;
+      setOrderConfirmed(true);
+      setGuestStatus(authOrder.status);
+      if (typeof authOrder.total === 'number') setGuestTotal(authOrder.total);
+      setGuestFailureReason(authOrder.xpay?.failureReason || null);
+
+      setOrder((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          status: authOrder.status,
+          shipping_address: {
+            ...prev.shipping_address,
+            isPaid: Boolean(authOrder.isPaid),
+            xpay: authOrder.xpay || prev.shipping_address.xpay,
+          },
+        };
+      });
+
+      if (authOrder.isPaid || authOrder.status === 'paid') {
+        clearCart();
+        try {
+          const cachedRaw = sessionStorage.getItem('last_order_receipt');
+          if (cachedRaw) {
+            const parsed = JSON.parse(cachedRaw);
+            if (parsed?.id === authOrder.id) {
+              parsed.status = authOrder.status;
+              if (parsed.shipping_address) {
+                parsed.shipping_address.isPaid = true;
+                parsed.shipping_address.xpay = authOrder.xpay || parsed.shipping_address.xpay;
+              }
+              sessionStorage.setItem('last_order_receipt', JSON.stringify(parsed));
+            }
+          }
+        } catch {}
+      }
+    };
+
+    const scheduleStatusPolling = (
+      targetOrderId: string,
+      sessionId?: string | null,
+      paymentToken?: string | null,
+      attempt = 0
+    ) => {
+      if (cancelled || attempt >= 10) {
+        if (!cancelled) setIsPollingStatus(false);
+        return;
+      }
+      setIsPollingStatus(true);
+      pollTimer = setTimeout(async () => {
+        try {
+          const authOrder = await queryAuthoritativeStatus(targetOrderId, sessionId, paymentToken);
+          if (cancelled) return;
+          if (authOrder) {
+            applyStatusUpdate(authOrder);
+            if (authOrder.status !== 'pending_payment') {
+              setIsPollingStatus(false);
+              return;
+            }
+          }
+        } catch {}
+        scheduleStatusPolling(targetOrderId, sessionId, paymentToken, attempt + 1);
+      }, 2000);
+    };
+
     const fetchOrder = async () => {
       if (!orderId) {
         setLoading(false);
         return;
       }
 
-      setOrderConfirmed(true);
-
-      // Guarantee order notification email is sent (handles PaySky 3DS bank redirects
-      // where Checkout.tsx unloaded, or any mobile navigation that aborted the checkout request).
-      // send-order-notification is idempotent and will skip if already delivered.
-      let cachedPaymentMethod: string | undefined;
+      let cachedParsed: any = null;
       try {
         const cachedRaw = sessionStorage.getItem('last_order_receipt');
         if (cachedRaw) {
-          const cachedParsed = JSON.parse(cachedRaw);
-          if (cachedParsed?.id === orderId) {
-            cachedPaymentMethod = cachedParsed?.shipping_address?.paymentMethod;
+          const parsed = JSON.parse(cachedRaw);
+          if (parsed && (parsed.id === orderId || parsed.id?.slice(0, 8) === orderId?.slice(0, 8))) {
+            cachedParsed = parsed;
           }
         }
       } catch {}
 
-      supabase.functions
-        .invoke('send-order-notification', {
-          body: {
-            orderId,
-            paymentMethod: cachedPaymentMethod,
-            isOrderConfirmationPage: true,
-            queryParams: Object.fromEntries(searchParams.entries()),
-          },
-        })
-        .then(({ data: notifyRes }) => {
-          if (notifyRes?.status === 'processing') {
-            setOrder((prev) => (prev ? { ...prev, status: 'processing' } : prev));
-          }
-        })
-        .catch((err) => console.warn('Order confirmation notification check:', err));
+      const cachedPaymentMethod: string | undefined = cachedParsed?.shipping_address?.paymentMethod;
+      const cachedPaymentToken: string | undefined = cachedParsed?.shipping_address?.paymentToken;
+      const effectiveSessionId =
+        (urlSessionId && urlSessionId !== '{CHECKOUT_SESSION_ID}' ? urlSessionId : null) ||
+        cachedParsed?.shipping_address?.xpay?.sessionId ||
+        null;
+      const isXPayOrder = Boolean(effectiveSessionId) || cachedPaymentMethod === 'xpay';
+
+      // Non-XPay orders (COD / InstaPay) still use send-order-notification fallback
+      if (!isXPayOrder) {
+        setOrderConfirmed(true);
+        supabase.functions
+          .invoke('send-order-notification', {
+            body: {
+              orderId,
+              paymentMethod: cachedPaymentMethod,
+              isOrderConfirmationPage: true,
+            },
+          })
+          .catch((err) => console.warn('Order confirmation notification check:', err));
+      }
 
       try {
         const { data: orderData } = await supabase
@@ -100,44 +201,61 @@ const OrderConfirmation = () => {
           .eq('id', orderId)
           .maybeSingle();
 
-        if (!orderData) {
-          // Check if we have the receipt in sessionStorage from checkout
-          try {
-            const cached = sessionStorage.getItem('last_order_receipt');
-            if (cached) {
-              const parsed = JSON.parse(cached);
-              if (parsed && (parsed.id === orderId || parsed.id?.slice(0, 8) === orderId?.slice(0, 8))) {
-                setOrder(parsed);
-                setLoading(false);
-                return;
-              }
-            }
-          } catch {}
+        if (orderData) {
+          const { data: itemsData } = await supabase
+            .from('order_items')
+            .select('*')
+            .eq('order_id', orderId);
 
-          // Fallback if no cached receipt
+          const sa = (orderData.shipping_address || {}) as OrderDetails['shipping_address'];
+          const dbSessionId = orderData.stripe_session_id || effectiveSessionId;
+          const dbIsXPay = isXPayOrder || sa?.paymentMethod === 'xpay';
+
+          setOrderConfirmed(true);
+          setOrder({
+            ...orderData,
+            shipping_address: sa,
+            items: itemsData || [],
+          });
+
+          if (orderData.status === 'paid' || sa?.isPaid) {
+            clearCart();
+          } else if (dbIsXPay && orderData.status === 'pending_payment') {
+            scheduleStatusPolling(orderId, dbSessionId, sa?.paymentToken || cachedPaymentToken);
+          }
           setLoading(false);
           return;
         }
 
-        const { data: itemsData } = await supabase
-          .from('order_items')
-          .select('*')
-          .eq('order_id', orderId);
+        // Guest order: if cached receipt exists, show receipt shell AND sync authoritative DB status via edge function
+        if (cachedParsed) {
+          setOrderConfirmed(true);
+          setOrder(cachedParsed);
+        }
 
-        setOrder({
-          ...orderData,
-          shipping_address: orderData.shipping_address as OrderDetails['shipping_address'],
-          items: itemsData || [],
-        });
+        if (isXPayOrder && (effectiveSessionId || cachedPaymentToken)) {
+          const authOrder = await queryAuthoritativeStatus(orderId, effectiveSessionId, cachedPaymentToken);
+          if (authOrder && !cancelled) {
+            applyStatusUpdate(authOrder);
+            if (authOrder.status === 'pending_payment') {
+              scheduleStatusPolling(orderId, effectiveSessionId, cachedPaymentToken);
+            }
+          }
+        }
       } catch (error) {
         console.error('Error fetching order:', error);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     fetchOrder();
-  }, [orderId]);
+
+    return () => {
+      cancelled = true;
+      if (pollTimer) clearTimeout(pollTimer);
+    };
+  }, [orderId, urlSessionId]);
 
   const handleDownloadPDF = () => {
     if (!order) return;
@@ -239,14 +357,22 @@ const OrderConfirmation = () => {
 
   const labels = {
     orderConfirmed: language === 'ar' ? 'تم تأكيد الطلب!' : 'Order Confirmed!',
+    paymentConfirmed: language === 'ar' ? 'تم تأكيد الدفع بنجاح!' : 'Payment Confirmed!',
+    awaitingPayment: language === 'ar' ? 'في انتظار تأكيد الدفع' : 'Awaiting Payment Confirmation',
+    paymentFailed: language === 'ar' ? 'لم تكتمل عملية الدفع' : 'Payment Not Completed',
     thankYou: language === 'ar' ? 'شكراً لطلبك' : 'Thank you for your order',
     orderNumber: language === 'ar' ? 'رقم الطلب' : 'Order Number',
     orderDate: language === 'ar' ? 'تاريخ الطلب' : 'Order Date',
     orderStatus: language === 'ar' ? 'حالة الطلب' : 'Order Status',
     pending: language === 'ar' ? 'قيد الانتظار' : 'Pending',
+    pending_payment: language === 'ar' ? 'بانتظار الدفع' : 'Awaiting Payment',
+    paid: language === 'ar' ? 'مدفوع ✓' : 'Paid ✓',
     processing: language === 'ar' ? 'قيد المعالجة' : 'Processing',
     shipped: language === 'ar' ? 'تم الشحن' : 'Shipped',
     delivered: language === 'ar' ? 'تم التسليم' : 'Delivered',
+    payment_failed: language === 'ar' ? 'فشل الدفع' : 'Payment Failed',
+    payment_expired: language === 'ar' ? 'انتهت مهلة الدفع' : 'Payment Expired',
+    cancelled: language === 'ar' ? 'ملغي' : 'Cancelled',
     orderDetails: language === 'ar' ? 'تفاصيل الطلب' : 'Order Details',
     shippingAddress: language === 'ar' ? 'عنوان الشحن' : 'Shipping Address',
     orderSummary: language === 'ar' ? 'ملخص الطلب' : 'Order Summary',
@@ -268,11 +394,29 @@ const OrderConfirmation = () => {
   const getStatusLabel = (status: string) => {
     switch (status) {
       case 'pending': return labels.pending;
+      case 'pending_payment': return labels.pending_payment;
+      case 'paid': return labels.paid;
       case 'processing': return labels.processing;
       case 'shipped': return labels.shipped;
       case 'delivered': return labels.delivered;
+      case 'payment_failed': return labels.payment_failed;
+      case 'payment_expired': return labels.payment_expired;
+      case 'cancelled': return labels.cancelled;
       default: return status;
     }
+  };
+
+  const getStatusBadgeClasses = (status: string) => {
+    if (status === 'paid' || status === 'delivered') {
+      return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300';
+    }
+    if (status === 'payment_failed' || status === 'payment_expired' || status === 'cancelled') {
+      return 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300';
+    }
+    if (status === 'processing' || status === 'shipped') {
+      return 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300';
+    }
+    return 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400';
   };
 
   if (loading) {
@@ -317,42 +461,117 @@ const OrderConfirmation = () => {
       );
     }
 
-    // Guest order placed successfully — full details not loaded for privacy.
+    const handleManualRefresh = async () => {
+      if (!orderId) return;
+      const effectiveSession =
+        urlSessionId && urlSessionId !== '{CHECKOUT_SESSION_ID}' ? urlSessionId : undefined;
+      const authOrder = await queryAuthoritativeStatus(orderId, effectiveSession);
+      if (authOrder) {
+        setGuestStatus(authOrder.status);
+        if (typeof authOrder.total === 'number') setGuestTotal(authOrder.total);
+        setGuestFailureReason(authOrder.xpay?.failureReason || null);
+      }
+    };
+
+    const gStatus = guestStatus || 'pending';
+    const gFailed = gStatus === 'payment_failed' || gStatus === 'payment_expired' || gStatus === 'cancelled';
+    const gWaiting = gStatus === 'pending_payment';
+    const gPaid = gStatus === 'paid';
+
+    const guestTitle = gPaid
+      ? labels.paymentConfirmed
+      : gWaiting
+      ? labels.awaitingPayment
+      : gFailed
+      ? labels.paymentFailed
+      : labels.orderConfirmed;
+
+    // Guest order view — status always comes from the database, never URL parameters.
     return (
       <>
         <Helmet>
-          <title>{labels.orderConfirmed} | AzkaSmart</title>
+          <title>{guestTitle} | AzkaSmart</title>
         </Helmet>
         <Layout>
           <div className="container py-12 text-center">
             <div className="mx-auto max-w-md">
-              <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
-                <CheckCircle className="h-10 w-10 text-green-600 dark:text-green-400" />
+              <div
+                className={`mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full ${
+                  gFailed
+                    ? 'bg-red-100 dark:bg-red-900/30'
+                    : gWaiting
+                    ? 'bg-amber-100 dark:bg-amber-900/30'
+                    : 'bg-green-100 dark:bg-green-900/30'
+                }`}
+              >
+                {gFailed ? (
+                  <AlertCircle className="h-10 w-10 text-red-600 dark:text-red-400" />
+                ) : gWaiting ? (
+                  isPollingStatus ? (
+                    <Loader2 className="h-10 w-10 animate-spin text-amber-600 dark:text-amber-400" />
+                  ) : (
+                    <Clock className="h-10 w-10 text-amber-600 dark:text-amber-400" />
+                  )
+                ) : (
+                  <CheckCircle className="h-10 w-10 text-green-600 dark:text-green-400" />
+                )}
               </div>
               <h1 className="mb-2 font-display text-3xl font-bold text-foreground">
-                {labels.orderConfirmed}
+                {guestTitle}
               </h1>
-              <p className="mb-6 text-muted-foreground">{labels.thankYou}</p>
-              <div className="mb-6 rounded-xl border border-border bg-card p-4">
-                <p className="mb-1 text-sm text-muted-foreground">{labels.orderNumber}</p>
+              <p className="mb-6 text-muted-foreground">
+                {gFailed
+                  ? guestFailureReason ||
+                    (language === 'ar'
+                      ? 'لم يكتمل الدفع بالبطاقة. لم يتم خصم أي مبلغ، ويمكنك المحاولة مرة أخرى.'
+                      : 'Your card payment could not be completed. You can retry or pick another payment method.')
+                  : gWaiting
+                  ? language === 'ar'
+                    ? 'ننتظر تأكيد البنك/بوابة XPay. يتم تحديث الحالة تلقائياً.'
+                    : 'Waiting for payment confirmation from XPay. Status updates automatically.'
+                  : labels.thankYou}
+              </p>
+              <div className="mb-6 rounded-xl border border-border bg-card p-4 space-y-2">
+                <p className="text-sm text-muted-foreground">{labels.orderNumber}</p>
                 <div className="flex items-center justify-center gap-2">
                   <code className="text-sm font-mono font-semibold">{orderId}</code>
                   <button onClick={copyOrderId} className="text-muted-foreground hover:text-foreground">
                     {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
                   </button>
                 </div>
+                {guestStatus && (
+                  <div className="pt-1 flex flex-wrap items-center justify-center gap-3">
+                    <span className={`inline-block rounded-full px-3 py-1 text-xs font-medium ${getStatusBadgeClasses(guestStatus)}`}>
+                      {getStatusLabel(guestStatus)}
+                    </span>
+                    {guestTotal !== null && (
+                      <span className="text-sm font-semibold text-foreground">{formatPrice(guestTotal)}</span>
+                    )}
+                  </div>
+                )}
               </div>
-              <p className="mb-8 text-sm text-muted-foreground">
-                {language === 'ar'
-                  ? 'سيتم التواصل معك قريباً لتأكيد الطلب والتوصيل'
-                  : 'We will contact you shortly to confirm your order and arrange delivery.'}
-              </p>
+              {gWaiting && (
+                <div className="mb-6">
+                  <Button variant="outline" size="sm" onClick={handleManualRefresh} className="gap-2">
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    {language === 'ar' ? 'تحديث حالة الدفع' : 'Refresh Payment Status'}
+                  </Button>
+                </div>
+              )}
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                {gFailed && (
+                  <Link to="/checkout" className="w-full sm:w-auto">
+                    <Button className="gap-2 w-full">
+                      {language === 'ar' ? 'العودة للدفع والمحاولة مجدداً' : 'Return to Checkout'}
+                      <NextArrow className="h-4 w-4" />
+                    </Button>
+                  </Link>
+                )}
                 <a
                   href={`https://wa.me/${cleanWaNumber}?text=${encodeURIComponent(
                     language === 'ar'
-                      ? `مرحباً أزكاسمارت، قمت بطلب جديد برقم: #${orderId}`
-                      : `Hello AzkaSmart, I placed a new order #${orderId}`
+                      ? `مرحباً أزكاسمارت، بخصوص الطلب رقم: #${orderId}`
+                      : `Hello AzkaSmart, regarding my order #${orderId}`
                   )}`}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -360,11 +579,11 @@ const OrderConfirmation = () => {
                 >
                   <Button variant="outline" className="gap-2 w-full border-emerald-500/40 hover:border-emerald-600 text-emerald-700 dark:text-emerald-400">
                     <MessageCircle className="h-4 w-4 text-emerald-600" />
-                    {language === 'ar' ? 'تأكيد عبر واتساب' : 'Confirm via WhatsApp'}
+                    {language === 'ar' ? 'تواصل عبر واتساب' : 'Contact via WhatsApp'}
                   </Button>
                 </a>
                 <Link to="/" className="w-full sm:w-auto">
-                  <Button className="gap-2 w-full">
+                  <Button variant={gFailed ? 'outline' : 'default'} className="gap-2 w-full">
                     {labels.continueShopping}
                     <NextArrow className="h-4 w-4" />
                   </Button>
@@ -377,22 +596,76 @@ const OrderConfirmation = () => {
     );
   }
 
+  const orderIsFailed =
+    order.status === 'payment_failed' ||
+    order.status === 'payment_expired' ||
+    order.status === 'cancelled';
+  const orderIsWaiting = order.status === 'pending_payment';
+  const orderIsPaid =
+    order.status === 'paid' || Boolean(order.shipping_address?.isPaid);
+  const pageTitle = orderIsFailed
+    ? labels.paymentFailed
+    : orderIsWaiting
+    ? labels.awaitingPayment
+    : orderIsPaid
+    ? labels.paymentConfirmed
+    : labels.orderConfirmed;
+
   return (
     <>
       <Helmet>
-        <title>{labels.orderConfirmed} | AzkaSmart</title>
+        <title>{pageTitle} | AzkaSmart</title>
       </Helmet>
       <Layout>
         <div className="container py-8 md:py-12">
-          {/* Success Header */}
+          {/* Authoritative Status Header */}
           <div className="mb-10 text-center">
-            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
-              <CheckCircle className="h-10 w-10 text-green-600 dark:text-green-400" />
+            <div
+              className={`mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full ${
+                orderIsFailed
+                  ? 'bg-red-100 dark:bg-red-900/30'
+                  : orderIsWaiting
+                  ? 'bg-amber-100 dark:bg-amber-900/30'
+                  : 'bg-green-100 dark:bg-green-900/30'
+              }`}
+            >
+              {orderIsFailed ? (
+                <AlertCircle className="h-10 w-10 text-red-600 dark:text-red-400" />
+              ) : orderIsWaiting ? (
+                isPollingStatus ? (
+                  <Loader2 className="h-10 w-10 animate-spin text-amber-600 dark:text-amber-400" />
+                ) : (
+                  <Clock className="h-10 w-10 text-amber-600 dark:text-amber-400" />
+                )
+              ) : (
+                <CheckCircle className="h-10 w-10 text-green-600 dark:text-green-400" />
+              )}
             </div>
             <h1 className="mb-2 font-display text-3xl font-bold text-foreground md:text-4xl">
-              {labels.orderConfirmed}
+              {pageTitle}
             </h1>
-            <p className="text-lg text-muted-foreground">{labels.thankYou}</p>
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+              {orderIsFailed
+                ? order.shipping_address?.xpay?.failureReason ||
+                  (language === 'ar'
+                    ? 'لم يتم إتمام الدفع الإلكتروني. طلبك غير مدفوع ويمكنك المحاولة مرة أخرى.'
+                    : 'Online card payment was not completed. Your order remains unpaid and you can try again.')
+                : orderIsWaiting
+                ? language === 'ar'
+                  ? 'تم إنشاء الطلب وننتظر تأكيد الدفع من XPay. تتحدث هذه الصفحة تلقائياً.'
+                  : 'Your order is awaiting payment confirmation from XPay. This page updates automatically.'
+                : labels.thankYou}
+            </p>
+            {orderIsFailed && (
+              <div className="mt-5 flex justify-center">
+                <Link to="/checkout">
+                  <Button size="lg" className="gap-2">
+                    {language === 'ar' ? 'العودة للدفع والمحاولة مجدداً' : 'Return to Checkout'}
+                    <NextArrow className="h-4 w-4" />
+                  </Button>
+                </Link>
+              </div>
+            )}
           </div>
 
           <div className="mx-auto max-w-4xl">
@@ -425,7 +698,7 @@ const OrderConfirmation = () => {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">{labels.orderStatus}</p>
-                  <span className="mt-1 inline-block rounded-full bg-amber-100 px-3 py-1 text-sm font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+                  <span className={`mt-1 inline-block rounded-full px-3 py-1 text-sm font-medium ${getStatusBadgeClasses(order.status)}`}>
                     {getStatusLabel(order.status)}
                   </span>
                 </div>
@@ -550,7 +823,13 @@ const OrderConfirmation = () => {
                   </div>
                   <div>
                     <h3 className="font-medium text-foreground">{labels.step1Title}</h3>
-                    <p className="text-sm text-muted-foreground">{labels.step1Desc}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {orderIsPaid
+                        ? language === 'ar'
+                          ? 'تم تأكيد الدفع بالبطاقة بنجاح عبر XPay'
+                          : 'Online card payment verified via XPay'
+                        : labels.step1Desc}
+                    </p>
                   </div>
                 </div>
                 <div className="flex gap-4">
@@ -574,8 +853,14 @@ const OrderConfirmation = () => {
               </div>
             </div>
 
-            {/* Continue Shopping */}
-            <div className="mt-8 text-center">
+            {/* Actions */}
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-3 text-center">
+              {!orderIsFailed && !orderIsWaiting && (
+                <Button variant="outline" size="lg" onClick={handleDownloadPDF} className="gap-2">
+                  <Download className="h-4 w-4" />
+                  {language === 'ar' ? 'تحميل الفاتورة (PDF)' : 'Download Receipt (PDF)'}
+                </Button>
+              )}
               <Link to="/products">
                 <Button size="lg" className="gap-2 glow-primary">
                   {labels.continueShopping}

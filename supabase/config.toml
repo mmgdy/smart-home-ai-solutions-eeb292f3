@@ -1,6 +1,9 @@
 project_id = "djsibxhkfvwtjzvnjmhp"
 
-[functions.paysky-checkout]
+[functions.xpay-checkout]
+verify_jwt = false
+
+[functions.xpay-webhook]
 verify_jwt = false
 
 [functions.smart-home-consultant]

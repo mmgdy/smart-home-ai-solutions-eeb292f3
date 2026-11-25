@@ -3,6 +3,17 @@ import { corsHeadersFor } from "../_shared/cors.ts";
 import { checkRate, getIp } from "../_shared/rate-limit.ts";
 import { chatComplete } from "../_shared/ai.ts";
 import { autoEnrichProductSpecifications } from "../_shared/product-enricher.ts";
+import {
+  XPAY_API_BASE,
+  maskSecretHint,
+  normalizeXPayMode,
+  validateKeyForMode,
+} from "../_shared/xpay.ts";
+import {
+  readXPayPublicConfig,
+  resolveXPaySecretKey,
+  resolveXPayWebhookSecrets,
+} from "../_shared/xpay-secrets.ts";
 
 async function verifyAdminToken(supabase: any, token: string): Promise<boolean> {
   if (!token) return false;
@@ -647,6 +658,180 @@ JSON: {"seo_title":"<=60 chars","seo_description":"<=155 chars","seo_keywords":[
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // ─── XPay Payment Gateway Settings (secrets stored server-side only) ──
+
+    if (action === "get-xpay-settings") {
+      const pub = await readXPayPublicConfig(supabase);
+      const [skTest, skLive, whSecrets] = await Promise.all([
+        resolveXPaySecretKey(supabase, "test"),
+        resolveXPaySecretKey(supabase, "live"),
+        resolveXPayWebhookSecrets(supabase),
+      ]);
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          settings: {
+            enabled: pub.enabled,
+            mode: pub.mode,
+            publishableKeyTest: pub.publishableKeyTest,
+            publishableKeyLive: pub.publishableKeyLive,
+            cardFeePercent: String(pub.cardFeePercent),
+            cardFeeFixed: String(pub.cardFeeFixed),
+            hasSecretKeyTest: Boolean(skTest),
+            hasSecretKeyLive: Boolean(skLive),
+            hasWebhookSecretTest: Boolean(whSecrets.test),
+            hasWebhookSecretLive: Boolean(whSecrets.live),
+            secretKeyMaskTest: maskSecretHint(skTest),
+            secretKeyMaskLive: maskSecretHint(skLive),
+            webhookSecretMaskTest: maskSecretHint(whSecrets.test),
+            webhookSecretMaskLive: maskSecretHint(whSecrets.live),
+          },
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (action === "save-xpay-settings") {
+      const mode = normalizeXPayMode(body.mode);
+      const enabled = Boolean(body.enabled);
+      const publishableKeyTest = typeof body.publishableKeyTest === "string" ? body.publishableKeyTest.trim() : "";
+      const publishableKeyLive = typeof body.publishableKeyLive === "string" ? body.publishableKeyLive.trim() : "";
+      const secretKeyTest = typeof body.secretKeyTest === "string" ? body.secretKeyTest.trim() : "";
+      const secretKeyLive = typeof body.secretKeyLive === "string" ? body.secretKeyLive.trim() : "";
+      const webhookSecretTest = typeof body.webhookSecretTest === "string" ? body.webhookSecretTest.trim() : "";
+      const webhookSecretLive = typeof body.webhookSecretLive === "string" ? body.webhookSecretLive.trim() : "";
+      const feePctNum = Math.max(0, Math.min(20, Number(body.cardFeePercent) || 0));
+      const feeFixedNum = Math.max(0, Math.min(1000, Number(body.cardFeeFixed) || 0));
+
+      const validations: Array<{ ok: boolean; error?: string }> = [];
+      if (publishableKeyTest) validations.push(validateKeyForMode("publishable", "test", publishableKeyTest));
+      if (publishableKeyLive) validations.push(validateKeyForMode("publishable", "live", publishableKeyLive));
+      if (secretKeyTest) validations.push(validateKeyForMode("secret", "test", secretKeyTest));
+      if (secretKeyLive) validations.push(validateKeyForMode("secret", "live", secretKeyLive));
+      if (webhookSecretTest) validations.push(validateKeyForMode("webhook", "test", webhookSecretTest));
+      if (webhookSecretLive) validations.push(validateKeyForMode("webhook", "live", webhookSecretLive));
+
+      const invalid = validations.find((v) => !v.ok);
+      if (invalid) {
+        return new Response(
+          JSON.stringify({ success: false, error: invalid.error || "Invalid XPay key format" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const nowIso = new Date().toISOString();
+      const upsertSecret = async (key: string, value: string, shouldClear: boolean) => {
+        if (shouldClear) {
+          const { error } = await supabase.from("payment_secrets").delete().eq("key", key);
+          if (error) throw error;
+        } else if (value) {
+          const { error } = await supabase
+            .from("payment_secrets")
+            .upsert({ key, value, updated_at: nowIso }, { onConflict: "key" });
+          if (error) throw error;
+        }
+      };
+
+      await upsertSecret("xpay_secret_key_test", secretKeyTest, Boolean(body.clearSecretKeyTest));
+      await upsertSecret("xpay_secret_key_live", secretKeyLive, Boolean(body.clearSecretKeyLive));
+      await upsertSecret("xpay_webhook_secret_test", webhookSecretTest, Boolean(body.clearWebhookSecretTest));
+      await upsertSecret("xpay_webhook_secret_live", webhookSecretLive, Boolean(body.clearWebhookSecretLive));
+
+      const [skTestAfter, skLiveAfter, whAfter] = await Promise.all([
+        resolveXPaySecretKey(supabase, "test"),
+        resolveXPaySecretKey(supabase, "live"),
+        resolveXPayWebhookSecrets(supabase),
+      ]);
+
+      const activePk = mode === "live" ? publishableKeyLive : publishableKeyTest;
+      const activeHasSk = mode === "live" ? Boolean(skLiveAfter) : Boolean(skTestAfter);
+
+      const siteEntries = [
+        { section: "payment", key: "xpay_enabled", value: String(enabled), updated_at: nowIso },
+        { section: "payment", key: "xpay_mode", value: mode, updated_at: nowIso },
+        { section: "payment", key: "xpay_publishable_key_test", value: publishableKeyTest, updated_at: nowIso },
+        { section: "payment", key: "xpay_publishable_key_live", value: publishableKeyLive, updated_at: nowIso },
+        { section: "payment", key: "xpay_publishable_key", value: activePk, updated_at: nowIso },
+        { section: "payment", key: "xpay_secret_configured", value: String(activeHasSk), updated_at: nowIso },
+        { section: "payment", key: "xpay_card_fee_percent", value: String(feePctNum), updated_at: nowIso },
+        { section: "payment", key: "xpay_card_fee_fixed", value: String(feeFixedNum), updated_at: nowIso },
+      ];
+
+      for (const entry of siteEntries) {
+        const { error } = await supabase.from("site_info").upsert(entry, { onConflict: "section,key" });
+        if (error) throw error;
+      }
+
+      // Clean up any legacy paysky_* settings
+      await supabase.from("site_info").delete().eq("section", "payment").like("key", "paysky_%");
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          settings: {
+            enabled,
+            mode,
+            publishableKeyTest,
+            publishableKeyLive,
+            cardFeePercent: String(feePctNum),
+            cardFeeFixed: String(feeFixedNum),
+            hasSecretKeyTest: Boolean(skTestAfter),
+            hasSecretKeyLive: Boolean(skLiveAfter),
+            hasWebhookSecretTest: Boolean(whAfter.test),
+            hasWebhookSecretLive: Boolean(whAfter.live),
+            secretKeyMaskTest: maskSecretHint(skTestAfter),
+            secretKeyMaskLive: maskSecretHint(skLiveAfter),
+            webhookSecretMaskTest: maskSecretHint(whAfter.test),
+            webhookSecretMaskLive: maskSecretHint(whAfter.live),
+          },
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (action === "test-xpay-connection") {
+      const targetMode = body.mode ? normalizeXPayMode(body.mode) : (await readXPayPublicConfig(supabase)).mode;
+      const secretKey = await resolveXPaySecretKey(supabase, targetMode);
+      if (!secretKey) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            mode: targetMode,
+            error: `No ${targetMode} secret key configured on the server yet.`,
+          }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const apiRes = await fetch(`${XPAY_API_BASE}/account`, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${secretKey}` },
+      });
+      const apiJson: Record<string, any> = await apiRes.json().catch(() => ({}));
+
+      if (!apiRes.ok) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            mode: targetMode,
+            error: typeof apiJson?.message === "string" ? apiJson.message : `XPay rejected credentials (HTTP ${apiRes.status})`,
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          mode: targetMode,
+          livemode: Boolean(apiJson?.livemode),
+          merchantName: apiJson?.displayName || apiJson?.businessName || apiJson?.name || apiJson?.id || "Connected",
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     return new Response(JSON.stringify({ success: false, error: "Unknown action" }), {

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { ArrowLeft, ArrowRight, CreditCard, Banknote, Truck, Shield, Loader2, Gift, CheckCircle, LogIn, Wrench, Tag, X as XIcon, Copy, Check, Smartphone, UploadCloud, MessageCircle } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CreditCard, Banknote, Truck, Shield, Loader2, Gift, CheckCircle, AlertCircle, LogIn, Wrench, Tag, X as XIcon, Copy, Check, Smartphone, UploadCloud, MessageCircle } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -88,50 +88,45 @@ const safeUUID = (): string => {
 };
 
 
-const DEFAULT_PAYSKY_SCRIPT_URL = 'https://cube.paysky.io:6006/js/LightBox.js';
+const XPAY_SDK_URL = 'https://checkout.xpay.app/v1/sdk.js';
 
-const loadPaySkyScript = (targetUrl?: string): Promise<void> => {
+const loadXPaySdk = (): Promise<(publishableKey: string) => any> => {
   return new Promise((resolve, reject) => {
-    if (typeof window !== 'undefined' && (window as any).Lightbox?.Checkout) {
-      resolve();
+    if (typeof window !== 'undefined' && typeof (window as any).XPay === 'function') {
+      resolve((window as any).XPay);
       return;
     }
 
-    const scriptUrl = (targetUrl && !targetUrl.includes('secure.paysky.io'))
-      ? targetUrl
-      : DEFAULT_PAYSKY_SCRIPT_URL;
-
-    const existing = document.getElementById('paysky-lightbox-script') as HTMLScriptElement | null;
+    const existing = document.getElementById('xpay-checkout-sdk') as HTMLScriptElement | null;
     if (existing) {
-      if ((window as any).Lightbox?.Checkout) {
-        resolve();
+      if (typeof (window as any).XPay === 'function') {
+        resolve((window as any).XPay);
         return;
       }
-      // Remove stale/failed script so retry can proceed cleanly
       existing.remove();
     }
 
     const script = document.createElement('script');
-    script.id = 'paysky-lightbox-script';
-    script.src = scriptUrl;
+    script.id = 'xpay-checkout-sdk';
+    script.src = XPAY_SDK_URL;
     script.async = true;
 
-    let timeoutId: any = null;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
     const cleanup = () => {
       if (timeoutId) clearTimeout(timeoutId);
     };
 
     script.onload = () => {
       cleanup();
-      if ((window as any).Lightbox?.Checkout) {
-        resolve();
+      if (typeof (window as any).XPay === 'function') {
+        resolve((window as any).XPay);
       } else {
         setTimeout(() => {
-          if ((window as any).Lightbox?.Checkout) {
-            resolve();
+          if (typeof (window as any).XPay === 'function') {
+            resolve((window as any).XPay);
           } else {
             script.remove();
-            reject(new Error('PaySky Lightbox loaded but window.Lightbox.Checkout is not available'));
+            reject(new Error('XPay SDK loaded but window.XPay is unavailable'));
           }
         }, 150);
       }
@@ -140,12 +135,12 @@ const loadPaySkyScript = (targetUrl?: string): Promise<void> => {
     script.onerror = () => {
       cleanup();
       script.remove();
-      reject(new Error('Failed to load PaySky script'));
+      reject(new Error('Failed to load XPay checkout SDK'));
     };
 
     timeoutId = setTimeout(() => {
       script.remove();
-      reject(new Error('Timeout loading PaySky script'));
+      reject(new Error('Timeout loading XPay checkout SDK'));
     }, 15000);
 
     document.head.appendChild(script);
@@ -167,32 +162,46 @@ const Checkout = () => {
   const [couponCode, setCouponCode] = useState('');
   const [couponLoading, setCouponLoading] = useState(false);
   const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discountType: 'percentage' | 'fixed'; discountValue: number } | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<'card' | 'instapay' | 'cod'>('card');
+  const [paymentMethod, setPaymentMethod] = useState<'xpay' | 'instapay' | 'cod'>('instapay');
+  const [paymentStatusMessage, setPaymentStatusMessage] = useState<{ type: 'error' | 'cancelled'; text: string } | null>(null);
   const [instapayReference, setInstapayReference] = useState('');
   const [instapayReceiptFile, setInstapayReceiptFile] = useState<File | null>(null);
   const [instapayReceiptPreview, setInstapayReceiptPreview] = useState<string | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [includeInstallation, setIncludeInstallation] = useState(true);
 
-  const payskyEnabled = getInfo('payment', 'paysky_enabled', 'true') !== 'false';
+  const xpayMode: 'test' | 'live' = getInfo('payment', 'xpay_mode', 'test') === 'live' ? 'live' : 'test';
+  const xpayPublishableKey = (
+    getInfo('payment', 'xpay_publishable_key', '') ||
+    getInfo('payment', xpayMode === 'live' ? 'xpay_publishable_key_live' : 'xpay_publishable_key_test', '')
+  ).trim();
+  const xpayKeyValid =
+    xpayMode === 'live'
+      ? xpayPublishableKey.startsWith('pk_live_')
+      : xpayPublishableKey.startsWith('pk_test_');
+  const xpaySecretConfigured = getInfo('payment', 'xpay_secret_configured', 'false') === 'true';
+  const xpayEnabled =
+    getInfo('payment', 'xpay_enabled', 'false') === 'true' &&
+    xpayKeyValid &&
+    xpaySecretConfigured;
   const instapayEnabled = getInfo('payment', 'instapay_enabled', 'true') !== 'false';
   const codEnabled = getInfo('payment', 'cod_enabled', 'true') !== 'false';
 
-  // Only auto-select an available payment method if the current method is disabled
+  // Auto-select an available payment method when toggles change
   useEffect(() => {
     setPaymentMethod((current) => {
-      if (current === 'card' && !payskyEnabled) {
+      if (current === 'xpay' && !xpayEnabled) {
         return instapayEnabled ? 'instapay' : codEnabled ? 'cod' : current;
       }
       if (current === 'instapay' && !instapayEnabled) {
-        return payskyEnabled ? 'card' : codEnabled ? 'cod' : current;
+        return xpayEnabled ? 'xpay' : codEnabled ? 'cod' : current;
       }
       if (current === 'cod' && !codEnabled) {
-        return payskyEnabled ? 'card' : instapayEnabled ? 'instapay' : current;
+        return instapayEnabled ? 'instapay' : xpayEnabled ? 'xpay' : current;
       }
       return current;
     });
-  }, [payskyEnabled, instapayEnabled, codEnabled]);
+  }, [xpayEnabled, instapayEnabled, codEnabled]);
 
   const [formData, setFormData] = useState<CheckoutFormData>({
     firstName: '',
@@ -247,7 +256,14 @@ const Checkout = () => {
       : Math.min(appliedCoupon.discountValue, subtotal)
     : 0;
   const totalBeforeDiscount = subtotal + shippingCost + installationFee;
-  const total = Math.max(0, totalBeforeDiscount - pointsDiscount - couponDiscount);
+  const baseTotal = Math.max(0, totalBeforeDiscount - pointsDiscount - couponDiscount);
+  const xpayCardFeePercent = Math.max(0, Number(getInfo('payment', 'xpay_card_fee_percent', '0')) || 0);
+  const xpayCardFeeFixed = Math.max(0, Number(getInfo('payment', 'xpay_card_fee_fixed', '0')) || 0);
+  const cardFee =
+    paymentMethod === 'xpay' && (xpayCardFeePercent > 0 || xpayCardFeeFixed > 0)
+      ? Math.round((baseTotal * (xpayCardFeePercent / 100) + xpayCardFeeFixed) * 100) / 100
+      : 0;
+  const total = Math.max(0, baseTotal + cardFee);
 
   const handleRedemptionChange = (discount: number, points: number) => {
     setPointsDiscount(discount);
@@ -440,10 +456,10 @@ const Checkout = () => {
     // to prevent abuse (anyone could exhaust max_uses by replaying the request).
 
     // Send order notification email and wait (up to 6s) so navigation never aborts the request.
-    // For card orders, an initial pending notification is also sent if 3DS redirects away,
-    // and OrderConfirmation.tsx + completeCallback safely deduplicate via idempotency.
+    // For XPay card orders, confirmation email is triggered strictly by the verified xpay-webhook
+    // once payment succeeds.
     let notificationDelivered = false;
-    if (paymentMethod !== 'card') {
+    if (paymentMethod !== 'xpay') {
       try {
         const invokePromise = supabase.functions.invoke('send-order-notification', {
           body: { orderId, paymentMethod, isPaid: false },
@@ -490,155 +506,126 @@ const Checkout = () => {
     return orderData;
   };
 
-  const handlePaySkyPayment = async () => {
+  const handleXPayPayment = async () => {
+    setPaymentStatusMessage(null);
+    if (!xpayEnabled || !xpayPublishableKey) {
+      throw new Error(
+        language === 'ar'
+          ? 'الدفع بالبطاقة غير متاح حالياً. يمكنك استخدام إنستاباي.'
+          : 'Card payments are currently unavailable. Please use InstaPay.'
+      );
+    }
+
     try {
-      const order = await createOrder('pending');
+      const xpayFactory = await loadXPaySdk();
+      const order = await createOrder('pending_payment', {
+        paymentMethod: 'xpay',
+        shippingCost,
+        cardFee,
+        couponDiscount,
+        pointsDiscount,
+      });
 
-      // Read optional custom PaySky Lightbox script URL from site_info (never secret keys)
-      const { data: rows } = await supabase
-        .from('site_info')
-        .select('key, value')
-        .eq('section', 'payment')
-        .in('key', ['paysky_lightbox_url']);
-
-      const db: Record<string, string> = {};
-      (rows || []).forEach((r: any) => { db[r.key] = r.value; });
-
-      // Load official PaySky LightBox.js script with resilient fallback
-      const configuredUrl = db['paysky_lightbox_url'];
-      try {
-        await loadPaySkyScript(configuredUrl);
-      } catch (err) {
-        if (configuredUrl && configuredUrl !== DEFAULT_PAYSKY_SCRIPT_URL) {
-          console.warn('Configured PaySky URL failed, falling back to default cube URL:', err);
-          await loadPaySkyScript(DEFAULT_PAYSKY_SCRIPT_URL);
-        } else {
-          throw err;
-        }
-      }
-
-      // Delegate payment authorization & HMAC calculation to paysky-checkout edge function (SEC-02, SEC-04)
-      const { data: edgeRes, error: edgeErr } = await supabase.functions.invoke('paysky-checkout', {
+      const { data: sessionRes, error: sessionErr } = await supabase.functions.invoke('xpay-checkout', {
         body: {
+          action: 'create-session',
           orderId: order.id,
-          returnUrl: `${window.location.origin}/order-confirmation?orderId=${order.id}`,
+          paymentToken: order.shipping_address.paymentToken,
           language,
+          origin: window.location.origin,
         },
       });
 
-      if (edgeErr || !edgeRes?.success) {
-        const errorMsg = edgeRes?.error || edgeErr?.message;
-        throw new Error(errorMsg || (language === 'ar' ? 'تعذر تهيئة جلسة الدفع الآمنة' : 'Failed to initialize secure payment session'));
+      if (sessionErr || !sessionRes?.success || !sessionRes?.clientSecret) {
+        throw new Error(
+          sessionRes?.error ||
+            sessionErr?.message ||
+            (language === 'ar' ? 'تعذر تهيئة جلسة الدفع الإلكتروني' : 'Failed to initialize card payment session')
+        );
       }
 
-      const checkoutData = edgeRes.checkoutData || {};
-      const secureHash = edgeRes.hash || edgeRes.secureHash || checkoutData.secureHash;
-      const MID = edgeRes.merchantId || checkoutData.merchantId;
-      const TID = edgeRes.terminalId || checkoutData.terminalId;
-      const amountPiasters = edgeRes.amount ?? checkoutData.amount;
-      const merchantRef = edgeRes.merchantReference || checkoutData.merchantReference;
-      const dateTimeLocalTrxn = edgeRes.transactionTime || checkoutData.transactionTime;
-
-      if (!secureHash || !MID || !TID || !amountPiasters) {
-        throw new Error(language === 'ar' ? 'بيانات بوابة الدفع غير مكتملة' : 'Incomplete payment gateway parameters');
-      }
-
-      const lightbox = (window as any).Lightbox?.Checkout;
-      if (!lightbox) {
-        throw new Error(language === 'ar' ? 'تعذر تشغيل بوابة الدفع' : 'PaySky Lightbox could not be initialized');
-      }
-
-      lightbox.configure = {
-        MID: MID,
-        TID: TID,
-        AmountTrxn: amountPiasters,
-        MerchantReference: merchantRef,
-        TrxDateTime: dateTimeLocalTrxn,
-        SecureHash: secureHash,
-        ReturnUrl: `${window.location.origin}/order-confirmation?orderId=${order.id}`,
-        AdditionalCustomerData: {
-          CustomerEmail: formData.email?.trim() || '',
-          CustomerMobile: formData.phone?.trim() || '',
-        },
-        completeCallback: async (paymentInfo: any) => {
-          try {
-            await supabase.from('orders').update({
-              status: 'processing',
-              shipping_address: {
-                ...order.shipping_address,
-                paymentDetails: paymentInfo,
-              },
-            }).eq('id', order.id);
-          } catch (err) {
-            console.warn('Could not update order status in DB:', err);
-          }
-
-          // Keep cached receipt in sync so guest order confirmation displays 'processing'
-          try {
-            const cached = sessionStorage.getItem('last_order_receipt');
-            if (cached) {
-              const parsed = JSON.parse(cached);
-              if (parsed && parsed.id === order.id) {
-                parsed.status = 'processing';
-                if (parsed.shipping_address) {
-                  parsed.shipping_address.paymentDetails = paymentInfo;
-                }
-                sessionStorage.setItem('last_order_receipt', JSON.stringify(parsed));
-              }
+      // Sync cached receipt with pending_payment + sessionId so return page can verify DB status
+      try {
+        const cached = sessionStorage.getItem('last_order_receipt');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed && parsed.id === order.id) {
+            parsed.status = 'pending_payment';
+            if (parsed.shipping_address) {
+              parsed.shipping_address.xpay = {
+                sessionId: sessionRes.sessionId,
+                mode: sessionRes.mode,
+                paymentStatus: 'unpaid',
+              };
             }
-          } catch (cacheErr) {
-            console.warn('Could not update cached receipt on card payment:', cacheErr);
+            sessionStorage.setItem('last_order_receipt', JSON.stringify(parsed));
           }
+        }
+      } catch (cacheErr) {
+        console.warn('Could not sync cached receipt with XPay session:', cacheErr);
+      }
 
-          // Trigger email receipt and update order status via service_role upon successful payment
-          try {
-            await Promise.race([
-              supabase.functions.invoke('send-order-notification', {
-                body: {
-                  orderId: order.id,
-                  paymentMethod: 'card',
-                  isPaid: true,
-                  paymentDetails: paymentInfo,
-                },
-              }),
-              new Promise((resolve) => setTimeout(resolve, 6000)),
-            ]);
-          } catch (e) {
-            console.warn('Could not send order notification:', e);
-          }
-
-          toast({
-            title: language === 'ar' ? 'تم الدفع بنجاح' : 'Payment Successful',
-            description: language === 'ar' ? 'تم إتمام طلبك بنجاح' : 'Your order has been placed successfully',
-          });
-          clearCart();
-          navigate(`/order-confirmation?orderId=${order.id}`);
+      let paymentCompleted = false;
+      const xpayClient = xpayFactory(xpayPublishableKey);
+      const checkoutInstance = xpayClient.checkout({
+        clientSecret: sessionRes.clientSecret,
+        mode: 'modal',
+        locale: language === 'ar' ? 'ar' : 'en',
+        appearance: {
+          borderStyle: 'rounded',
+          colors: { primary: '#0EA5A4' },
         },
-        errorCallback: (errorInfo: any) => {
-          console.error('PaySky errorCallback:', errorInfo);
+        onComplete: (result: any) => {
+          paymentCompleted = true;
+          if (result?.paymentStatus === 'paid' || result?.status === 'succeeded') {
+            clearCart();
+          }
+          navigate(
+            `/order-confirmation?orderId=${encodeURIComponent(order.id)}&session_id=${encodeURIComponent(
+              sessionRes.sessionId
+            )}`
+          );
+        },
+        onError: (err: any) => {
+          const msg =
+            (typeof err?.message === 'string' && err.message) ||
+            (language === 'ar'
+              ? 'تعذر إتمام عملية الدفع بالبطاقة. طلبك ما زال غير مدفوع وسلتك محفوظة.'
+              : 'Card payment could not be completed. Your order remains unpaid and your cart is intact.');
+          setPaymentStatusMessage({ type: 'error', text: msg });
           toast({
             variant: 'destructive',
             title: language === 'ar' ? 'فشل الدفع' : 'Payment Failed',
-            description: errorInfo?.Message || errorInfo?.Description || (language === 'ar' ? 'فشل إتمام عملية الدفع. حاول مرة أخرى أو استخدم طريقة دفع أخرى.' : 'Payment failed. Please try again or use another payment method.'),
+            description: msg,
           });
           setIsProcessing(false);
         },
-        cancelCallback: () => {
-          toast({
-            title: language === 'ar' ? 'تم إلغاء الدفع' : 'Payment Cancelled',
-            description: language === 'ar' ? 'تم إلغاء عملية الدفع بالبطاقة' : 'Card payment was cancelled.',
-          });
-          setIsProcessing(false);
+        onClose: () => {
+          if (!paymentCompleted) {
+            const msg =
+              language === 'ar'
+                ? 'تم إلغاء نافذة الدفع. طلبك لم يُدفع وسلة التسوق محفوظة كما هي.'
+                : 'Checkout window closed before completing payment. Your order remains unpaid and your cart is intact.';
+            setPaymentStatusMessage({ type: 'cancelled', text: msg });
+            toast({
+              title: language === 'ar' ? 'تم إلغاء الدفع' : 'Payment Cancelled',
+              description: msg,
+            });
+            setIsProcessing(false);
+          }
         },
-      };
+      });
 
-      lightbox.showLightbox();
+      checkoutInstance.open();
     } catch (error: any) {
-      console.error('PaySky error:', error);
+      const msg =
+        error?.message ||
+        (language === 'ar' ? 'تعذر بدء الدفع بالبطاقة. حاول مرة أخرى.' : 'Failed to start card payment. Please try again.');
+      setPaymentStatusMessage({ type: 'error', text: msg });
       toast({
         variant: 'destructive',
         title: language === 'ar' ? 'خطأ في الدفع' : 'Payment Error',
-        description: error.message || 'Failed to initialize payment',
+        description: msg,
       });
       setIsProcessing(false);
     }
@@ -702,9 +689,8 @@ const Checkout = () => {
     setIsProcessing(true);
 
     try {
-      if (paymentMethod === 'card') {
-        // Process card payment via PaySky
-        await handlePaySkyPayment();
+      if (paymentMethod === 'xpay') {
+        await handleXPayPayment();
       } else if (paymentMethod === 'instapay') {
         // Process InstaPay transfer
         await handleInstaPayPayment();
@@ -754,7 +740,7 @@ const Checkout = () => {
     processing: language === 'ar' ? 'جاري المعالجة...' : 'Processing...',
     backToCart: language === 'ar' ? 'العودة للسلة' : 'Back to Cart',
     paymentMethod: language === 'ar' ? 'طريقة الدفع' : 'Payment Method',
-    cardPayment: language === 'ar' ? 'بطاقة ائتمان' : 'Credit / Debit Card',
+    cardPayment: language === 'ar' ? 'الدفع بالبطاقة (XPay)' : 'Pay by card (XPay)',
     pointsDiscount: language === 'ar' ? 'خصم النقاط' : 'Points Discount',
   };
 
@@ -974,28 +960,35 @@ const Checkout = () => {
                     onValueChange={(value) => setPaymentMethod(value as typeof paymentMethod)}
                     className="space-y-3"
                   >
-                    {/* Card Payment */}
-                    {payskyEnabled && (
-                      <div 
+                    {/* Card Payment (XPay Drop-in) */}
+                    {xpayEnabled && (
+                      <div
                         role="button"
                         tabIndex={0}
                         className={`relative flex items-start sm:items-center gap-3 sm:gap-3.5 p-3 sm:p-4 rounded-xl border-2 transition-all cursor-pointer select-none min-w-0 ${
-                          paymentMethod === 'card' 
-                            ? 'border-primary bg-primary/[0.06] shadow-sm ring-1 ring-primary/30' 
+                          paymentMethod === 'xpay'
+                            ? 'border-primary bg-primary/[0.06] shadow-sm ring-1 ring-primary/30'
                             : 'border-border/80 hover:border-primary/40 bg-card hover:bg-muted/20'
                         }`}
-                        onClick={() => setPaymentMethod('card')}
-                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPaymentMethod('card'); } }}
+                        onClick={() => { setPaymentMethod('xpay'); setPaymentStatusMessage(null); }}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPaymentMethod('xpay'); setPaymentStatusMessage(null); } }}
                       >
-                        <RadioGroupItem value="card" id="card" className="h-5 w-5 shrink-0 mt-0.5 sm:mt-0 border-2" />
-                        <Label htmlFor="card" className="flex-1 min-w-0 cursor-pointer">
+                        <RadioGroupItem value="xpay" id="xpay" className="h-5 w-5 shrink-0 mt-0.5 sm:mt-0 border-2" />
+                        <Label htmlFor="xpay" className="flex-1 min-w-0 cursor-pointer">
                           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 min-w-0">
                             <div className="flex items-center gap-3 min-w-0">
                               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                                 <CreditCard className="h-5 w-5" />
                               </div>
                               <div className="min-w-0">
-                                <p className="font-semibold text-foreground text-sm sm:text-base">{labels.cardPayment}</p>
+                                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                  <p className="font-semibold text-foreground text-sm sm:text-base">{labels.cardPayment}</p>
+                                  {xpayMode === 'test' && (
+                                    <span className="inline-flex items-center rounded-full bg-amber-100 dark:bg-amber-950/70 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-300 shrink-0">
+                                      {language === 'ar' ? 'وضع تجريبي' : 'Test Mode'}
+                                    </span>
+                                  )}
+                                </div>
                                 <p className="text-xs sm:text-sm text-muted-foreground break-words">
                                   {language === 'ar' ? 'دفع إلكتروني فوري وآمن (فيزا / ماستركارد / ميزة)' : 'Instant secure payment (Visa / Mastercard / Meeza)'}
                                 </p>
@@ -1416,6 +1409,14 @@ const Checkout = () => {
                       <span className="font-medium text-green-600 shrink-0">-{formatPrice(pointsDiscount)}</span>
                     </div>
                   )}
+                  {cardFee > 0 && (
+                    <div className="flex justify-between gap-2 text-sm">
+                      <span className="text-muted-foreground">
+                        {language === 'ar' ? 'رسوم الدفع بالبطاقة' : 'Card Fee'}
+                      </span>
+                      <span className="font-medium text-foreground shrink-0">{formatPrice(cardFee)}</span>
+                    </div>
+                  )}
 
                   <div className="border-t border-border pt-3">
                     <div className="flex justify-between gap-2">
@@ -1436,6 +1437,21 @@ const Checkout = () => {
                   </div>
                 </div>
 
+                {paymentStatusMessage && (
+                  <div
+                    role="alert"
+                    className={cn(
+                      'mt-4 flex items-start gap-2.5 rounded-lg border p-3 text-xs leading-relaxed',
+                      paymentStatusMessage.type === 'error'
+                        ? 'border-destructive/40 bg-destructive/10 text-destructive'
+                        : 'border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-200'
+                    )}
+                  >
+                    <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                    <span className="break-words">{paymentStatusMessage.text}</span>
+                  </div>
+                )}
+
                 <Button 
                   type="submit" 
                   className="mt-6 w-full gap-2 glow-primary" 
@@ -1449,10 +1465,10 @@ const Checkout = () => {
                     </>
                   ) : (
                     <>
-                      {paymentMethod === 'card' ? (
+                      {paymentMethod === 'xpay' ? (
                         <>
                           <CreditCard className="h-4 w-4" />
-                          {language === 'ar' ? 'الدفع بالبطاقة' : 'Pay with Card'}
+                          {language === 'ar' ? 'الدفع بالبطاقة (XPay)' : 'Pay by card (XPay)'}
                         </>
                       ) : (
                         <>

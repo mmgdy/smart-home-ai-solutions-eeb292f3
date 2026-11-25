@@ -137,6 +137,52 @@ function getStatusMeta(status: string): StatusMeta {
         pushTitle: "تم إلغاء الطلب",
         pushMessage: "تم إلغاء طلبك. تواصل مع الدعم الفني لأي استفسار.",
       };
+    case "paid":
+      return {
+        badgeAr: "تم الدفع",
+        badgeEn: "Paid",
+        headerTitleAr: "تم استلام الدفع بنجاح ✓",
+        headerTitleEn: "Payment confirmed",
+        headlineAr: "تم استلام قيمة طلبك بنجاح عبر البطاقة البنكية وجاري مراجعته وتجهيزه للشحن.",
+        headlineEn: "Your card payment has been confirmed and your order is ready for fulfillment.",
+        themeColor: "#059669",
+        lightBg: "#ecfdf5",
+        borderColor: "#a7f3d0",
+        icon: "💳",
+        pushTitle: "تم تأكيد الدفع ✓",
+        pushMessage: "تم استلام الدفع لطلبك بنجاح وسنبدأ في تجهيزه فوراً.",
+      };
+    case "pending_payment":
+      return {
+        badgeAr: "بانتظار الدفع",
+        badgeEn: "Awaiting Payment",
+        headerTitleAr: "طلبك بانتظار إتمام الدفع ⏳",
+        headerTitleEn: "Awaiting card payment",
+        headlineAr: "لم يتم تأكيد الدفع الإلكتروني لهذا الطلب بعد.",
+        headlineEn: "Online payment for this order has not been completed yet.",
+        themeColor: "#d97706",
+        lightBg: "#fffbeb",
+        borderColor: "#fde68a",
+        icon: "⏳",
+        pushTitle: "طلبك بانتظار الدفع ⏳",
+        pushMessage: "طلبك بانتظار تأكيد عملية الدفع.",
+      };
+    case "payment_failed":
+    case "payment_expired":
+      return {
+        badgeAr: "فشل الدفع",
+        badgeEn: "Payment Failed",
+        headerTitleAr: "لم تكتمل عملية الدفع ✕",
+        headerTitleEn: "Payment was not completed",
+        headlineAr: "لم تكتمل عملية الدفع بالبطاقة البنكية ولم يتم خصم المبلغ. يمكنك إعادة المحاولة من صفحة الدفع.",
+        headlineEn: "Your card payment could not be completed. You may retry payment from checkout.",
+        themeColor: "#dc2626",
+        lightBg: "#fef2f2",
+        borderColor: "#fecaca",
+        icon: "✕",
+        pushTitle: "لم تكتمل عملية الدفع",
+        pushMessage: "لم يتم تأكيد الدفع للطلب. يمكنك المحاولة مرة أخرى.",
+      };
     case "pending":
     default:
       return {
@@ -160,6 +206,11 @@ function getStatusEmailSubject(status: string, orderId: string): string {
   const shortId = orderId.slice(0, 8).toUpperCase();
   const norm = (status || "").toLowerCase().trim();
   switch (norm) {
+    case "paid":
+      return `تم تأكيد الدفع بنجاح #${shortId} ✓ (AzkaSmart)`;
+    case "payment_failed":
+    case "payment_expired":
+      return `تحديث الدفع #${shortId} | لم تكتمل العملية (AzkaSmart)`;
     case "processing":
     case "processed":
       return `تحديث الطلب #${shortId} | طلبك قيد التجهيز 📦 (AzkaSmart)`;
@@ -560,14 +611,15 @@ const handler = async (req: Request): Promise<Response> => {
     const sa = ((order.shipping_address ?? {}) as Record<string, any>);
     const effectiveMethod = paymentMethod || sa.paymentMethod || "card";
 
-    // Detect if a card order returned from PaySky 3D Secure redirect to /order-confirmation
-    const isCardOrder = effectiveMethod === "card";
+    // Paid state resolved strictly from webhook/admin/database state
+    // Paid state is authoritative (from XPay webhook, admin, or prior settlement), never from query string or URL alone
     const isPaid = Boolean(
       rawIsPaid ||
       sa.isPaid ||
-      order.status === "processing" ||
-      (isCardOrder && isOrderConfirmationPage)
+      order.status === "paid" ||
+      order.status === "processing"
     );
+
 
     const isStatusUpdate =
       rawAction === "status_update" ||
@@ -631,7 +683,9 @@ const handler = async (req: Request): Promise<Response> => {
         ? "الدفع عند الاستلام (Cash on Delivery)"
         : effectiveMethod === "instapay"
         ? "إنستاباي (InstaPay Transfer)"
-        : "بطاقة بنكية عبر PaySky (Online Card)";
+        : effectiveMethod === "xpay"
+        ? "بطاقة بنكية عبر XPay (Card Payment)"
+        : "بطاقة بنكية (Online Card)";
 
     const orderDateFormatted = new Date(order.created_at || Date.now()).toLocaleDateString("ar-EG", {
       year: "numeric",
@@ -860,8 +914,6 @@ const handler = async (req: Request): Promise<Response> => {
     let currentStatus = order.status;
     if (paymentDetails) {
       updatedShippingAddress.paymentDetails = paymentDetails;
-    } else if (queryParams && Object.keys(queryParams).length > 1 && !updatedShippingAddress.paymentDetails) {
-      updatedShippingAddress.paymentDetails = queryParams;
     }
     if (isPaid) {
       updatedShippingAddress.isPaid = true;

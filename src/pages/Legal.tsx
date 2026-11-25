@@ -28,7 +28,7 @@ AzkaSmart is a smart home products and solutions provider operating in Egypt. Al
 
 ## 4. Orders & Payment
 - An order is confirmed only after successful payment processing.
-- We accept credit/debit cards via PaySky, and other payment methods as listed at checkout.
+- We accept credit/debit cards via XPay, and other payment methods as listed at checkout.
 - We reserve the right to cancel orders if we suspect fraud or if products are out of stock.
 
 ## 5. Account Registration
@@ -66,7 +66,7 @@ For any questions regarding these terms, please contact us at info@azkasmart.com
 
 ## 4. الطلبات والدفع
 - يتم تأكيد الطلب فقط بعد معالجة الدفع بنجاح.
-- نقبل الدفع عند الاستلام وبطاقات الائتمان/الخصم عبر PaySky.
+- نقبل الدفع عند الاستلام وبطاقات الائتمان/الخصم عبر XPay.
 - نحتفظ بالحق في إلغاء الطلبات إذا اشتبهنا في الاحتيال أو نفاد المنتجات.
 
 ## 5. تسجيل الحساب
@@ -95,7 +95,7 @@ For any questions regarding these terms, please contact us at info@azkasmart.com
 We collect information you provide directly, including:
 - Name, email address, phone number
 - Shipping and billing addresses
-- Payment information (processed securely via PaySky)
+- Payment information (processed securely via XPay)
 - Order history and preferences
 
 ## 2. How We Use Your Information
@@ -108,7 +108,7 @@ We collect information you provide directly, including:
 
 ## 3. Data Protection
 - We use industry-standard SSL encryption for all data transmission.
-- Payment data is processed securely through PaySky and is never stored on our servers.
+- Payment data is processed securely through XPay and is never stored on our servers.
 - Access to personal data is restricted to authorized personnel only.
 
 ## 4. Cookies
@@ -139,7 +139,7 @@ For privacy concerns, contact us at info@azkasmart.com.
 نجمع المعلومات التي تقدمها مباشرة، بما في ذلك:
 - الاسم، البريد الإلكتروني، رقم الهاتف
 - عناوين الشحن والفوترة
-- معلومات الدفع (تتم معالجتها بأمان عبر PaySky)
+- معلومات الدفع (تتم معالجتها بأمان عبر XPay)
 - سجل الطلبات والتفضيلات
 
 ## 2. كيف نستخدم معلوماتك
@@ -151,7 +151,7 @@ For privacy concerns, contact us at info@azkasmart.com.
 
 ## 3. حماية البيانات
 - نستخدم تشفير SSL لجميع عمليات نقل البيانات.
-- يتم معالجة بيانات الدفع بأمان من خلال PaySky.
+- يتم معالجة بيانات الدفع بأمان من خلال XPay.
 - الوصول إلى البيانات الشخصية مقيد بالموظفين المصرح لهم فقط.
 
 ## 4. حقوقك

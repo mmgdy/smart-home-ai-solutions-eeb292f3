@@ -217,10 +217,20 @@ const Profile = () => {
                         </p>
                         <span className={`text-xs px-2 py-0.5 rounded-full ${
                           order.status === 'delivered' ? 'bg-green-100 text-green-700' :
+                          order.status === 'paid' ? 'bg-emerald-100 text-emerald-700' :
                           order.status === 'shipped' ? 'bg-blue-100 text-blue-700' :
+                          order.status === 'payment_failed' || order.status === 'payment_expired' || order.status === 'cancelled' ? 'bg-red-100 text-red-700' :
                           'bg-yellow-100 text-yellow-700'
                         }`}>
-                          {order.status}
+                          {order.status === 'pending_payment'
+                            ? (language === 'ar' ? 'بانتظار الدفع' : 'Awaiting Payment')
+                            : order.status === 'paid'
+                            ? (language === 'ar' ? 'مدفوع' : 'Paid')
+                            : order.status === 'payment_failed'
+                            ? (language === 'ar' ? 'فشل الدفع' : 'Payment Failed')
+                            : order.status === 'payment_expired'
+                            ? (language === 'ar' ? 'انتهت الجلسة' : 'Payment Expired')
+                            : order.status}
                         </span>
                       </div>
                     </div>
