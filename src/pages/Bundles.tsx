@@ -22,6 +22,8 @@ import {
   type ResolvedBundleEntry,
 } from '@/lib/bundles';
 import { supabase } from '@/integrations/supabase/client';
+import { GlowBorderCard } from '@/components/vengeance/GlowBorderCard';
+import { BorderBeam } from '@/components/vengeance/BorderBeam';
 
 const Bundles = () => {
   const { isRTL, formatPrice } = useLanguage();
@@ -245,20 +247,33 @@ const Bundles = () => {
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
               {bundles.map((bundle, index) => {
                 const freeInstallValue = Math.max(0, bundle.originalPrice - bundle.priceEgp);
-                return (
+                const cardBody = (
                   <motion.div
-                    key={bundle.id}
-                    id={bundle.id}
+                    id={bundle.popular ? undefined : bundle.id}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.05 }}
-                    className="rounded-2xl border border-border bg-card p-6 hover:border-primary/40 transition-all flex flex-col"
+                    className={
+                      bundle.popular
+                        ? 'relative p-6 flex flex-col h-full'
+                        : 'relative overflow-hidden rounded-2xl azka-glass border border-border/80 p-6 hover:border-primary/45 transition-all flex flex-col h-full'
+                    }
                   >
+                    {bundle.popular && (
+                      <BorderBeam size={180} duration={12} borderWidth={1.5} colorFrom="#2DD4BF" colorTo="#8B5CF6" />
+                    )}
                     <div className="flex items-start justify-between mb-3 gap-2">
-                      <h3 className="font-display text-lg font-bold text-foreground">
-                        {isRTL ? bundle.nameAr : bundle.nameEn}
-                      </h3>
-                      <span className="text-xs font-bold text-success bg-success/10 px-2.5 py-1 rounded-full shrink-0">
+                      <div>
+                        {bundle.popular && (
+                          <span className="inline-flex items-center px-2.5 py-0.5 mb-2 rounded-full bg-gradient-to-r from-teal-400 to-cyan-400 text-[#070D16] text-[10px] font-bold">
+                            {isRTL ? 'الأكثر مبيعاً' : 'Most Popular'}
+                          </span>
+                        )}
+                        <h3 className="font-display text-lg font-bold text-foreground">
+                          {isRTL ? bundle.nameAr : bundle.nameEn}
+                        </h3>
+                      </div>
+                      <span className="text-xs font-bold text-success bg-success/10 border border-success/20 px-2.5 py-1 rounded-full shrink-0">
                         {isRTL ? 'تركيب مجاني' : 'FREE Install'}
                       </span>
                     </div>
@@ -294,7 +309,7 @@ const Bundles = () => {
                     </div>
 
                     {/* Savings & install time */}
-                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-success/10 mb-3">
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-success/10 border border-success/20 mb-3">
                       <Wifi className="h-3 w-3 text-success flex-shrink-0" />
                       <span className="text-xs font-medium text-success">
                         {isRTL ? bundle.savingsAr : bundle.savingsEn}
@@ -305,7 +320,7 @@ const Bundles = () => {
                       <span>⏱ {isRTL ? bundle.installTimeAr : bundle.installTimeEn}</span>
                       <div className="flex gap-1 flex-wrap justify-end">
                         {bundle.badges.map((b) => (
-                          <span key={b} className="px-1.5 py-0.5 rounded bg-secondary text-[10px] font-medium">{b}</span>
+                          <span key={b} className="px-2 py-0.5 rounded-full bg-secondary/80 border border-border/60 text-[10px] font-medium">{b}</span>
                         ))}
                       </div>
                     </div>
@@ -313,22 +328,33 @@ const Bundles = () => {
                     {/* CTA */}
                     <div className="flex gap-2">
                       <Button
-                        className="flex-1 rounded-full h-10 text-sm"
+                        className="flex-1 rounded-full h-11 text-sm font-semibold bg-gradient-to-r from-teal-400 to-cyan-400 text-[#070D16] hover:from-teal-300 hover:to-cyan-300 border-0"
                         onClick={() => handleOrderBundle(bundle)}
                       >
-                        <ShoppingCart className="mr-1.5 h-3.5 w-3.5" />
+                        <ShoppingCart className="me-1.5 h-3.5 w-3.5" />
                         {isRTL ? 'اطلب الباقة الآن' : 'Order Bundle Now'}
                       </Button>
                       <Button
                         variant="outline"
-                        className="rounded-full h-10 text-sm"
+                        className="rounded-full h-11 w-11 p-0"
                         onClick={() => openCustomize(bundle)}
                         title={isRTL ? 'تخصيص الباقة' : 'Customize bundle'}
+                        aria-label={isRTL ? 'تخصيص الباقة' : 'Customize bundle'}
                       >
                         <Settings2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </motion.div>
+                );
+
+                return bundle.popular ? (
+                  <GlowBorderCard key={bundle.id} id={bundle.id} colorPreset="azka" animationDuration={7} borderWidth="0.25rem" blurAmount="0.55rem" inset="-0.2rem">
+                    {cardBody}
+                  </GlowBorderCard>
+                ) : (
+                  <div key={bundle.id} className="flex">
+                    {cardBody}
+                  </div>
                 );
               })}
             </div>

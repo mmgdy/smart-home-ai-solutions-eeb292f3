@@ -10,6 +10,7 @@ import { useCart } from '@/hooks/useCart';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { BorderBeam } from '@/components/vengeance/BorderBeam';
 
 interface DevicePlacement {
   type: string;
@@ -288,9 +289,10 @@ export function HomePhotoDesigner() {
                 />
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  className="w-full group rounded-3xl border-2 border-dashed border-border hover:border-primary/50 hover:bg-primary/5 transition-all p-12 text-center"
+                  className="relative overflow-hidden w-full group rounded-3xl azka-glass border border-dashed border-primary/35 hover:border-primary/70 hover:bg-primary/[0.04] transition-all p-10 sm:p-12 text-center"
                 >
-                  <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4 group-hover:bg-primary/20 transition-colors">
+                  <BorderBeam size={200} duration={13} borderWidth={1.5} colorFrom="#2DD4BF" colorTo="#3B82F6" />
+                  <div className="azka-gradient-ring w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4 group-hover:bg-primary/20 transition-colors">
                     <Camera className="h-10 w-10 text-primary" />
                   </div>
                   <p className="font-display text-lg font-semibold mb-2">
@@ -301,7 +303,7 @@ export function HomePhotoDesigner() {
                       ? 'صالة، غرفة نوم، مطبخ، مكتب — أي غرفة تريد تحويلها'
                       : 'Living room, bedroom, kitchen, office — any room you want to transform'}
                   </p>
-                  <span className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-primary text-primary-foreground text-sm font-medium">
+                  <span className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r from-teal-400 to-cyan-400 text-[#070D16] text-sm font-semibold shadow-md">
                     <Upload className="h-4 w-4" />
                     {isRTL ? 'اختر صورة' : 'Choose Photo'}
                   </span>

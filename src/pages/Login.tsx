@@ -161,7 +161,11 @@ export default function Login() {
         className="min-h-screen flex items-center justify-center p-6 bg-background"
         dir={isRTL ? "rtl" : "ltr"}
       >
-        <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-sm">
+        <div className="w-full max-w-md rounded-2xl azka-glass p-6 sm:p-8 relative overflow-hidden">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent"
+          />
           <h1 className="font-display text-2xl mb-1 text-foreground">{labels.welcome}</h1>
           <p className="text-sm text-muted-foreground mb-4">{labels.signInToContinue}</p>
 

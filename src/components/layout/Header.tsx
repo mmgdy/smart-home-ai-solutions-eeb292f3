@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   ShoppingCart,
   Menu,
@@ -60,6 +60,7 @@ export function Header() {
   const { t, isRTL, language, setLanguage } = useLanguage();
   const { get: getSiteInfo } = useSiteInfo();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const rawWhatsapp = getSiteInfo('contact', 'whatsapp', '201501896456') || '201501896456';
   const digits = rawWhatsapp.replace(/\D/g, '');
@@ -190,8 +191,8 @@ export function Header() {
     <header className={cn(
       "fixed top-0 left-0 right-0 z-50 transition-all duration-300",
       scrolled
-        ? "bg-background/95 backdrop-blur-xl border-b border-border/60 shadow-sm"
-        : "bg-background/80 backdrop-blur-md border-b border-border/30"
+        ? "bg-background/90 backdrop-blur-2xl border-b border-border/75 shadow-[0_10px_30px_-15px_rgba(0,0,0,0.6)] after:content-[''] after:absolute after:inset-x-0 after:bottom-0 after:h-px after:bg-gradient-to-r after:from-transparent after:via-primary/50 after:to-transparent"
+        : "bg-background/70 backdrop-blur-xl border-b border-border/40"
     )}>
       <div className="mx-auto w-full max-w-[1440px] flex h-16 md:h-20 items-center justify-between gap-2 px-3 sm:px-5 xl:px-6 2xl:px-8">
         {/* Logo */}
@@ -204,17 +205,27 @@ export function Header() {
           />
         </Link>
 
-        {/* Desktop Navigation */}
-        <nav className="hidden items-center gap-0.5 2xl:gap-1 xl:flex min-w-0">
-          {navLinks.map((link) => (
-            <Link
-              key={link.href}
-              to={link.href}
-              className="px-2 2xl:px-2.5 py-2 text-[13px] 2xl:text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-foreground/5 rounded-lg transition-all duration-200 whitespace-nowrap"
-            >
-              {link.label}
-            </Link>
-          ))}
+        {/* Desktop Navigation — Vengeance Spotlight Pill Rail */}
+        <nav className="hidden items-center gap-0.5 xl:flex min-w-0 rounded-full border border-border/60 bg-card/65 px-1.5 py-1 backdrop-blur-xl shadow-sm">
+          {navLinks.map((link) => {
+            const isActive =
+              location.pathname === link.href ||
+              (link.href.includes('?') && location.pathname + location.search === link.href);
+            return (
+              <Link
+                key={link.href}
+                to={link.href}
+                className={cn(
+                  "px-2.5 2xl:px-3 py-1.5 text-[13px] 2xl:text-sm font-medium rounded-full transition-all duration-200 whitespace-nowrap",
+                  isActive
+                    ? "bg-primary/15 text-primary border border-primary/30 shadow-[0_0_18px_-6px_hsl(var(--primary)/0.6)]"
+                    : "text-muted-foreground hover:text-foreground hover:bg-foreground/5 border border-transparent"
+                )}
+              >
+                {link.label}
+              </Link>
+            );
+          })}
         </nav>
 
         {/* Right side actions */}

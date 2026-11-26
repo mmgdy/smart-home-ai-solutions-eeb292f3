@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
+import { MotionConfig } from "framer-motion";
 import { LanguageProvider } from "@/lib/i18n";
 import { ThemeProvider } from "@/lib/theme";
 import { Analytics } from "@vercel/analytics/react";
@@ -118,6 +119,7 @@ const App = () => (
   <ErrorBoundary>
     <HelmetProvider>
       <QueryClientProvider client={queryClient}>
+        <MotionConfig reducedMotion="user">
         <ThemeProvider>
           <LanguageProvider>
             <TooltipProvider>
@@ -158,6 +160,7 @@ const App = () => (
             </TooltipProvider>
           </LanguageProvider>
         </ThemeProvider>
+        </MotionConfig>
       </QueryClientProvider>
     </HelmetProvider>
   </ErrorBoundary>

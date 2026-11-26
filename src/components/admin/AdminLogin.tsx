@@ -62,10 +62,10 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="w-full max-w-md p-8">
-        <div className="bg-card border border-border rounded-2xl p-8 shadow-lg">
+      <div className="w-full max-w-md p-6 sm:p-8">
+        <div className="azka-glass rounded-2xl p-8">
           <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+            <div className="azka-gradient-ring w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
               <Lock className="w-8 h-8 text-primary" />
             </div>
             <h1 className="text-2xl font-bold">Admin Login</h1>

@@ -51,16 +51,21 @@ export function ProductCard({ product, className }: ProductCardProps) {
     <Link to={`/products/${product.slug}`}>
       <article
         className={cn(
-          "group relative flex flex-col overflow-hidden rounded-xl border border-border bg-card transition-all duration-300 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10",
+          "group relative flex flex-col overflow-hidden rounded-2xl border border-border/80 bg-card/85 backdrop-blur-md transition-all duration-200 hover:border-primary/55 hover:shadow-[0_14px_34px_-16px_rgba(45,212,191,0.35)]",
           className
         )}
       >
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent opacity-60 group-hover:opacity-100 transition-opacity"
+        />
         {/* Image - Clean centered display showing whole product without cropping */}
-        <div className="relative aspect-square overflow-hidden bg-muted/20 flex items-center justify-center p-3 sm:p-4">
+        <div className="relative aspect-square overflow-hidden bg-slate-50 dark:bg-white/[0.04] flex items-center justify-center p-3 sm:p-4 border-b border-border/40">
           <img
             src={getProductImage(product)}
             alt={product.name}
             loading="lazy"
+            decoding="async"
             onError={(e) => { (e.currentTarget as HTMLImageElement).src = productPlaceholder; }}
             className={cn(
               "h-full w-full object-contain transition-transform duration-300 group-hover:scale-105 drop-shadow-sm",

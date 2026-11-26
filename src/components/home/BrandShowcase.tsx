@@ -3,36 +3,65 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useLanguage } from '@/lib/i18n';
 import { normalizeBrand, brandToSlug } from '@/lib/brands';
+import {
+  BRAND_LOGOS_BUCKET,
+  buildBrandLogoIndex,
+  resolveBrandLogoUrl,
+  type BrandLogoObject,
+} from '@/lib/brandLogos';
 import { fetchHiddenProductIds, filterPublicProducts } from '@/lib/productVisibility';
 import { supabase } from '@/integrations/supabase/client';
+import { LogoSlider } from '@/components/vengeance/LogoSlider';
+import { useMotionPreferences } from '@/hooks/useMotionPreferences';
 
-interface Brand { name: string; slug: string; logo_url: string | null; }
+interface Brand {
+  name: string;
+  slug: string;
+  logo_url: string | null;
+}
 
 const FALLBACK = ['SONOFF', 'eWeLink', 'LEZN', 'DNAKE', 'SIB', 'Levana', 'Zosar', 'Surpass', 'Tuya', 'Bosch'];
+const ECOSYSTEMS = ['Matter', 'Zigbee 3.0', 'Wi-Fi', 'Apple Home', 'Google Home', 'Alexa'];
 
 export function BrandShowcase() {
   const { isRTL } = useLanguage();
+  const { reducedMotion } = useMotionPreferences();
   const [brands, setBrands] = useState<Brand[]>([]);
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
-        .from('brands')
-        .select('name, slug, logo_url')
-        .order('display_order', { ascending: true })
-        .limit(12);
-      if (data && data.length > 0) {
+      const [{ data: brandsRows }, logoListRes] = await Promise.all([
+        supabase
+          .from('brands')
+          .select('name, slug, logo_url')
+          .order('display_order', { ascending: true })
+          .limit(18),
+        supabase.storage
+          .from(BRAND_LOGOS_BUCKET)
+          .list('', { limit: 1000, sortBy: { column: 'name', order: 'asc' } })
+          .catch(() => ({ data: null, error: null })),
+      ]);
+
+      const logoIndex = buildBrandLogoIndex(
+        ((logoListRes as { data?: BrandLogoObject[] | null })?.data ?? []) as BrandLogoObject[],
+      );
+
+      if (brandsRows && brandsRows.length > 0) {
         const seen = new Set<string>();
         const cleaned: Brand[] = [];
-        for (const row of data as any[]) {
+        for (const row of brandsRows as any[]) {
           const canonical = normalizeBrand(row.name);
           if (!canonical || seen.has(canonical.toLowerCase())) continue;
           seen.add(canonical.toLowerCase());
-          cleaned.push({ name: canonical, slug: brandToSlug(canonical), logo_url: row.logo_url });
+          const slug = brandToSlug(canonical);
+          cleaned.push({
+            name: canonical,
+            slug,
+            logo_url: resolveBrandLogoUrl(logoIndex, canonical, slug) || row.logo_url || null,
+          });
         }
         setBrands(cleaned);
       } else {
-        // Derive from published products only
         const [{ data: distinct }, hiddenIds] = await Promise.all([
           supabase
             .from('products')
@@ -44,63 +73,83 @@ export function BrandShowcase() {
         ]);
         const visibleRows = filterPublicProducts((distinct ?? []) as any[], hiddenIds);
         const names = Array.from(
-          new Set(visibleRows.map((r: any) => normalizeBrand(r.brand)).filter(Boolean))
-        ).slice(0, 12) as string[];
-        const fallback = names.length ? names : FALLBACK;
-        setBrands(fallback.map((n) => ({ name: n, slug: brandToSlug(n), logo_url: null })));
+          new Set(visibleRows.map((r: any) => normalizeBrand(r.brand)).filter(Boolean)),
+        ).slice(0, 14) as string[];
+        const list = names.length ? names : FALLBACK;
+        setBrands(
+          list.map((name) => {
+            const slug = brandToSlug(name);
+            return {
+              name,
+              slug,
+              logo_url: resolveBrandLogoUrl(logoIndex, name, slug) || null,
+            };
+          }),
+        );
       }
     })();
   }, []);
 
+  const logoNodes = brands.map((brand) => (
+    <Link
+      key={brand.slug}
+      to={`/brands?brand=${brand.slug}`}
+      className="group flex items-center justify-center h-12 min-w-[100px] px-2 bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-lg"
+      title={brand.name}
+    >
+      {brand.logo_url ? (
+        <img
+          src={brand.logo_url}
+          alt={brand.name}
+          loading="lazy"
+          decoding="async"
+          className="max-h-9 max-w-[115px] w-auto h-auto object-contain bg-transparent opacity-85 group-hover:opacity-100 group-hover:scale-105 transition-all duration-300"
+          onError={(e) => {
+            const el = e.currentTarget as HTMLImageElement;
+            el.style.display = 'none';
+            el.nextElementSibling?.classList.remove('hidden');
+          }}
+        />
+      ) : null}
+      <span
+        className={`font-display text-sm md:text-base font-bold tracking-tight text-foreground/80 group-hover:text-primary transition-colors duration-200 ${
+          brand.logo_url ? 'hidden' : ''
+        }`}
+      >
+        {brand.name}
+      </span>
+    </Link>
+  ));
+
   return (
-    <section className="py-12 bg-background border-y border-border/50">
-      <div className="container px-6 md:px-12">
+    <section className="py-14 bg-background border-y border-border/70 relative overflow-hidden">
+      <div className="container px-4 sm:px-6 md:px-12">
         <motion.p
-          initial={{ opacity: 0 }}
+          initial={reducedMotion ? false : { opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
-          className="text-center text-xs tracking-[0.2em] uppercase text-foreground/75 font-medium mb-8"
+          className="text-center text-xs tracking-[0.2em] uppercase text-primary font-semibold mb-6"
         >
-          {isRTL ? 'علامات تجارية أصلية معتمدة' : 'Authorized Genuine Brands'}
+          {isRTL ? 'علامات تجارية أصلية وأنظمة متوافقة' : 'Authorized Genuine Brands & Ecosystems'}
         </motion.p>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:flex lg:flex-wrap items-center justify-center gap-3 sm:gap-4 lg:gap-10">
-          {brands.map((brand, index) => (
-            <motion.div
-              key={brand.slug}
-              initial={{ opacity: 0, y: 10 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: index * 0.03 }}
+        {/* Vengeance LogoSlider marquee — transparent logos directly on canvas */}
+        <LogoSlider logos={logoNodes} speed={38} direction="left" pauseOnHover showBlur />
+
+        {/* Ecosystem compatibility chips */}
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+          {ECOSYSTEMS.map((eco) => (
+            <span
+              key={eco}
+              className="px-3 py-1 rounded-full bg-card/70 border border-border/70 text-[11px] font-medium text-muted-foreground"
             >
-              <Link
-                to={`/brands?brand=${brand.slug}`}
-                className="group flex items-center justify-center h-12 min-w-[100px] px-3 rounded-xl border border-border/60 bg-card/40 lg:border-0 lg:bg-transparent hover:border-primary/40 transition-colors"
-              >
-                {brand.logo_url ? (
-                  <img
-                        src={brand.logo_url}
-                        alt={brand.name}
-                        loading="lazy"
-                        decoding="async"
-                        className="max-h-9 max-w-[110px] object-contain grayscale opacity-80 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-300 ease-out"
-                        onError={(e) => {
-                          const el = e.currentTarget as HTMLImageElement;
-                          el.style.display = 'none';
-                          el.nextElementSibling?.classList.remove('hidden');
-                        }}
-                      />
-                    ) : null}
-                    <span className={`font-display text-sm md:text-base font-bold tracking-tight text-foreground/80 group-hover:text-foreground transition-colors duration-200 ${brand.logo_url ? 'hidden' : ''}`}>
-                      {brand.name}
-                    </span>
-              </Link>
-            </motion.div>
+              {eco}
+            </span>
           ))}
         </div>
 
-        <div className="text-center mt-8">
-          <Link to="/brands" className="text-sm text-primary hover:underline font-medium">
+        <div className="text-center mt-7">
+          <Link to="/brands" className="text-sm text-primary hover:underline font-semibold">
             {isRTL ? 'عرض كل الماركات →' : 'View all brands →'}
           </Link>
         </div>
