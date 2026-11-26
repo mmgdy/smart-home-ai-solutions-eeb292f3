@@ -177,7 +177,7 @@ export function CompleteYourSetup({ mainProduct, mainQuantity }: CompleteYourSet
     <section
       data-testid="complete-your-setup"
       aria-labelledby="complete-your-setup-heading"
-      className="mt-8 sm:mt-10 rounded-2xl azka-glass p-4 sm:p-6"
+      className="mt-8 sm:mt-10 rounded-2xl border border-border bg-card p-4 sm:p-6"
     >
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
         <div>

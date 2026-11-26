@@ -99,12 +99,8 @@ export function Footer() {
   ];
 
   return (
-    <footer className="relative bg-card/85 backdrop-blur-xl border-t border-border/80 overflow-hidden">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none h-px w-full bg-gradient-to-r from-transparent via-primary/60 to-transparent"
-      />
-      <div className="container relative z-10 px-6 md:px-12 py-16">
+    <footer className="bg-card border-t border-border">
+      <div className="container px-6 md:px-12 py-16">
         <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-4">
           <div className="lg:col-span-1">
             <Link to="/" className="inline-flex items-center mb-4">

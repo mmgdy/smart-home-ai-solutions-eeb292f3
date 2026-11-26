@@ -91,9 +91,9 @@ const About = () => {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: index * 0.1 }}
-                  className="p-6 rounded-2xl azka-glass text-center"
+                  className="p-6 rounded-2xl bg-card border border-border text-center"
                 >
-                  <div className="azka-gradient-ring w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                  <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
                     <value.icon className="w-6 h-6 text-primary" />
                   </div>
                   <h3 className="font-display text-lg font-bold mb-2">{isRTL ? value.titleAr : value.titleEn}</h3>

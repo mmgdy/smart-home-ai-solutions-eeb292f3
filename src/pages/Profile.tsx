@@ -78,7 +78,7 @@ const Profile = () => {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-8 rounded-2xl azka-glass p-6"
+            className="mb-8 rounded-xl border border-border bg-card p-6"
           >
             <div className="flex items-center gap-4">
               <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
@@ -117,7 +117,7 @@ const Profile = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.05 }}
-            className="mb-6 rounded-2xl azka-glass p-5 flex flex-col sm:flex-row items-start sm:items-center gap-3 justify-between"
+            className="mb-6 rounded-2xl border border-border bg-card p-5 flex flex-col sm:flex-row items-start sm:items-center gap-3 justify-between"
           >
             <div>
               <h3 className="font-display text-base font-semibold">

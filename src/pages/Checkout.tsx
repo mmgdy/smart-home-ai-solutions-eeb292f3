@@ -816,7 +816,7 @@ const Checkout = () => {
                   </div>
                 )}
 
-                <div className="rounded-2xl azka-glass p-4 sm:p-6 min-w-0">
+                <div className="rounded-xl border border-border bg-card p-4 sm:p-6 min-w-0">
                   <h2 className="mb-6 font-display text-xl font-semibold text-foreground flex items-center gap-2">
                     <Truck className="h-5 w-5 text-primary" />
                     {labels.shippingInfo}
@@ -953,7 +953,7 @@ const Checkout = () => {
                 </div>
 
                 {/* Payment Method */}
-                <div className="rounded-2xl azka-glass p-4 sm:p-6 min-w-0">
+                <div className="rounded-xl border border-border bg-card p-4 sm:p-6 min-w-0">
                   <h2 className="mb-6 font-display text-xl font-semibold text-foreground flex items-center gap-2">
                     <CreditCard className="h-5 w-5 text-primary shrink-0" />
                     {labels.paymentMethod}
@@ -1119,7 +1119,7 @@ const Checkout = () => {
                                   <div className="min-w-0 flex-1">
                                     <span className="text-[11px] text-muted-foreground block">{language === 'ar' ? 'عنوان إنستاباي (IPA):' : 'InstaPay Address (IPA):'}</span>
                                     <span className="font-mono font-bold text-sm text-foreground break-all">
-                                      {getInfo('payment', 'instapay_address', 'azkasmart@instapay').trim() || 'azkasmart@instapay'}
+                                      {getInfo('payment', 'instapay_address', 'azkasmart@instapay')}
                                     </span>
                                   </div>
                                   <Button
@@ -1127,42 +1127,38 @@ const Checkout = () => {
                                     variant="outline"
                                     size="sm"
                                     className="h-8 gap-1 text-xs shrink-0"
-                                    onClick={() => copyToClipboard(getInfo('payment', 'instapay_address', 'azkasmart@instapay').trim() || 'azkasmart@instapay', 'ipa')}
+                                    onClick={() => copyToClipboard(getInfo('payment', 'instapay_address', 'azkasmart@instapay'), 'ipa')}
                                   >
                                     {copiedField === 'ipa' ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Copy className="h-3.5 w-3.5" />}
                                     {copiedField === 'ipa' ? (language === 'ar' ? 'تم النسخ' : 'Copied') : (language === 'ar' ? 'نسخ' : 'Copy')}
                                   </Button>
                                 </div>
 
-                                {/* InstaPay Phone — only shown when configured non-empty */}
-                                {getInfo('payment', 'instapay_phone', '').trim() && (
-                                  <div className="flex flex-wrap items-center justify-between gap-2 bg-white dark:bg-card p-2.5 rounded-lg border border-purple-100 dark:border-purple-900">
-                                    <div className="min-w-0 flex-1">
-                                      <span className="text-[11px] text-muted-foreground block">{language === 'ar' ? 'رقم الهاتف المسجل في إنستاباي:' : 'InstaPay Mobile Number:'}</span>
-                                      <span className="font-mono font-bold text-sm text-foreground break-words" dir="ltr">
-                                        {getInfo('payment', 'instapay_phone', '').trim()}
-                                      </span>
-                                    </div>
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      size="sm"
-                                      className="h-8 gap-1 text-xs shrink-0"
-                                      onClick={() => copyToClipboard(getInfo('payment', 'instapay_phone', '').trim(), 'phone')}
-                                    >
-                                      {copiedField === 'phone' ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Copy className="h-3.5 w-3.5" />}
-                                      {copiedField === 'phone' ? (language === 'ar' ? 'تم النسخ' : 'Copied') : (language === 'ar' ? 'نسخ' : 'Copy')}
-                                    </Button>
+                                {/* InstaPay Phone */}
+                                <div className="flex flex-wrap items-center justify-between gap-2 bg-white dark:bg-card p-2.5 rounded-lg border border-purple-100 dark:border-purple-900">
+                                  <div className="min-w-0 flex-1">
+                                    <span className="text-[11px] text-muted-foreground block">{language === 'ar' ? 'رقم الهاتف المسجل في إنستاباي:' : 'InstaPay Mobile Number:'}</span>
+                                    <span className="font-mono font-bold text-sm text-foreground break-words" dir="ltr">
+                                      {getInfo('payment', 'instapay_phone', '01050627310')}
+                                    </span>
                                   </div>
-                                )}
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 gap-1 text-xs shrink-0"
+                                    onClick={() => copyToClipboard(getInfo('payment', 'instapay_phone', '01050627310'), 'phone')}
+                                  >
+                                    {copiedField === 'phone' ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Copy className="h-3.5 w-3.5" />}
+                                    {copiedField === 'phone' ? (language === 'ar' ? 'تم النسخ' : 'Copied') : (language === 'ar' ? 'نسخ' : 'Copy')}
+                                  </Button>
+                                </div>
 
-                                {/* Account Name — only shown when configured non-empty */}
-                                {getInfo('payment', 'instapay_name', '').trim() && (
-                                  <div className="text-xs text-muted-foreground break-words">
-                                    <span>{language === 'ar' ? 'اسم الحساب:' : 'Account Name:'} </span>
-                                    <strong className="text-foreground">{getInfo('payment', 'instapay_name', '').trim()}</strong>
-                                  </div>
-                                )}
+                                {/* Account Name */}
+                                <div className="text-xs text-muted-foreground break-words">
+                                  <span>{language === 'ar' ? 'اسم الحساب:' : 'Account Name:'} </span>
+                                  <strong className="text-foreground">{getInfo('payment', 'instapay_name', 'AzkaSmart')}</strong>
+                                </div>
                               </div>
 
                               {/* Verification Reference Input */}
@@ -1330,7 +1326,7 @@ const Checkout = () => {
                 </div>
 
                 {/* Coupon Code */}
-                <div className="rounded-2xl azka-glass p-4 sm:p-6 min-w-0">
+                <div className="rounded-xl border border-border bg-card p-4 sm:p-6 min-w-0">
                   <h2 className="mb-4 font-display text-xl font-semibold text-foreground flex items-center gap-2">
                     <Tag className="h-5 w-5 text-primary shrink-0" />
                     {language === 'ar' ? 'كود الخصم' : 'Coupon Code'}
@@ -1376,7 +1372,7 @@ const Checkout = () => {
                 </div>
 
                 {/* Loyalty Points Redemption */}
-                <div className="rounded-2xl azka-glass p-4 sm:p-6 min-w-0">
+                <div className="rounded-xl border border-border bg-card p-4 sm:p-6 min-w-0">
                   <h2 className="mb-4 font-display text-xl font-semibold text-foreground flex items-center gap-2">
                     <Gift className="h-5 w-5 text-primary shrink-0" />
                     {language === 'ar' ? 'استبدال النقاط' : 'Redeem Points'}

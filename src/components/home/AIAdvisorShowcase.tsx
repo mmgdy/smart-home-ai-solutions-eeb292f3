@@ -1,15 +1,12 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowRight, Bot, Sparkles } from 'lucide-react';
+import { ArrowRight, Bot, MessageSquare, Package, Sparkles } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
-import { useMotionPreferences } from '@/hooks/useMotionPreferences';
-import { GlowBorderCard } from '@/components/vengeance/GlowBorderCard';
-import { AnimatedButton } from '@/components/vengeance/AnimatedButton';
 
 export function AIAdvisorShowcase() {
   const { isRTL } = useLanguage();
-  const { reducedMotion } = useMotionPreferences();
 
   const exampleFlow = [
     {
@@ -26,18 +23,19 @@ export function AIAdvisorShowcase() {
 
   return (
     <section className="py-20 bg-background relative overflow-hidden">
-      <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[78vw] h-[78vw] max-w-[900px] max-h-[900px] rounded-full border border-primary/10" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[48vw] h-[48vw] max-w-[560px] max-h-[560px] rounded-full border border-accent/10" />
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[80vw] h-[80vw] rounded-full border border-primary/5" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[50vw] h-[50vw] rounded-full border border-primary/3" />
+        {/* Shiny gradient orbs */}
         <motion.div
-          className="azka-ambient-orb absolute top-1/4 -left-20 w-96 h-96 rounded-full bg-primary/15 blur-3xl"
-          animate={reducedMotion ? undefined : { scale: [1, 1.15, 1], opacity: [0.25, 0.45, 0.25] }}
-          transition={reducedMotion ? undefined : { duration: 7, repeat: Infinity, ease: 'easeInOut' }}
+          className="absolute top-1/4 -left-20 w-96 h-96 rounded-full bg-primary/20 blur-3xl"
+          animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
+          transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
         />
         <motion.div
-          className="azka-ambient-orb absolute bottom-1/4 -right-20 w-96 h-96 rounded-full bg-accent/15 blur-3xl"
-          animate={reducedMotion ? undefined : { scale: [1.15, 1, 1.15], opacity: [0.3, 0.5, 0.3] }}
-          transition={reducedMotion ? undefined : { duration: 9, repeat: Infinity, ease: 'easeInOut' }}
+          className="absolute bottom-1/4 -right-20 w-96 h-96 rounded-full bg-accent/20 blur-3xl"
+          animate={{ scale: [1.2, 1, 1.2], opacity: [0.4, 0.6, 0.4] }}
+          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
         />
       </div>
 
@@ -46,33 +44,33 @@ export function AIAdvisorShowcase() {
           {/* Left - Content */}
           <div>
             <motion.div
-              initial={reducedMotion ? false : { opacity: 0, y: 16 }}
+              initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-primary/10 border border-primary/25 mb-6"
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 mb-6"
             >
-              <Sparkles className="h-3.5 w-3.5 text-primary" />
-              <span className="text-xs font-semibold text-primary">
+              <Sparkles className="h-3 w-3 text-primary" />
+              <span className="text-xs font-medium text-primary">
                 {isRTL ? 'الأول من نوعه في مصر' : 'First of its kind in Egypt'}
               </span>
             </motion.div>
 
             <motion.h2
-              initial={reducedMotion ? false : { opacity: 0, y: 16 }}
+              initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ delay: reducedMotion ? 0 : 0.08 }}
+              transition={{ delay: 0.1 }}
               className="font-display text-3xl md:text-4xl lg:text-5xl font-bold mb-6"
             >
               {isRTL ? 'المستشار الذكي يبني لك خطة كاملة' : 'AI Advisor Builds Your Complete Plan'}
             </motion.h2>
 
             <motion.p
-              initial={reducedMotion ? false : { opacity: 0, y: 16 }}
+              initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ delay: reducedMotion ? 0 : 0.14 }}
-              className="text-muted-foreground text-base sm:text-lg mb-6 leading-relaxed"
+              transition={{ delay: 0.2 }}
+              className="text-muted-foreground text-lg mb-4 leading-relaxed"
             >
               {isRTL
                 ? 'مش محتاج تفهم في التكنولوجيا. قول للمستشار الذكي عايز إيه وهو هيعملك خطة كاملة بالمنتجات والأسعار.'
@@ -80,79 +78,88 @@ export function AIAdvisorShowcase() {
             </motion.p>
 
             <motion.div
-              initial={reducedMotion ? false : { opacity: 0, y: 16 }}
+              initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ delay: reducedMotion ? 0 : 0.2 }}
+              transition={{ delay: 0.3 }}
               className="flex flex-col sm:flex-row gap-3"
             >
               <Link to="/ai-consultant">
-                <AnimatedButton className="h-12 px-7">
-                  <Bot className="h-4 w-4 shrink-0" />
-                  <span>{isRTL ? 'ابدأ المستشار الذكي' : 'Start AI Advisor'}</span>
-                  <ArrowRight
-                    className={cn(
-                      'h-4 w-4 shrink-0 transition-transform group-hover:translate-x-1',
-                      isRTL && 'rotate-180 group-hover:-translate-x-1',
-                    )}
-                  />
-                </AnimatedButton>
+                <Button size="lg" className="h-12 px-6 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 group glow-primary">
+                  <Bot className="mr-2 h-4 w-4" />
+                  {isRTL ? 'ابدأ المستشار الذكي' : 'Start AI Advisor'}
+                  <ArrowRight className={cn("ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform", isRTL && "rotate-180 mr-2 ml-0")} />
+                </Button>
               </Link>
             </motion.div>
           </div>
 
-          {/* Right - Vengeance GlowBorderCard Chat Mockup */}
+          {/* Right - Chat mockup */}
           <motion.div
-            initial={reducedMotion ? false : { opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0, x: 30 }}
+            whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
-            transition={{ delay: reducedMotion ? 0 : 0.15 }}
+            transition={{ delay: 0.2 }}
+            className="relative bg-gradient-to-br from-card via-card to-primary/5 rounded-2xl border border-primary/20 p-4 md:p-6 shadow-2xl shadow-primary/10 backdrop-blur-sm"
           >
-            <GlowBorderCard colorPreset="azka" animationDuration={7} borderWidth="0.3rem" blurAmount="0.7rem" inset="-0.25rem">
-              <div className="p-4 sm:p-6">
-                <div className="flex items-center gap-3 mb-4 pb-3 border-b border-border/70">
-                  <div className="relative w-9 h-9 rounded-full bg-gradient-to-br from-teal-400 to-blue-500 flex items-center justify-center shadow-lg shadow-primary/30">
-                    <Bot className="h-4 w-4 text-[#070D16]" />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-foreground">AzkaSmart AI</span>
-                    <span className="text-xs text-success font-medium">● Online</span>
-                  </div>
+            {/* Shimmer border */}
+            <motion.div
+              aria-hidden
+              className="absolute inset-0 rounded-2xl pointer-events-none"
+              style={{
+                background: 'linear-gradient(120deg, transparent 30%, hsl(var(--primary) / 0.15) 50%, transparent 70%)',
+                backgroundSize: '200% 200%',
+              }}
+              animate={{ backgroundPosition: ['0% 0%', '200% 200%'] }}
+              transition={{ duration: 4, repeat: Infinity, ease: 'linear' }}
+            />
+            <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border">
+              <motion.div
+                className="relative w-9 h-9 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-lg shadow-primary/40"
+                animate={{ boxShadow: ['0 0 20px hsl(var(--primary) / 0.4)', '0 0 30px hsl(var(--primary) / 0.7)', '0 0 20px hsl(var(--primary) / 0.4)'] }}
+                transition={{ duration: 2, repeat: Infinity }}
+              >
+                <Bot className="h-4 w-4 text-primary-foreground" />
+              </motion.div>
+              <div>
+            <span className="text-sm font-semibold text-foreground">AzkaSmart AI</span>
+                <span className="text-xs text-success ml-2">● Online</span>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {/* User message */}
+              <div className={cn("flex", isRTL ? "justify-start" : "justify-end")}>
+                <div className="max-w-[92%] sm:max-w-[85%] bg-primary/15 border border-primary/20 rounded-2xl rounded-br-sm px-3.5 sm:px-4 py-3">
+                  <p className="text-xs sm:text-sm text-foreground whitespace-pre-line leading-relaxed">
+                    {isRTL ? exampleFlow[0].textAr : exampleFlow[0].textEn}
+                  </p>
                 </div>
+              </div>
 
-                <div className="space-y-4">
-                  <div className={cn('flex', isRTL ? 'justify-start' : 'justify-end')}>
-                    <div className="max-w-[92%] sm:max-w-[85%] bg-primary/15 border border-primary/25 rounded-2xl rounded-br-sm px-3.5 sm:px-4 py-3">
-                      <p className="text-xs sm:text-sm text-foreground whitespace-pre-line leading-relaxed">
-                        {isRTL ? exampleFlow[0].textAr : exampleFlow[0].textEn}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className={cn('flex', isRTL ? 'justify-end' : 'justify-start')}>
-                    <div className="w-full sm:max-w-[90%] bg-secondary/90 border border-border/60 rounded-2xl rounded-bl-sm px-3.5 sm:px-4 py-3.5">
-                      <p className="text-xs sm:text-sm text-foreground whitespace-pre-line leading-relaxed break-words">
-                        {isRTL ? exampleFlow[1].textAr : exampleFlow[1].textEn}
-                      </p>
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <Link
-                          to="/ai-consultant"
-                          className="inline-flex items-center min-h-[38px] text-xs font-semibold px-3.5 py-1.5 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-                        >
-                          {isRTL ? 'أضف للسلة' : 'Add to Cart'}
-                        </Link>
-                        <Link
-                          to="/ai-consultant"
-                          className="inline-flex items-center min-h-[38px] text-xs font-medium px-3.5 py-1.5 rounded-full bg-background/80 border border-border text-foreground hover:bg-background transition-colors"
-                        >
-                          {isRTL ? 'عدّل الخطة' : 'Modify Plan'}
-                        </Link>
-                      </div>
-                    </div>
+              {/* AI response */}
+              <div className={cn("flex", isRTL ? "justify-end" : "justify-start")}>
+                <div className="w-full sm:max-w-[90%] bg-secondary rounded-2xl rounded-bl-sm px-3.5 sm:px-4 py-3.5">
+                  <p className="text-xs sm:text-sm text-foreground whitespace-pre-line leading-relaxed break-words">
+                    {isRTL ? exampleFlow[1].textAr : exampleFlow[1].textEn}
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Link
+                      to="/ai-consultant"
+                      className="inline-flex items-center min-h-[36px] text-xs font-medium px-3 py-1.5 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                    >
+                      {isRTL ? 'أضف للسلة' : 'Add to Cart'}
+                    </Link>
+                    <Link
+                      to="/ai-consultant"
+                      className="inline-flex items-center min-h-[36px] text-xs font-medium px-3 py-1.5 rounded-full bg-background/80 border border-border text-foreground hover:bg-background transition-colors"
+                    >
+                      {isRTL ? 'عدّل الخطة' : 'Modify Plan'}
+                    </Link>
                   </div>
                 </div>
               </div>
-            </GlowBorderCard>
+            </div>
           </motion.div>
         </div>
       </div>

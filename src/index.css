@@ -4,141 +4,133 @@
 @tailwind components;
 @tailwind utilities;
 
-/* AzkaSmart — Midnight Navy & Gradient-Ring Vengeance Design System */
-
-@property --angle {
-  syntax: '<angle>';
-  initial-value: 0deg;
-  inherits: false;
-}
+/* AzkaSmart — Emerald Prestige Design System */
 
 @layer base {
   :root {
-    --background: 210 33% 98%;
-    --foreground: 216 52% 9%;
+    --background: 156 20% 98%;
+    --foreground: 156 45% 8%;
 
     --card: 0 0% 100%;
-    --card-foreground: 216 52% 9%;
+    --card-foreground: 156 45% 8%;
 
-    --popover: 216 48% 10%;
-    --popover-foreground: 210 38% 96%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 156 45% 8%;
 
-    --primary: 175 78% 30%;
+    --primary: 156 75% 24%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 214 28% 93%;
-    --secondary-foreground: 216 45% 16%;
+    --secondary: 156 20% 93%;
+    --secondary-foreground: 156 60% 14%;
 
-    --muted: 214 24% 92%;
-    --muted-foreground: 215 20% 38%;
+    --muted: 156 15% 92%;
+    --muted-foreground: 156 15% 38%;
 
-    --accent: 199 88% 42%;
+    --accent: 44 68% 46%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 214 24% 86%;
-    --input: 214 24% 84%;
-    --ring: 175 78% 32%;
+    --border: 156 15% 86%;
+    --input: 156 15% 86%;
+    --ring: 156 75% 24%;
 
     --radius: 0.75rem;
 
-    /* Azka brand tokens — Crisp Light Mode */
-    --navy-base: 216 54% 6%;
-    --emerald-deep: 174 75% 22%;
-    --emerald-glow: 174 80% 38%;
-    --gold: 42 78% 46%;
-    --gold-soft: 42 75% 65%;
-    --cream: 210 30% 98%;
-    --teal-glow: 173 80% 42%;
-    --teal-deep: 175 76% 24%;
-    --cyan-accent: 192 91% 42%;
-    --success: 158 72% 34%;
-    --warning: 38 92% 48%;
+    /* Brand tokens — Light Prestige */
+    --emerald-deep: 156 80% 18%;
+    --emerald-glow: 156 65% 32%;
+    --gold: 44 70% 45%;
+    --gold-soft: 44 55% 65%;
+    --cream: 44 20% 98%;
+    --teal-glow: 156 60% 40%;
+    --teal-deep: 156 70% 22%;
+    --cyan-accent: 175 70% 35%;
+    --success: 156 70% 32%;
+    --warning: 38 90% 45%;
 
-    --gradient-primary: linear-gradient(135deg, hsl(174 80% 34%) 0%, hsl(199 89% 46%) 55%, hsl(252 80% 60%) 100%);
-    --gradient-card: linear-gradient(180deg, #ffffff 0%, hsl(212 33% 97%) 100%);
-    --gradient-hero: linear-gradient(135deg, hsl(174 80% 36% / 0.1) 0%, hsl(212 85% 52% / 0.08) 100%);
-    --gradient-warm: linear-gradient(135deg, hsl(174 80% 36% / 0.08) 0%, hsl(217 85% 56% / 0.08) 100%);
-    --gradient-trust: linear-gradient(135deg, hsl(174 80% 36% / 0.08) 0%, hsl(199 89% 48% / 0.05) 100%);
+    --gradient-primary: linear-gradient(135deg, hsl(156 75% 22%) 0%, hsl(44 70% 45%) 100%);
+    --gradient-card: linear-gradient(180deg, #ffffff 0%, hsl(156 20% 98%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(156 65% 24% / 0.08) 0%, hsl(44 70% 45% / 0.06) 100%);
+    --gradient-warm: linear-gradient(135deg, hsl(44 70% 45% / 0.1) 0%, hsl(156 65% 24% / 0.06) 100%);
+    --gradient-trust: linear-gradient(135deg, hsl(156 65% 28% / 0.08) 0%, hsl(44 70% 45% / 0.04) 100%);
 
-    --shadow-glow: 0 10px 35px -8px hsl(174 80% 36% / 0.28);
-    --shadow-card: 0 8px 28px hsl(216 40% 10% / 0.07);
-    --shadow-elevated: 0 20px 50px hsl(216 45% 10% / 0.14);
-    --shadow-soft: 0 2px 10px hsl(216 40% 10% / 0.04);
+    --shadow-glow: 0 0 35px hsl(44 70% 45% / 0.18);
+    --shadow-card: 0 4px 20px hsl(156 40% 10% / 0.06);
+    --shadow-elevated: 0 16px 40px hsl(156 40% 10% / 0.1);
+    --shadow-soft: 0 2px 10px hsl(156 40% 10% / 0.04);
 
     --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 216 52% 9%;
-    --sidebar-primary: 175 78% 30%;
+    --sidebar-foreground: 156 45% 8%;
+    --sidebar-primary: 156 75% 24%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 214 28% 93%;
-    --sidebar-accent-foreground: 216 45% 16%;
-    --sidebar-border: 214 24% 86%;
-    --sidebar-ring: 175 78% 32%;
+    --sidebar-accent: 156 20% 93%;
+    --sidebar-accent-foreground: 156 60% 14%;
+    --sidebar-border: 156 15% 86%;
+    --sidebar-ring: 156 75% 24%;
   }
 
   .dark {
-    --background: 216 54% 6%;
-    --foreground: 210 38% 96%;
+    --background: 156 40% 5%;
+    --foreground: 44 30% 94%;
 
-    --card: 217 45% 9%;
-    --card-foreground: 210 38% 96%;
+    --card: 156 35% 7%;
+    --card-foreground: 44 30% 94%;
 
-    --popover: 217 48% 10%;
-    --popover-foreground: 210 38% 96%;
+    --popover: 156 35% 7%;
+    --popover-foreground: 44 30% 94%;
 
-    --primary: 173 80% 45%;
-    --primary-foreground: 216 58% 6%;
+    --primary: 156 65% 28%;
+    --primary-foreground: 44 40% 96%;
 
-    --secondary: 217 34% 14%;
-    --secondary-foreground: 210 38% 94%;
+    --secondary: 156 25% 12%;
+    --secondary-foreground: 44 30% 94%;
 
-    --muted: 217 30% 14%;
-    --muted-foreground: 215 20% 68%;
+    --muted: 156 20% 13%;
+    --muted-foreground: 44 15% 65%;
 
-    --accent: 199 89% 54%;
-    --accent-foreground: 216 58% 6%;
+    --accent: 44 55% 54%;
+    --accent-foreground: 156 40% 8%;
 
-    --destructive: 0 68% 52%;
+    --destructive: 0 62.8% 50.6%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 216 28% 19%;
-    --input: 216 28% 19%;
-    --ring: 173 80% 50%;
+    --border: 156 20% 14%;
+    --input: 156 20% 14%;
+    --ring: 44 55% 54%;
 
-    /* Azka brand tokens — Midnight Navy (#070D16) Dark Mode */
-    --navy-base: 216 54% 6%;
-    --emerald-deep: 174 75% 24%;
-    --emerald-glow: 173 80% 48%;
-    --gold: 42 80% 56%;
-    --gold-soft: 42 75% 74%;
-    --cream: 210 38% 96%;
-    --teal-glow: 173 80% 52%;
-    --teal-deep: 174 72% 30%;
-    --cyan-accent: 192 95% 56%;
-    --success: 158 72% 45%;
-    --warning: 38 92% 56%;
+    /* Brand tokens — Emerald Prestige (Dark) */
+    --emerald-deep: 156 80% 15%;
+    --emerald-glow: 156 60% 35%;
+    --gold: 44 55% 54%;
+    --gold-soft: 44 60% 74%;
+    --cream: 44 40% 94%;
+    --teal-glow: 156 60% 45%;
+    --teal-deep: 156 60% 25%;
+    --cyan-accent: 44 55% 54%;
+    --success: 156 60% 40%;
+    --warning: 44 65% 55%;
 
-    --gradient-primary: linear-gradient(135deg, #2DD4BF 0%, #06B6D4 52%, #3B82F6 100%);
-    --gradient-card: linear-gradient(180deg, hsl(217 45% 11%) 0%, hsl(216 50% 8%) 100%);
-    --gradient-hero: linear-gradient(135deg, rgba(45, 212, 191, 0.22) 0%, rgba(59, 130, 246, 0.14) 100%);
-    --gradient-warm: linear-gradient(135deg, rgba(45, 212, 191, 0.16) 0%, rgba(139, 92, 246, 0.12) 100%);
-    --gradient-trust: linear-gradient(135deg, rgba(45, 212, 191, 0.12) 0%, rgba(6, 182, 212, 0.06) 100%);
+    --gradient-primary: linear-gradient(135deg, hsl(156 65% 22%) 0%, hsl(44 55% 54%) 100%);
+    --gradient-card: linear-gradient(180deg, hsl(156 30% 8%) 0%, hsl(156 35% 5%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(156 65% 22% / 0.35) 0%, hsl(44 55% 54% / 0.12) 100%);
+    --gradient-warm: linear-gradient(135deg, hsl(44 55% 54% / 0.18) 0%, hsl(156 65% 22% / 0.1) 100%);
+    --gradient-trust: linear-gradient(135deg, hsl(156 60% 40% / 0.12) 0%, hsl(44 55% 54% / 0.06) 100%);
 
-    --shadow-glow: 0 0 42px rgba(45, 212, 191, 0.24);
-    --shadow-card: 0 8px 30px rgba(0, 0, 0, 0.45);
-    --shadow-elevated: 0 24px 64px rgba(0, 0, 0, 0.62);
-    --shadow-soft: 0 2px 14px rgba(0, 0, 0, 0.28);
+    --shadow-glow: 0 0 60px hsl(44 55% 54% / 0.22);
+    --shadow-card: 0 4px 24px hsl(0 0% 0% / 0.35);
+    --shadow-elevated: 0 20px 60px hsl(0 0% 0% / 0.5);
+    --shadow-soft: 0 2px 12px hsl(0 0% 0% / 0.2);
 
-    --sidebar-background: 216 54% 6%;
-    --sidebar-foreground: 210 38% 96%;
-    --sidebar-primary: 173 80% 45%;
-    --sidebar-primary-foreground: 216 58% 6%;
-    --sidebar-accent: 217 34% 14%;
-    --sidebar-accent-foreground: 210 38% 94%;
-    --sidebar-border: 216 28% 19%;
-    --sidebar-ring: 173 80% 50%;
+    --sidebar-background: 156 40% 5%;
+    --sidebar-foreground: 44 30% 94%;
+    --sidebar-primary: 156 65% 28%;
+    --sidebar-primary-foreground: 44 40% 96%;
+    --sidebar-accent: 156 25% 12%;
+    --sidebar-accent-foreground: 44 30% 94%;
+    --sidebar-border: 156 20% 14%;
+    --sidebar-ring: 44 55% 54%;
   }
 }
 
@@ -149,13 +141,12 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    font-family: 'Poppins', 'Noto Sans Arabic', sans-serif;
+    font-family: 'Poppins', sans-serif;
     overflow-x: hidden;
   }
 
   html {
     overflow-x: hidden;
-    scroll-behavior: smooth;
   }
 
   html[lang="ar"] body {
@@ -163,20 +154,24 @@
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Poppins', 'Noto Sans Arabic', sans-serif;
+    font-family: 'Poppins', sans-serif;
     font-weight: 600;
     letter-spacing: -0.02em;
   }
 
-  :focus-visible {
-    outline: 2px solid hsl(var(--ring));
-    outline-offset: 2px;
+  html[lang="ar"] h1,
+  html[lang="ar"] h2,
+  html[lang="ar"] h3,
+  html[lang="ar"] h4,
+  html[lang="ar"] h5,
+  html[lang="ar"] h6 {
+    font-family: 'Poppins', 'Noto Sans Arabic', sans-serif;
   }
 }
 
 @layer utilities {
   .font-display {
-    font-family: 'Poppins', 'Noto Sans Arabic', sans-serif;
+    font-family: 'Poppins', sans-serif;
     font-weight: 600;
     letter-spacing: -0.02em;
   }
@@ -192,11 +187,6 @@
     background-image: var(--gradient-primary);
   }
 
-  .azka-gradient-text {
-    @apply bg-clip-text text-transparent;
-    background-image: linear-gradient(135deg, #2DD4BF 0%, #38BDF8 55%, #818CF8 100%);
-  }
-
   .text-gold {
     color: hsl(var(--gold));
   }
@@ -206,88 +196,17 @@
   }
 
   .gold-rule {
-    background: linear-gradient(90deg, transparent, hsl(var(--primary) / 0.65), transparent);
+    background: linear-gradient(90deg, transparent, hsl(var(--gold) / 0.6), transparent);
   }
 
   .glow-primary {
     box-shadow: var(--shadow-glow);
   }
 
-  .azka-glass {
-    @apply bg-card/75 backdrop-blur-xl border border-border/75 shadow-[var(--shadow-card)];
-  }
-
-  .azka-bento {
-    @apply relative overflow-hidden rounded-2xl border border-border/75 bg-card/80 backdrop-blur-xl transition-all duration-300;
-    box-shadow: var(--shadow-card);
-  }
-
-  .azka-gradient-ring {
-    position: relative;
-  }
-  .azka-gradient-ring::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    padding: 1px;
-    background: linear-gradient(135deg, rgba(45, 212, 191, 0.65), rgba(6, 182, 212, 0.35), rgba(139, 92, 246, 0.55));
-    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    mask-composite: exclude;
-    pointer-events: none;
-  }
-
   .card-gradient { background: var(--gradient-card); }
   .hero-gradient { background: var(--gradient-hero); }
   .trust-gradient { background: var(--gradient-trust); }
   .warm-gradient { background: var(--gradient-warm); }
-
-  /* Vengeance UI: GlowBorderCard conic gradient */
-  @keyframes glow-conic-spin {
-    from { --angle: 0deg; }
-    to { --angle: 360deg; }
-  }
-  .glow-conic {
-    border-image: conic-gradient(
-      from var(--angle),
-      var(--glow-color-1, #2DD4BF),
-      var(--glow-color-2, #06B6D4),
-      var(--glow-color-3, #3B82F6),
-      var(--glow-color-4, #8B5CF6),
-      var(--glow-color-5, #2DD4BF),
-      var(--glow-color-6, #14B8A6),
-      var(--glow-color-7, #0EA5E9),
-      var(--glow-color-8, #6366F1),
-      var(--glow-color-9, #2DD4BF),
-      var(--glow-color-10, #06B6D4)
-    ) 1;
-    animation: glow-conic-spin var(--glow-animation-duration, 6s) linear infinite;
-  }
-
-  /* Vengeance UI: BorderBeam offset-path animation */
-  @keyframes border-beam {
-    100% {
-      offset-distance: 100%;
-    }
-  }
-
-  /* Vengeance UI: LogoSlider marquee track */
-  @keyframes azka-logo-marquee {
-    0% { transform: translate3d(0, 0, 0); }
-    100% { transform: translate3d(-50%, 0, 0); }
-  }
-  .azka-logo-slider__track {
-    animation: azka-logo-marquee var(--azka-marquee-duration, 42s) linear infinite;
-    will-change: transform;
-  }
-  .azka-logo-slider__track--reverse {
-    animation-direction: reverse;
-  }
-  .azka-logo-slider--pause:hover .azka-logo-slider__track {
-    animation-play-state: paused;
-  }
 
   @keyframes rfid-ping {
     0% { transform: scale(0.6); opacity: 0.9; }
@@ -308,7 +227,7 @@
     100% { background-position: 200% 0; }
   }
   .shimmer-gold {
-    background: linear-gradient(90deg, hsl(var(--primary) / 0.5), hsl(var(--accent)), hsl(var(--primary) / 0.5));
+    background: linear-gradient(90deg, hsl(var(--gold) / 0.4), hsl(var(--gold-soft)), hsl(var(--gold) / 0.4));
     background-size: 200% 100%;
     -webkit-background-clip: text;
     background-clip: text;
@@ -316,28 +235,15 @@
     animation: shimmer-gold 4s ease-in-out infinite;
   }
 
+  /* Smooth scroll + scroll-margin for fixed header offset */
+  html { scroll-behavior: smooth; }
   @media (prefers-reduced-motion: reduce) {
     html { scroll-behavior: auto; }
-    .glow-conic,
-    .azka-logo-slider__track,
-    .animate-ping,
-    .animate-pulse,
-    .animate-marquee,
-    .shimmer-gold,
-    .animate-float,
-    .animate-pulse-glow,
-    .animate-rfid-ping,
-    .azka-ambient-orb {
-      animation: none !important;
-      animation-duration: 0.01ms !important;
-      transition-duration: 0.01ms !important;
-    }
   }
-
   .scroll-margin-top-16 { scroll-margin-top: 4rem; }
   .scroll-margin-top-20 { scroll-margin-top: 5rem; }
 
-  /* WhatsApp button sits above header/sticky bar on mobile but below modals */
+  /* WhatsApp button sits above header but below modals */
   .z-whatsapp { z-index: 45; }
 
   ::-webkit-scrollbar { width: 6px; }

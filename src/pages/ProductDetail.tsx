@@ -590,8 +590,8 @@ const ProductDetail = () => {
               <div
                 data-testid="product-main-viewer"
                 className={cn(
-                  "relative aspect-[4/3] sm:aspect-square max-h-[260px] sm:max-h-none overflow-hidden rounded-2xl border border-border/80 flex items-center justify-center group shadow-sm touch-pan-y",
-                  activeItem.kind === 'video' ? "p-0 bg-black" : "p-3 sm:p-8 bg-slate-50 dark:bg-white/[0.04]"
+                  "relative aspect-[4/3] sm:aspect-square max-h-[260px] sm:max-h-none overflow-hidden rounded-2xl border border-border bg-card/60 flex items-center justify-center group shadow-sm touch-pan-y",
+                  activeItem.kind === 'video' ? "p-0 bg-black" : "p-3 sm:p-8"
                 )}
                 onTouchStart={(e) => {
                   const target = e.target as HTMLElement | null;
@@ -941,7 +941,7 @@ const ProductDetail = () => {
 
               <div className="order-3 lg:order-4">
                 {/* Delivery info */}
-                <div className="p-4 rounded-2xl azka-glass mb-4">
+                <div className="p-4 rounded-xl bg-card border border-border mb-4">
                   <div className="flex items-center gap-2 text-sm">
                     <Truck className="h-4 w-4 text-primary shrink-0" />
                     <span className="font-medium text-foreground">{isRTL ? 'التوصيل' : 'Delivery'}</span>
@@ -953,7 +953,7 @@ const ProductDetail = () => {
 
                 {/* Specs */}
                 {formattedSpecs.length > 0 && (
-                  <div className="rounded-2xl azka-glass p-4 sm:p-5">
+                  <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
                     <h3 className="mb-3 font-display text-base font-semibold text-foreground">{t('specifications')}</h3>
                     <dl className="divide-y divide-border/50">
                       {formattedSpecs.map(([label, val]) => {
@@ -1000,7 +1000,7 @@ const ProductDetail = () => {
         {/* Sticky bottom price + Add to Cart bar on mobile (< lg) */}
         <div
           data-testid="mobile-sticky-add-to-cart"
-          className="fixed bottom-0 left-0 right-0 z-40 lg:hidden bg-background/95 backdrop-blur-2xl border-t border-primary/25 px-3 py-2.5 shadow-[0_-10px_35px_rgba(0,0,0,0.4)]"
+          className="fixed bottom-0 left-0 right-0 z-40 lg:hidden bg-background/95 backdrop-blur-xl border-t border-border px-3 py-2.5 shadow-[0_-8px_30px_rgba(0,0,0,0.18)]"
         >
           <div className="container px-0 flex items-center justify-between gap-2.5">
             <div className="min-w-0 shrink-0">

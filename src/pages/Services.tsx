@@ -65,9 +65,9 @@ const Services = () => {
             {services.map((service) => (
               <div
                 key={service.titleKey}
-                className="group relative overflow-hidden rounded-2xl azka-glass p-7 sm:p-8 transition-all hover:border-primary/50 hover:shadow-[0_14px_38px_-18px_rgba(45,212,191,0.35)]"
+                className="group rounded-xl border border-border bg-card p-8 transition-all hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10"
               >
-                <div className="azka-gradient-ring mb-6 inline-flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+                <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
                   <service.icon className="h-7 w-7" />
                 </div>
                 <h3 className="mb-3 font-display text-xl font-semibold text-foreground">{t(service.titleKey)}</h3>

@@ -1,20 +1,18 @@
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
-import { ArrowRight } from 'lucide-react';
+
 import { supabase } from '@/integrations/supabase/client';
 import { Product } from '@/types/store';
 import { ProductCard } from '@/components/products/ProductCard';
+import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/lib/i18n';
 import { fetchHiddenProductIds, filterPublicProducts } from '@/lib/productVisibility';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
-import { useMotionPreferences } from '@/hooks/useMotionPreferences';
-import { AnimatedButton } from '@/components/vengeance/AnimatedButton';
 
 export function FeaturedProducts() {
   const { t, isRTL } = useLanguage();
-  const { reducedMotion } = useMotionPreferences();
 
   const { data: hiddenIds, isLoading: hiddenLoading } = useQuery({
     queryKey: ['hidden-product-ids'],
@@ -52,22 +50,22 @@ export function FeaturedProducts() {
 
   return (
     <section className="py-20 bg-background relative overflow-hidden">
-      <div className="container px-4 sm:px-6 md:px-12">
+      <div className="container px-6 md:px-12">
         <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-10">
           <div>
             <motion.span
-              initial={reducedMotion ? false : { opacity: 0, y: 16 }}
+              initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              className="inline-flex items-center px-3 py-1 rounded-full bg-primary/10 border border-primary/25 text-xs tracking-[0.18em] uppercase text-primary font-semibold mb-3"
+              className="text-sm tracking-[0.2em] uppercase text-primary font-medium block mb-2"
             >
               {isRTL ? 'الأكثر مبيعاً' : 'Best Sellers'}
             </motion.span>
             <motion.h2
-              initial={reducedMotion ? false : { opacity: 0, y: 16 }}
+              initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ delay: reducedMotion ? 0 : 0.08 }}
+              transition={{ delay: 0.1 }}
               className="font-display text-3xl md:text-4xl font-bold tracking-tight"
             >
               {isRTL ? 'منتجات مميزة' : 'Featured Products'}
@@ -75,20 +73,30 @@ export function FeaturedProducts() {
           </div>
 
           <motion.div
-            initial={reducedMotion ? false : { opacity: 0, x: isRTL ? -16 : 16 }}
+            initial={{ opacity: 0, x: 20 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
           >
             <Link to="/products">
-              <AnimatedButton azkaVariant="glass" className="h-11 px-6 text-sm">
-                <span>{t('viewAll')}</span>
-                <ArrowRight
+              <Button variant="outline" className="h-10 px-5 rounded-full border-foreground/20 hover:bg-foreground/5 group text-sm">
+                {t('viewAll')}
+                <svg
                   className={cn(
-                    'h-4 w-4 transition-transform group-hover:translate-x-1',
-                    isRTL && 'rotate-180 group-hover:-translate-x-1',
+                    'ml-2 h-4 w-4 transition-transform group-hover:translate-x-1',
+                    isRTL && 'rotate-180 mr-2 ml-0'
                   )}
-                />
-              </AnimatedButton>
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M5 12h14" />
+                  <path d="m13 18 6-6-6-6" />
+                </svg>
+              </Button>
             </Link>
           </motion.div>
         </div>
@@ -98,13 +106,13 @@ export function FeaturedProducts() {
             {Array.from({ length: 8 }).map((_, i) => (
               <div
                 key={i}
-                className="rounded-2xl border border-border bg-card overflow-hidden p-3 sm:p-4 space-y-3 animate-pulse"
+                className="rounded-xl border border-border bg-card overflow-hidden p-3 sm:p-4 space-y-3 animate-pulse"
               >
-                <div className="aspect-square rounded-xl bg-muted" />
+                <div className="aspect-square rounded-lg bg-muted" />
                 <div className="h-3 w-1/3 rounded bg-muted" />
                 <div className="h-4 w-4/5 rounded bg-muted" />
                 <div className="h-5 w-1/2 rounded bg-muted" />
-                <div className="h-10 w-full rounded-full bg-muted" />
+                <div className="h-10 w-full rounded-lg bg-muted" />
               </div>
             ))}
           </div>

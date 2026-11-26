@@ -16,7 +16,6 @@ export function WhatsAppButton() {
   );
 
   const isProductDetail = /^\/products\/[^/]+/.test(pathname);
-  const hasBottomActionArea = isProductDetail || pathname === '/cart' || pathname === '/checkout';
 
   if (!phone) return null;
 
@@ -27,8 +26,8 @@ export function WhatsAppButton() {
       rel="noopener noreferrer"
       aria-label={isRTL ? 'تحدث معنا عبر واتساب' : 'Chat with us on WhatsApp'}
       className={cn(
-        "fixed z-whatsapp flex items-center justify-center gap-2 min-h-[48px] min-w-[48px] px-4 sm:px-5 py-3 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white border border-emerald-300/30 shadow-[0_10px_30px_-8px_rgba(16,185,129,0.65)] hover:shadow-[0_14px_38px_-8px_rgba(16,185,129,0.85)] transition-all duration-300 hover:scale-105 group",
-        hasBottomActionArea ? "bottom-24 lg:bottom-6" : "bottom-6",
+        "fixed z-whatsapp flex items-center justify-center gap-2 min-h-[48px] min-w-[48px] px-4 sm:px-5 py-3 rounded-full bg-[hsl(142,70%,45%)] text-[hsl(0,0%,100%)] shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 group",
+        isProductDetail ? "bottom-20 lg:bottom-6" : "bottom-6",
         isRTL ? "left-4 sm:left-6" : "right-4 sm:right-6",
       )}
     >

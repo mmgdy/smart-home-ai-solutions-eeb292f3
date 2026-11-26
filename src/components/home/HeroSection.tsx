@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { ArrowRight, Sparkles, ShoppingBag, Search, Camera, X, Loader2, Calculator, Bot } from 'lucide-react';
+import { ArrowRight, Sparkles, Play, Search, Camera, X, Loader2, Calculator } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
@@ -8,9 +8,6 @@ import { motion } from 'framer-motion';
 import heroBg from '@/assets/hero-bg.jpg';
 import { useSiteInfo } from '@/hooks/useSiteInfo';
 import { supabase } from '@/integrations/supabase/client';
-import { useMotionPreferences } from '@/hooks/useMotionPreferences';
-import { BorderBeam } from '@/components/vengeance/BorderBeam';
-import { AnimatedButton } from '@/components/vengeance/AnimatedButton';
 
 const HERO_VIDEO = '/hero-loop.mp4';
 
@@ -51,7 +48,6 @@ export function HeroSection() {
   const { isRTL } = useLanguage();
   const navigate = useNavigate();
   const { get } = useSiteInfo();
-  const { reducedMotion } = useMotionPreferences();
 
   const headline = get('hero', isRTL ? 'headline_ar' : 'headline_en',
     isRTL ? 'اشعر بسحر البيت الذكي' : 'Feel the magic of a Smarter Home');
@@ -69,6 +65,7 @@ export function HeroSection() {
     { num: '04', label: isRTL ? 'احجز التركيب' : 'Book install' },
   ];
 
+  // Typewriter search bar state
   const hints = isRTL ? SEARCH_HINTS_AR : SEARCH_HINTS_EN;
   const [hintIdx, setHintIdx] = useState(0);
   const [typedText, setTypedText] = useState('');
@@ -80,15 +77,8 @@ export function HeroSection() {
   const pauseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (isFocused || searchValue) {
-      setTypedText('');
-      return;
-    }
+    if (isFocused || searchValue) { setTypedText(''); return; }
     const target = hints[hintIdx];
-    if (reducedMotion) {
-      setTypedText(target);
-      return;
-    }
     let i = 0;
     setTypedText('');
     typingTimerRef.current = setInterval(() => {
@@ -105,7 +95,7 @@ export function HeroSection() {
       if (typingTimerRef.current) clearInterval(typingTimerRef.current);
       if (pauseTimerRef.current) clearTimeout(pauseTimerRef.current);
     };
-  }, [hintIdx, hints, isFocused, searchValue, reducedMotion]);
+  }, [hintIdx, hints, isFocused, searchValue]);
 
   const handleSearch = useCallback((q: string) => {
     const query = q.trim();
@@ -131,6 +121,7 @@ export function HeroSection() {
         navigate(`/products?q=${encodeURIComponent(data.query)}`);
       }
     } catch {
+      // fall back to products page with no query
       navigate('/products');
     } finally {
       setImageLoading(false);
@@ -138,117 +129,88 @@ export function HeroSection() {
   };
 
   return (
-    <section
-      data-testid="vengeance-hero"
-      className="relative min-h-[100svh] flex items-center overflow-hidden bg-[#070D16] text-slate-50"
-    >
-      {/* Background Video & Azka Midnight Navy Aurora */}
+    <section className="relative min-h-[100svh] flex items-center overflow-hidden">
+      {/* Video background */}
       <div className="absolute inset-0">
-        {!reducedMotion && (
-          <video
-            className="absolute inset-0 h-full w-full object-cover opacity-55"
-            autoPlay
-            muted
-            loop
-            playsInline
-            poster={heroBg}
-          >
-            <source src={HERO_VIDEO} type="video/mp4" />
-          </video>
-        )}
-        <img
-          src={heroBg}
-          alt=""
-          aria-hidden="true"
-          className="absolute inset-0 h-full w-full object-cover -z-10 opacity-60"
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-[#070D16]/88 via-[#070D16]/72 to-[#070D16]" />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(45,212,191,0.18),transparent_60%)]"
-        />
-        {/* Subtle architectural grid overlay */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 opacity-20"
-          style={{
-            backgroundImage:
-              'linear-gradient(to right, rgba(148,163,184,0.12) 1px, transparent 1px), linear-gradient(to bottom, rgba(148,163,184,0.12) 1px, transparent 1px)',
-            backgroundSize: '48px 48px',
-            maskImage: 'radial-gradient(circle at 50% 35%, black 25%, transparent 78%)',
-          }}
+        <video
+          className="absolute inset-0 h-full w-full object-cover"
+          autoPlay
+          muted
+          loop
+          playsInline
+          poster={heroBg}
+        >
+          <source src={HERO_VIDEO} type="video/mp4" />
+        </video>
+        <img src={heroBg} alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover -z-10" />
+        <div className="absolute inset-0 bg-gradient-to-b from-background/70 via-background/55 to-background/95" />
+        <div className="absolute inset-0 bg-gradient-to-tr from-primary/20 via-transparent to-warning/15 mix-blend-overlay" />
+        <motion.div
+          aria-hidden
+          className="absolute -top-40 -right-32 h-[60vw] w-[60vw] rounded-full bg-gradient-to-br from-primary/30 via-cyan-500/15 to-transparent blur-3xl"
+          animate={{ scale: [1, 1.1, 1], opacity: [0.6, 0.9, 0.6] }}
+          transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
         />
         <motion.div
-          aria-hidden="true"
-          className="azka-ambient-orb pointer-events-none absolute -top-36 -right-24 h-[48vw] w-[48vw] max-w-[620px] rounded-full bg-gradient-to-br from-teal-400/20 via-cyan-500/15 to-transparent blur-3xl"
-          animate={reducedMotion ? undefined : { scale: [1, 1.08, 1], opacity: [0.45, 0.72, 0.45] }}
-          transition={reducedMotion ? undefined : { duration: 9, repeat: Infinity, ease: 'easeInOut' }}
-        />
-        <motion.div
-          aria-hidden="true"
-          className="azka-ambient-orb pointer-events-none absolute -bottom-36 -left-24 h-[45vw] w-[45vw] max-w-[560px] rounded-full bg-gradient-to-tr from-blue-500/20 via-violet-500/10 to-transparent blur-3xl"
-          animate={reducedMotion ? undefined : { scale: [1.08, 1, 1.08], opacity: [0.4, 0.65, 0.4] }}
-          transition={reducedMotion ? undefined : { duration: 11, repeat: Infinity, ease: 'easeInOut' }}
+          aria-hidden
+          className="absolute -bottom-40 -left-32 h-[55vw] w-[55vw] rounded-full bg-gradient-to-tr from-warning/25 via-primary/10 to-transparent blur-3xl"
+          animate={{ scale: [1.1, 1, 1.1], opacity: [0.5, 0.8, 0.5] }}
+          transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut' }}
         />
       </div>
 
-      <div className="container relative z-10 px-4 md:px-12 pt-24 md:pt-32 pb-24 md:pb-28">
+      <div className="container relative z-10 px-4 md:px-12 pt-24 md:pt-32 pb-24 md:pb-32">
         <div className="max-w-5xl mx-auto text-center">
-          {/* Gradient-Ring Eyebrow Pill */}
+          {/* Badge */}
           <motion.div
-            initial={reducedMotion ? false : { opacity: 0, y: 16 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="azka-gradient-ring inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#0D1726]/80 backdrop-blur-xl mb-6 md:mb-8 shadow-[0_0_32px_-8px_rgba(45,212,191,0.5)]"
+            transition={{ duration: 0.6 }}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-card/40 backdrop-blur-md border border-primary/30 mb-6 md:mb-8 shadow-[0_0_30px_-5px_hsl(var(--primary)/0.4)]"
           >
             <span className="relative flex h-2 w-2">
-              {!reducedMotion && (
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75" />
-              )}
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-teal-400" />
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
             </span>
-            <span className="text-xs sm:text-sm font-medium text-slate-100">
+            <span className="text-xs sm:text-sm font-medium text-foreground">
               {isRTL ? 'منزلك الذكي يبدأ من هنا' : 'Your smart home starts here'}
             </span>
           </motion.div>
 
-          {/* Main Headline */}
+          {/* Main headline */}
           <motion.h1
-            initial={reducedMotion ? false : { opacity: 0, y: 24 }}
+            initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.65, delay: reducedMotion ? 0 : 0.08 }}
-            className="font-display text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.12] sm:leading-[1.08] mb-4 md:mb-6"
+            transition={{ duration: 0.8, delay: 0.1 }}
+            className="font-display text-3xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold tracking-tight leading-[1.12] sm:leading-[1.08] mb-4 md:mb-6"
           >
-            <span className="block text-white drop-shadow-[0_4px_24px_rgba(0,0,0,0.6)]">
+            <span className="block text-foreground drop-shadow-[0_2px_20px_rgba(0,0,0,0.5)]">
               {headline}
             </span>
           </motion.h1>
 
           <motion.p
-            initial={reducedMotion ? false : { opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: reducedMotion ? 0 : 0.16 }}
-            className="text-sm sm:text-base md:text-xl text-slate-300 max-w-2xl mx-auto mb-6 md:mb-8 leading-relaxed font-normal"
+            transition={{ duration: 0.7, delay: 0.25 }}
+            className="text-sm sm:text-base md:text-xl text-foreground/90 max-w-2xl mx-auto mb-6 md:mb-8 leading-relaxed font-medium drop-shadow-[0_1px_8px_rgba(0,0,0,0.4)]"
           >
             {subheadline}
           </motion.p>
 
-          {/* Vengeance BorderBeam AI Search Bar */}
+          {/* Animated search bar */}
           <motion.div
-            initial={reducedMotion ? false : { opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: reducedMotion ? 0 : 0.24 }}
-            className="max-w-xl mx-auto mb-7 md:mb-9"
+            transition={{ duration: 0.7, delay: 0.35 }}
+            className="max-w-xl mx-auto mb-6 md:mb-8"
           >
-            <div
-              className={cn(
-                'relative overflow-hidden flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl bg-[#0C1524]/90 backdrop-blur-2xl border transition-all shadow-[0_14px_40px_-10px_rgba(0,0,0,0.65)]',
-                isFocused ? 'border-teal-400/70 shadow-[0_14px_45px_-10px_rgba(45,212,191,0.45)]' : 'border-slate-700/70',
-              )}
-            >
-              <BorderBeam size={160} duration={10} borderWidth={1.5} colorFrom="#2DD4BF" colorTo="#3B82F6" />
-              <Search className="h-5 w-5 text-slate-400 flex-shrink-0 relative z-10" />
-              <div className="relative z-10 flex-1 min-w-0">
+            <div className={cn(
+              'flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-3 rounded-2xl bg-background/85 backdrop-blur-xl border shadow-[0_8px_32px_-8px_rgba(0,0,0,0.4)] transition-shadow',
+              isFocused ? 'border-primary shadow-[0_8px_40px_-8px_hsl(var(--primary)/0.5)]' : 'border-border/60'
+            )}>
+              <Search className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+              <div className="relative flex-1 min-w-0">
                 <input
                   type="text"
                   value={searchValue}
@@ -256,15 +218,16 @@ export function HeroSection() {
                   onKeyDown={handleKey}
                   onFocus={() => setIsFocused(true)}
                   onBlur={() => setIsFocused(false)}
-                  className="w-full bg-transparent text-slate-100 text-sm outline-none placeholder-transparent h-9"
+                  className="w-full bg-transparent text-foreground text-sm outline-none placeholder-transparent h-9"
                   aria-label={isRTL ? 'ابحث عن منتجات' : 'Search products'}
                 />
+                {/* Typewriter placeholder */}
                 {!searchValue && (
                   <div className="absolute inset-0 flex items-center pointer-events-none overflow-hidden">
-                    <span className="text-xs sm:text-sm text-slate-400 whitespace-nowrap truncate">
+                    <span className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap truncate">
                       {typedText}
-                      {!reducedMotion && typedText.length < hints[hintIdx].length && (
-                        <span className="inline-block w-0.5 h-3.5 bg-teal-400/70 ml-px align-middle animate-pulse" />
+                      {typedText.length < hints[hintIdx].length && (
+                        <span className="inline-block w-0.5 h-3.5 bg-muted-foreground/60 ml-px align-middle animate-pulse" />
                       )}
                     </span>
                   </div>
@@ -272,19 +235,18 @@ export function HeroSection() {
               </div>
               {searchValue && (
                 <button
-                  type="button"
                   onClick={() => setSearchValue('')}
-                  className="relative z-10 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 flex items-center justify-center text-slate-400 hover:text-white flex-shrink-0"
+                  className="min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 flex items-center justify-center text-muted-foreground hover:text-foreground flex-shrink-0"
                   aria-label={isRTL ? 'مسح البحث' : 'Clear search'}
                 >
                   <X className="h-4 w-4" />
                 </button>
               )}
+              {/* Image upload button */}
               <button
-                type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={imageLoading}
-                className="relative z-10 flex-shrink-0 min-h-[44px] min-w-[44px] lg:min-h-8 lg:min-w-8 p-1.5 flex items-center justify-center rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 transition-colors border border-slate-700/60"
+                className="flex-shrink-0 min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 p-1.5 flex items-center justify-center rounded-lg bg-muted/60 hover:bg-muted text-foreground/80 hover:text-foreground transition-colors"
                 title={isRTL ? 'بحث بالصورة' : 'Search by image'}
                 aria-label={isRTL ? 'بحث بالصورة' : 'Search by image'}
               >
@@ -293,131 +255,125 @@ export function HeroSection() {
               <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
               <Button
                 size="sm"
-                className="relative z-10 flex-shrink-0 rounded-xl h-11 lg:h-9 px-4 text-xs sm:text-sm font-semibold bg-gradient-to-r from-teal-400 to-cyan-400 text-[#070D16] hover:from-teal-300 hover:to-cyan-300 border-0"
+                className="flex-shrink-0 rounded-xl h-11 lg:h-8 px-4 text-xs sm:text-sm font-medium"
                 onClick={() => handleSearch(searchValue)}
               >
                 {isRTL ? 'بحث' : 'Search'}
               </Button>
             </div>
-            <p className="text-xs text-slate-400 font-medium mt-2.5">
+            <p className="text-xs text-foreground/85 font-medium mt-2.5 drop-shadow-[0_1px_4px_rgba(0,0,0,0.6)]">
               {isRTL
                 ? 'أو ارفع صورة غرفتك للبحث عن المنتجات المناسبة'
                 : 'Or upload a room photo to find matching smart devices'}
             </p>
           </motion.div>
 
-          {/* Vengeance Primary CTA + Glass Secondary CTAs */}
+          {/* CTAs */}
           <motion.div
-            initial={reducedMotion ? false : { opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: reducedMotion ? 0 : 0.3 }}
-            className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center flex-wrap gap-3 sm:gap-3.5 mb-10"
+            transition={{ duration: 0.7, delay: 0.45 }}
+            className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center flex-wrap gap-3 sm:gap-4 mb-8"
           >
             <Link to="/bundles" className="w-full sm:w-auto">
-              <AnimatedButton className="w-full sm:w-auto min-h-[48px] h-12 sm:h-13 px-6 sm:px-8">
-                <Sparkles className="h-4 w-4 shrink-0" />
-                <span>{ctaLabel}</span>
-                <ArrowRight
-                  className={cn(
-                    'h-4 w-4 shrink-0 transition-transform group-hover:translate-x-1',
-                    isRTL && 'rotate-180 group-hover:-translate-x-1',
-                  )}
-                />
-              </AnimatedButton>
-            </Link>
-
-            <Link to="/ai-consultant" className="w-full sm:w-auto">
               <Button
                 size="lg"
-                variant="outline"
-                className="w-full sm:w-auto min-h-[48px] h-12 sm:h-13 px-5 sm:px-6 text-sm font-medium rounded-full border-teal-400/40 bg-[#0D1726]/75 backdrop-blur-xl hover:bg-teal-400/15 hover:border-teal-400/70 text-slate-100"
+                className="w-full sm:w-auto h-12 sm:h-14 px-6 sm:px-10 text-sm sm:text-base font-semibold bg-primary text-primary-foreground hover:bg-primary/90 rounded-full group glow-primary shadow-[0_10px_40px_-10px_hsl(var(--primary)/0.7)]"
               >
-                <Bot className="me-2 h-4 w-4 text-teal-400 shrink-0" />
-                {isRTL ? 'المستشار الذكي AI' : 'AI Smart Advisor'}
+                <Sparkles className="mr-2 h-5 w-5" />
+                {ctaLabel}
+                <ArrowRight className={cn(
+                  'ml-2 h-5 w-5 transition-transform group-hover:translate-x-1',
+                  isRTL && 'rotate-180 mr-2 ml-0 group-hover:-translate-x-1'
+                )} />
               </Button>
             </Link>
-
             <Link to="/products" className="w-full sm:w-auto">
               <Button
                 size="lg"
                 variant="outline"
-                className="w-full sm:w-auto min-h-[48px] h-12 sm:h-13 px-5 sm:px-6 text-sm font-medium rounded-full border-slate-600/70 bg-[#0D1726]/70 backdrop-blur-xl hover:bg-slate-800/80 text-slate-100"
+                className="w-full sm:w-auto h-12 sm:h-14 px-6 sm:px-8 text-sm sm:text-base font-medium rounded-full border-foreground/30 bg-background/40 backdrop-blur-md hover:bg-background/60 text-foreground"
               >
-                <ShoppingBag className="me-2 h-4 w-4 text-cyan-400 shrink-0" />
+                <Play className="mr-2 h-4 w-4 fill-current" />
                 {isRTL ? 'تصفح المنتجات' : 'Browse Products'}
               </Button>
             </Link>
-
+            {/* AI Home Designer link */}
             <Link to="/home-designer" className="w-full sm:w-auto">
               <Button
                 size="lg"
                 variant="outline"
-                className="w-full sm:w-auto min-h-[48px] h-12 sm:h-13 px-5 sm:px-6 text-sm font-medium rounded-full border-slate-600/70 bg-[#0D1726]/70 backdrop-blur-xl hover:bg-slate-800/80 text-slate-100"
+                className="w-full sm:w-auto h-12 sm:h-14 px-6 sm:px-8 text-sm sm:text-base font-medium rounded-full border-primary/60 bg-background/50 backdrop-blur-md hover:bg-primary/25 text-foreground"
               >
-                <Sparkles className="me-2 h-4 w-4 text-sky-400 shrink-0" />
+                <Sparkles className="mr-2 h-4 w-4 text-emerald-400" />
                 {isRTL ? 'AI يرسم أجهزة على صورة بيتك' : 'AI Home Designer'}
               </Button>
             </Link>
-
             <Link to="/calculator" className="w-full sm:w-auto">
               <Button
                 size="lg"
                 variant="outline"
-                className="w-full sm:w-auto min-h-[48px] h-12 sm:h-13 px-5 sm:px-6 text-sm font-medium rounded-full border-slate-600/70 bg-[#0D1726]/70 backdrop-blur-xl hover:bg-slate-800/80 text-slate-100"
+                className="w-full sm:w-auto h-12 sm:h-14 px-6 sm:px-8 text-sm sm:text-base font-medium rounded-full border-warning/50 bg-background/40 backdrop-blur-md hover:bg-warning/20 text-foreground"
               >
-                <Calculator className="me-2 h-4 w-4 text-amber-400 shrink-0" />
+                <Calculator className="mr-2 h-4 w-4 text-warning" />
                 {isRTL ? 'حاسبة التكلفة' : 'Cost Calculator'}
               </Button>
             </Link>
           </motion.div>
 
-          {/* 4-Step Bento Journey Row */}
+          {/* Steps indicator */}
           <motion.div
-            initial={reducedMotion ? false : { opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: reducedMotion ? 0 : 0.38 }}
-            className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-4xl mx-auto"
+            transition={{ duration: 0.7, delay: 0.55 }}
+            className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-3xl mx-auto"
           >
             {steps.map((step) => (
-              <div
+              <motion.div
                 key={step.num}
-                className="flex items-center gap-3 p-3 sm:p-3.5 rounded-2xl bg-[#0D1829]/80 backdrop-blur-xl border border-slate-700/60 hover:border-teal-400/50 transition-all shadow-[0_8px_24px_-12px_rgba(0,0,0,0.6)]"
+                whileHover={{ y: -4 }}
+                className="flex items-center gap-3 p-3 rounded-2xl bg-card/40 backdrop-blur-md border border-border/50"
               >
-                <span className="flex-shrink-0 w-9 h-9 rounded-xl bg-gradient-to-br from-teal-400 via-cyan-400 to-blue-500 flex items-center justify-center text-xs font-bold text-[#070D16] shadow-md">
+                <span className="flex-shrink-0 w-9 h-9 rounded-full bg-gradient-to-br from-primary to-cyan-500 flex items-center justify-center text-xs font-bold text-primary-foreground shadow-lg">
                   {step.num}
                 </span>
-                <span className="text-xs md:text-sm text-slate-100 font-medium text-start leading-snug">
+                <span className="text-xs md:text-sm text-foreground/90 font-medium text-left">
                   {step.label}
                 </span>
-              </div>
+              </motion.div>
             ))}
           </motion.div>
         </div>
       </div>
 
-      {/* Bottom Trust Strip */}
-      <div className="absolute bottom-0 left-0 right-0 border-t border-slate-800/80 bg-[#070D16]/85 backdrop-blur-xl z-10">
+      {/* Trust strip */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 1, delay: 0.9 }}
+        className="absolute bottom-0 left-0 right-0 border-t border-border/40 bg-background/60 backdrop-blur-xl z-10"
+      >
         <div className="container px-6 md:px-12 py-3">
-          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-slate-300">
+          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-foreground/80">
             <span className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-400" />
+              <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
               {isRTL ? '١٠٠٠+ منزل ذكي في مصر' : '1,000+ Smart Homes'}
             </span>
             <span className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-teal-400" />
+              <span className="w-2 h-2 rounded-full bg-primary" />
               {isRTL ? 'دفع آمن بالبطاقة' : 'Secure Card Payment'}
             </span>
             <span className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-sky-400" />
+              <span className="w-2 h-2 rounded-full bg-warning" />
               {isRTL ? 'ضمان رسمي' : 'Official Warranty'}
             </span>
             <span className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-violet-400" />
+              <span className="w-2 h-2 rounded-full bg-cyan-400" />
               {isRTL ? 'تركيب احترافي' : 'Pro Installation'}
             </span>
           </div>
         </div>
-      </div>
+      </motion.div>
     </section>
   );
 }

@@ -279,19 +279,15 @@ const Products = () => {
       <Layout>
         <div className="container py-24 md:py-28">
           {/* Header */}
-          <div className="mb-8 rounded-2xl azka-glass p-5 sm:p-7 relative overflow-hidden">
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent"
-            />
+          <div className="mb-8">
             <h1 className="mb-2 font-display text-2xl font-bold text-foreground md:text-3xl">
               {t('smartHomeProducts')}
             </h1>
-            <p className="text-sm text-muted-foreground max-w-2xl">{t('discoverPremium')}</p>
+            <p className="text-sm text-muted-foreground">{t('discoverPremium')}</p>
           </div>
 
           {/* Search, Sort & Filter Bar */}
-          <div className="mb-6 flex flex-col gap-3 sm:gap-4 md:flex-row md:items-center md:justify-between rounded-2xl azka-glass p-3 sm:p-4">
+          <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <SearchBar
               value={search}
               onChange={handleSearchChange}
@@ -377,7 +373,7 @@ const Products = () => {
 
           <div className="grid gap-8 lg:grid-cols-[260px_1fr]">
             {/* Desktop Sidebar */}
-            <aside className="hidden lg:block space-y-6 rounded-2xl azka-glass p-4 h-fit">
+            <aside className="hidden lg:block space-y-6">
               {/* Categories */}
               <div>
                 <h3 className="mb-4 font-display font-semibold text-foreground">{t('categories')}</h3>
