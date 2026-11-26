@@ -4,12 +4,9 @@ import { ArrowRight, Bot, MessageSquare, Package, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
-import { Phone } from '@/components/ui/hairline';
-import { useMotionPreferences } from '@/hooks/useMotionPreferences';
 
 export function AIAdvisorShowcase() {
   const { isRTL } = useLanguage();
-  const { reducedMotion, shouldAutoPlay } = useMotionPreferences();
 
   const exampleFlow = [
     {
@@ -31,14 +28,14 @@ export function AIAdvisorShowcase() {
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[50vw] h-[50vw] rounded-full border border-primary/3" />
         {/* Shiny gradient orbs */}
         <motion.div
-          className="azka-hairline-ambient absolute top-1/4 -left-20 w-96 h-96 rounded-full bg-primary/20 blur-3xl"
-          animate={reducedMotion ? undefined : { scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
-          transition={reducedMotion ? undefined : { duration: 6, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute top-1/4 -left-20 w-96 h-96 rounded-full bg-primary/20 blur-3xl"
+          animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
+          transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
         />
         <motion.div
-          className="azka-hairline-ambient absolute bottom-1/4 -right-20 w-96 h-96 rounded-full bg-accent/20 blur-3xl"
-          animate={reducedMotion ? undefined : { scale: [1.2, 1, 1.2], opacity: [0.4, 0.6, 0.4] }}
-          transition={reducedMotion ? undefined : { duration: 8, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute bottom-1/4 -right-20 w-96 h-96 rounded-full bg-accent/20 blur-3xl"
+          animate={{ scale: [1.2, 1, 1.2], opacity: [0.4, 0.6, 0.4] }}
+          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
         />
       </div>
 
@@ -95,21 +92,6 @@ export function AIAdvisorShowcase() {
                 </Button>
               </Link>
             </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, amount: 0.2 }}
-              transition={{ delay: 0.35 }}
-              className="mt-6 w-full max-w-[240px] rounded-2xl azka-navy-stage border border-teal-400/20 p-3 shadow-lg"
-            >
-              <Phone
-                variant="navy"
-                intensity={0.65}
-                play={shouldAutoPlay}
-                label={isRTL ? 'تطبيق التحكم بالمنزل الذكي' : 'Smart home app control layers'}
-              />
-            </motion.div>
           </div>
 
           {/* Right - Chat mockup */}
@@ -121,23 +103,21 @@ export function AIAdvisorShowcase() {
             className="relative bg-gradient-to-br from-card via-card to-primary/5 rounded-2xl border border-primary/20 p-4 md:p-6 shadow-2xl shadow-primary/10 backdrop-blur-sm"
           >
             {/* Shimmer border */}
-            {!reducedMotion && (
-              <motion.div
-                aria-hidden
-                className="azka-hairline-ambient absolute inset-0 rounded-2xl pointer-events-none"
-                style={{
-                  background: 'linear-gradient(120deg, transparent 30%, hsl(var(--primary) / 0.15) 50%, transparent 70%)',
-                  backgroundSize: '200% 200%',
-                }}
-                animate={{ backgroundPosition: ['0% 0%', '200% 200%'] }}
-                transition={{ duration: 4, repeat: Infinity, ease: 'linear' }}
-              />
-            )}
+            <motion.div
+              aria-hidden
+              className="absolute inset-0 rounded-2xl pointer-events-none"
+              style={{
+                background: 'linear-gradient(120deg, transparent 30%, hsl(var(--primary) / 0.15) 50%, transparent 70%)',
+                backgroundSize: '200% 200%',
+              }}
+              animate={{ backgroundPosition: ['0% 0%', '200% 200%'] }}
+              transition={{ duration: 4, repeat: Infinity, ease: 'linear' }}
+            />
             <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border">
               <motion.div
                 className="relative w-9 h-9 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-lg shadow-primary/40"
-                animate={reducedMotion ? undefined : { boxShadow: ['0 0 20px hsl(var(--primary) / 0.4)', '0 0 30px hsl(var(--primary) / 0.7)', '0 0 20px hsl(var(--primary) / 0.4)'] }}
-                transition={reducedMotion ? undefined : { duration: 2, repeat: Infinity }}
+                animate={{ boxShadow: ['0 0 20px hsl(var(--primary) / 0.4)', '0 0 30px hsl(var(--primary) / 0.7)', '0 0 20px hsl(var(--primary) / 0.4)'] }}
+                transition={{ duration: 2, repeat: Infinity }}
               >
                 <Bot className="h-4 w-4 text-primary-foreground" />
               </motion.div>

@@ -16,7 +16,6 @@ import { useLanguage } from '@/lib/i18n';
 import { normalizeBrand } from '@/lib/brands';
 import { getPublicShopCategories, sortCategories } from '@/lib/categories';
 import { fetchHiddenProductIds, filterPublicProducts } from '@/lib/productVisibility';
-import { Cabinet } from '@/components/ui/hairline';
 import { cn } from '@/lib/utils';
 
 const Products = () => {
@@ -498,14 +497,7 @@ const Products = () => {
                   )}
                 </>
               ) : (
-                <div className="rounded-xl border border-dashed border-border bg-card/50 py-16 px-4 text-center">
-                  <div className="mx-auto mb-4 w-36 rounded-2xl azka-navy-stage border border-teal-400/20 p-2.5 shadow-md">
-                    <Cabinet
-                      variant="navy"
-                      intensity={0.6}
-                      label={isRTL ? 'لا توجد منتجات مطابقة' : 'No matching products'}
-                    />
-                  </div>
+                <div className="rounded-xl border border-dashed border-border bg-card/50 py-20 text-center">
                   <p className="text-muted-foreground">{t('noProducts')}</p>
                   <Button
                     variant="ghost"

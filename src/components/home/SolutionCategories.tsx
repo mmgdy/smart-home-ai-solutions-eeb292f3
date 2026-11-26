@@ -1,15 +1,13 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRight, Lightbulb, Shield, Zap, Thermometer, Blinds, Home } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
-import { Hub, Padlock, Plug, Relay, Router, Stack } from '@/components/ui/hairline';
-import { useMotionPreferences } from '@/hooks/useMotionPreferences';
 
 const categories = [
   {
     icon: Lightbulb,
-    Figure: Relay,
     nameEn: 'Control Lighting',
     nameAr: 'تحكم في الإضاءة',
     descEn: 'Smart switches, dimmers & RGB bulbs',
@@ -19,7 +17,6 @@ const categories = [
   },
   {
     icon: Shield,
-    Figure: Padlock,
     nameEn: 'Secure My Home',
     nameAr: 'أمّن منزلي',
     descEn: 'Cameras, sensors & smart locks',
@@ -29,7 +26,6 @@ const categories = [
   },
   {
     icon: Zap,
-    Figure: Plug,
     nameEn: 'Save Electricity',
     nameAr: 'وفّر الكهرباء',
     descEn: 'Smart plugs, meters & scheduling',
@@ -39,7 +35,6 @@ const categories = [
   },
   {
     icon: Thermometer,
-    Figure: Router,
     nameEn: 'Control AC Remotely',
     nameAr: 'تحكم في التكييف عن بعد',
     descEn: 'IR controllers & smart thermostats',
@@ -49,7 +44,6 @@ const categories = [
   },
   {
     icon: Blinds,
-    Figure: Stack,
     nameEn: 'Smart Curtains',
     nameAr: 'ستائر ذكية',
     descEn: 'Motorized curtains & blinds',
@@ -59,7 +53,6 @@ const categories = [
   },
   {
     icon: Home,
-    Figure: Hub,
     nameEn: 'Full Smart Home Kits',
     nameAr: 'باقات المنزل الذكي الكاملة',
     descEn: 'Everything you need in one bundle',
@@ -71,16 +64,15 @@ const categories = [
 
 export function SolutionCategories() {
   const { isRTL } = useLanguage();
-  const { shouldAutoPlay } = useMotionPreferences();
 
   return (
-    <section className="py-20 bg-card/50 relative overflow-hidden">
+    <section className="py-20 bg-card/50">
       <div className="container px-6 md:px-12">
         <div className="text-center mb-12">
           <motion.span
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, amount: 0.2 }}
+            viewport={{ once: true }}
             className="text-primary font-medium text-sm uppercase tracking-wider"
           >
             {isRTL ? 'ماذا تريد تحقيقه؟' : 'What do you want to achieve?'}
@@ -88,7 +80,7 @@ export function SolutionCategories() {
           <motion.h2
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, amount: 0.2 }}
+            viewport={{ once: true }}
             transition={{ delay: 0.1 }}
             className="font-display text-3xl md:text-4xl font-bold text-foreground mt-2"
           >
@@ -97,50 +89,39 @@ export function SolutionCategories() {
         </div>
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-5xl mx-auto">
-          {categories.map((cat, index) => {
-            const Figure = cat.Figure;
-            return (
-              <motion.div
-                key={cat.nameEn}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, amount: 0.15 }}
-                transition={{ delay: index * 0.05 }}
+          {categories.map((cat, index) => (
+            <motion.div
+              key={cat.nameEn}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: index * 0.05 }}
+            >
+              <Link
+                to={cat.href}
+                className={cn(
+                  "group flex items-start gap-4 p-5 rounded-xl border border-border bg-gradient-to-br hover:border-primary/40 transition-all duration-300",
+                  cat.color
+                )}
               >
-                <Link
-                  to={cat.href}
-                  className={cn(
-                    "group flex items-center gap-3.5 p-4 sm:p-5 rounded-xl border border-border bg-gradient-to-br hover:border-teal-400/50 hover:shadow-[0_12px_36px_-16px_rgba(45,212,191,0.35)] transition-all duration-300",
-                    cat.color
-                  )}
-                >
-                  <div className="w-20 sm:w-24 shrink-0 rounded-xl azka-navy-stage border border-teal-400/20 p-1.5 shadow-sm">
-                    <Figure
-                      variant="navy"
-                      intensity={0.6}
-                      play={shouldAutoPlay}
-                      label={isRTL ? cat.nameAr : cat.nameEn}
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <cat.icon className="w-4 h-4 text-primary shrink-0" />
-                      <h3 className="font-display text-sm sm:text-base font-semibold text-foreground group-hover:text-primary transition-colors truncate">
-                        {isRTL ? cat.nameAr : cat.nameEn}
-                      </h3>
-                    </div>
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      {isRTL ? cat.descAr : cat.descEn}
-                    </p>
-                  </div>
-                  <ArrowRight className={cn(
-                    "h-4 w-4 text-muted-foreground group-hover:text-primary transition-all shrink-0",
-                    isRTL && "rotate-180"
-                  )} />
-                </Link>
-              </motion.div>
-            );
-          })}
+                <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-background/50 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <cat.icon className="w-6 h-6 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-display text-base font-semibold text-foreground mb-1 group-hover:text-primary transition-colors">
+                    {isRTL ? cat.nameAr : cat.nameEn}
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    {isRTL ? cat.descAr : cat.descEn}
+                  </p>
+                </div>
+                <ArrowRight className={cn(
+                  "h-4 w-4 text-muted-foreground group-hover:text-primary transition-all mt-1",
+                  isRTL && "rotate-180"
+                )} />
+              </Link>
+            </motion.div>
+          ))}
         </div>
       </div>
     </section>

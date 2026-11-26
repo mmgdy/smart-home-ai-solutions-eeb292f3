@@ -8,14 +8,9 @@ import { cn } from '@/lib/utils';
 import { defaultBundles, getBundleProductRefs, normalizeBundles, syncBundlesWithCatalog } from '@/lib/bundles';
 import { supabase } from '@/integrations/supabase/client';
 import { Product } from '@/types/store';
-import { Exploded, Hub, Padlock, Relay } from '@/components/ui/hairline';
-import { useMotionPreferences } from '@/hooks/useMotionPreferences';
-
-const BUNDLE_FIGURES = [Hub, Relay, Exploded, Padlock] as const;
 
 export function SmartBundles() {
   const { isRTL, formatPrice } = useLanguage();
-  const { shouldAutoPlay } = useMotionPreferences();
   const [displayBundles, setDisplayBundles] = useState(normalizeBundles(defaultBundles).slice(0, 4));
 
   useEffect(() => {
@@ -115,23 +110,18 @@ export function SmartBundles() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl mx-auto">
           {displayBundles.map((bundle, index) => {
             const installSaving = Math.max(0, bundle.originalPrice - bundle.priceEgp);
-            const BundleFigure = BUNDLE_FIGURES[index % BUNDLE_FIGURES.length];
             return (
               <motion.div
                 key={bundle.id}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, amount: 0.15 }}
+                viewport={{ once: true }}
                 transition={{ delay: index * 0.05 }}
                 className={cn(
-                  "relative min-w-0 rounded-2xl border bg-card p-4 sm:p-6 transition-all hover:border-teal-400/50 hover:shadow-[0_14px_40px_-18px_rgba(45,212,191,0.3)]",
+                  "relative min-w-0 rounded-2xl border bg-card p-4 sm:p-6 transition-all hover:border-primary/40",
                   bundle.popular ? "border-primary/50 ring-1 ring-primary/20" : "border-border"
                 )}
               >
-                <div
-                  aria-hidden
-                  className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-teal-400/50 to-transparent"
-                />
                 {bundle.popular && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-primary rounded-full text-xs font-bold text-primary-foreground">
                     {isRTL ? 'الأكثر مبيعاً' : 'Most Popular'}
@@ -139,25 +129,15 @@ export function SmartBundles() {
                 )}
 
                 <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
-                  <div className="flex items-start gap-3 min-w-0">
-                    <div className="w-16 sm:w-20 shrink-0 rounded-xl azka-navy-stage border border-teal-400/20 p-1">
-                      <BundleFigure
-                        variant="navy"
-                        intensity={0.55}
-                        play={shouldAutoPlay}
-                        label={isRTL ? bundle.nameAr : bundle.nameEn}
-                      />
-                    </div>
-                    <div className="min-w-0">
-                      <h3 className="font-display text-lg font-bold text-foreground break-words">
-                        {isRTL ? bundle.nameAr : bundle.nameEn}
-                      </h3>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-500">
-                          <Wrench className="h-3 w-3 shrink-0" />
-                          {isRTL ? 'شامل التركيب مجاناً' : 'FREE Certified Install'}
-                        </span>
-                      </div>
+                  <div className="min-w-0">
+                    <h3 className="font-display text-lg font-bold text-foreground break-words">
+                      {isRTL ? bundle.nameAr : bundle.nameEn}
+                    </h3>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-500">
+                        <Wrench className="h-3 w-3 shrink-0" />
+                        {isRTL ? 'شامل التركيب مجاناً' : 'FREE Certified Install'}
+                      </span>
                     </div>
                   </div>
                   <div className={cn("shrink-0", isRTL ? "text-right sm:text-left" : "text-left sm:text-right")}>
