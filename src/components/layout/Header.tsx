@@ -194,19 +194,19 @@ export function Header() {
         ? "bg-background/90 backdrop-blur-2xl border-b border-border/75 shadow-[0_10px_30px_-15px_rgba(0,0,0,0.6)] after:content-[''] after:absolute after:inset-x-0 after:bottom-0 after:h-px after:bg-gradient-to-r after:from-transparent after:via-primary/50 after:to-transparent"
         : "bg-background/70 backdrop-blur-xl border-b border-border/40"
     )}>
-      <div className="mx-auto w-full max-w-[1440px] flex h-16 md:h-20 items-center justify-between gap-2 px-3 sm:px-5 xl:px-6 2xl:px-8">
+      <div className="mx-auto w-full max-w-[1560px] flex h-16 md:h-20 items-center justify-between gap-2 xl:gap-3 px-3 sm:px-5 xl:px-5 min-[1600px]:px-8">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2 shrink-0 min-h-[44px]">
           <img
             src={currentLogo}
             alt="AzkaSmart"
             style={{ height: `${Math.min(logoSize, 44)}px` }}
-            className="object-contain transition-all duration-300 max-h-9 sm:max-h-10 xl:max-h-10 2xl:max-h-11 max-w-[118px] sm:max-w-[155px] xl:max-w-[165px] 2xl:max-w-[190px] w-auto"
+            className="object-contain transition-all duration-300 max-h-9 sm:max-h-10 xl:max-h-10 min-[1600px]:max-h-11 max-w-[118px] sm:max-w-[145px] xl:max-w-[145px] min-[1600px]:max-w-[175px] w-auto"
           />
         </Link>
 
         {/* Desktop Navigation — Vengeance Spotlight Pill Rail */}
-        <nav className="hidden items-center gap-0.5 xl:flex min-w-0 rounded-full border border-border/60 bg-card/65 px-1.5 py-1 backdrop-blur-xl shadow-sm">
+        <nav className="hidden items-center gap-0.5 xl:flex shrink-0 rounded-full border border-border/60 bg-card/65 px-1.5 py-1 backdrop-blur-xl shadow-sm">
           {navLinks.map((link) => {
             const isActive =
               location.pathname === link.href ||
@@ -216,7 +216,7 @@ export function Header() {
                 key={link.href}
                 to={link.href}
                 className={cn(
-                  "px-2.5 2xl:px-3 py-1.5 text-[13px] 2xl:text-sm font-medium rounded-full transition-all duration-200 whitespace-nowrap",
+                  "px-2 min-[1360px]:px-2.5 min-[1600px]:px-3 py-1.5 text-xs min-[1360px]:text-[13px] min-[1600px]:text-sm font-medium rounded-full transition-all duration-200 whitespace-nowrap",
                   isActive
                     ? "bg-primary/15 text-primary border border-primary/30 shadow-[0_0_18px_-6px_hsl(var(--primary)/0.6)]"
                     : "text-muted-foreground hover:text-foreground hover:bg-foreground/5 border border-transparent"
@@ -230,13 +230,13 @@ export function Header() {
 
         {/* Right side actions — Grouped cleanly with breathing room */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          <div className="hidden xl:flex items-center gap-1.5 rounded-full border border-border/60 bg-card/65 px-2 py-1 backdrop-blur-xl">
+          <div className="hidden xl:flex items-center gap-1 min-[1440px]:gap-1.5 rounded-full border border-border/60 bg-card/65 px-1.5 min-[1440px]:px-2 py-1 backdrop-blur-xl shrink-0">
             <AISearchDialog />
             <div className="h-4 w-px bg-border/70" aria-hidden="true" />
-            <AuthButton variant="ghost" size="sm" />
+            <AuthButton variant="ghost" size="sm" compact />
             <InstallAppButton
-              className="h-8 px-2.5 min-[1420px]:px-3 gap-1.5 rounded-full"
-              labelClassName="hidden min-[1420px]:inline"
+              className="h-8 w-8 min-[1600px]:w-auto px-0 min-[1600px]:px-3 gap-1.5 rounded-full shrink-0"
+              labelClassName="hidden min-[1600px]:inline"
             />
             <div className="h-4 w-px bg-border/70" aria-hidden="true" />
             <ThemeSlider />

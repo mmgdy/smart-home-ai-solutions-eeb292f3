@@ -10,15 +10,24 @@ import { useLanguage } from '@/lib/i18n';
 import { useToast } from '@/hooks/use-toast';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { cn } from '@/lib/utils';
 import { GoogleIcon } from './GoogleIcon';
 
 interface AuthButtonProps {
   variant?: 'default' | 'outline' | 'ghost';
   size?: 'default' | 'sm' | 'lg';
   showProfile?: boolean;
+  compact?: boolean;
+  className?: string;
 }
 
-export const AuthButton = ({ variant = 'outline', size = 'default', showProfile = true }: AuthButtonProps) => {
+export const AuthButton = ({
+  variant = 'outline',
+  size = 'default',
+  showProfile = true,
+  compact = false,
+  className,
+}: AuthButtonProps) => {
   const { user, loading, signOut } = useAuth();
   const { language } = useLanguage();
   const { toast } = useToast();
@@ -106,14 +115,41 @@ export const AuthButton = ({ variant = 'outline', size = 'default', showProfile 
   }
 
   if (user) {
+    const displayName = user.user_metadata?.full_name || user.email?.split('@')[0] || '';
+    if (compact) {
+      return (
+        <div className="flex items-center gap-1 shrink-0">
+          {showProfile && (
+            <Link to="/profile" title={displayName} aria-label={displayName}>
+              <Button variant="ghost" size="sm" className="h-8 px-2 min-[1420px]:px-2.5 gap-1.5 rounded-full">
+                <User className="h-4 w-4 shrink-0" />
+                <span className="hidden min-[1420px]:inline max-w-[92px] truncate text-xs font-medium">
+                  {displayName}
+                </span>
+              </Button>
+            </Link>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={signOut}
+            className="h-8 w-8 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+            title={isAr ? 'خروج' : 'Sign Out'}
+            aria-label={isAr ? 'خروج' : 'Sign Out'}
+          >
+            <LogOut className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      );
+    }
     return (
-      <div className="flex items-center gap-2">
+      <div className={cn("flex items-center gap-2", className)}>
         {showProfile && (
           <Link to="/profile">
             <Button variant="ghost" size="sm" className="gap-2">
               <User className="h-4 w-4" />
               <span className="hidden sm:inline max-w-[120px] truncate">
-                {user.user_metadata?.full_name || user.email?.split('@')[0]}
+                {displayName}
               </span>
             </Button>
           </Link>
@@ -128,10 +164,24 @@ export const AuthButton = ({ variant = 'outline', size = 'default', showProfile 
 
   return (
     <>
-      <Button variant={variant} size={size} onClick={() => setOpen(true)} className="gap-2">
-        <LogInIcon className="h-4 w-4" />
-        <span className="hidden sm:inline">{isAr ? 'دخول' : 'Sign In'}</span>
-      </Button>
+      {compact ? (
+        <Button
+          variant={variant}
+          size={size}
+          onClick={() => setOpen(true)}
+          className={cn("h-8 px-2.5 gap-1.5 rounded-full text-xs", className)}
+          title={isAr ? 'دخول' : 'Sign In'}
+          aria-label={isAr ? 'دخول' : 'Sign In'}
+        >
+          <LogInIcon className="h-4 w-4 shrink-0" />
+          <span className="hidden min-[1340px]:inline">{isAr ? 'دخول' : 'Sign In'}</span>
+        </Button>
+      ) : (
+        <Button variant={variant} size={size} onClick={() => setOpen(true)} className={cn("gap-2", className)}>
+          <LogInIcon className="h-4 w-4" />
+          <span className="hidden sm:inline">{isAr ? 'دخول' : 'Sign In'}</span>
+        </Button>
+      )}
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-md">
