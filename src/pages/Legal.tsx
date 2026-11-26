@@ -47,6 +47,9 @@ These terms are governed by the laws of the Arab Republic of Egypt.
 
 ## 9. Contact
 For any questions regarding these terms, please contact us at info@azkasmart.com.
+
+## Azka Friday offer terms
+Azka Friday offer terms: Valid Friday, Nov 27, 2026 only. Minimum order value: EGP 2,000. Accessories are excluded from the offer. One free smart device per eligible order, while stock lasts. Terms and conditions apply.
   `,
   contentAr: `
 # الشروط والأحكام
@@ -81,6 +84,9 @@ For any questions regarding these terms, please contact us at info@azkasmart.com
 
 ## 5. التواصل
 لأي أسئلة تتعلق بهذه الشروط، يرجى التواصل معنا على info@azkasmart.com.
+
+## شروط عرض أزكا فرايدي
+شروط عرض أزكا فرايدي: العرض ساري يوم الجمعة 27 نوفمبر 2026 فقط. الحد الأدنى لقيمة الطلب 2000 جنيه. الإكسسوارات غير مشمولة في العرض. جهاز سمارت واحد هدية لكل طلب مؤهل، وحتى نفاد الكمية. تطبق الشروط والأحكام.
   `,
   },
   privacy: {
@@ -427,9 +433,9 @@ const Legal = () => {
         <meta name="description" content={`${title} for AzkaSmart smart home products store.`} />
       </Helmet>
       <Layout>
-        <div className="container max-w-4xl py-24 md:py-28">
+        <div className="container max-w-4xl py-24 md:py-28" dir={isRTL ? 'rtl' : 'ltr'}>
           <article
-            className="prose prose-invert prose-headings:font-display prose-headings:text-foreground prose-p:text-muted-foreground prose-strong:text-foreground prose-a:text-primary max-w-none"
+            className={`prose prose-invert prose-headings:font-display prose-headings:text-foreground prose-p:text-muted-foreground prose-strong:text-foreground prose-a:text-primary max-w-none${isRTL ? ' text-right' : ''}`}
             dangerouslySetInnerHTML={{
               __html: content
                 .replace(/^# (.+)$/gm, '<h1>$1</h1>')
