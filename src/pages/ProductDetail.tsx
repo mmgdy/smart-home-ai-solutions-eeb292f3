@@ -1,10 +1,10 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useParams, Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { Helmet } from 'react-helmet-async';
 import { 
   ArrowLeft, ArrowRight, ShoppingCart, Loader2, Check, Shield, Truck, 
-  Award, CreditCard, Maximize2, X, ChevronLeft, ChevronRight, Minus, Plus, Play, Zap 
+  Award, CreditCard, Maximize2, X, ChevronLeft, ChevronRight, Minus, Plus, Play 
 } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
@@ -20,7 +20,6 @@ import { normalizeBrand } from '@/lib/brands';
 import { sanitizeProductDescription, stripDescriptionHtml } from '@/lib/sanitizeDescription';
 import { CompleteYourSetup } from '@/components/products/CompleteYourSetup';
 import { fetchHiddenProductIds, filterPublicProducts, isProductHidden } from '@/lib/productVisibility';
-import { getTextDirection, isolateBidiUnits } from '@/lib/bidi';
 import { cn } from '@/lib/utils';
 
 const SPEC_KEY_LABELS: Record<string, string> = {
@@ -274,8 +273,6 @@ type GalleryItem =
 
 const ProductDetail = () => {
   const { slug } = useParams<{ slug: string }>();
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const addItem = useCart((state) => state.addItem);
   const { toast } = useToast();
   const { t, formatPrice, isRTL } = useLanguage();
@@ -290,11 +287,7 @@ const ProductDetail = () => {
             .select('*, categories(*)')
             .eq('slug', slug)
             .maybeSingle(),
-          queryClient.fetchQuery({
-            queryKey: ['hidden-product-ids'],
-            queryFn: fetchHiddenProductIds,
-            staleTime: 60_000,
-          }),
+          fetchHiddenProductIds(),
         ]);
 
         let data = slugRes.data;
@@ -324,21 +317,6 @@ const ProductDetail = () => {
         return null;
       }
     },
-    placeholderData: () => {
-      if (!slug) return undefined;
-      const listCaches = [
-        queryClient.getQueryData<Product[]>(['products']),
-        queryClient.getQueryData<Product[]>(['featured-products']),
-      ];
-      for (const list of listCaches) {
-        const match = list?.find((p) => p.slug === slug || p.id === slug);
-        if (match && match.is_published !== false) {
-          return match;
-        }
-      }
-      return undefined;
-    },
-    staleTime: 60_000,
     enabled: !!slug,
   });
 
@@ -355,11 +333,7 @@ const ProductDetail = () => {
           .or(`id.eq.${familyMasterId},parent_id.eq.${familyMasterId}`)
           .neq('is_published', false)
           .order('price'),
-        queryClient.fetchQuery({
-          queryKey: ['hidden-product-ids'],
-          queryFn: fetchHiddenProductIds,
-          staleTime: 60_000,
-        }),
+        fetchHiddenProductIds(),
       ]);
       if (error) throw error;
       const rows = ((data as any[]) || []).map((row) => ({
@@ -368,7 +342,6 @@ const ProductDetail = () => {
       })) as Product[];
       return filterPublicProducts(rows, hiddenIds);
     },
-    staleTime: 60_000,
     enabled: !!familyMasterId,
   });
 
@@ -504,13 +477,6 @@ const ProductDetail = () => {
     }
   };
 
-  const handleBuyNow = () => {
-    if (activeProduct) {
-      addItem(activeProduct, quantity);
-      navigate('/checkout');
-    }
-  };
-
   if (isLoading) {
     return (
       <Layout>
@@ -624,8 +590,8 @@ const ProductDetail = () => {
               <div
                 data-testid="product-main-viewer"
                 className={cn(
-                  "relative aspect-[4/3] sm:aspect-square max-h-[260px] sm:max-h-[400px] lg:max-h-[420px] w-full overflow-hidden rounded-2xl flex items-center justify-center group shadow-sm touch-pan-y",
-                  activeItem.kind === 'video' ? "p-0 bg-black border border-border/80" : "p-3 sm:p-6 azka-studio-surface"
+                  "relative aspect-[4/3] sm:aspect-square max-h-[260px] sm:max-h-none overflow-hidden rounded-2xl border border-border/80 flex items-center justify-center group shadow-sm touch-pan-y",
+                  activeItem.kind === 'video' ? "p-0 bg-black" : "p-3 sm:p-8 bg-slate-50 dark:bg-white/[0.04]"
                 )}
                 onTouchStart={(e) => {
                   const target = e.target as HTMLElement | null;
@@ -654,7 +620,6 @@ const ProductDetail = () => {
                       src={activeItem.video.url}
                       className="w-full h-full object-contain bg-black"
                       controls
-                      preload="metadata"
                       playsInline
                     />
                   ) : (
@@ -675,7 +640,7 @@ const ProductDetail = () => {
                       alt={product.name}
                       loading="eager"
                       onError={() => markImageBroken(activeItem.url)}
-                      className="h-full w-full object-contain max-h-[220px] sm:max-h-[360px] lg:max-h-[380px] transition-transform duration-300 group-hover:scale-[1.03] cursor-zoom-in drop-shadow-sm"
+                      className="h-full w-full object-contain max-h-[220px] sm:max-h-[460px] transition-transform duration-300 group-hover:scale-[1.03] cursor-zoom-in drop-shadow-sm"
                       onClick={() => setLightboxOpen(true)}
                     />
 
@@ -786,17 +751,17 @@ const ProductDetail = () => {
                         data-testid="gallery-image-thumb"
                         onClick={() => setActiveMediaIndex(idx)}
                         className={cn(
-                          "relative h-16 w-16 sm:h-20 sm:w-20 shrink-0 rounded-xl border-2 overflow-hidden azka-studio-surface p-1.5 transition-all flex items-center justify-center",
+                          "relative h-16 w-16 sm:h-20 sm:w-20 shrink-0 rounded-xl border-2 overflow-hidden bg-card/60 p-1.5 transition-all flex items-center justify-center",
                           isSelected
-                            ? "border-primary ring-2 ring-primary/25 shadow-md scale-105 opacity-100"
-                            : "opacity-80 hover:opacity-100 hover:border-primary/40"
+                            ? "border-primary ring-2 ring-primary/20 shadow-md scale-105"
+                            : "border-border/60 hover:border-border opacity-70 hover:opacity-100"
                         )}
                         title={isRTL ? `صورة ${idx + 1}` : `Image ${idx + 1}`}
                       >
                         <img
                           src={item.url}
                           alt={`${product.name} - ${idx + 1}`}
-                          loading={idx < 6 ? "eager" : "lazy"}
+                          loading="lazy"
                           decoding="async"
                           className="h-full w-full object-contain"
                           onError={() => markImageBroken(item.url)}
@@ -844,31 +809,15 @@ const ProductDetail = () => {
                 ))}
               </div>
 
-              <h1
-                dir={getTextDirection(product.name)}
-                style={{ unicodeBidi: 'isolate' }}
-                className={cn(
-                  "mb-3 font-display text-xl sm:text-2xl font-bold text-foreground md:text-3xl leading-snug",
-                  isRTL && "text-right"
-                )}
-              >
-                {isolateBidiUnits(product.name)}
-              </h1>
+              <h1 className="mb-3 font-display text-xl sm:text-2xl font-bold text-foreground md:text-3xl leading-snug">{product.name}</h1>
 
-              {/* Purchase Block — always above long description on both mobile & desktop */}
-              <div
-                data-testid="product-purchase-card"
-                className="order-1 lg:order-1 azka-glass rounded-2xl p-4 sm:p-5 mb-5"
-              >
+              {/* Price & Stock — shown immediately under title on mobile (order-1) so it stays above the fold, while keeping desktop visual order (lg:order-3) */}
+              <div className="order-1 lg:order-3">
                 {/* Price */}
-                <div className="mb-3 flex items-baseline gap-3 flex-wrap">
-                  <span className="font-display text-2xl sm:text-3xl font-bold text-foreground" dir="ltr" style={{ unicodeBidi: 'isolate' }}>
-                    {formatPrice(product.price)}
-                  </span>
+                <div className="mb-3 sm:mb-4 flex items-center gap-3 flex-wrap">
+                  <span className="font-display text-2xl sm:text-3xl font-bold text-foreground">{formatPrice(product.price)}</span>
                   {discount > 0 && product.original_price && (
-                    <span className="text-base sm:text-lg azka-old-price" dir="ltr" style={{ unicodeBidi: 'isolate' }}>
-                      {formatPrice(product.original_price)}
-                    </span>
+                    <span className="text-base sm:text-lg text-muted-foreground line-through">{formatPrice(product.original_price)}</span>
                   )}
                 </div>
 
@@ -876,7 +825,7 @@ const ProductDetail = () => {
                 <div className="mb-4 flex items-center gap-2">
                   {product.stock > 0 ? (
                     <>
-                      <Check className="h-4 w-4 text-success shrink-0" />
+                      <Check className="h-4 w-4 text-success" />
                       <span className="text-sm text-success font-medium">{t('inStock')} ({product.stock} {t('available')})</span>
                     </>
                   ) : (
@@ -888,35 +837,26 @@ const ProductDetail = () => {
 
                 {/* Variant selector */}
                 {hasVariants && (
-                  <div className="mb-4">
-                    <p className="text-sm font-medium mb-2 text-foreground">
+                  <div className="mb-5">
+                    <p className="text-sm font-medium mb-2">
                       {variantAxis === 'color'
                         ? (isRTL ? 'اللون' : 'Color')
                         : variantAxis === 'channels'
                           ? (isRTL ? 'عدد المفاتيح / الخيار' : 'Channels / Option')
                           : (isRTL ? 'الخيار' : 'Option')}
                       {activeProduct.variant_label && (
-                        <span
-                          dir={getTextDirection(activeProduct.variant_label)}
-                          style={{ unicodeBidi: 'isolate' }}
-                          className="text-foreground/75 font-normal"
-                        >
-                          {' '} : {isolateBidiUnits(activeProduct.variant_label)}
-                        </span>
+                        <span className="text-muted-foreground font-normal"> : {activeProduct.variant_label}</span>
                       )}
                     </p>
                     <div className="flex flex-wrap gap-2">
                       {familyVariants.map((v) => {
                         const isSelected = v.id === product.id;
                         const oos = v.stock === 0;
-                        const labelText = v.variant_label || v.name;
                         return (
                           <button
                             key={v.id}
                             onClick={() => setSelectedVariantId(v.id)}
                             disabled={oos}
-                            dir={getTextDirection(labelText)}
-                            style={{ unicodeBidi: 'isolate' }}
                             className={cn(
                               "min-h-[44px] lg:min-h-0 px-3.5 py-1.5 rounded-full border text-sm transition font-medium",
                               isSelected
@@ -925,7 +865,7 @@ const ProductDetail = () => {
                               oos && "opacity-40 line-through cursor-not-allowed"
                             )}
                           >
-                            {isolateBidiUnits(labelText)}
+                            {v.variant_label || v.name}
                           </button>
                         );
                       })}
@@ -933,14 +873,14 @@ const ProductDetail = () => {
                   </div>
                 )}
 
-                {/* Quantity Stepper + Add to Cart + Buy Now */}
-                <div>
-                  <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 mb-4">
+                {/* Quantity Stepper + Add to Cart + Trust badges */}
+                <div className="mb-6">
+                  <div className="flex items-center gap-3 mb-4">
                     <div className="flex h-12 items-center rounded-full border border-border bg-card shrink-0">
                       <button
                         type="button"
                         aria-label={isRTL ? 'تقليل الكمية' : 'Decrease quantity'}
-                        className="grid h-12 w-10 sm:w-11 place-items-center text-foreground/80 hover:text-foreground disabled:opacity-40"
+                        className="grid h-12 w-11 place-items-center text-foreground/80 hover:text-foreground disabled:opacity-40"
                         onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                         disabled={product.stock <= 0 || quantity <= 1}
                       >
@@ -950,7 +890,7 @@ const ProductDetail = () => {
                       <button
                         type="button"
                         aria-label={isRTL ? 'زيادة الكمية' : 'Increase quantity'}
-                        className="grid h-12 w-10 sm:w-11 place-items-center text-foreground/80 hover:text-foreground disabled:opacity-40"
+                        className="grid h-12 w-11 place-items-center text-foreground/80 hover:text-foreground disabled:opacity-40"
                         onClick={() => setQuantity((q) => Math.min(product.stock || 1, q + 1))}
                         disabled={product.stock <= 0 || quantity >= product.stock}
                       >
@@ -960,29 +900,17 @@ const ProductDetail = () => {
 
                     <Button
                       size="lg"
-                      className="flex-1 sm:flex-none gap-2 rounded-full h-12 px-5 sm:px-7 text-sm sm:text-base font-semibold bg-gradient-to-r from-teal-400 to-cyan-400 text-[#070D16] hover:from-teal-300 hover:to-cyan-300 shadow-[0_0_24px_-6px_rgba(45,212,191,0.6)] border-0"
+                      className="flex-1 md:flex-none gap-2 glow-primary rounded-full h-12 px-6 sm:px-8 text-sm sm:text-base font-semibold"
                       onClick={handleAddToCart}
                       disabled={product.stock === 0}
                     >
                       <ShoppingCart className="h-5 w-5 shrink-0" />
                       {t('addToCart')}
                     </Button>
-
-                    <Button
-                      size="lg"
-                      variant="outline"
-                      data-testid="buy-now-btn"
-                      className="w-full sm:w-auto sm:flex-1 lg:flex-none gap-2 rounded-full h-12 px-5 sm:px-6 text-sm sm:text-base font-semibold border-primary/45 text-foreground hover:bg-primary/15 hover:border-primary"
-                      onClick={handleBuyNow}
-                      disabled={product.stock === 0}
-                    >
-                      <Zap className="h-4 w-4 text-primary shrink-0" />
-                      {isRTL ? 'اشترِ الآن' : 'Buy Now'}
-                    </Button>
                   </div>
 
                   {/* Trust badges inline */}
-                  <div className="flex flex-wrap gap-3 sm:gap-4 pt-1">
+                  <div className="flex flex-wrap gap-3 sm:gap-4">
                     {trustBadges.map((badge) => (
                       <div key={badge.label} className="flex items-center gap-1.5 text-xs text-foreground/80 font-medium">
                         <badge.icon className="h-3.5 w-3.5 text-primary shrink-0" />
@@ -995,11 +923,10 @@ const ProductDetail = () => {
 
               {sanitizedDescriptionHtml && (
                 <div
-                  dir={hasArabicDescription ? "rtl" : getTextDirection(plainDescription)}
-                  style={{ unicodeBidi: 'isolate' }}
+                  dir={hasArabicDescription ? "rtl" : "auto"}
                   className={cn(
                     "order-2 lg:order-2 product-description mb-5 text-sm sm:text-base text-foreground/85 whitespace-pre-line break-words leading-relaxed",
-                    hasArabicDescription ? "text-right" : isRTL ? "text-left" : undefined,
+                    hasArabicDescription && "text-right",
                     "[&_p]:mb-3 [&_p:last-child]:mb-0",
                     "[&_h3]:text-lg [&_h3]:font-semibold [&_h3]:text-foreground [&_h3]:mt-4 [&_h3]:mb-2",
                     "[&_h4]:text-base [&_h4]:font-semibold [&_h4]:text-foreground [&_h4]:mt-3 [&_h4]:mb-1.5",
@@ -1012,7 +939,7 @@ const ProductDetail = () => {
                 />
               )}
 
-              <div className="order-3 lg:order-3">
+              <div className="order-3 lg:order-4">
                 {/* Delivery info */}
                 <div className="p-4 rounded-2xl azka-glass mb-4">
                   <div className="flex items-center gap-2 text-sm">
@@ -1030,16 +957,16 @@ const ProductDetail = () => {
                     <h3 className="mb-3 font-display text-base font-semibold text-foreground">{t('specifications')}</h3>
                     <dl className="divide-y divide-border/50">
                       {formattedSpecs.map(([label, val]) => {
-                        const valDir = getTextDirection(val);
+                        const isMostlyLatin = /[A-Za-z]/.test(val) && /^[A-Za-z0-9]/.test(val.trim());
                         return (
                           <div key={label} className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1 sm:gap-4 py-2.5 first:pt-0 last:pb-0 text-sm">
-                            <dt className="text-foreground/75 font-medium shrink-0">{label}</dt>
+                            <dt className="text-foreground/70 font-medium shrink-0">{label}</dt>
                             <dd
-                              dir={valDir}
+                              dir={isMostlyLatin ? 'ltr' : 'auto'}
                               style={{ unicodeBidi: 'isolate' }}
                               className="font-medium text-foreground sm:text-end break-words"
                             >
-                              {isolateBidiUnits(val)}
+                              {val}
                             </dd>
                           </div>
                         );
@@ -1049,7 +976,7 @@ const ProductDetail = () => {
                 )}
 
                 {/* Bundle suggestion */}
-                <div className="mt-4 p-4 rounded-2xl azka-glass border border-primary/25">
+                <div className="mt-4 p-4 rounded-xl bg-primary/5 border border-primary/20">
                   <p className="text-sm font-medium text-foreground mb-1">
                     {isRTL ? '💡 وفّر أكثر مع الباقات' : '💡 Save more with bundles'}
                   </p>
@@ -1077,11 +1004,11 @@ const ProductDetail = () => {
         >
           <div className="container px-0 flex items-center justify-between gap-2.5">
             <div className="min-w-0 shrink-0">
-              <div className="font-display text-base sm:text-lg font-bold text-foreground leading-tight" dir="ltr" style={{ unicodeBidi: 'isolate' }}>
+              <div className="font-display text-base sm:text-lg font-bold text-foreground leading-tight">
                 {formatPrice(product.price * quantity)}
               </div>
               {discount > 0 && product.original_price && (
-                <div className="text-xs azka-old-price leading-tight" dir="ltr" style={{ unicodeBidi: 'isolate' }}>
+                <div className="text-xs text-muted-foreground line-through leading-tight">
                   {formatPrice(product.original_price * quantity)}
                 </div>
               )}
@@ -1111,7 +1038,7 @@ const ProductDetail = () => {
               </div>
 
               <Button
-                className="h-11 flex-1 max-w-[190px] rounded-full gap-1.5 px-4 text-xs sm:text-sm font-semibold bg-gradient-to-r from-teal-400 to-cyan-400 text-[#070D16] hover:from-teal-300 hover:to-cyan-300 shadow-[0_0_20px_-6px_rgba(45,212,191,0.55)] border-0"
+                className="h-11 flex-1 max-w-[190px] rounded-full gap-1.5 px-4 text-xs sm:text-sm font-semibold glow-primary"
                 onClick={handleAddToCart}
                 disabled={product.stock <= 0}
               >

@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useLanguage } from '@/lib/i18n';
 import { useSiteInfo } from '@/hooks/useSiteInfo';
-import { Phone, MapPin, Mail, MessageCircle, Facebook, Instagram, Youtube, ShieldCheck, Truck, Wrench, Home, Headphones } from 'lucide-react';
+import { Phone, MapPin, Mail, MessageCircle, Facebook, Instagram, Youtube } from 'lucide-react';
 import { loadBrandingSettings, resolveBrandingAssetUrl } from '@/lib/favicon';
 import defaultLogoImage from '@/assets/logo.png';
 import defaultLogoDark from '@/assets/logo-dark.png';
@@ -153,7 +153,7 @@ export function Footer() {
             <ul className="space-y-3">
               {solutionLinks.map((link) => (
                 <li key={link.href}>
-                  <Link to={link.href} className="text-sm text-foreground/80 hover:text-primary transition-colors">{link.label}</Link>
+                  <Link to={link.href} className="text-sm text-muted-foreground hover:text-foreground transition-colors">{link.label}</Link>
                 </li>
               ))}
             </ul>
@@ -164,7 +164,7 @@ export function Footer() {
             <ul className="space-y-3">
               {supportLinks.map((link) => (
                 <li key={link.href}>
-                  <Link to={link.href} className="text-sm text-foreground/80 hover:text-primary transition-colors">{link.label}</Link>
+                  <Link to={link.href} className="text-sm text-muted-foreground hover:text-foreground transition-colors">{link.label}</Link>
                 </li>
               ))}
             </ul>
@@ -174,42 +174,30 @@ export function Footer() {
             <h4 className="font-display font-semibold text-foreground mb-4">{isRTL ? 'نثق بنا' : 'Why Trust Us'}</h4>
             <div className="space-y-3">
               {[
-                { icon: ShieldCheck, label: isRTL ? 'ضمان رسمي لمدة سنة' : '1-Year Official Warranty' },
-                { icon: Truck, label: isRTL ? 'توصيل لجميع المحافظات' : 'Nationwide Delivery' },
-                { icon: Wrench, label: isRTL ? 'تركيب احترافي' : 'Professional Installation' },
-                { icon: Home, label: isRTL ? '١٠٠٠+ منزل ذكي' : '1,000+ Smart Homes' },
-                { icon: Headphones, label: isRTL ? 'دعم ٢٤/٧' : '24/7 Support' },
+                { icon: '✅', label: isRTL ? 'ضمان رسمي لمدة سنة' : '1-Year Official Warranty' },
+                { icon: '🚚', label: isRTL ? 'الدفع عند الاستلام' : 'Cash on Delivery' },
+                { icon: '🔧', label: isRTL ? 'تركيب احترافي' : 'Professional Installation' },
+                { icon: '🏠', label: isRTL ? '١٠٠٠+ منزل ذكي' : '1,000+ Smart Homes' },
+                { icon: '📞', label: isRTL ? 'دعم ٢٤/٧' : '24/7 Support' },
               ].map((item) => (
-                <div key={item.label} className="flex items-center gap-2.5 text-sm text-foreground/80">
-                  <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10 border border-primary/20 text-primary">
-                    <item.icon className="h-3.5 w-3.5" strokeWidth={2} />
-                  </span>
-                  <span>{item.label}</span>
+                <div key={item.label} className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <span>{item.icon}</span><span>{item.label}</span>
                 </div>
               ))}
             </div>
           </div>
         </div>
 
-        <div className="mt-12 pt-6 border-t border-border/80">
-          <div className="flex flex-wrap justify-center gap-5 mb-4">
+        <div className="mt-12 pt-6 border-t border-border">
+          <div className="flex flex-wrap justify-center gap-4 mb-4">
             {legalLinks.map((link) => (
-              <Link key={link.key} to={`/legal/${link.key}`} className="text-xs font-medium text-foreground/75 hover:text-primary transition-colors">
+              <Link key={link.key} to={`/legal/${link.key}`} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
                 {isRTL ? link.ar : link.en}
               </Link>
             ))}
           </div>
-          <p className="text-center text-xs text-foreground/75">
-            {isRTL ? (
-              <>
-                جميع الحقوق محفوظة لـ{' '}
-                <span dir="ltr" style={{ unicodeBidi: 'isolate' }}>
-                  AzkaSmart © {new Date().getFullYear()}
-                </span>
-              </>
-            ) : (
-              `© ${new Date().getFullYear()} AzkaSmart. ${t('allRightsReserved')}`
-            )}
+          <p className="text-center text-xs text-muted-foreground">
+            © {new Date().getFullYear()} AzkaSmart. {t('allRightsReserved')}
           </p>
         </div>
       </div>

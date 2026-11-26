@@ -5,7 +5,6 @@ import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { useCart } from '@/hooks/useCart';
 import { useLanguage } from '@/lib/i18n';
-import { getTextDirection, isolateBidiUnits } from '@/lib/bidi';
 import { CompatibilityCheck } from '@/components/checkout/CompatibilityCheck';
 
 const Cart = () => {
@@ -81,7 +80,7 @@ const Cart = () => {
                     className="flex gap-3 sm:gap-4 rounded-2xl azka-glass p-3.5 sm:p-4"
                   >
                     {/* Image */}
-                    <div className="h-20 w-20 sm:h-24 sm:w-24 shrink-0 overflow-hidden rounded-xl azka-studio-surface p-2 flex items-center justify-center">
+                    <div className="h-20 w-20 sm:h-24 sm:w-24 shrink-0 overflow-hidden rounded-xl bg-slate-50 dark:bg-white/[0.04] border border-border/50 p-2 flex items-center justify-center">
                       {item.product.image_url ? (
                         <img
                           src={item.product.image_url}
@@ -100,12 +99,8 @@ const Cart = () => {
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
                           <Link to={`/products/${item.product.slug}`}>
-                            <h3
-                              dir={getTextDirection(item.product.name)}
-                              style={{ unicodeBidi: 'isolate' }}
-                              className="font-display text-sm sm:text-base font-semibold text-foreground hover:text-primary transition-colors break-words leading-snug"
-                            >
-                              {isolateBidiUnits(item.product.name)}
+                            <h3 className="font-display text-sm sm:text-base font-semibold text-foreground hover:text-primary transition-colors break-words leading-snug">
+                              {item.product.name}
                             </h3>
                           </Link>
                           {item.product.brand && (
@@ -185,7 +180,7 @@ const Cart = () => {
                       {isRTL ? 'التركيب الاحترافي المعتمد' : 'Certified Installation'}
                     </span>
                     <div className="flex items-center gap-1.5">
-                      <span className="text-xs azka-old-price">
+                      <span className="text-xs text-muted-foreground line-through">
                         {formatPrice(regularInstallFee)}
                       </span>
                       <span className="font-bold text-emerald-600 dark:text-emerald-400">

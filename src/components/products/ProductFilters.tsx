@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useLanguage } from '@/lib/i18n';
-import { getTextDirection } from '@/lib/bidi';
 import { cn } from '@/lib/utils';
 
 export interface FilterState {
@@ -135,17 +134,17 @@ export function ProductFilters({
       </div>
 
       {/* Brands */}
-      <div className="border-b border-border/70 pb-4">
+      <div className="border-b border-border pb-4">
         <SectionHeader title={isRTL ? 'العلامة التجارية' : 'Brand'} section="brands" />
         {expandedSections.brands && (
-          <div className="mt-2 space-y-1.5 max-h-64 overflow-y-auto pe-1">
+          <div className="mt-2 space-y-1.5">
             {availableBrands.map((brand) => (
               <label key={brand} className={cn("flex items-center gap-2.5 cursor-pointer text-sm", isMobile && "min-h-[40px] py-1")}>
                 <Checkbox
                   checked={filters.brands.includes(brand)}
                   onCheckedChange={() => toggleBrand(brand)}
                 />
-                <span dir={getTextDirection(brand)} style={{ unicodeBidi: 'isolate' }} className="text-foreground/90">{brand}</span>
+                <span className="text-foreground">{brand}</span>
               </label>
             ))}
           </div>
@@ -153,7 +152,7 @@ export function ProductFilters({
       </div>
 
       {/* Protocol */}
-      <div className="border-b border-border/70 pb-4">
+      <div className="border-b border-border pb-4">
         <SectionHeader title={isRTL ? 'البروتوكول' : 'Protocol'} section="protocol" />
         {expandedSections.protocol && (
           <div className="mt-2 space-y-1.5">
@@ -163,7 +162,7 @@ export function ProductFilters({
                   checked={filters.protocols.includes(protocol)}
                   onCheckedChange={() => toggleProtocol(protocol)}
                 />
-                <span dir={getTextDirection(protocol)} style={{ unicodeBidi: 'isolate' }} className="text-foreground/90">{protocol}</span>
+                <span className="text-foreground">{protocol}</span>
               </label>
             ))}
           </div>

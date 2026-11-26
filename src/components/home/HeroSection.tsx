@@ -146,12 +146,11 @@ export function HeroSection() {
       <div className="absolute inset-0">
         {!reducedMotion && (
           <video
-            className="absolute inset-0 h-full w-full object-cover opacity-50"
+            className="absolute inset-0 h-full w-full object-cover opacity-55"
             autoPlay
             muted
             loop
             playsInline
-            preload="metadata"
             poster={heroBg}
           >
             <source src={HERO_VIDEO} type="video/mp4" />
@@ -161,10 +160,9 @@ export function HeroSection() {
           src={heroBg}
           alt=""
           aria-hidden="true"
-          fetchPriority="high"
-          className="absolute inset-0 h-full w-full object-cover -z-10 opacity-55"
+          className="absolute inset-0 h-full w-full object-cover -z-10 opacity-60"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-[#070D16]/92 via-[#070D16]/78 to-[#070D16]" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#070D16]/88 via-[#070D16]/72 to-[#070D16]" />
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(45,212,191,0.18),transparent_60%)]"
@@ -194,8 +192,8 @@ export function HeroSection() {
         />
       </div>
 
-      <div className="container relative z-10 px-4 md:px-10 pt-24 md:pt-28 pb-24 md:pb-28">
-        <div className="max-w-7xl mx-auto text-center">
+      <div className="container relative z-10 px-4 md:px-12 pt-24 md:pt-32 pb-24 md:pb-28">
+        <div className="max-w-5xl mx-auto text-center">
           {/* Gradient-Ring Eyebrow Pill */}
           <motion.div
             initial={reducedMotion ? false : { opacity: 0, y: 16 }}
@@ -230,7 +228,7 @@ export function HeroSection() {
             initial={reducedMotion ? false : { opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: reducedMotion ? 0 : 0.16 }}
-            className="text-sm sm:text-base md:text-xl text-slate-200 max-w-3xl mx-auto mb-6 md:mb-8 leading-relaxed font-normal text-balance"
+            className="text-sm sm:text-base md:text-xl text-slate-300 max-w-2xl mx-auto mb-6 md:mb-8 leading-relaxed font-normal"
           >
             {subheadline}
           </motion.p>

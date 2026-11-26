@@ -100,7 +100,7 @@ export const TrustAndStats = () => {
         </div>
 
         {/* Trust grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-7xl mx-auto mb-14">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-5xl mx-auto mb-14">
           {trustItems.map((item, index) => (
             <AzkaBentoCard key={item.title} delay={index * 0.04}>
               <div className="flex items-start gap-4 p-5">
@@ -121,7 +121,7 @@ export const TrustAndStats = () => {
         </div>
 
         {/* Vengeance Stats Bar with BorderBeam + StatsCounter + AnimatedTooltip */}
-        <div className="azka-bento relative grid grid-cols-2 md:grid-cols-4 gap-6 max-w-7xl mx-auto p-7 sm:p-8">
+        <div className="azka-bento relative grid grid-cols-2 md:grid-cols-4 gap-6 max-w-4xl mx-auto p-7 sm:p-8">
           <BorderBeam size={200} duration={14} borderWidth={1.5} colorFrom="#2DD4BF" colorTo="#3B82F6" />
           {stats.map((stat, idx) => (
             <div key={stat.label} className="text-center relative z-10">
