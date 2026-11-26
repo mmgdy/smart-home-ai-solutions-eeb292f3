@@ -24,9 +24,9 @@ const Cart = () => {
         </Helmet>
         <Layout>
           <div className="container pt-28 pb-20 text-center">
-            <div className="mx-auto max-w-md">
-              <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-muted/50">
-                <ShoppingBag className="h-10 w-10 text-muted-foreground/60" />
+            <div className="mx-auto max-w-md rounded-3xl azka-glass p-8 sm:p-10">
+              <div className="azka-gradient-ring mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
+                <ShoppingBag className="h-9 w-9 text-primary" />
               </div>
               <h1 className="mb-3 font-display text-2xl font-bold text-foreground">
                 {t('yourCartEmpty')}
@@ -36,13 +36,13 @@ const Cart = () => {
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                 <Link to="/products" className="w-full sm:w-auto">
-                  <Button className="w-full sm:w-auto h-11 gap-2">
+                  <Button className="w-full sm:w-auto h-11 gap-2 rounded-full px-6 bg-gradient-to-r from-teal-400 to-cyan-400 text-[#070D16] font-semibold border-0">
                     {t('browseProducts')}
                     <NextArrow className="h-4 w-4" />
                   </Button>
                 </Link>
                 <Link to="/bundles" className="w-full sm:w-auto">
-                  <Button variant="outline" className="w-full sm:w-auto h-11 gap-2">
+                  <Button variant="outline" className="w-full sm:w-auto h-11 gap-2 rounded-full px-6">
                     {isRTL ? 'الباقات المميزة' : 'Featured Bundles'}
                     <NextArrow className="h-4 w-4" />
                   </Button>
@@ -77,10 +77,10 @@ const Cart = () => {
                 {items.map((item) => (
                   <div
                     key={item.product.id}
-                    className="flex gap-3 sm:gap-4 rounded-xl border border-border bg-card p-3.5 sm:p-4"
+                    className="flex gap-3 sm:gap-4 rounded-2xl azka-glass p-3.5 sm:p-4"
                   >
                     {/* Image */}
-                    <div className="h-20 w-20 sm:h-24 sm:w-24 shrink-0 overflow-hidden rounded-xl bg-muted/20 border border-border/40 p-2 flex items-center justify-center">
+                    <div className="h-20 w-20 sm:h-24 sm:w-24 shrink-0 overflow-hidden rounded-xl bg-slate-50 dark:bg-white/[0.04] border border-border/50 p-2 flex items-center justify-center">
                       {item.product.image_url ? (
                         <img
                           src={item.product.image_url}
@@ -163,7 +163,7 @@ const Cart = () => {
             </div>
 
             {/* Order Summary Column */}
-            <div className="h-fit rounded-xl border border-border bg-card p-6">
+            <div className="h-fit rounded-2xl azka-glass p-6">
               <h2 className="mb-6 font-display text-xl font-semibold text-foreground">
                 {t('orderSummary')}
               </h2>
@@ -205,7 +205,7 @@ const Cart = () => {
               </div>
 
               <Link to="/checkout">
-                <Button className="mt-6 w-full gap-2 glow-primary" size="lg">
+                <Button className="mt-6 w-full h-12 rounded-full gap-2 bg-gradient-to-r from-teal-400 to-cyan-400 text-[#070D16] hover:from-teal-300 hover:to-cyan-300 font-semibold border-0 shadow-[0_10px_30px_-10px_rgba(45,212,191,0.55)]" size="lg">
                   {t('proceedToCheckout')}
                   <NextArrow className="h-4 w-4" />
                 </Button>

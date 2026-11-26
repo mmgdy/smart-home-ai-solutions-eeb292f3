@@ -17,6 +17,7 @@ import { fetchHiddenProductIds, filterPublicProducts } from "@/lib/productVisibi
 import type { Product } from "@/types/store";
 import { Loader2, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 interface Brand { id: string; name: string; slug: string; logo_url: string | null; description: string | null; }
 
@@ -159,12 +160,12 @@ export default function BrandsPage() {
                   <motion.button
                     key={b.id}
                     onClick={() => setParams({ brand: b.slug })}
-                    initial={{ opacity: 0, y: 20 }}
+                    initial={{ opacity: 0, y: 16 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
-                    transition={{ delay: Math.min(i * 0.02, 0.3) }}
-                    whileHover={{ y: -4 }}
-                    className="group aspect-square rounded-2xl bg-card border border-border hover:border-primary/50 hover:shadow-[0_10px_40px_-20px_hsl(var(--primary)/0.4)] flex flex-col items-center justify-center p-4 transition-all"
+                    transition={{ delay: Math.min(i * 0.02, 0.25) }}
+                    whileHover={{ y: -3 }}
+                    className="group aspect-square rounded-2xl azka-glass border border-border/80 hover:border-primary/55 hover:shadow-[0_14px_40px_-18px_rgba(45,212,191,0.35)] flex flex-col items-center justify-center p-4 transition-all"
                   >
                     {b.logo_url && !failedLogos[b.slug] ? (
                       <img
@@ -180,7 +181,7 @@ export default function BrandsPage() {
                         {b.name}
                       </span>
                     )}
-                    <span className="mt-2 text-xs text-muted-foreground">{isRTL ? "اعرض المنتجات" : "View products"}</span>
+                    <span className="mt-2.5 text-xs text-muted-foreground group-hover:text-primary transition-colors">{isRTL ? "اعرض المنتجات" : "View products"}</span>
                   </motion.button>
                 ))}
               </div>
@@ -188,10 +189,10 @@ export default function BrandsPage() {
           </>
         ) : (
           <>
-            <Button variant="ghost" onClick={() => setParams({})} className="mb-6">
-              <ArrowLeft className="h-4 w-4 mr-2" />{isRTL ? "كل الماركات" : "All brands"}
+            <Button variant="ghost" onClick={() => setParams({})} className="mb-6 rounded-full">
+              <ArrowLeft className={cn("h-4 w-4 me-2", isRTL && "rotate-180")} />{isRTL ? "كل الماركات" : "All brands"}
             </Button>
-            <div className="text-center mb-10">
+            <div className="text-center mb-10 rounded-2xl azka-glass p-6 sm:p-8 max-w-3xl mx-auto">
               {activeBrand?.logo_url && !failedLogos[activeBrand.slug] && (
                 <img
                   src={activeBrand.logo_url}
