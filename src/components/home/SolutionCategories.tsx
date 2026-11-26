@@ -109,7 +109,7 @@ export function SolutionCategories() {
         </div>
 
         {/* Vengeance Asymmetric Bento Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-3 sm:gap-4 max-w-5xl mx-auto">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-3.5 sm:gap-4 max-w-7xl mx-auto">
           {categories.map((cat, index) => (
             <AzkaBentoCard key={cat.nameEn} delay={index * 0.04} className={cat.spanClass}>
               {cat.featured && (

@@ -16,6 +16,7 @@ import { useLanguage } from '@/lib/i18n';
 import { normalizeBrand } from '@/lib/brands';
 import { getPublicShopCategories, sortCategories } from '@/lib/categories';
 import { fetchHiddenProductIds, filterPublicProducts } from '@/lib/productVisibility';
+import { BorderBeam } from '@/components/vengeance/BorderBeam';
 import { cn } from '@/lib/utils';
 
 const Products = () => {
@@ -38,6 +39,7 @@ const Products = () => {
 
   const { data: rawCategories } = useQuery({
     queryKey: ['categories'],
+    staleTime: 60 * 1000,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('categories')
@@ -52,18 +54,19 @@ const Products = () => {
   const { data: hiddenIds, isLoading: hiddenLoading } = useQuery({
     queryKey: ['hidden-product-ids'],
     queryFn: fetchHiddenProductIds,
-    staleTime: 30 * 1000,
+    staleTime: 60 * 1000,
   });
 
   const { data: rawProducts, isLoading: productsLoading } = useQuery({
     queryKey: ['products'],
+    staleTime: 60 * 1000,
     queryFn: async () => {
       const pageSize = 1000;
       const rows: any[] = [];
       for (let from = 0; ; from += pageSize) {
         const { data, error } = await supabase
           .from('products')
-          .select('*, categories(*)')
+          .select('id, name, slug, brand, price, original_price, stock, featured, protocol, image_url, images, category_id, created_at, is_published, description, categories(id, name, slug)')
           .is('parent_id', null)
           .neq('is_published', false)
           .order('featured', { ascending: false })
@@ -277,17 +280,23 @@ const Products = () => {
         />
       </Helmet>
       <Layout>
-        <div className="container py-24 md:py-28">
+        <div className="container max-w-[1440px] py-24 md:py-28">
           {/* Header */}
           <div className="mb-8 rounded-2xl azka-glass p-5 sm:p-7 relative overflow-hidden">
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent"
-            />
-            <h1 className="mb-2 font-display text-2xl font-bold text-foreground md:text-3xl">
-              {t('smartHomeProducts')}
-            </h1>
-            <p className="text-sm text-muted-foreground max-w-2xl">{t('discoverPremium')}</p>
+            <BorderBeam size={180} duration={14} borderWidth={1.5} colorFrom="#2DD4BF" colorTo="#3B82F6" />
+            <div className="relative z-10 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+              <div>
+                <h1 className="mb-2 font-display text-2xl font-bold text-foreground md:text-3xl">
+                  {t('smartHomeProducts')}
+                </h1>
+                <p className="text-sm text-foreground/80 max-w-2xl">{t('discoverPremium')}</p>
+              </div>
+              {!isLoading && (
+                <span className="inline-flex items-center self-start sm:self-auto px-3.5 py-1.5 rounded-full bg-primary/15 border border-primary/30 text-xs font-semibold text-primary shrink-0">
+                  {isRTL ? `${filteredProducts.length} منتج متاح` : `${filteredProducts.length} Smart Devices`}
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Search, Sort & Filter Bar */}
@@ -501,11 +510,11 @@ const Products = () => {
                   )}
                 </>
               ) : (
-                <div className="rounded-xl border border-dashed border-border bg-card/50 py-20 text-center">
-                  <p className="text-muted-foreground">{t('noProducts')}</p>
+                <div className="rounded-2xl azka-glass border border-dashed border-border/80 py-20 px-6 text-center">
+                  <p className="text-foreground/85 font-medium">{t('noProducts')}</p>
                   <Button
-                    variant="ghost"
-                    className="mt-4"
+                    variant="outline"
+                    className="mt-4 rounded-full"
                     onClick={() => {
                       handleSearchChange('');
                       handleCategoryChange(null);

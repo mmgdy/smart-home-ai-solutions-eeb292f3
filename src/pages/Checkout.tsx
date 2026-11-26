@@ -15,6 +15,7 @@ import { useLanguage } from '@/lib/i18n';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
+import { getTextDirection, isolateBidiUnits } from '@/lib/bidi';
 import { PointsRedemption } from '@/components/loyalty/PointsRedemption';
 import { useAuth } from '@/hooks/useAuth';
 import { AuthButton } from '@/components/auth/AuthButton';
@@ -1269,10 +1270,10 @@ const Checkout = () => {
 
                 {/* Professional Installation */}
                 <div className={cn(
-                  "rounded-xl border p-4 sm:p-6 min-w-0",
+                  "rounded-2xl azka-glass border p-4 sm:p-6 min-w-0",
                   isBundleOrder
-                    ? "border-emerald-500/40 bg-gradient-to-br from-emerald-500/10 to-card"
-                    : "border-primary/30 bg-gradient-to-br from-primary/10 to-card"
+                    ? "border-emerald-500/40 bg-gradient-to-br from-emerald-500/10 to-transparent"
+                    : "border-primary/30 bg-gradient-to-br from-primary/10 to-transparent"
                 )}>
                   <div className="flex items-start justify-between gap-3 mb-3">
                     <div className="flex items-center gap-2.5 sm:gap-3 flex-wrap min-w-0 flex-1">
@@ -1313,7 +1314,7 @@ const Checkout = () => {
                       </span>
                       {isBundleOrder ? (
                         <div className="flex items-center gap-2 shrink-0">
-                          <span className="text-sm text-muted-foreground line-through">
+                          <span className="text-sm azka-old-price">
                             {formatPrice(regularInstallationFee)}
                           </span>
                           <span className="font-display text-lg font-bold text-emerald-600 dark:text-emerald-400">
@@ -1390,7 +1391,7 @@ const Checkout = () => {
               </div>
 
               {/* Order Summary */}
-              <div className="h-fit min-w-0 rounded-xl border border-border bg-card p-4 sm:p-6">
+              <div className="h-fit min-w-0 rounded-2xl azka-glass p-4 sm:p-6">
                 <h2 className="mb-6 font-display text-xl font-semibold text-foreground">
                   {labels.orderSummary}
                 </h2>
@@ -1399,7 +1400,7 @@ const Checkout = () => {
                 <div className="mb-6 space-y-3">
                   {items.map((item) => (
                     <div key={item.product.id} className="flex items-center gap-3 min-w-0">
-                      <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-muted/30 border border-border/40 p-1 flex items-center justify-center">
+                      <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg azka-studio-surface p-1 flex items-center justify-center">
                         <img
                           src={item.product.image_url || '/placeholder.svg'}
                           alt={item.product.name}
@@ -1408,8 +1409,12 @@ const Checkout = () => {
                         />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="truncate text-sm font-medium text-foreground">
-                          {item.product.name}
+                        <p
+                          dir={getTextDirection(item.product.name)}
+                          style={{ unicodeBidi: 'isolate' }}
+                          className="truncate text-sm font-medium text-foreground"
+                        >
+                          {isolateBidiUnits(item.product.name)}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           x{item.quantity}
@@ -1440,7 +1445,7 @@ const Checkout = () => {
                         <span>{language === 'ar' ? 'التركيب المعتمد (عرض الباقة)' : 'Installation (Bundle Offer)'}</span>
                       </span>
                       <div className="flex items-center gap-1.5 shrink-0">
-                        <span className="text-xs text-muted-foreground line-through">
+                        <span className="text-xs azka-old-price">
                           {formatPrice(regularInstallationFee)}
                         </span>
                         <span className="font-bold text-emerald-600 dark:text-emerald-400">
@@ -1488,7 +1493,7 @@ const Checkout = () => {
                       </span>
                       <div className="text-right shrink-0">
                         {pointsDiscount > 0 && (
-                          <span className="block text-sm text-muted-foreground line-through">
+                          <span className="block text-sm azka-old-price">
                             {formatPrice(totalBeforeDiscount)}
                           </span>
                         )}
@@ -1517,7 +1522,7 @@ const Checkout = () => {
 
                 <Button 
                   type="submit" 
-                  className="mt-6 w-full gap-2 glow-primary" 
+                  className="mt-6 w-full h-12 rounded-full gap-2 bg-gradient-to-r from-teal-400 to-cyan-400 text-[#070D16] hover:from-teal-300 hover:to-cyan-300 font-semibold shadow-[0_0_24px_-6px_rgba(45,212,191,0.55)] border-0" 
                   size="lg"
                   disabled={isProcessing}
                 >

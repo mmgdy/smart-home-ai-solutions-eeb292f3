@@ -95,7 +95,7 @@
     --secondary-foreground: 210 38% 94%;
 
     --muted: 217 30% 14%;
-    --muted-foreground: 215 20% 68%;
+    --muted-foreground: 214 24% 76%;
 
     --accent: 199 89% 54%;
     --accent-foreground: 216 58% 6%;
@@ -215,6 +215,14 @@
 
   .azka-glass {
     @apply bg-card/75 backdrop-blur-xl border border-border/75 shadow-[var(--shadow-card)];
+  }
+
+  .azka-studio-surface {
+    @apply bg-gradient-to-b from-white to-slate-100 ring-1 ring-slate-200/80 dark:ring-white/15;
+  }
+
+  .azka-old-price {
+    @apply text-slate-500 dark:text-slate-300/85 line-through decoration-slate-400/80;
   }
 
   .azka-bento {
