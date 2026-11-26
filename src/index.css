@@ -235,10 +235,27 @@
     animation: shimmer-gold 4s ease-in-out infinite;
   }
 
+  .azka-navy-stage {
+    background:
+      radial-gradient(circle at 50% 0%, rgba(45, 212, 191, 0.16), rgba(7, 13, 22, 0.96) 68%),
+      #070D16;
+  }
+
   /* Smooth scroll + scroll-margin for fixed header offset */
   html { scroll-behavior: smooth; }
   @media (prefers-reduced-motion: reduce) {
     html { scroll-behavior: auto; }
+    .animate-ping,
+    .animate-pulse,
+    .animate-marquee,
+    .shimmer-gold,
+    .animate-float,
+    .animate-pulse-glow,
+    .azka-hairline-ambient {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
   }
   .scroll-margin-top-16 { scroll-margin-top: 4rem; }
   .scroll-margin-top-20 { scroll-margin-top: 5rem; }
