@@ -13,6 +13,7 @@ import {
   type BrandLogoObject,
 } from "@/lib/brandLogos";
 import { ProductCard } from "@/components/products/ProductCard";
+import { fetchHiddenProductIds, filterPublicProducts } from "@/lib/productVisibility";
 import type { Product } from "@/types/store";
 import { Loader2, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -33,23 +34,30 @@ export default function BrandsPage() {
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const [{ data: b }, { data: hiddenData }, { data: prods }, logoListRes] = await Promise.all([
+      const [{ data: b }, hiddenList, prods, logoListRes] = await Promise.all([
         supabase
           .from("brands")
           .select("id, name, slug, logo_url, description")
           .order("display_order", { ascending: true })
           .order("name"),
-        supabase
-          .from("site_info")
-          .select("value")
-          .eq("section", "products")
-          .eq("key", "hidden_ids")
-          .maybeSingle(),
-        supabase
-          .from("products")
-          .select("*")
-          .is("parent_id", null)
-          .order("featured", { ascending: false }),
+        fetchHiddenProductIds(),
+        (async () => {
+          const pageSize = 1000;
+          const rows: any[] = [];
+          for (let from = 0; ; from += pageSize) {
+            const { data, error } = await supabase
+              .from("products")
+              .select("*")
+              .is("parent_id", null)
+              .neq("is_published", false)
+              .order("featured", { ascending: false })
+              .range(from, from + pageSize - 1);
+            if (error) throw error;
+            rows.push(...(data ?? []));
+            if (!data || data.length < pageSize) break;
+          }
+          return rows;
+        })(),
         supabase.storage
           .from(BRAND_LOGOS_BUCKET)
           .list("", { limit: 1000, sortBy: { column: "name", order: "asc" } })
@@ -60,15 +68,7 @@ export default function BrandsPage() {
         ((logoListRes as { data?: BrandLogoObject[] | null })?.data ?? []) as BrandLogoObject[]
       );
 
-      let hiddenIds = new Set<string>();
-      if (hiddenData?.value) {
-        try {
-          hiddenIds = new Set(JSON.parse(hiddenData.value) as string[]);
-        } catch {}
-      }
-
-      const visibleProds = ((prods as any[]) ?? [])
-        .filter((p) => !hiddenIds.has(p.id))
+      const visibleProds = filterPublicProducts((prods as any[]) ?? [], hiddenList)
         .map((p) => ({
           ...p,
           brand: normalizeBrand(p.brand),

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/lib/i18n';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchHiddenProductIds, filterPublicProducts } from '@/lib/productVisibility';
 import { useCart } from '@/hooks/useCart';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
@@ -51,12 +52,16 @@ function SuggestedProducts({ roomNames, formatPrice, isRTL, addItem }: {
     queryFn: async () => {
       if (!keywords.length) return [];
       const orFilter = keywords.map(k => `name.ilike.%${k}%`).join(',');
-      const { data } = await supabase
-        .from('products')
-        .select('id, name, price, image_url, slug, brand, original_price, category_id, images, protocol, specifications, stock, featured, created_at, updated_at, description')
-        .or(orFilter)
-        .limit(6);
-      return data ?? [];
+      const [{ data }, hiddenIds] = await Promise.all([
+        supabase
+          .from('products')
+          .select('id, name, price, image_url, slug, brand, original_price, category_id, images, protocol, specifications, stock, featured, is_published, created_at, updated_at, description')
+          .or(orFilter)
+          .neq('is_published', false)
+          .limit(18),
+        fetchHiddenProductIds(),
+      ]);
+      return filterPublicProducts(data as any[], hiddenIds).slice(0, 6);
     },
     enabled: keywords.length > 0,
     staleTime: 300_000,

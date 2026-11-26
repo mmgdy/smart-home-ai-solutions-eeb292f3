@@ -12,6 +12,7 @@ import { useLanguage } from '@/lib/i18n';
 import { useCart } from '@/hooks/useCart';
 import { useToast } from '@/hooks/use-toast';
 import type { Product } from '@/types/store';
+import { isProductHidden, parseHiddenIds } from '@/lib/productVisibility';
 import {
   defaultBundles,
   getBundleCompositionBreakdown,
@@ -58,33 +59,19 @@ const Bundles = () => {
       supabase
         .from('products')
         .select('*')
+        .neq('is_published', false)
         .gt('stock', 0)
         .order('name')
         .range(0, 999),
     ]);
 
-    let hiddenSet = new Set<string>();
-    if (hiddenRow?.value) {
-      try {
-        const parsedHidden = JSON.parse(hiddenRow.value);
-        if (Array.isArray(parsedHidden)) {
-          hiddenSet = new Set(parsedHidden.map((id) => String(id)));
-        }
-      } catch {
-        // Ignore malformed hidden_ids value.
-      }
-    }
+    const hiddenSet = new Set<string>(parseHiddenIds(hiddenRow?.value));
 
     const byId = new Map<string, Product>();
-    [...(byIdData ?? []), ...(bySlugData ?? [])].forEach((p: any) => {
-      if (p?.id && !byId.has(p.id)) {
-        byId.set(p.id, p as Product);
-      }
-    });
-    ((inStockData ?? []) as any as Product[]).forEach((p) => {
-      if (hiddenSet.has(p.id)) return;
+    [...(byIdData ?? []), ...(bySlugData ?? []), ...(inStockData ?? [])].forEach((p: any) => {
+      if (!p?.id || isProductHidden(p, hiddenSet)) return;
       if (!byId.has(p.id)) {
-        byId.set(p.id, p);
+        byId.set(p.id, p as Product);
       }
     });
 
@@ -120,7 +107,7 @@ const Bundles = () => {
     Object.entries(selectedProducts).forEach(([id, qty]) => {
       if (qty <= 0) return;
       const p = allProducts.find((x) => x.id === id);
-      if (p && !hiddenIdSet.has(p.id) && (p.stock ?? 0) > 0) {
+      if (p && !isProductHidden(p, hiddenIdSet) && (p.stock ?? 0) > 0) {
         addItem(p as any, qty);
         added += qty;
       }
@@ -158,7 +145,7 @@ const Bundles = () => {
     ids.forEach((id) => {
       const p = products.find((x) => x.id === id);
       const qty = breakdown.availableSelection[id];
-      if (p && !hiddenSet.has(p.id) && (p.stock ?? 0) > 0) {
+      if (p && !isProductHidden(p, hiddenSet) && (p.stock ?? 0) > 0) {
         addItem(p as any, qty);
         total += qty;
       }
@@ -384,7 +371,10 @@ const Bundles = () => {
           />
           <div className="flex-1 overflow-y-auto space-y-2 pr-1">
             {productsLoading && <div className="flex justify-center py-8"><Loader2 className="animate-spin" /></div>}
-            {!productsLoading && unavailableItems.length > 0 && (
+            {!productsLoading && (() => {
+              const outOfStockUnavailable = unavailableItems.filter((entry) => entry.reason === 'out_of_stock');
+              if (outOfStockUnavailable.length === 0) return null;
+              return (
               <div
                 data-testid="unavailable-bundle-items"
                 className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 space-y-2 mb-3"
@@ -398,7 +388,7 @@ const Bundles = () => {
                   </span>
                 </div>
                 <div className="space-y-1.5">
-                  {unavailableItems.map((entry, idx) => (
+                  {outOfStockUnavailable.map((entry, idx) => (
                     <div
                       key={`${entry.product?.id || entry.item.slug || entry.item.nameMatch}-${idx}`}
                       className="flex items-center gap-2.5 rounded-lg border border-amber-500/25 bg-background/70 p-2 opacity-80"
@@ -424,14 +414,15 @@ const Bundles = () => {
                   ))}
                 </div>
               </div>
-            )}
+              );
+            })()}
             {!productsLoading && (() => {
               const bundleIdSet = new Set<string>(
                 (activeBundle?.items || []).map((it: any) => it.productId).filter(Boolean),
               );
               const q = search.trim().toLowerCase();
               return [...allProducts]
-                .filter((p) => !hiddenIdSet.has(p.id) && (p.stock ?? 0) > 0)
+                .filter((p) => !isProductHidden(p, hiddenIdSet) && (p.stock ?? 0) > 0)
                 .filter(
                   (p) =>
                     !q ||
@@ -479,7 +470,7 @@ const Bundles = () => {
                   {formatPrice(
                     Object.entries(selectedProducts).reduce((sum, [id, q]) => {
                       const p = allProducts.find((x) => x.id === id);
-                      return sum + (p && !hiddenIdSet.has(p.id) && (p.stock ?? 0) > 0 ? Number(p.price) * q : 0);
+                      return sum + (p && !isProductHidden(p, hiddenIdSet) && (p.stock ?? 0) > 0 ? Number(p.price) * q : 0);
                     }, 0)
                   )}
                 </span>

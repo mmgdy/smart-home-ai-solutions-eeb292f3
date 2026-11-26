@@ -1,4 +1,5 @@
 import type { Product } from '@/types/store';
+import { isProductHidden } from '@/lib/productVisibility';
 
 export type DependencyRelationType = 'required' | 'recommended' | 'accessory';
 
@@ -70,7 +71,7 @@ export function resolveManualDependencies(
     const targetId = rec.dependent_product_id;
     if (!targetId || targetId === mainProductId || seen.has(targetId)) continue;
     const prod = byId.get(targetId);
-    if (!prod || hiddenIds.has(prod.id)) continue;
+    if (!prod || isProductHidden(prod, hiddenIds)) continue;
     seen.add(targetId);
 
     const available = (prod.stock ?? 0) > 0;
@@ -167,7 +168,7 @@ export function generateAutoDependencies(
   if (isPassiveAccessory(product)) return [];
 
   const pool = catalog.filter(
-    (p) => p.id !== product.id && !hiddenIds.has(p.id) && (p.stock ?? 0) > 0,
+    (p) => p.id !== product.id && !isProductHidden(p, hiddenIds) && (p.stock ?? 0) > 0,
   );
   if (!pool.length) return [];
 

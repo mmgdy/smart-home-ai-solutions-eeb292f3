@@ -5,6 +5,7 @@ import { useCalculator } from '@/hooks/useCalculator';
 import { useLanguage } from '@/lib/i18n';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchHiddenProductIds, filterPublicProducts } from '@/lib/productVisibility';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
@@ -45,12 +46,16 @@ function SuggestedProducts({ roomNames, formatPrice, isRTL }: {
     queryKey: ['floor-plan-products', keywords.join(',')],
     queryFn: async () => {
       const orFilter = keywords.map(k => `name.ilike.%${k}%`).join(',');
-      const { data } = await supabase
-        .from('products')
-        .select('id, name, price, image_url, slug')
-        .or(orFilter)
-        .limit(6);
-      return data ?? [];
+      const [{ data }, hiddenIds] = await Promise.all([
+        supabase
+          .from('products')
+          .select('id, name, price, image_url, slug, is_published')
+          .or(orFilter)
+          .neq('is_published', false)
+          .limit(18),
+        fetchHiddenProductIds(),
+      ]);
+      return filterPublicProducts(data as any[], hiddenIds).slice(0, 6);
     },
     enabled: keywords.length > 0,
     staleTime: 120_000,

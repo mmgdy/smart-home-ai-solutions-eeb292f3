@@ -9,6 +9,7 @@ import { useCart } from '@/hooks/useCart';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/lib/i18n';
 import { getProductImage, productPlaceholder } from '@/lib/productImage';
+import { parseHiddenIds } from '@/lib/productVisibility';
 import { cn } from '@/lib/utils';
 import type { Product } from '@/types/store';
 import {
@@ -84,7 +85,8 @@ export function CompleteYourSetup({ mainProduct, mainQuantity }: CompleteYourSet
           for (let from = 0; ; from += pageSize) {
             const { data, error } = await supabase
               .from('products')
-              .select('id, name, slug, price, original_price, image_url, images, brand, protocol, stock, featured, description, category_id, categories(id, name, slug)')
+              .select('id, name, slug, price, original_price, image_url, images, brand, protocol, stock, featured, is_published, description, category_id, categories(id, name, slug)')
+              .neq('is_published', false)
               .order('name')
               .range(from, from + pageSize - 1);
             if (error) throw error;
@@ -95,17 +97,7 @@ export function CompleteYourSetup({ mainProduct, mainQuantity }: CompleteYourSet
         })(),
       ]);
 
-      let hiddenIds = new Set<string>();
-      if (hiddenRow?.value) {
-        try {
-          const parsed = JSON.parse(hiddenRow.value);
-          if (Array.isArray(parsed)) {
-            hiddenIds = new Set(parsed.map((id) => String(id)));
-          }
-        } catch {
-          // Ignore malformed hidden_ids value.
-        }
-      }
+      const hiddenIds = new Set<string>(parseHiddenIds(hiddenRow?.value));
 
       return { hiddenIds, products };
     },

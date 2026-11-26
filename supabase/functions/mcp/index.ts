@@ -26,7 +26,21 @@ const search_products_default = defineTool({
       Deno.env.get("SUPABASE_ANON_KEY")!,
       { auth: { persistSession: false, autoRefreshToken: false } }
     );
-    let q = supabase.from("products").select("id, name, slug, price, original_price, brand, stock, description, image_url").limit(limit);
+    const { data: hiddenRow } = await supabase
+      .from("site_info")
+      .select("value")
+      .eq("section", "products")
+      .eq("key", "hidden_ids")
+      .maybeSingle();
+    let hiddenSet = new Set<string>();
+    if (hiddenRow?.value) {
+      try {
+        const parsed = JSON.parse(hiddenRow.value);
+        if (Array.isArray(parsed)) hiddenSet = new Set(parsed.map((id) => String(id)));
+      } catch {}
+    }
+
+    let q = supabase.from("products").select("id, name, slug, price, original_price, brand, stock, description, image_url, is_published").neq("is_published", false).limit(Math.min(limit + hiddenSet.size, 100));
     if (in_stock) q = q.gt("stock", 0);
     const trimmed = query.trim();
     if (trimmed) {
@@ -41,7 +55,7 @@ const search_products_default = defineTool({
     if (error) {
       return { content: [{ type: "text", text: `Search failed: ${error.message}` }], isError: true };
     }
-    const items = (data ?? []).map((p) => ({
+    const items = (data ?? []).filter((p) => p.is_published !== false && !hiddenSet.has(p.id)).slice(0, limit).map((p) => ({
       name: p.name,
       slug: p.slug,
       price_egp: p.price,
@@ -77,9 +91,19 @@ const get_product_default = defineTool2({
       Deno.env.get("SUPABASE_ANON_KEY")!,
       { auth: { persistSession: false, autoRefreshToken: false } }
     );
-    const { data, error } = await supabase.from("products").select("id, name, slug, price, original_price, brand, stock, description, image_url, images, protocol, specifications, tags").eq("slug", slug).maybeSingle();
+    const [{ data, error }, { data: hiddenRow }] = await Promise.all([
+      supabase.from("products").select("id, name, slug, price, original_price, brand, stock, description, image_url, images, protocol, specifications, tags, is_published").eq("slug", slug).neq("is_published", false).maybeSingle(),
+      supabase.from("site_info").select("value").eq("section", "products").eq("key", "hidden_ids").maybeSingle(),
+    ]);
     if (error) return { content: [{ type: "text", text: error.message }], isError: true };
-    if (!data) return { content: [{ type: "text", text: `No product with slug "${slug}".` }], isError: true };
+    let hiddenSet = new Set<string>();
+    if (hiddenRow?.value) {
+      try {
+        const parsed = JSON.parse(hiddenRow.value);
+        if (Array.isArray(parsed)) hiddenSet = new Set(parsed.map((id) => String(id)));
+      } catch {}
+    }
+    if (!data || data.is_published === false || hiddenSet.has(data.id)) return { content: [{ type: "text", text: `No product with slug "${slug}".` }], isError: true };
     return {
       content: [{ type: "text", text: `${data.name} \u2014 EGP ${data.price}` }],
       structuredContent: { ...data, url: `/products/${data.slug}` }

@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { fetchHiddenProductIds, filterPublicProducts } from '@/lib/productVisibility';
 
 export interface ClientBundle {
   id: string;
@@ -280,14 +281,17 @@ let cachedCatalog: Array<{
 
 async function getClientCatalog() {
   if (cachedCatalog && cachedCatalog.length > 0) return cachedCatalog;
-  const { data } = await supabase
-    .from('products')
-    .select('id, name, slug, price, brand, protocol, stock, categories(name)')
-    .eq('is_published', true)
-    .gt('price', 0)
-    .limit(500);
+  const [{ data }, hiddenIds] = await Promise.all([
+    supabase
+      .from('products')
+      .select('id, name, slug, price, brand, protocol, stock, is_published, categories(name)')
+      .eq('is_published', true)
+      .gt('price', 0)
+      .limit(500),
+    fetchHiddenProductIds(),
+  ]);
 
-  cachedCatalog = (data ?? []).map((p: any) => ({
+  cachedCatalog = filterPublicProducts((data ?? []) as any[], hiddenIds).map((p: any) => ({
     id: String(p.id),
     name: String(p.name || '').replace(/&amp;/g, '&'),
     slug: String(p.slug || p.id),

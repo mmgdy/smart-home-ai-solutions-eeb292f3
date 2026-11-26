@@ -15,6 +15,7 @@ import {
   isLegacyFallbackResponse,
   normalizeAssistantLinks,
 } from '@/lib/smartAdvisorClient';
+import { fetchHiddenProductIds, isProductHidden } from '@/lib/productVisibility';
 
 type Msg = { role: 'user' | 'assistant'; content: string };
 
@@ -23,11 +24,15 @@ function SearchProductMiniCard({ slug, onNavigate }: { slug: string; onNavigate:
   const { data: product } = useQuery({
     queryKey: ['ai-product-card', slug],
     queryFn: async () => {
-      const { data } = await supabase
-        .from('products')
-        .select('id, name, price, image_url, slug')
-        .eq('slug', slug)
-        .maybeSingle();
+      const [{ data }, hiddenIds] = await Promise.all([
+        supabase
+          .from('products')
+          .select('id, name, price, image_url, slug, is_published')
+          .eq('slug', slug)
+          .maybeSingle(),
+        fetchHiddenProductIds(),
+      ]);
+      if (!data || isProductHidden(data as any, hiddenIds)) return null;
       return data;
     },
     staleTime: 60_000,

@@ -53,7 +53,7 @@ export function SmartBundles() {
       }
 
       const refs = getBundleProductRefs(baseBundles);
-      const cols = 'id, name, slug, price, original_price, image_url, brand, stock, featured, description, protocol';
+      const cols = 'id, name, slug, price, original_price, image_url, brand, stock, featured, description, protocol, is_published';
       const [{ data: byIdData }, { data: bySlugData }] = await Promise.all([
         refs.ids.length
           ? supabase.from('products').select(cols).in('id', refs.ids)

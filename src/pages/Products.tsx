@@ -15,6 +15,7 @@ import { Product, Category } from '@/types/store';
 import { useLanguage } from '@/lib/i18n';
 import { normalizeBrand } from '@/lib/brands';
 import { getPublicShopCategories, sortCategories } from '@/lib/categories';
+import { fetchHiddenProductIds, filterPublicProducts } from '@/lib/productVisibility';
 import { cn } from '@/lib/utils';
 
 const Products = () => {
@@ -48,22 +49,13 @@ const Products = () => {
     },
   });
 
-  const { data: hiddenIds } = useQuery({
+  const { data: hiddenIds, isLoading: hiddenLoading } = useQuery({
     queryKey: ['hidden-product-ids'],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('site_info')
-        .select('value')
-        .eq('section', 'products')
-        .eq('key', 'hidden_ids')
-        .maybeSingle();
-      if (!data?.value) return [] as string[];
-      try { return JSON.parse(data.value) as string[]; } catch { return [] as string[]; }
-    },
-    staleTime: 5 * 60 * 1000,
+    queryFn: fetchHiddenProductIds,
+    staleTime: 30 * 1000,
   });
 
-  const { data: rawProducts, isLoading } = useQuery({
+  const { data: rawProducts, isLoading: productsLoading } = useQuery({
     queryKey: ['products'],
     queryFn: async () => {
       const pageSize = 1000;
@@ -73,6 +65,7 @@ const Products = () => {
           .from('products')
           .select('*, categories(*)')
           .is('parent_id', null)
+          .neq('is_published', false)
           .order('featured', { ascending: false })
           .range(from, from + pageSize - 1);
         if (error) throw error;
@@ -83,11 +76,11 @@ const Products = () => {
     },
   });
 
+  const isLoading = productsLoading || hiddenLoading;
+
   const products = useMemo<Product[]>(() => {
-    if (!rawProducts) return [];
-    const hiddenSet = new Set(hiddenIds ?? []);
-    return (rawProducts as any[])
-      .filter((p) => !hiddenSet.has(p.id))
+    if (!rawProducts || hiddenIds === undefined) return [];
+    return filterPublicProducts(rawProducts as any[], hiddenIds)
       .map((p) => ({
         ...p,
         brand: normalizeBrand(p.brand),

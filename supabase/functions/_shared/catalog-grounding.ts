@@ -351,15 +351,36 @@ export function matchOfficialBundles(rawQuery: string): OfficialBundle[] {
 /** Load active published products with rich technical fields */
 export async function loadGroundedCatalog(supabase: any, limit = 500): Promise<GroundedProduct[]> {
   try {
-    const { data, error } = await supabase
-      .from("products")
-      .select("id, name, slug, brand, price, original_price, protocol, specifications, stock, image_url, description, category_id, categories(name)")
-      .eq("is_published", true)
-      .limit(limit);
+    const [{ data, error }, { data: hiddenRow }] = await Promise.all([
+      supabase
+        .from("products")
+        .select("id, name, slug, brand, price, original_price, protocol, specifications, stock, image_url, description, category_id, categories(name)")
+        .eq("is_published", true)
+        .limit(limit),
+      supabase
+        .from("site_info")
+        .select("value")
+        .eq("section", "products")
+        .eq("key", "hidden_ids")
+        .maybeSingle(),
+    ]);
 
     if (error || !data) return [];
 
+    let hiddenSet = new Set<string>();
+    if (hiddenRow?.value) {
+      try {
+        const parsed = JSON.parse(hiddenRow.value);
+        if (Array.isArray(parsed)) {
+          hiddenSet = new Set(parsed.map((id) => String(id)));
+        }
+      } catch {
+        // Ignore malformed hidden_ids value.
+      }
+    }
+
     return data
+      .filter((p: any) => !hiddenSet.has(String(p.id)))
       .map((p: any) => ({
         id: String(p.id),
         name: String(p.name || "").replace(/&amp;/g, "&"),

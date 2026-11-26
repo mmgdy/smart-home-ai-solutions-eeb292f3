@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { getProductImage } from '@/lib/productImage';
+import { fetchHiddenProductIds, filterPublicProducts } from '@/lib/productVisibility';
 
 const SCENE_KEYWORDS: Record<string, string[]> = {
   morning:  ['curtain', 'lighting', 'switch', 'AC', 'coffee'],
@@ -23,19 +24,25 @@ function SceneProducts({ sceneId, isRTL, formatPrice }: { sceneId: string; isRTL
     queryKey: ['scene-products', sceneId],
     queryFn: async () => {
       const orFilter = keywords.map(k => `name.ilike.%${k}%,description.ilike.%${k}%`).join(',');
-      const { data } = await supabase
-        .from('products')
-        .select('id, name, price, image_url, slug')
-        .or(orFilter)
-        .gt('stock', 0)
-        .limit(4);
-      if (data && data.length > 0) return data;
+      const [{ data }, hiddenIds] = await Promise.all([
+        supabase
+          .from('products')
+          .select('id, name, price, image_url, slug, is_published')
+          .or(orFilter)
+          .neq('is_published', false)
+          .gt('stock', 0)
+          .limit(12),
+        fetchHiddenProductIds(),
+      ]);
+      const visible = filterPublicProducts(data as any[], hiddenIds).slice(0, 4);
+      if (visible.length > 0) return visible;
       const { data: fallback } = await supabase
         .from('products')
-        .select('id, name, price, image_url, slug')
+        .select('id, name, price, image_url, slug, is_published')
+        .neq('is_published', false)
         .gt('stock', 0)
-        .limit(4);
-      return fallback ?? [];
+        .limit(12);
+      return filterPublicProducts(fallback as any[], hiddenIds).slice(0, 4);
     },
     enabled: keywords.length > 0,
     staleTime: 120_000,

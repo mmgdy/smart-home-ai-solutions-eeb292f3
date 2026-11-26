@@ -1,4 +1,5 @@
 import type { Product } from '@/types/store';
+import { isProductHidden } from '@/lib/productVisibility';
 
 export interface BundleItemConfig {
   nameMatch: string;
@@ -328,24 +329,22 @@ export function resolveProductForBundleItem(
   hiddenIds?: Set<string>,
 ): Product | undefined {
   if (item.productId) {
-    const byId = products.find((p) => p.id === item.productId);
+    const byId = products.find((p) => p.id === item.productId && !isProductHidden(p, hiddenIds));
     if (byId) return byId;
   }
   if (item.slug) {
     const targetSlug = item.slug.trim().toLowerCase();
-    const slugMatches = products.filter((p) => p.slug?.trim().toLowerCase() === targetSlug);
-    if (slugMatches.length) {
-      return slugMatches.find((p) => !hiddenIds?.has(p.id)) || slugMatches[0];
-    }
+    const slugMatch = products.find(
+      (p) => !isProductHidden(p, hiddenIds) && p.slug?.trim().toLowerCase() === targetSlug,
+    );
+    if (slugMatch) return slugMatch;
   }
   const target = item.nameMatch.trim().toLowerCase();
   if (!target) return undefined;
-  const visible = hiddenIds ? products.filter((p) => !hiddenIds.has(p.id)) : products;
+  const visible = products.filter((p) => !isProductHidden(p, hiddenIds));
   return (
     visible.find((p) => p.name.toLowerCase() === target) ||
-    visible.find((p) => p.name.toLowerCase().includes(target)) ||
-    products.find((p) => p.name.toLowerCase() === target) ||
-    products.find((p) => p.name.toLowerCase().includes(target))
+    visible.find((p) => p.name.toLowerCase().includes(target))
   );
 }
 
@@ -375,7 +374,7 @@ export function getBundleCompositionBreakdown(
         return;
       }
 
-      const isHidden = Boolean(hiddenIds?.has(product.id));
+      const isHidden = isProductHidden(product, hiddenIds);
       const isOutOfStock = (product.stock ?? 0) <= 0;
       const unavailable = isHidden || isOutOfStock;
       const reason = isHidden ? 'hidden' : isOutOfStock ? 'out_of_stock' : undefined;
@@ -402,7 +401,7 @@ export function getBundleCompositionBreakdown(
   }
 
   // Fallback for legacy bundles without an explicit items array
-  const visible = hiddenIds ? products.filter((p) => !hiddenIds.has(p.id)) : products;
+  const visible = products.filter((p) => !isProductHidden(p, hiddenIds));
   const devices = splitBundleDevices(bundle.devicesEn);
   devices.forEach((d) => {
     const m = d.match(/^(\d+)\s*x?\s*(.+)$/i);

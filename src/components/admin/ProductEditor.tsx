@@ -9,11 +9,25 @@ import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { getProductImage } from "@/lib/productImage";
+import {
+  invalidateAllProductQueries,
+  isProductHidden,
+  parseHiddenIds,
+} from "@/lib/productVisibility";
 import { parseProtocols } from "@/lib/protocolIcon";
 import { ProtocolSelector, detectProtocolFromName } from "@/components/admin/ProtocolSelector";
 import { ProductDependenciesEditor } from "@/components/admin/ProductDependenciesEditor";
@@ -53,6 +67,7 @@ interface Product {
   images?: string[] | null;
   stock: number;
   featured: boolean | null;
+  is_published?: boolean;
   video_url: string | null;
   seo_title?: string | null;
   seo_description?: string | null;
@@ -86,6 +101,26 @@ const fileToBase64 = (file: File): Promise<string> =>
     reader.onerror = () => reject(reader.error);
     reader.readAsDataURL(file);
   });
+
+async function extractFunctionError(data: any, error: any): Promise<string> {
+  if (data && typeof data.error === "string" && data.error.trim()) {
+    return data.error.trim();
+  }
+  if (error?.context && typeof error.context.json === "function") {
+    try {
+      const errBody = await error.context.json();
+      if (errBody && typeof errBody.error === "string" && errBody.error.trim()) {
+        return errBody.error.trim();
+      }
+    } catch {
+      // Ignore non-JSON error responses.
+    }
+  }
+  if (error && typeof error.message === "string" && error.message.trim()) {
+    return error.message.trim();
+  }
+  return "Operation failed";
+}
 
 export function ProductEditor({ adminToken }: Props) {
   const { toast } = useToast();
@@ -126,6 +161,12 @@ export function ProductEditor({ adminToken }: Props) {
   const [photoBusy, setPhotoBusy] = useState(false);
   const [visibleCount, setVisibleCount] = useState(50);
   const [pendingBulkCategory, setPendingBulkCategory] = useState<{ id: string | null; name: string } | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<
+    | { mode: "single"; product: Product }
+    | { mode: "bulk"; products: Product[] }
+    | null
+  >(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
   const [slugAssignOpen, setSlugAssignOpen] = useState(false);
   const [slugInputText, setSlugInputText] = useState("");
   const [slugTargetCategoryId, setSlugTargetCategoryId] = useState<string>("none");
@@ -162,21 +203,40 @@ export function ProductEditor({ adminToken }: Props) {
     }
   };
 
+  const effectiveHiddenIdSet = useMemo(() => {
+    const set = new Set(hiddenIds);
+    for (const p of products) {
+      if (p.is_published === false) {
+        set.add(p.id);
+      }
+    }
+    return set;
+  }, [hiddenIds, products]);
+
   const load = async () => {
     setLoading(true);
-    const [p, { data: c }, { data: vizData }] = await Promise.all([
-      fetchAllProducts(),
-      supabase
-        .from("categories")
-        .select("id, name, slug, sort_order, is_active")
-        .order("sort_order", { ascending: true })
-        .order("name", { ascending: true }),
-      supabase.from("site_info").select("value").eq("section", "products").eq("key", "hidden_ids").maybeSingle(),
-    ]);
-    setProducts(p ?? []);
-    setCategories(sortCategories(((c as any) ?? []) as Category[]));
-    try { setHiddenIds(vizData?.value ? JSON.parse(vizData.value) : []); } catch { setHiddenIds([]); }
-    setLoading(false);
+    try {
+      const [p, { data: c }, { data: vizData }] = await Promise.all([
+        fetchAllProducts(),
+        supabase
+          .from("categories")
+          .select("id, name, slug, sort_order, is_active")
+          .order("sort_order", { ascending: true })
+          .order("name", { ascending: true }),
+        supabase.from("site_info").select("value").eq("section", "products").eq("key", "hidden_ids").maybeSingle(),
+      ]);
+      setProducts(p ?? []);
+      setCategories(sortCategories(((c as any) ?? []) as Category[]));
+      setHiddenIds(parseHiddenIds(vizData?.value));
+    } catch (e: any) {
+      toast({
+        title: "Failed to load products",
+        description: e?.message || String(e),
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -311,23 +371,26 @@ export function ProductEditor({ adminToken }: Props) {
           const chunk = allIds.slice(i, i + BATCH_SIZE);
           const { data, error } = await supabase.functions.invoke("admin-write", {
             headers: { Authorization: "Bearer " + adminToken },
-            body: { ...body, ids: chunk },
+            body: { ...body, ids: chunk, token: adminToken },
           });
           if (error || !data?.success) {
-            throw new Error(data?.error || error?.message || `Failed at batch ${Math.floor(i / BATCH_SIZE) + 1}`);
+            throw new Error(await extractFunctionError(data, error));
           }
           processed += chunk.length;
           setBulkProgress({ current: processed, total: allIds.length });
         }
       } else {
-        const { data, error } = await supabase.functions.invoke("admin-write", { headers: { Authorization: "Bearer " + adminToken }, body });
-        if (error || !data?.success) throw new Error(data?.error || error?.message || "Failed");
+        const { data, error } = await supabase.functions.invoke("admin-write", {
+          headers: { Authorization: "Bearer " + adminToken },
+          body: { ...body, token: adminToken },
+        });
+        if (error || !data?.success) {
+          throw new Error(await extractFunctionError(data, error));
+        }
       }
       toast({ title: successMsg });
       clearSelection();
-      queryClient.invalidateQueries({ queryKey: ["products"] });
-      queryClient.invalidateQueries({ queryKey: ["product"] });
-      queryClient.invalidateQueries({ queryKey: ["categories"] });
+      invalidateAllProductQueries(queryClient);
       window.dispatchEvent(new CustomEvent("azka-categories-updated"));
       await load();
     } catch (e: any) {
@@ -340,9 +403,9 @@ export function ProductEditor({ adminToken }: Props) {
 
   const bulkDelete = () => {
     if (selectedIds.size === 0) return;
-    if (!confirm(`Delete ${selectedIds.size} products? This cannot be undone.`)) return;
-    bulkInvoke({ action: "bulk-delete-products", ids: Array.from(selectedIds) },
-      `${selectedIds.size} products deleted`);
+    const selectedProducts = products.filter((p) => selectedIds.has(p.id));
+    if (selectedProducts.length === 0) return;
+    setPendingDelete({ mode: "bulk", products: selectedProducts });
   };
   const bulkVisibility = (hidden: boolean) => {
     if (selectedIds.size === 0) return;
@@ -681,10 +744,10 @@ export function ProductEditor({ adminToken }: Props) {
       const { data, error } = await supabase.functions.invoke("admin-write", {
         headers: { Authorization: "Bearer " + adminToken },
         body: isNew
-          ? { action, product: payload }
-          : { action, id: editing.id, updates: payload },
+          ? { action, product: payload, token: adminToken }
+          : { action, id: editing.id, updates: payload, token: adminToken },
       });
-      if (error || !data?.success) throw new Error(data?.error || error?.message || "Failed");
+      if (error || !data?.success) throw new Error(await extractFunctionError(data, error));
 
       const savedRow = data?.data;
       // Fallback: if the deployed admin-write edge function altered or stripped
@@ -747,9 +810,7 @@ export function ProductEditor({ adminToken }: Props) {
             }
           }
         } catch {}
-        queryClient.invalidateQueries({ queryKey: ["product"] });
-        queryClient.invalidateQueries({ queryKey: ["products"] });
-        queryClient.invalidateQueries({ queryKey: ["categories"] });
+        invalidateAllProductQueries(queryClient);
         window.dispatchEvent(new CustomEvent("azka-categories-updated"));
       }
 
@@ -790,37 +851,121 @@ export function ProductEditor({ adminToken }: Props) {
     }
   };
 
-  const del = async (p: Product) => {
-    if (!confirm(`Delete "${p.name}"? This cannot be undone.`)) return;
+  const del = (p: Product) => {
+    setPendingDelete({ mode: "single", product: p });
+  };
+
+  const confirmDelete = async () => {
+    if (!pendingDelete) return;
+    setDeleteBusy(true);
     try {
-      const { data, error } = await supabase.functions.invoke("admin-write", {
-        headers: { Authorization: "Bearer " + adminToken },
-        body: { action: "delete-product", id: p.id },
-      });
-      if (error || !data?.success) throw new Error(data?.error || error?.message || "Failed");
-      toast({ title: "Deleted" });
-      setProducts((prev) => prev.filter((x) => x.id !== p.id));
+      if (pendingDelete.mode === "single") {
+        const target = pendingDelete.product;
+        const { data, error } = await supabase.functions.invoke("admin-write", {
+          headers: { Authorization: "Bearer " + adminToken },
+          body: { action: "delete-product", id: target.id, token: adminToken },
+        });
+        if (error || !data?.success) {
+          throw new Error(await extractFunctionError(data, error));
+        }
+        setSelectedIds((prev) => {
+          if (!prev.has(target.id)) return prev;
+          const next = new Set(prev);
+          next.delete(target.id);
+          return next;
+        });
+        setHiddenIds((prev) => prev.filter((id) => id !== target.id));
+        setPendingDelete(null);
+        invalidateAllProductQueries(queryClient);
+        window.dispatchEvent(new CustomEvent("azka-categories-updated"));
+        await load();
+        toast({
+          title: "Product deleted",
+          description: `"${target.name}" was permanently deleted.`,
+        });
+      } else {
+        const targetIds = pendingDelete.products.map((p) => p.id);
+        const BATCH_SIZE = 40;
+        let totalDeleted = 0;
+        for (let i = 0; i < targetIds.length; i += BATCH_SIZE) {
+          const chunk = targetIds.slice(i, i + BATCH_SIZE);
+          const { data, error } = await supabase.functions.invoke("admin-write", {
+            headers: { Authorization: "Bearer " + adminToken },
+            body: { action: "bulk-delete-products", ids: chunk, token: adminToken },
+          });
+          if (error || !data?.success) {
+            throw new Error(await extractFunctionError(data, error));
+          }
+          totalDeleted += Number(data?.deletedCount ?? chunk.length);
+        }
+        const removedSet = new Set(targetIds);
+        setSelectedIds((prev) => {
+          const next = new Set(prev);
+          for (const id of targetIds) next.delete(id);
+          return next;
+        });
+        setHiddenIds((prev) => prev.filter((id) => !removedSet.has(id)));
+        setPendingDelete(null);
+        invalidateAllProductQueries(queryClient);
+        window.dispatchEvent(new CustomEvent("azka-categories-updated"));
+        await load();
+        toast({
+          title: "Products deleted",
+          description: `Permanently deleted ${totalDeleted} ${totalDeleted === 1 ? "product" : "products"}.`,
+        });
+      }
     } catch (e: any) {
-      toast({ title: "Delete failed", description: e.message, variant: "destructive" });
+      toast({
+        title: "Delete failed",
+        description: e?.message || String(e),
+        variant: "destructive",
+      });
+    } finally {
+      setDeleteBusy(false);
     }
   };
 
   const toggleVisibility = async (p: Product) => {
     setTogglingId(p.id);
-    const isHidden = hiddenIds.includes(p.id);
-    const newHiddenIds = isHidden
-      ? hiddenIds.filter((id) => id !== p.id)
-      : [...hiddenIds, p.id];
+    const isCurrentlyHidden = isProductHidden(p, hiddenIdSet);
+    const nextHidden = !isCurrentlyHidden;
     try {
       const { data, error } = await supabase.functions.invoke("admin-write", {
         headers: { Authorization: "Bearer " + adminToken },
-        body: { action: "update-site-info", entries: [{ section: "products", key: "hidden_ids", value: JSON.stringify(newHiddenIds) }] },
+        body: {
+          action: "bulk-set-visibility",
+          ids: [p.id],
+          hidden: nextHidden,
+          token: adminToken,
+        },
       });
-      if (error || !data?.success) throw new Error(data?.error || error?.message || "Failed");
-      setHiddenIds(newHiddenIds);
-      toast({ title: isHidden ? "Product published" : "Product hidden" });
+      if (error || !data?.success) {
+        throw new Error(await extractFunctionError(data, error));
+      }
+      if (Array.isArray(data?.hiddenIds)) {
+        setHiddenIds(data.hiddenIds);
+      } else {
+        setHiddenIds((prev) =>
+          nextHidden
+            ? prev.includes(p.id)
+              ? prev
+              : [...prev, p.id]
+            : prev.filter((id) => id !== p.id),
+        );
+      }
+      setProducts((prev) =>
+        prev.map((item) =>
+          item.id === p.id ? { ...item, is_published: !nextHidden } : item,
+        ),
+      );
+      invalidateAllProductQueries(queryClient);
+      await load();
+      toast({
+        title: nextHidden ? "Product hidden" : "Product published",
+        description: `"${p.name}" is now ${nextHidden ? "hidden from" : "visible in"} the public store.`,
+      });
     } catch (e: any) {
-      toast({ title: "Failed to update visibility", description: e.message, variant: "destructive" });
+      toast({ title: "Failed to update visibility", description: e?.message || String(e), variant: "destructive" });
     } finally {
       setTogglingId(null);
     }
@@ -1034,7 +1179,7 @@ export function ProductEditor({ adminToken }: Props) {
         <div className="border border-border rounded-xl overflow-hidden">
           <div className="max-h-[600px] overflow-y-auto divide-y divide-border">
             {filtered.slice(0, visibleCount).map((p) => {
-              const isHidden = hiddenIds.includes(p.id);
+              const isHidden = isProductHidden(p, hiddenIdSet);
               const isSelected = selectedIds.has(p.id);
               const audit = cairoSupplierService.getProductAudit(p.id);
               const sources = cairoSupplierService.getCairoSources(p.id);
@@ -1167,8 +1312,18 @@ export function ProductEditor({ adminToken }: Props) {
                       <Eye className="h-4 w-4 text-green-600" />
                     )}
                   </button>
-                  <Button size="sm" variant="ghost" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
-                  <Button size="sm" variant="ghost" onClick={() => del(p)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                  <Button type="button" size="sm" variant="ghost" onClick={() => openEdit(p)} aria-label={`Edit ${p.name}`} title="Edit product"><Pencil className="h-4 w-4" /></Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => del(p)}
+                    disabled={deleteBusy || bulkBusy}
+                    aria-label={`Delete ${p.name}`}
+                    title="Delete product"
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
                 </div>
               );
             })}
@@ -1451,7 +1606,7 @@ export function ProductEditor({ adminToken }: Props) {
             <ProductDependenciesEditor
               currentProductId={editing.id}
               allProducts={products}
-              hiddenIds={hiddenIdSet}
+              hiddenIds={effectiveHiddenIdSet}
               dependencies={editingDeps}
               loading={depsLoading}
               onChange={(next) => {
@@ -1676,6 +1831,80 @@ export function ProductEditor({ adminToken }: Props) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog (Single & Bulk) */}
+      <AlertDialog
+        open={!!pendingDelete}
+        onOpenChange={(isOpen) => {
+          if (!isOpen && !deleteBusy) setPendingDelete(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {pendingDelete?.mode === "single"
+                ? "Delete product permanently?"
+                : `Delete ${pendingDelete?.products.length ?? 0} selected products permanently?`}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm text-muted-foreground">
+                {pendingDelete?.mode === "single" ? (
+                  <p>
+                    This will permanently remove{" "}
+                    <strong className="text-foreground">"{pendingDelete.product.name}"</strong> from the
+                    database and public storefront. This action cannot be undone.
+                  </p>
+                ) : pendingDelete?.mode === "bulk" ? (
+                  <>
+                    <p>
+                      This will permanently remove{" "}
+                      <strong className="text-foreground">{pendingDelete.products.length}</strong>{" "}
+                      {pendingDelete.products.length === 1 ? "product" : "products"} from the database
+                      and public storefront. This action cannot be undone.
+                    </p>
+                    <ul className="list-disc pl-5 space-y-0.5 text-xs text-foreground/80">
+                      {pendingDelete.products.slice(0, 5).map((item) => (
+                        <li key={item.id} className="truncate">
+                          {item.name}
+                        </li>
+                      ))}
+                      {pendingDelete.products.length > 5 && (
+                        <li className="text-muted-foreground">
+                          and {pendingDelete.products.length - 5} more…
+                        </li>
+                      )}
+                    </ul>
+                  </>
+                ) : null}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteBusy}>Cancel</AlertDialogCancel>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={deleteBusy}
+              onClick={confirmDelete}
+              data-testid="confirm-delete-products-btn"
+            >
+              {deleteBusy ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Deleting…
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  {pendingDelete?.mode === "single"
+                    ? "Delete Permanently"
+                    : `Delete ${pendingDelete?.products.length ?? 0} Products`}
+                </>
+              )}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

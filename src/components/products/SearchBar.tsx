@@ -7,6 +7,7 @@ import { useLanguage } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { Product } from '@/types/store';
+import { fetchHiddenProductIds, filterPublicProducts } from '@/lib/productVisibility';
 
 interface SearchBarProps {
   value: string;
@@ -21,18 +22,31 @@ export function SearchBar({ value, onChange, className }: SearchBarProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const { t, formatPrice } = useLanguage();
 
+  const { data: hiddenIds } = useQuery({
+    queryKey: ['hidden-product-ids'],
+    queryFn: fetchHiddenProductIds,
+    staleTime: 30 * 1000,
+  });
+
   const { data: searchProducts } = useQuery({
     queryKey: ['search-products'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('products')
-        .select('id, name, slug, brand, price, image_url, protocol, description')
-        .is('parent_id', null)
-        .limit(250);
-      if (error) throw error;
-      return (data || []) as Product[];
+      const pageSize = 1000;
+      const rows: Product[] = [];
+      for (let from = 0; ; from += pageSize) {
+        const { data, error } = await supabase
+          .from('products')
+          .select('id, name, slug, brand, price, image_url, protocol, description, is_published')
+          .is('parent_id', null)
+          .neq('is_published', false)
+          .range(from, from + pageSize - 1);
+        if (error) throw error;
+        rows.push(...((data as unknown as Product[]) || []));
+        if (!data || data.length < pageSize) break;
+      }
+      return rows;
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: 30 * 1000,
   });
 
   // Debounce the parent onChange
@@ -47,11 +61,11 @@ export function SearchBar({ value, onChange, className }: SearchBarProps) {
     setLocalValue(value);
   }, [value]);
 
-  // Autocomplete suggestions from live products
+  // Autocomplete suggestions from live published products only
   const suggestions = useMemo(() => {
-    if (!localValue || localValue.length < 2 || !focused || !searchProducts) return [];
+    if (!localValue || localValue.length < 2 || !focused || !searchProducts || hiddenIds === undefined) return [];
     const q = localValue.toLowerCase();
-    return searchProducts
+    return filterPublicProducts(searchProducts, hiddenIds)
       .filter(
         (p) =>
           p.name.toLowerCase().includes(q) ||
@@ -60,7 +74,7 @@ export function SearchBar({ value, onChange, className }: SearchBarProps) {
           p.description?.toLowerCase().includes(q)
       )
       .slice(0, 6);
-  }, [localValue, focused, searchProducts]);
+  }, [localValue, focused, searchProducts, hiddenIds]);
 
   // Click outside to close
   useEffect(() => {

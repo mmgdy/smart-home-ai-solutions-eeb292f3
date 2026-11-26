@@ -19,7 +19,7 @@ import { getVideoEmbedInfo, type VideoEmbedInfo } from '@/lib/productGallery';
 import { normalizeBrand } from '@/lib/brands';
 import { sanitizeProductDescription, stripDescriptionHtml } from '@/lib/sanitizeDescription';
 import { CompleteYourSetup } from '@/components/products/CompleteYourSetup';
-import { cairoSupplierService } from '@/data/cairoSupplierService';
+import { fetchHiddenProductIds, filterPublicProducts, isProductHidden } from '@/lib/productVisibility';
 import { cn } from '@/lib/utils';
 
 const SPEC_KEY_LABELS: Record<string, string> = {
@@ -281,11 +281,16 @@ const ProductDetail = () => {
     queryKey: ['product', slug],
     queryFn: async () => {
       try {
-        let { data } = await supabase
-          .from('products')
-          .select('*, categories(*)')
-          .eq('slug', slug)
-          .maybeSingle();
+        const [slugRes, hiddenIds] = await Promise.all([
+          supabase
+            .from('products')
+            .select('*, categories(*)')
+            .eq('slug', slug)
+            .maybeSingle(),
+          fetchHiddenProductIds(),
+        ]);
+
+        let data = slugRes.data;
 
         if (!data && slug) {
           const res = await supabase
@@ -296,21 +301,21 @@ const ProductDetail = () => {
           if (res.data) data = res.data;
         }
 
-        if (data) {
-          return {
-            ...data,
-            category: (data as any).categories || (data as any).category,
-            images: Array.isArray((data as any).images) && (data as any).images.length > 0
-              ? (data as any).images
-              : (data as any).image_url ? [(data as any).image_url] : [],
-          } as Product;
+        if (!data || isProductHidden(data as any, hiddenIds)) {
+          return null;
         }
+
+        return {
+          ...data,
+          category: (data as any).categories || (data as any).category,
+          images: Array.isArray((data as any).images) && (data as any).images.length > 0
+            ? (data as any).images
+            : (data as any).image_url ? [(data as any).image_url] : [],
+        } as Product;
       } catch (err) {
         console.warn('DB query failed:', err);
+        return null;
       }
-
-      const cleanProd = cairoSupplierService.getProductBySlug(slug || '') || cairoSupplierService.getProductById(slug || '');
-      return cleanProd || null;
     },
     enabled: !!slug,
   });
@@ -321,16 +326,21 @@ const ProductDetail = () => {
     queryKey: ['product-family-variants', familyMasterId],
     queryFn: async () => {
       if (!familyMasterId) return [] as Product[];
-      const { data, error } = await supabase
-        .from('products')
-        .select('*, categories(*)')
-        .or(`id.eq.${familyMasterId},parent_id.eq.${familyMasterId}`)
-        .order('price');
+      const [{ data, error }, hiddenIds] = await Promise.all([
+        supabase
+          .from('products')
+          .select('*, categories(*)')
+          .or(`id.eq.${familyMasterId},parent_id.eq.${familyMasterId}`)
+          .neq('is_published', false)
+          .order('price'),
+        fetchHiddenProductIds(),
+      ]);
       if (error) throw error;
-      return ((data as any[]) || []).map((row) => ({
+      const rows = ((data as any[]) || []).map((row) => ({
         ...row,
         category: row.categories || row.category,
       })) as Product[];
+      return filterPublicProducts(rows, hiddenIds);
     },
     enabled: !!familyMasterId,
   });

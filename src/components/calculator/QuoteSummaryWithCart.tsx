@@ -27,6 +27,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchHiddenProductIds, filterPublicProducts } from '@/lib/productVisibility';
 import { useToast } from '@/hooks/use-toast';
 import { useSiteInfo } from '@/hooks/useSiteInfo';
 import { useCart } from '@/hooks/useCart';
@@ -109,14 +110,18 @@ export function QuoteSummaryWithCart() {
         // 2. Fetch full product records for cart
         const productIds = Array.from(new Set(devices.map(d => d.productId)));
         if (productIds.length > 0) {
-          const { data: prods } = await supabase
-            .from('products')
-            .select('*')
-            .in('id', productIds);
+          const [{ data: prods }, hiddenIds] = await Promise.all([
+            supabase
+              .from('products')
+              .select('*')
+              .in('id', productIds)
+              .neq('is_published', false),
+            fetchHiddenProductIds(),
+          ]);
 
           if (prods) {
             const map: Record<string, Product> = {};
-            prods.forEach((p: any) => {
+            filterPublicProducts(prods as any[], hiddenIds).forEach((p: any) => {
               map[p.id] = {
                 ...p,
                 images: p.images || [],

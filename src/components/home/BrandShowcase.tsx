@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useLanguage } from '@/lib/i18n';
 import { normalizeBrand, brandToSlug } from '@/lib/brands';
+import { fetchHiddenProductIds, filterPublicProducts } from '@/lib/productVisibility';
 import { supabase } from '@/integrations/supabase/client';
 
 interface Brand { name: string; slug: string; logo_url: string | null; }
@@ -31,11 +32,19 @@ export function BrandShowcase() {
         }
         setBrands(cleaned);
       } else {
-        // Derive from products
-        const { data: distinct } = await supabase
-          .from('products').select('brand').not('brand', 'is', null).limit(2000);
+        // Derive from published products only
+        const [{ data: distinct }, hiddenIds] = await Promise.all([
+          supabase
+            .from('products')
+            .select('id, brand, is_published')
+            .not('brand', 'is', null)
+            .neq('is_published', false)
+            .limit(2000),
+          fetchHiddenProductIds(),
+        ]);
+        const visibleRows = filterPublicProducts((distinct ?? []) as any[], hiddenIds);
         const names = Array.from(
-          new Set((distinct ?? []).map((r: any) => normalizeBrand(r.brand)).filter(Boolean))
+          new Set(visibleRows.map((r: any) => normalizeBrand(r.brand)).filter(Boolean))
         ).slice(0, 12) as string[];
         const fallback = names.length ? names : FALLBACK;
         setBrands(fallback.map((n) => ({ name: n, slug: brandToSlug(n), logo_url: null })));

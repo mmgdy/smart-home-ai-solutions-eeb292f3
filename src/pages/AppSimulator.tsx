@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchHiddenProductIds, filterPublicProducts } from '@/lib/productVisibility';
 import { useLanguage } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 
@@ -108,12 +109,16 @@ export default function AppSimulator() {
       const orFilter = active.brandPatterns
         .map((p) => `brand.ilike.%${p}%,name.ilike.%${p}%`)
         .join(',');
-      const { data } = await supabase
-        .from('products')
-        .select('id, name, slug, price, image_url, brand')
-        .or(orFilter)
-        .limit(8);
-      if (!cancelled) setProducts(data ?? []);
+      const [{ data }, hiddenIds] = await Promise.all([
+        supabase
+          .from('products')
+          .select('id, name, slug, price, image_url, brand, is_published')
+          .or(orFilter)
+          .neq('is_published', false)
+          .limit(24),
+        fetchHiddenProductIds(),
+      ]);
+      if (!cancelled) setProducts(filterPublicProducts(data as any[], hiddenIds).slice(0, 8));
       setLoading(false);
     })();
     return () => { cancelled = true; };

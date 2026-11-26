@@ -25,6 +25,7 @@ export interface Product {
   specifications: Record<string, string>;
   stock: number;
   featured: boolean;
+  is_published?: boolean;
   created_at: string;
   updated_at: string;
   video_url?: string | null;

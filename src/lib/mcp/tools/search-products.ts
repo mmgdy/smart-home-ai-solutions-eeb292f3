@@ -22,10 +22,25 @@ export default defineTool({
       process.env.SUPABASE_PUBLISHABLE_KEY!,
       { auth: { persistSession: false, autoRefreshToken: false } },
     );
+    const { data: hiddenRow } = await supabase
+      .from("site_info")
+      .select("value")
+      .eq("section", "products")
+      .eq("key", "hidden_ids")
+      .maybeSingle();
+    let hiddenSet = new Set<string>();
+    if (hiddenRow?.value) {
+      try {
+        const parsed = JSON.parse(hiddenRow.value);
+        if (Array.isArray(parsed)) hiddenSet = new Set(parsed.map((id) => String(id)));
+      } catch {}
+    }
+
     let q = supabase
       .from("products")
-      .select("id, name, slug, price, original_price, brand, stock, description, image_url")
-      .limit(limit);
+      .select("id, name, slug, price, original_price, brand, stock, description, image_url, is_published")
+      .neq("is_published", false)
+      .limit(Math.min(limit + hiddenSet.size, 100));
     if (in_stock) q = q.gt("stock", 0);
     const trimmed = query.trim();
     if (trimmed) {
@@ -40,7 +55,10 @@ export default defineTool({
     if (error) {
       return { content: [{ type: "text", text: `Search failed: ${error.message}` }], isError: true };
     }
-    const items = (data ?? []).map((p) => ({
+    const items = (data ?? [])
+      .filter((p) => p.is_published !== false && !hiddenSet.has(p.id))
+      .slice(0, limit)
+      .map((p) => ({
       name: p.name,
       slug: p.slug,
       price_egp: p.price,

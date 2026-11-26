@@ -7,46 +7,39 @@ import { Product } from '@/types/store';
 import { ProductCard } from '@/components/products/ProductCard';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/lib/i18n';
+import { fetchHiddenProductIds, filterPublicProducts } from '@/lib/productVisibility';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 
 export function FeaturedProducts() {
   const { t, isRTL } = useLanguage();
 
-  const { data: hiddenIds } = useQuery({
+  const { data: hiddenIds, isLoading: hiddenLoading } = useQuery({
     queryKey: ['hidden-product-ids'],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('site_info')
-        .select('value')
-        .eq('section', 'products')
-        .eq('key', 'hidden_ids')
-        .maybeSingle();
-      if (!data?.value) return [] as string[];
-      try { return JSON.parse(data.value) as string[]; } catch { return [] as string[]; }
-    },
-    staleTime: 5 * 60 * 1000,
+    queryFn: fetchHiddenProductIds,
+    staleTime: 30 * 1000,
   });
 
-  const { data: rawProducts, isLoading } = useQuery({
+  const { data: rawProducts, isLoading: productsLoading } = useQuery({
     queryKey: ['featured-products'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('products')
         .select('*, categories(*)')
         .is('parent_id', null)
+        .neq('is_published', false)
         .order('featured', { ascending: false })
-        .limit(16);
+        .limit(24);
       if (error) throw error;
       return data;
     },
   });
 
+  const isLoading = productsLoading || hiddenLoading;
+
   const products = useMemo(() => {
-    if (!rawProducts) return [];
-    const hiddenSet = new Set(hiddenIds ?? []);
-    return (rawProducts as any[])
-      .filter((p) => !hiddenSet.has(p.id))
+    if (!rawProducts || hiddenIds === undefined) return [];
+    return filterPublicProducts(rawProducts as any[], hiddenIds)
       .map((p) => ({
         ...p,
         category: p.categories || p.category,

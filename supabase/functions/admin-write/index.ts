@@ -41,6 +41,161 @@ function filterProductFields(obj: Record<string, unknown>) {
   return Object.fromEntries(Object.entries(obj).filter(([k]) => DB_PRODUCT_FIELDS.includes(k)));
 }
 
+function normalizeIdList(rawIds: unknown): string[] {
+  if (!Array.isArray(rawIds)) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const item of rawIds) {
+    if (typeof item !== "string") continue;
+    const trimmed = item.trim();
+    if (!trimmed || seen.has(trimmed)) continue;
+    seen.add(trimmed);
+    out.push(trimmed);
+  }
+  return out;
+}
+
+function parseJsonIdArray(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+  try {
+    return normalizeIdList(JSON.parse(raw));
+  } catch {
+    return [];
+  }
+}
+
+async function syncHiddenIdsSetting(
+  supabase: any,
+  ids: string[],
+  hidden: boolean,
+): Promise<string[]> {
+  const { data: cur, error: e1 } = await supabase
+    .from("site_info")
+    .select("value")
+    .eq("section", "products")
+    .eq("key", "hidden_ids")
+    .maybeSingle();
+  if (e1) throw e1;
+
+  let hiddenIds = parseJsonIdArray(cur?.value);
+  const idSet = new Set(ids);
+  if (hidden) {
+    const existingSet = new Set(hiddenIds);
+    for (const id of ids) {
+      if (!existingSet.has(id)) {
+        existingSet.add(id);
+        hiddenIds.push(id);
+      }
+    }
+  } else {
+    hiddenIds = hiddenIds.filter((id) => !idSet.has(id));
+  }
+
+  const { error } = await supabase.from("site_info").upsert(
+    {
+      section: "products",
+      key: "hidden_ids",
+      value: JSON.stringify(hiddenIds),
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "section,key" },
+  );
+  if (error) throw error;
+  return hiddenIds;
+}
+
+async function deleteProductsByIds(
+  supabase: any,
+  rawIds: unknown,
+): Promise<{ deletedIds: string[]; deletedCount: number }> {
+  const uniqueIds = normalizeIdList(rawIds);
+  if (uniqueIds.length === 0) {
+    return { deletedIds: [], deletedCount: 0 };
+  }
+
+  const BATCH = 40;
+  const deletedIds: string[] = [];
+  for (let i = 0; i < uniqueIds.length; i += BATCH) {
+    const chunk = uniqueIds.slice(i, i + BATCH);
+    const { data, error } = await supabase
+      .from("products")
+      .delete()
+      .in("id", chunk)
+      .select("id");
+    if (error) throw error;
+    for (const row of data ?? []) {
+      if (row?.id) deletedIds.push(String(row.id));
+    }
+  }
+
+  if (deletedIds.length > 0) {
+    const deletedSet = new Set(deletedIds);
+
+    const { data: hiddenRow } = await supabase
+      .from("site_info")
+      .select("value")
+      .eq("section", "products")
+      .eq("key", "hidden_ids")
+      .maybeSingle();
+    const curHidden = parseJsonIdArray(hiddenRow?.value);
+    const nextHidden = curHidden.filter((id) => !deletedSet.has(id));
+    if (nextHidden.length !== curHidden.length) {
+      const { error: hiddenUpdErr } = await supabase.from("site_info").upsert(
+        {
+          section: "products",
+          key: "hidden_ids",
+          value: JSON.stringify(nextHidden),
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "section,key" },
+      );
+      if (hiddenUpdErr) throw hiddenUpdErr;
+    }
+
+    for (let i = 0; i < deletedIds.length; i += BATCH) {
+      const chunk = deletedIds.slice(i, i + BATCH);
+      const { error: delDepErr } = await supabase
+        .from("site_info")
+        .delete()
+        .eq("section", "product_dependencies")
+        .in("key", chunk);
+      if (delDepErr) throw delDepErr;
+    }
+
+    const { data: depRows, error: depFetchErr } = await supabase
+      .from("site_info")
+      .select("id, key, value")
+      .eq("section", "product_dependencies");
+    if (depFetchErr) throw depFetchErr;
+
+    for (const row of depRows ?? []) {
+      if (!row?.value) continue;
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(row.value);
+      } catch {
+        continue;
+      }
+      if (!Array.isArray(parsed)) continue;
+      const filtered = parsed.filter(
+        (entry: any) => !deletedSet.has(String(entry?.dependent_product_id || "").trim()),
+      );
+      if (filtered.length !== parsed.length) {
+        const { error: depUpdErr } = await supabase
+          .from("site_info")
+          .update({
+            value: JSON.stringify(filtered),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", row.id);
+        if (depUpdErr) throw depUpdErr;
+      }
+    }
+  }
+
+  return { deletedIds, deletedCount: deletedIds.length };
+}
+
 Deno.serve(async (req) => {
   const corsHeaders = corsHeadersFor(req);
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -106,6 +261,7 @@ Deno.serve(async (req) => {
           featured: product.featured ?? false, video_url: product.video_url ?? null,
           category_id: product.category_id ?? null,
           images: product.images ?? null, specifications: product.specifications ?? null,
+          is_published: product.is_published !== false,
         })
         .select().single();
       if (error) throw error;
@@ -137,6 +293,9 @@ Deno.serve(async (req) => {
         .select()
         .single();
       if (error) throw error;
+      if ("is_published" in filtered) {
+        await syncHiddenIdsSetting(supabase, [id], filtered.is_published === false);
+      }
       return new Response(JSON.stringify({ success: true, data }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -168,63 +327,80 @@ Deno.serve(async (req) => {
     }
 
     if (action === "delete-product") {
-      const { id } = body;
-      if (!id) return new Response(JSON.stringify({ success: false, error: "id required" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-      const { error } = await supabase.from("products").delete().eq("id", id);
-      if (error) throw error;
-      return new Response(JSON.stringify({ success: true }), {
+      const id = typeof body.id === "string" ? body.id.trim() : "";
+      if (!id) {
+        return new Response(JSON.stringify({ success: false, error: "id required" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const { deletedIds, deletedCount } = await deleteProductsByIds(supabase, [id]);
+      if (deletedCount === 0) {
+        return new Response(JSON.stringify({ success: false, error: "Product not found or already deleted." }), {
+          status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      return new Response(JSON.stringify({ success: true, deletedCount, deletedIds }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     if (action === "bulk-delete-products") {
-      const { ids } = body;
-      if (!Array.isArray(ids) || !ids.length) return new Response(JSON.stringify({ success: false, error: "ids required" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-      const BATCH = 40;
-      for (let i = 0; i < ids.length; i += BATCH) {
-        const chunk = ids.slice(i, i + BATCH);
-        const { error } = await supabase.from("products").delete().in("id", chunk);
-        if (error) throw error;
+      const uniqueIds = normalizeIdList(body.ids);
+      if (uniqueIds.length === 0) {
+        return new Response(JSON.stringify({ success: false, error: "ids required" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
-      return new Response(JSON.stringify({ success: true }), {
+      const { deletedIds, deletedCount } = await deleteProductsByIds(supabase, uniqueIds);
+      if (deletedCount === 0) {
+        return new Response(JSON.stringify({ success: false, error: "No matching products were found to delete." }), {
+          status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      return new Response(JSON.stringify({ success: true, deletedCount, deletedIds }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     if (action === "bulk-set-visibility") {
-      const { ids, hidden } = body;
-      if (!Array.isArray(ids) || !ids.length) return new Response(JSON.stringify({ success: false, error: "ids required" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-      const { data: cur, error: e1 } = await supabase
-        .from("site_info").select("value").eq("section","products").eq("key","hidden_ids").maybeSingle();
-      if (e1) throw e1;
-      let hiddenIds: string[] = [];
-      try { hiddenIds = cur?.value ? JSON.parse(cur.value) : []; } catch { hiddenIds = []; }
-      if (hidden) { for (const id of ids) { if (!hiddenIds.includes(id)) hiddenIds.push(id); } }
-      else { hiddenIds = hiddenIds.filter(id => !ids.includes(id)); }
-      const { error } = await supabase.from("site_info").upsert({
-        section: "products", key: "hidden_ids", value: JSON.stringify(hiddenIds),
-        updated_at: new Date().toISOString(),
-      }, { onConflict: "section,key" });
-      if (error) throw error;
-      return new Response(JSON.stringify({ success: true }), {
+      const uniqueIds = normalizeIdList(body.ids);
+      const hidden = Boolean(body.hidden);
+      if (uniqueIds.length === 0) {
+        return new Response(JSON.stringify({ success: false, error: "ids required" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const BATCH = 40;
+      const nowIso = new Date().toISOString();
+      let updatedCount = 0;
+      for (let i = 0; i < uniqueIds.length; i += BATCH) {
+        const chunk = uniqueIds.slice(i, i + BATCH);
+        const { data: updatedRows, error: pubErr } = await supabase
+          .from("products")
+          .update({ is_published: !hidden, updated_at: nowIso })
+          .in("id", chunk)
+          .select("id");
+        if (pubErr) throw pubErr;
+        updatedCount += updatedRows?.length ?? 0;
+      }
+      const hiddenIds = await syncHiddenIdsSetting(supabase, uniqueIds, hidden);
+      return new Response(JSON.stringify({ success: true, hidden, updatedCount, hiddenIds }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     if (action === "bulk-update-products") {
       const { ids, updates } = body;
-      if (!Array.isArray(ids) || !ids.length || !updates) return new Response(JSON.stringify({ success: false, error: "ids, updates required" }), {
+      const uniqueIds = normalizeIdList(ids);
+      if (uniqueIds.length === 0 || !updates) return new Response(JSON.stringify({ success: false, error: "ids, updates required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
-      const upd = { ...filterProductFields(updates), updated_at: new Date().toISOString() };
-      const { error } = await supabase.from("products").update(upd).in("id", ids);
+      const upd = { ...filterProductFields(updates as Record<string, unknown>), updated_at: new Date().toISOString() };
+      const { error } = await supabase.from("products").update(upd).in("id", uniqueIds);
       if (error) throw error;
+      if ("is_published" in upd) {
+        await syncHiddenIdsSetting(supabase, uniqueIds, upd.is_published === false);
+      }
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -1195,10 +1371,16 @@ JSON: {"seo_title":"<=60 chars","seo_description":"<=155 chars","seo_keywords":[
     return new Response(JSON.stringify({ success: false, error: "Unknown action" }), {
       status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Admin write error:", error);
+    const errMsg =
+      error instanceof Error
+        ? error.message
+        : typeof error?.message === "string" && error.message
+        ? error.message
+        : "Server error";
     return new Response(
-      JSON.stringify({ success: false, error: "Server error" }),
+      JSON.stringify({ success: false, error: errMsg }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

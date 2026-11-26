@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { ArrowRight, Sparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/lib/i18n';
+import { fetchHiddenProductIds, filterPublicProducts } from '@/lib/productVisibility';
 import { cn } from '@/lib/utils';
 
 type Piece = {
@@ -27,12 +28,16 @@ export function ArtFurnitureShowcase() {
         .eq('slug', 'art-furniture')
         .maybeSingle();
       if (!cat?.id) return;
-      const { data } = await supabase
-        .from('products')
-        .select('id, name, slug, price, image_url, brand')
-        .eq('category_id', cat.id)
-        .limit(6);
-      if (data) setPieces(data as Piece[]);
+      const [{ data }, hiddenIds] = await Promise.all([
+        supabase
+          .from('products')
+          .select('id, name, slug, price, image_url, brand, is_published')
+          .eq('category_id', cat.id)
+          .neq('is_published', false)
+          .limit(12),
+        fetchHiddenProductIds(),
+      ]);
+      if (data) setPieces(filterPublicProducts(data as any[], hiddenIds).slice(0, 6) as Piece[]);
     })();
   }, []);
 
