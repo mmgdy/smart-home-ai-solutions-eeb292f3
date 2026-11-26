@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { useCart } from '@/hooks/useCart';
 import { useLanguage } from '@/lib/i18n';
 import { CompatibilityCheck } from '@/components/checkout/CompatibilityCheck';
+import { Basket } from '@/components/ui/hairline';
 
 const Cart = () => {
   const { items, activeBundleId, updateQuantity, removeItem, getTotal, clearCart } = useCart();
@@ -25,8 +26,12 @@ const Cart = () => {
         <Layout>
           <div className="container pt-28 pb-20 text-center">
             <div className="mx-auto max-w-md">
-              <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-muted/50">
-                <ShoppingBag className="h-10 w-10 text-muted-foreground/60" />
+              <div className="mx-auto mb-6 w-44 rounded-2xl azka-navy-stage border border-teal-400/20 p-3 shadow-lg">
+                <Basket
+                  variant="navy"
+                  intensity={0.65}
+                  label={isRTL ? 'سلة التسوق فارغة' : 'Empty shopping basket'}
+                />
               </div>
               <h1 className="mb-3 font-display text-2xl font-bold text-foreground">
                 {t('yourCartEmpty')}

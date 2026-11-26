@@ -78,9 +78,9 @@ export const TrustAndStats = () => {
               key={item.title}
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
+              viewport={{ once: true, amount: 0.15 }}
               transition={{ delay: index * 0.05 }}
-              className="flex items-start gap-4 p-5 rounded-xl bg-card border border-border hover:border-primary/30 transition-colors"
+              className="flex items-start gap-4 p-5 rounded-xl bg-card border border-border hover:border-teal-400/40 hover:shadow-[0_10px_30px_-15px_rgba(45,212,191,0.25)] transition-all"
             >
               <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
                 <item.icon className="w-5 h-5 text-primary" />
@@ -101,10 +101,14 @@ export const TrustAndStats = () => {
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
+          viewport={{ once: true, amount: 0.2 }}
           transition={{ delay: 0.2 }}
-          className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-4xl mx-auto p-8 rounded-2xl bg-card border border-border"
+          className="relative grid grid-cols-2 md:grid-cols-4 gap-6 max-w-4xl mx-auto p-8 rounded-2xl bg-card border border-border"
         >
+          <div
+            aria-hidden
+            className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-teal-400/50 to-transparent"
+          />
           {stats.map((stat) => (
             <div key={stat.label} className="text-center">
               <div className="font-display text-2xl md:text-3xl font-bold text-primary mb-1">
