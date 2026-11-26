@@ -995,7 +995,7 @@ const ProductDetail = () => {
 
               {sanitizedDescriptionHtml && (
                 <div
-                  dir={hasArabicDescription ? "rtl" : getTextDirection(plainDescription)}
+                  dir={hasArabicDescription ? "rtl" : getTextDirection(plainDescriptionText)}
                   style={{ unicodeBidi: 'isolate' }}
                   className={cn(
                     "order-2 lg:order-2 product-description mb-5 text-sm sm:text-base text-foreground/85 whitespace-pre-line break-words leading-relaxed",
