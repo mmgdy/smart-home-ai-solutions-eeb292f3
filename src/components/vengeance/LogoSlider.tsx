@@ -54,11 +54,11 @@ export const LogoSlider = ({
         <>
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute inset-y-0 left-0 w-12 sm:w-24 z-10 bg-gradient-to-r from-background via-background/80 to-transparent"
+            className="pointer-events-none absolute inset-y-0 left-0 w-5 sm:w-8 z-10 bg-gradient-to-r from-background to-transparent"
           />
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute inset-y-0 right-0 w-12 sm:w-24 z-10 bg-gradient-to-l from-background via-background/80 to-transparent"
+            className="pointer-events-none absolute inset-y-0 right-0 w-5 sm:w-8 z-10 bg-gradient-to-l from-background to-transparent"
           />
         </>
       )}
@@ -73,7 +73,7 @@ export const LogoSlider = ({
           <ul
             key={loopIdx}
             aria-hidden={loopIdx === 1}
-            className="flex items-center gap-8 sm:gap-12 px-4 sm:px-6 m-0 list-none shrink-0"
+            className="flex items-center gap-8 sm:gap-12 px-6 sm:px-8 m-0 list-none shrink-0"
           >
             {logos.map((logo, index) => (
               <li

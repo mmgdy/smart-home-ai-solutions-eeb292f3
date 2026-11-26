@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Search, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { Product } from '@/types/store';
 import { fetchHiddenProductIds, filterPublicProducts } from '@/lib/productVisibility';
+import { getTextDirection, isolateBidiUnits } from '@/lib/bidi';
 
 interface SearchBarProps {
   value: string;
@@ -20,14 +21,18 @@ export function SearchBar({ value, onChange, className }: SearchBarProps) {
   const [localValue, setLocalValue] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const queryClient = useQueryClient();
   const { t, formatPrice } = useLanguage();
+
+  const cachedProducts = queryClient.getQueryData<any[]>(['products']);
 
   const { data: hiddenIds } = useQuery({
     queryKey: ['hidden-product-ids'],
     queryFn: fetchHiddenProductIds,
-    staleTime: 30 * 1000,
+    staleTime: 60 * 1000,
   });
 
+  const needsFallbackFetch = !cachedProducts?.length && (focused || localValue.length >= 2);
   const { data: searchProducts } = useQuery({
     queryKey: ['search-products'],
     queryFn: async () => {
@@ -46,26 +51,26 @@ export function SearchBar({ value, onChange, className }: SearchBarProps) {
       }
       return rows;
     },
-    staleTime: 30 * 1000,
+    enabled: needsFallbackFetch,
+    staleTime: 60 * 1000,
   });
 
-  // Debounce the parent onChange
+  const pool = (cachedProducts && cachedProducts.length > 0 ? cachedProducts : searchProducts) as Product[] | undefined;
+
   useEffect(() => {
     if (localValue === value) return;
-    const timer = setTimeout(() => onChange(localValue), 300);
+    const timer = setTimeout(() => onChange(localValue), 250);
     return () => clearTimeout(timer);
   }, [localValue, value, onChange]);
 
-  // Sync external value
   useEffect(() => {
     setLocalValue(value);
   }, [value]);
 
-  // Autocomplete suggestions from live published products only
   const suggestions = useMemo(() => {
-    if (!localValue || localValue.length < 2 || !focused || !searchProducts || hiddenIds === undefined) return [];
+    if (!localValue || localValue.length < 2 || !focused || !pool || hiddenIds === undefined) return [];
     const q = localValue.toLowerCase();
-    return filterPublicProducts(searchProducts, hiddenIds)
+    return filterPublicProducts(pool, hiddenIds)
       .filter(
         (p) =>
           p.name.toLowerCase().includes(q) ||
@@ -74,9 +79,8 @@ export function SearchBar({ value, onChange, className }: SearchBarProps) {
           p.description?.toLowerCase().includes(q)
       )
       .slice(0, 6);
-  }, [localValue, focused, searchProducts, hiddenIds]);
+  }, [localValue, focused, pool, hiddenIds]);
 
-  // Click outside to close
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
@@ -90,47 +94,64 @@ export function SearchBar({ value, onChange, className }: SearchBarProps) {
   const showSuggestions = focused && suggestions && suggestions.length > 0 && localValue.length >= 2;
 
   return (
-    <div ref={containerRef} className={cn("relative", className)}>
-      <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+    <div ref={containerRef} className={cn('relative', className)}>
+      <Search className="absolute start-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/65 pointer-events-none" />
       <Input
         ref={inputRef}
         placeholder={t('searchProducts')}
         value={localValue}
         onChange={(e) => setLocalValue(e.target.value)}
         onFocus={() => setFocused(true)}
-        className="ps-10 pe-10"
+        className="h-11 lg:h-10 rounded-xl ps-10 pe-10 bg-background/60 border-border/80 focus-visible:border-primary/70 text-foreground placeholder:text-foreground/60"
       />
       {localValue && (
         <button
+          type="button"
           onClick={() => { setLocalValue(''); onChange(''); }}
-          className="absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+          aria-label="Clear search"
+          className="absolute end-3 top-1/2 -translate-y-1/2 text-foreground/65 hover:text-foreground"
         >
           <X className="h-4 w-4" />
         </button>
       )}
 
-      {/* Autocomplete dropdown */}
       {showSuggestions && (
-        <div className="absolute top-full mt-1 w-full rounded-lg border border-border bg-popover shadow-lg z-50 overflow-hidden">
+        <div className="absolute top-full mt-2 w-full rounded-2xl border border-border/80 bg-card/95 backdrop-blur-2xl shadow-2xl z-50 overflow-hidden divide-y divide-border/50">
           {suggestions.map((item) => (
             <Link
               key={item.id}
               to={`/products/${item.slug}`}
               onClick={() => setFocused(false)}
-              className="flex items-center gap-3 px-3 py-2 hover:bg-accent/10 transition-colors"
+              className="flex items-center gap-3 px-3.5 py-2.5 hover:bg-primary/10 transition-colors"
             >
               {item.image_url ? (
-                <img src={item.image_url} alt="" className="h-10 w-10 rounded-lg object-contain p-0.5 bg-muted/30 border border-border/40 shrink-0" />
+                <img
+                  src={item.image_url}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                  className="h-10 w-10 rounded-lg object-contain p-1 azka-studio-surface shrink-0"
+                />
               ) : (
-                <div className="h-10 w-10 rounded-lg bg-muted/40 border border-border/40 shrink-0 flex items-center justify-center">
-                  <Search className="h-4 w-4 text-muted-foreground" />
+                <div className="h-10 w-10 rounded-lg bg-muted/50 border border-border/60 shrink-0 flex items-center justify-center">
+                  <Search className="h-4 w-4 text-foreground/60" />
                 </div>
               )}
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-foreground truncate">{item.name}</p>
-                {item.brand && <p className="text-xs text-muted-foreground">{item.brand}</p>}
+                <p
+                  dir={getTextDirection(item.name)}
+                  style={{ unicodeBidi: 'isolate' }}
+                  className="text-sm font-medium text-foreground truncate text-start"
+                >
+                  {isolateBidiUnits(item.name)}
+                </p>
+                {item.brand && (
+                  <p dir="ltr" style={{ unicodeBidi: 'isolate' }} className="text-xs text-foreground/70 truncate text-start">
+                    {item.brand}
+                  </p>
+                )}
               </div>
-              <span className="text-sm font-semibold text-primary whitespace-nowrap">
+              <span className="text-sm font-bold text-primary whitespace-nowrap shrink-0">
                 {formatPrice(item.price)}
               </span>
             </Link>

@@ -228,26 +228,24 @@ export function Header() {
           })}
         </nav>
 
-        {/* Right side actions */}
-        <div className="flex items-center gap-1 sm:gap-1.5 2xl:gap-2 shrink-0">
-          <div className="hidden xl:flex items-center gap-1.5">
+        {/* Right side actions — Grouped cleanly with breathing room */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          <div className="hidden xl:flex items-center gap-1.5 rounded-full border border-border/60 bg-card/65 px-2 py-1 backdrop-blur-xl">
+            <AISearchDialog />
+            <div className="h-4 w-px bg-border/70" aria-hidden="true" />
             <AuthButton variant="ghost" size="sm" />
-          </div>
-
-          <AISearchDialog />
-
-          <div className="hidden xl:flex items-center">
             <InstallAppButton
-              className="h-9 px-2.5 min-[1420px]:px-3 gap-1.5"
+              className="h-8 px-2.5 min-[1420px]:px-3 gap-1.5 rounded-full"
               labelClassName="hidden min-[1420px]:inline"
             />
+            <div className="h-4 w-px bg-border/70" aria-hidden="true" />
+            <ThemeSlider />
+            <LanguageToggle />
           </div>
 
-          {/* Theme on desktop (xl+) only; Language visible on all sizes */}
-          <div className="hidden xl:inline-flex items-center">
-            <ThemeSlider />
-          </div>
-          <div className="inline-flex items-center">
+          {/* Compact mobile/tablet controls (< xl) */}
+          <div className="flex xl:hidden items-center gap-1 sm:gap-1.5">
+            <AISearchDialog />
             <LanguageToggle />
           </div>
 

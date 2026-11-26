@@ -103,7 +103,7 @@ export function BrandShowcase() {
           alt={brand.name}
           loading="lazy"
           decoding="async"
-          className="max-h-9 max-w-[115px] w-auto h-auto object-contain bg-transparent opacity-85 group-hover:opacity-100 group-hover:scale-105 transition-all duration-300"
+          className="max-h-10 max-w-[125px] w-auto h-auto object-contain bg-transparent opacity-90 group-hover:opacity-100 group-hover:scale-105 dark:brightness-110 dark:drop-shadow-[0_0_10px_rgba(255,255,255,0.22)] transition-all duration-300"
           onError={(e) => {
             const el = e.currentTarget as HTMLImageElement;
             el.style.display = 'none';

@@ -22,6 +22,7 @@ import {
   type ResolvedBundleEntry,
 } from '@/lib/bundles';
 import { supabase } from '@/integrations/supabase/client';
+import { getTextDirection, isolateBidiUnits } from '@/lib/bidi';
 import { GlowBorderCard } from '@/components/vengeance/GlowBorderCard';
 import { BorderBeam } from '@/components/vengeance/BorderBeam';
 
@@ -244,7 +245,7 @@ const Bundles = () => {
 
           {/* Bundles grid */}
           <div className="container px-6 md:px-12">
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
               {bundles.map((bundle, index) => {
                 const freeInstallValue = Math.max(0, bundle.originalPrice - bundle.priceEgp);
                 const cardBody = (
@@ -286,7 +287,7 @@ const Bundles = () => {
                     <div className="mb-4">
                       <div className="flex items-baseline gap-3">
                         <span className="font-display text-2xl font-bold text-foreground">{formatPrice(bundle.priceEgp)}</span>
-                        <span className="text-sm text-muted-foreground line-through">{formatPrice(bundle.originalPrice)}</span>
+                        <span className="text-sm azka-old-price">{formatPrice(bundle.originalPrice)}</span>
                       </div>
                       <div className="mt-1 inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
                         <Wrench className="h-3 w-3" />
@@ -364,7 +365,7 @@ const Bundles = () => {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              className="mt-12 text-center p-8 rounded-2xl bg-card border border-border max-w-3xl mx-auto"
+              className="mt-12 text-center p-8 rounded-2xl azka-glass border border-primary/25 max-w-4xl mx-auto"
             >
               <h3 className="font-display text-xl font-bold mb-2">
                 {isRTL ? 'مش لاقي الباقة المناسبة؟' : "Can't find the right bundle?"}
@@ -373,7 +374,7 @@ const Bundles = () => {
                 {isRTL ? 'المستشار الذكي هيعملك خطة مخصصة لبيتك' : 'The AI Advisor will create a custom plan for your home'}
               </p>
               <Link to="/ai-consultant">
-                <Button size="lg" className="rounded-full h-12 px-8 glow-primary">
+                <Button size="lg" className="rounded-full h-12 px-8 bg-gradient-to-r from-teal-400 to-cyan-400 text-[#070D16] hover:from-teal-300 hover:to-cyan-300 font-semibold border-0">
                   <Sparkles className="mr-2 h-4 w-4" />
                   {isRTL ? 'ابدأ المستشار الذكي' : 'Start AI Advisor'}
                 </Button>
@@ -471,9 +472,11 @@ const Bundles = () => {
                         checked={qty > 0}
                         onCheckedChange={(v) => setSelectedProducts((s) => ({ ...s, [p.id]: v ? Math.max(1, qty) : 0 }))}
                       />
-                      <img src={(p as any).image_url || '/placeholder.svg'} alt={p.name} loading="lazy" decoding="async" className="w-10 h-10 rounded-lg object-contain p-0.5 bg-muted/30 border border-border/40 shrink-0" onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/placeholder.svg'; }} />
+                      <img src={(p as any).image_url || '/placeholder.svg'} alt={p.name} loading="lazy" decoding="async" className="w-10 h-10 rounded-lg object-contain p-0.5 azka-studio-surface shrink-0" onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/placeholder.svg'; }} />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{p.name}</p>
+                        <p dir={getTextDirection(p.name)} style={{ unicodeBidi: 'isolate' }} className="text-sm font-medium truncate">
+                          {isolateBidiUnits(p.name)}
+                        </p>
                         <p className="text-xs text-muted-foreground">{formatPrice(p.price)}</p>
                       </div>
                       <Input

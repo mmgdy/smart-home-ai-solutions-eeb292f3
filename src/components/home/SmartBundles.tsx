@@ -117,7 +117,7 @@ export function SmartBundles() {
           </motion.p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-7xl mx-auto">
           {displayBundles.map((bundle, index) => {
             const installSaving = Math.max(0, bundle.originalPrice - bundle.priceEgp);
             const cardInner = (

@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/lib/i18n';
 import { getProductImage, productPlaceholder } from '@/lib/productImage';
 import { parseHiddenIds } from '@/lib/productVisibility';
+import { getTextDirection, isolateBidiUnits } from '@/lib/bidi';
 import { cn } from '@/lib/utils';
 import type { Product } from '@/types/store';
 import {
@@ -224,7 +225,7 @@ export function CompleteYourSetup({ mainProduct, mainQuantity }: CompleteYourSet
                 />
                 <Link
                   to={`/products/${p.slug}`}
-                  className="h-14 w-14 shrink-0 rounded-lg border border-border/60 bg-card p-1 flex items-center justify-center overflow-hidden"
+                  className="h-14 w-14 shrink-0 rounded-xl azka-studio-surface p-1.5 flex items-center justify-center overflow-hidden"
                 >
                   <img
                     src={getProductImage(p)}
@@ -259,9 +260,14 @@ export function CompleteYourSetup({ mainProduct, mainQuantity }: CompleteYourSet
                   </div>
                   <Link
                     to={`/products/${p.slug}`}
-                    className="block text-sm font-medium text-foreground hover:text-primary transition-colors break-words line-clamp-2"
+                    dir={getTextDirection(p.name)}
+                    style={{ unicodeBidi: 'isolate' }}
+                    className={cn(
+                      'block text-sm font-medium text-foreground hover:text-primary transition-colors break-words line-clamp-2',
+                      isRTL && getTextDirection(p.name) === 'ltr' ? 'text-right' : 'text-start',
+                    )}
                   >
-                    {p.name}
+                    {isolateBidiUnits(p.name)}
                   </Link>
                   <div className="mt-0.5 text-sm font-display font-bold text-foreground">
                     {formatPrice(p.price)}

@@ -173,7 +173,7 @@ export default function BrandsPage() {
                         alt={b.name}
                         loading="lazy"
                         decoding="async"
-                        className="max-h-14 max-w-[80%] w-auto h-auto object-contain bg-transparent"
+                        className="max-h-14 max-w-[80%] w-auto h-auto object-contain bg-transparent dark:brightness-110 dark:drop-shadow-[0_0_10px_rgba(255,255,255,0.22)]"
                         onError={() => setFailedLogos((prev) => ({ ...prev, [b.slug]: true }))}
                       />
                     ) : (
@@ -199,7 +199,7 @@ export default function BrandsPage() {
                   alt={activeBrand.name}
                   loading="lazy"
                   decoding="async"
-                  className="max-h-14 max-w-[240px] w-auto h-auto mx-auto mb-4 object-contain bg-transparent"
+                  className="max-h-14 max-w-[240px] w-auto h-auto mx-auto mb-4 object-contain bg-transparent dark:brightness-110 dark:drop-shadow-[0_0_10px_rgba(255,255,255,0.22)]"
                   onError={() => setFailedLogos((prev) => ({ ...prev, [activeBrand.slug]: true }))}
                 />
               )}
